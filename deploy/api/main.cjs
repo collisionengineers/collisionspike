@@ -6,6 +6,9 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
@@ -29,18 +32,19 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/postgres-array/index.js
 var require_postgres_array = __commonJS({
   "node_modules/postgres-array/index.js"(exports2) {
     "use strict";
-    exports2.parse = function(source, transform) {
-      return new ArrayParser(source, transform).parse();
+    exports2.parse = function(source, transform2) {
+      return new ArrayParser(source, transform2).parse();
     };
     var ArrayParser = class _ArrayParser {
-      constructor(source, transform) {
+      constructor(source, transform2) {
         this.source = source;
-        this.transform = transform || identity;
+        this.transform = transform2 || identity;
         this.position = 0;
         this.entries = [];
         this.recorded = [];
@@ -127,12 +131,12 @@ var require_postgres_array = __commonJS({
 // node_modules/pg-types/lib/arrayParser.js
 var require_arrayParser = __commonJS({
   "node_modules/pg-types/lib/arrayParser.js"(exports2, module2) {
-    var array = require_postgres_array();
+    var array2 = require_postgres_array();
     module2.exports = {
-      create: function(source, transform) {
+      create: function(source, transform2) {
         return {
           parse: function() {
-            return array.parse(source, transform);
+            return array2.parse(source, transform2);
           }
         };
       }
@@ -168,23 +172,23 @@ var require_postgres_date = __commonJS({
       var second = parseInt(matches[6], 10);
       var ms = matches[7];
       ms = ms ? 1e3 * parseFloat(ms) : 0;
-      var date;
+      var date3;
       var offset = timeZoneOffset(isoDate2);
       if (offset != null) {
-        date = new Date(Date.UTC(year2, month, day2, hour2, minute2, second, ms));
+        date3 = new Date(Date.UTC(year2, month, day2, hour2, minute2, second, ms));
         if (is0To99(year2)) {
-          date.setUTCFullYear(year2);
+          date3.setUTCFullYear(year2);
         }
         if (offset !== 0) {
-          date.setTime(date.getTime() - offset);
+          date3.setTime(date3.getTime() - offset);
         }
       } else {
-        date = new Date(year2, month, day2, hour2, minute2, second, ms);
+        date3 = new Date(year2, month, day2, hour2, minute2, second, ms);
         if (is0To99(year2)) {
-          date.setFullYear(year2);
+          date3.setFullYear(year2);
         }
       }
-      return date;
+      return date3;
     };
     function getDate(isoDate2) {
       var matches = DATE.exec(isoDate2);
@@ -198,11 +202,11 @@ var require_postgres_date = __commonJS({
       }
       var month = parseInt(matches[2], 10) - 1;
       var day2 = matches[3];
-      var date = new Date(year2, month, day2);
+      var date3 = new Date(year2, month, day2);
       if (is0To99(year2)) {
-        date.setFullYear(year2);
+        date3.setFullYear(year2);
       }
-      return date;
+      return date3;
     }
     function timeZoneOffset(isoDate2) {
       if (isoDate2.endsWith("+00")) {
@@ -230,9 +234,9 @@ var require_postgres_date = __commonJS({
 // node_modules/xtend/mutable.js
 var require_mutable = __commonJS({
   "node_modules/xtend/mutable.js"(exports2, module2) {
-    module2.exports = extend2;
+    module2.exports = extend3;
     var hasOwnProperty = Object.prototype.hasOwnProperty;
-    function extend2(target) {
+    function extend3(target) {
       for (var i = 1; i < arguments.length; i++) {
         var source = arguments[i];
         for (var key in source) {
@@ -250,13 +254,13 @@ var require_mutable = __commonJS({
 var require_postgres_interval = __commonJS({
   "node_modules/postgres-interval/index.js"(exports2, module2) {
     "use strict";
-    var extend2 = require_mutable();
+    var extend3 = require_mutable();
     module2.exports = PostgresInterval;
     function PostgresInterval(raw) {
       if (!(this instanceof PostgresInterval)) {
         return new PostgresInterval(raw);
       }
-      extend2(this, parse3(raw));
+      extend3(this, parse4(raw));
     }
     var properties = ["seconds", "minutes", "hours", "days", "months", "years"];
     PostgresInterval.prototype.toPostgres = function() {
@@ -317,7 +321,7 @@ var require_postgres_interval = __commonJS({
       var microseconds = fraction + "000000".slice(fraction.length);
       return parseInt(microseconds, 10) / 1e3;
     }
-    function parse3(interval) {
+    function parse4(interval) {
       if (!interval) return {};
       var matches = INTERVAL.exec(interval);
       var isNegative = matches[8] === "-";
@@ -376,7 +380,7 @@ var require_postgres_bytea = __commonJS({
 // node_modules/pg-types/lib/textParsers.js
 var require_textParsers = __commonJS({
   "node_modules/pg-types/lib/textParsers.js"(exports2, module2) {
-    var array = require_postgres_array();
+    var array2 = require_postgres_array();
     var arrayParser = require_arrayParser();
     var parseDate = require_postgres_date();
     var parseInterval = require_postgres_interval();
@@ -393,18 +397,18 @@ var require_textParsers = __commonJS({
     }
     function parseBoolArray(value) {
       if (!value) return null;
-      return array.parse(value, parseBool);
+      return array2.parse(value, parseBool);
     }
-    function parseBaseTenInt(string) {
-      return parseInt(string, 10);
+    function parseBaseTenInt(string3) {
+      return parseInt(string3, 10);
     }
     function parseIntegerArray(value) {
       if (!value) return null;
-      return array.parse(value, allowNull(parseBaseTenInt));
+      return array2.parse(value, allowNull(parseBaseTenInt));
     }
     function parseBigIntegerArray(value) {
       if (!value) return null;
-      return array.parse(value, allowNull(function(entry) {
+      return array2.parse(value, allowNull(function(entry) {
         return parseBigInteger(entry).trim();
       }));
     }
@@ -467,7 +471,7 @@ var require_textParsers = __commonJS({
       if (!value) {
         return null;
       }
-      return array.parse(value, allowNull(parseByteA));
+      return array2.parse(value, allowNull(parseByteA));
     };
     var parseInteger = function(value) {
       return parseInt(value, 10);
@@ -483,7 +487,7 @@ var require_textParsers = __commonJS({
       if (!value) {
         return null;
       }
-      return array.parse(value, allowNull(JSON.parse));
+      return array2.parse(value, allowNull(JSON.parse));
     };
     var parsePoint = function(value) {
       if (value[0] !== "(") {
@@ -804,23 +808,23 @@ var require_binaryParsers = __commonJS({
           console.log("ERROR: ElementType not implemented: " + elementType2);
         }
       };
-      var parse3 = function(dimension, elementType2) {
-        var array = [];
+      var parse4 = function(dimension, elementType2) {
+        var array2 = [];
         var i2;
         if (dimension.length > 1) {
           var count = dimension.shift();
           for (i2 = 0; i2 < count; i2++) {
-            array[i2] = parse3(dimension, elementType2);
+            array2[i2] = parse4(dimension, elementType2);
           }
           dimension.unshift(count);
         } else {
           for (i2 = 0; i2 < dimension[0]; i2++) {
-            array[i2] = parseElement(elementType2);
+            array2[i2] = parseElement(elementType2);
           }
         }
-        return array;
+        return array2;
       };
-      return parse3(dims, elementType);
+      return parse4(dims, elementType);
     };
     var parseText = function(value) {
       return value.toString("utf8");
@@ -1100,12 +1104,12 @@ var require_utils = __commonJS({
       }
       return JSON.stringify(val);
     }
-    function dateToString(date) {
-      let offset = -date.getTimezoneOffset();
-      let year2 = date.getFullYear();
+    function dateToString(date3) {
+      let offset = -date3.getTimezoneOffset();
+      let year2 = date3.getFullYear();
       const isBCYear = year2 < 1;
       if (isBCYear) year2 = Math.abs(year2) + 1;
-      let ret = String(year2).padStart(4, "0") + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0") + "T" + String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0") + ":" + String(date.getSeconds()).padStart(2, "0") + "." + String(date.getMilliseconds()).padStart(3, "0");
+      let ret = String(year2).padStart(4, "0") + "-" + String(date3.getMonth() + 1).padStart(2, "0") + "-" + String(date3.getDate()).padStart(2, "0") + "T" + String(date3.getHours()).padStart(2, "0") + ":" + String(date3.getMinutes()).padStart(2, "0") + ":" + String(date3.getSeconds()).padStart(2, "0") + "." + String(date3.getMilliseconds()).padStart(3, "0");
       if (offset < 0) {
         ret += "-";
         offset *= -1;
@@ -1116,28 +1120,28 @@ var require_utils = __commonJS({
       if (isBCYear) ret += " BC";
       return ret;
     }
-    function dateToStringUTC(date) {
-      let year2 = date.getUTCFullYear();
+    function dateToStringUTC(date3) {
+      let year2 = date3.getUTCFullYear();
       const isBCYear = year2 < 1;
       if (isBCYear) year2 = Math.abs(year2) + 1;
-      let ret = String(year2).padStart(4, "0") + "-" + String(date.getUTCMonth() + 1).padStart(2, "0") + "-" + String(date.getUTCDate()).padStart(2, "0") + "T" + String(date.getUTCHours()).padStart(2, "0") + ":" + String(date.getUTCMinutes()).padStart(2, "0") + ":" + String(date.getUTCSeconds()).padStart(2, "0") + "." + String(date.getUTCMilliseconds()).padStart(3, "0");
+      let ret = String(year2).padStart(4, "0") + "-" + String(date3.getUTCMonth() + 1).padStart(2, "0") + "-" + String(date3.getUTCDate()).padStart(2, "0") + "T" + String(date3.getUTCHours()).padStart(2, "0") + ":" + String(date3.getUTCMinutes()).padStart(2, "0") + ":" + String(date3.getUTCSeconds()).padStart(2, "0") + "." + String(date3.getUTCMilliseconds()).padStart(3, "0");
       ret += "+00:00";
       if (isBCYear) ret += " BC";
       return ret;
     }
-    function normalizeQueryConfig(config, values, callback) {
-      config = typeof config === "string" ? { text: config } : config;
+    function normalizeQueryConfig(config2, values, callback) {
+      config2 = typeof config2 === "string" ? { text: config2 } : config2;
       if (values) {
         if (typeof values === "function") {
-          config.callback = values;
+          config2.callback = values;
         } else {
-          config.values = values;
+          config2.values = values;
         }
       }
       if (callback) {
-        config.callback = callback;
+        config2.callback = callback;
       }
-      return config;
+      return config2;
     }
     var escapeIdentifier2 = function(str3) {
       return '"' + str3.replace(/"/g, '""') + '"';
@@ -1185,7 +1189,7 @@ var require_utils2 = __commonJS({
     var nodeCrypto = require("crypto");
     module2.exports = {
       postgresMd5PasswordHash,
-      randomBytes: randomBytes2,
+      randomBytes: randomBytes3,
       deriveKey,
       sha256,
       hashByName,
@@ -1195,14 +1199,14 @@ var require_utils2 = __commonJS({
     var webCrypto = nodeCrypto.webcrypto || globalThis.crypto;
     var subtleCrypto = webCrypto.subtle;
     var textEncoder = new TextEncoder();
-    function randomBytes2(length) {
+    function randomBytes3(length) {
       return webCrypto.getRandomValues(Buffer.alloc(length));
     }
-    async function md5(string) {
+    async function md5(string3) {
       try {
-        return nodeCrypto.createHash("md5").update(string, "utf-8").digest("hex");
+        return nodeCrypto.createHash("md5").update(string3, "utf-8").digest("hex");
       } catch (e) {
-        const data = typeof string === "string" ? textEncoder.encode(string) : string;
+        const data = typeof string3 === "string" ? textEncoder.encode(string3) : string3;
         const hash = await subtleCrypto.digest("MD5", data);
         return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
       }
@@ -1484,10 +1488,10 @@ var require_sasl = __commonJS({
     }
     function parseServerFinalMessage(serverData) {
       const attrPairs = parseAttributePairs(serverData);
-      const error = attrPairs.get("e");
+      const error2 = attrPairs.get("e");
       const serverSignature = attrPairs.get("v");
-      if (error) {
-        throw new Error(`SASL: SCRAM-SERVER-FINAL-MESSAGE: server returned error: "${error}"`);
+      if (error2) {
+        throw new Error(`SASL: SCRAM-SERVER-FINAL-MESSAGE: server returned error: "${error2}"`);
       }
       if (!serverSignature) {
         throw new Error("SASL: SCRAM-SERVER-FINAL-MESSAGE: server signature is missing");
@@ -1561,12 +1565,12 @@ var require_type_overrides = __commonJS({
 var require_pg_connection_string = __commonJS({
   "node_modules/pg-connection-string/index.js"(exports2, module2) {
     "use strict";
-    function parse3(str3, options = {}) {
+    function parse4(str3, options = {}) {
       if (str3.charAt(0) === "/") {
-        const config2 = str3.split(" ");
-        return { host: config2[0], database: config2[1] };
+        const config3 = str3.split(" ");
+        return { host: config3[0], database: config3[1] };
       }
-      const config = /* @__PURE__ */ Object.create(null);
+      const config2 = /* @__PURE__ */ Object.create(null);
       let result;
       let dummyHost = false;
       if (/ |%[^a-f0-9]|%[a-f0-9][^a-f0-9]/i.test(str3)) {
@@ -1584,78 +1588,78 @@ var require_pg_connection_string = __commonJS({
         throw err2;
       }
       for (const entry of result.searchParams.entries()) {
-        config[entry[0]] = entry[1];
+        config2[entry[0]] = entry[1];
       }
-      config.user = config.user || decodeURIComponent(result.username);
-      config.password = config.password || decodeURIComponent(result.password);
+      config2.user = config2.user || decodeURIComponent(result.username);
+      config2.password = config2.password || decodeURIComponent(result.password);
       if (result.protocol == "socket:") {
-        config.host = decodeURI(result.pathname);
-        config.database = result.searchParams.get("db");
-        config.client_encoding = result.searchParams.get("encoding");
-        return config;
+        config2.host = decodeURI(result.pathname);
+        config2.database = result.searchParams.get("db");
+        config2.client_encoding = result.searchParams.get("encoding");
+        return config2;
       }
-      const hostname = dummyHost ? "" : result.hostname;
-      if (!config.host) {
-        config.host = decodeURIComponent(hostname);
-      } else if (hostname && /^%2f/i.test(hostname)) {
-        result.pathname = hostname + result.pathname;
+      const hostname2 = dummyHost ? "" : result.hostname;
+      if (!config2.host) {
+        config2.host = decodeURIComponent(hostname2);
+      } else if (hostname2 && /^%2f/i.test(hostname2)) {
+        result.pathname = hostname2 + result.pathname;
       }
-      if (!config.port) {
-        config.port = result.port;
+      if (!config2.port) {
+        config2.port = result.port;
       }
       const pathname = result.pathname.slice(1) || null;
-      config.database = pathname ? decodeURI(pathname) : null;
-      if (config.ssl === "true" || config.ssl === "1") {
-        config.ssl = true;
+      config2.database = pathname ? decodeURI(pathname) : null;
+      if (config2.ssl === "true" || config2.ssl === "1") {
+        config2.ssl = true;
       }
-      if (config.ssl === "0") {
-        config.ssl = false;
+      if (config2.ssl === "0") {
+        config2.ssl = false;
       }
-      if (config.sslcert || config.sslkey || config.sslrootcert || config.sslmode) {
-        config.ssl = {};
+      if (config2.sslcert || config2.sslkey || config2.sslrootcert || config2.sslmode) {
+        config2.ssl = {};
       }
-      if (config.sslnegotiation === "direct" && config.ssl === void 0) {
-        config.ssl = true;
+      if (config2.sslnegotiation === "direct" && config2.ssl === void 0) {
+        config2.ssl = true;
       }
-      const fs2 = config.sslcert || config.sslkey || config.sslrootcert ? require("fs") : null;
-      if (config.sslcert) {
-        config.ssl.cert = fs2.readFileSync(config.sslcert).toString();
+      const fs2 = config2.sslcert || config2.sslkey || config2.sslrootcert ? require("fs") : null;
+      if (config2.sslcert) {
+        config2.ssl.cert = fs2.readFileSync(config2.sslcert).toString();
       }
-      if (config.sslkey) {
-        config.ssl.key = fs2.readFileSync(config.sslkey).toString();
+      if (config2.sslkey) {
+        config2.ssl.key = fs2.readFileSync(config2.sslkey).toString();
       }
-      if (config.sslrootcert) {
-        config.ssl.ca = fs2.readFileSync(config.sslrootcert).toString();
+      if (config2.sslrootcert) {
+        config2.ssl.ca = fs2.readFileSync(config2.sslrootcert).toString();
       }
-      if (options.useLibpqCompat && config.uselibpqcompat) {
+      if (options.useLibpqCompat && config2.uselibpqcompat) {
         throw new Error("Both useLibpqCompat and uselibpqcompat are set. Please use only one of them.");
       }
-      if (config.uselibpqcompat === "true" || options.useLibpqCompat) {
-        switch (config.sslmode) {
+      if (config2.uselibpqcompat === "true" || options.useLibpqCompat) {
+        switch (config2.sslmode) {
           case "disable": {
-            config.ssl = false;
+            config2.ssl = false;
             break;
           }
           case "prefer": {
-            config.ssl.rejectUnauthorized = false;
+            config2.ssl.rejectUnauthorized = false;
             break;
           }
           case "require": {
-            if (config.sslrootcert) {
-              config.ssl.checkServerIdentity = function() {
+            if (config2.sslrootcert) {
+              config2.ssl.checkServerIdentity = function() {
               };
             } else {
-              config.ssl.rejectUnauthorized = false;
+              config2.ssl.rejectUnauthorized = false;
             }
             break;
           }
           case "verify-ca": {
-            if (!config.ssl.ca) {
+            if (!config2.ssl.ca) {
               throw new Error(
                 "SECURITY WARNING: Using sslmode=verify-ca requires specifying a CA with sslrootcert. If a public CA is used, verify-ca allows connections to a server that somebody else may have registered with the CA, making you vulnerable to Man-in-the-Middle attacks. Either specify a custom CA certificate with sslrootcert parameter or use sslmode=verify-full for proper security."
               );
             }
-            config.ssl.checkServerIdentity = function() {
+            config2.ssl.checkServerIdentity = function() {
             };
             break;
           }
@@ -1664,27 +1668,27 @@ var require_pg_connection_string = __commonJS({
           }
         }
       } else {
-        switch (config.sslmode) {
+        switch (config2.sslmode) {
           case "disable": {
-            config.ssl = false;
+            config2.ssl = false;
             break;
           }
           case "prefer":
           case "require":
           case "verify-ca":
           case "verify-full": {
-            if (config.sslmode !== "verify-full") {
-              deprecatedSslModeWarning(config.sslmode);
+            if (config2.sslmode !== "verify-full") {
+              deprecatedSslModeWarning(config2.sslmode);
             }
             break;
           }
           case "no-verify": {
-            config.ssl.rejectUnauthorized = false;
+            config2.ssl.rejectUnauthorized = false;
             break;
           }
         }
       }
-      return config;
+      return config2;
     }
     function toConnectionOptions(sslConfig) {
       const connectionOptions = Object.entries(sslConfig).reduce((c, [key, value]) => {
@@ -1695,8 +1699,8 @@ var require_pg_connection_string = __commonJS({
       }, /* @__PURE__ */ Object.create(null));
       return connectionOptions;
     }
-    function toClientConfig(config) {
-      const poolConfig = Object.entries(config).reduce((c, [key, value]) => {
+    function toClientConfig(config2) {
+      const poolConfig = Object.entries(config2).reduce((c, [key, value]) => {
         if (key === "ssl") {
           const sslConfig = value;
           if (typeof sslConfig === "boolean") {
@@ -1723,7 +1727,7 @@ var require_pg_connection_string = __commonJS({
       return poolConfig;
     }
     function parseIntoClientConfig(str3) {
-      return toClientConfig(parse3(str3));
+      return toClientConfig(parse4(str3));
     }
     function deprecatedSslModeWarning(sslmode) {
       if (!deprecatedSslModeWarning.warned && typeof process !== "undefined" && process.emitWarning) {
@@ -1738,10 +1742,10 @@ To prepare for this change:
 See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.`);
       }
     }
-    module2.exports = parse3;
-    parse3.parse = parse3;
-    parse3.toClientConfig = toClientConfig;
-    parse3.parseIntoClientConfig = parseIntoClientConfig;
+    module2.exports = parse4;
+    parse4.parse = parse4;
+    parse4.toClientConfig = toClientConfig;
+    parse4.parseIntoClientConfig = parseIntoClientConfig;
   }
 });
 
@@ -1751,10 +1755,10 @@ var require_connection_parameters = __commonJS({
     "use strict";
     var dns = require("dns");
     var defaults2 = require_defaults();
-    var parse3 = require_pg_connection_string().parse;
-    var val = function(key, config, envVar) {
-      if (config[key]) {
-        return config[key];
+    var parse4 = require_pg_connection_string().parse;
+    var val = function(key, config2, envVar) {
+      if (config2[key]) {
+        return config2[key];
       }
       if (envVar === void 0) {
         envVar = process.env["PG" + key.toUpperCase()];
@@ -1781,34 +1785,34 @@ var require_connection_parameters = __commonJS({
     var quoteParamValue = function(value) {
       return "'" + ("" + value).replace(/\\/g, "\\\\").replace(/'/g, "\\'") + "'";
     };
-    var add = function(params, config, paramName) {
-      const value = config[paramName];
+    var add = function(params, config2, paramName) {
+      const value = config2[paramName];
       if (value !== void 0 && value !== null) {
         params.push(paramName + "=" + quoteParamValue(value));
       }
     };
     var ConnectionParameters = class {
-      constructor(config) {
-        config = typeof config === "string" ? parse3(config) : config || {};
-        if (config.connectionString) {
-          config = Object.assign({}, config, parse3(config.connectionString));
+      constructor(config2) {
+        config2 = typeof config2 === "string" ? parse4(config2) : config2 || {};
+        if (config2.connectionString) {
+          config2 = Object.assign({}, config2, parse4(config2.connectionString));
         }
-        this.user = val("user", config);
-        this.database = val("database", config);
+        this.user = val("user", config2);
+        this.database = val("database", config2);
         if (this.database === void 0) {
           this.database = this.user;
         }
-        this.port = parseInt(val("port", config), 10);
-        this.host = val("host", config);
+        this.port = parseInt(val("port", config2), 10);
+        this.host = val("host", config2);
         Object.defineProperty(this, "password", {
           configurable: true,
           enumerable: false,
           writable: true,
-          value: val("password", config)
+          value: val("password", config2)
         });
-        this.binary = val("binary", config);
-        this.options = val("options", config);
-        this.ssl = typeof config.ssl === "undefined" ? readSSLConfigFromEnvironment() : config.ssl;
+        this.binary = val("binary", config2);
+        this.options = val("options", config2);
+        this.ssl = typeof config2.ssl === "undefined" ? readSSLConfigFromEnvironment() : config2.ssl;
         if (typeof this.ssl === "string") {
           if (this.ssl === "true") {
             this.ssl = true;
@@ -1822,7 +1826,7 @@ var require_connection_parameters = __commonJS({
             enumerable: false
           });
         }
-        this.sslnegotiation = val("sslnegotiation", config, "PGSSLNEGOTIATION");
+        this.sslnegotiation = val("sslnegotiation", config2, "PGSSLNEGOTIATION");
         if (this.sslnegotiation !== void 0 && this.sslnegotiation !== "postgres" && this.sslnegotiation !== "direct") {
           throw new Error(
             `Invalid sslnegotiation value: "${this.sslnegotiation}". Valid values are "postgres" and "direct".`
@@ -1831,27 +1835,27 @@ var require_connection_parameters = __commonJS({
         if (this.sslnegotiation === "direct" && !this.ssl) {
           throw new Error("sslnegotiation=direct requires SSL to be enabled");
         }
-        this.client_encoding = val("client_encoding", config);
-        this.replication = val("replication", config);
+        this.client_encoding = val("client_encoding", config2);
+        this.replication = val("replication", config2);
         this.isDomainSocket = !(this.host || "").indexOf("/");
-        this.application_name = val("application_name", config, "PGAPPNAME");
-        this.fallback_application_name = val("fallback_application_name", config, false);
-        this.statement_timeout = val("statement_timeout", config, false);
-        this.lock_timeout = val("lock_timeout", config, false);
-        this.idle_in_transaction_session_timeout = val("idle_in_transaction_session_timeout", config, false);
-        this.query_timeout = val("query_timeout", config, false);
-        if (config.connectionTimeoutMillis === void 0) {
+        this.application_name = val("application_name", config2, "PGAPPNAME");
+        this.fallback_application_name = val("fallback_application_name", config2, false);
+        this.statement_timeout = val("statement_timeout", config2, false);
+        this.lock_timeout = val("lock_timeout", config2, false);
+        this.idle_in_transaction_session_timeout = val("idle_in_transaction_session_timeout", config2, false);
+        this.query_timeout = val("query_timeout", config2, false);
+        if (config2.connectionTimeoutMillis === void 0) {
           this.connect_timeout = process.env.PGCONNECT_TIMEOUT || 0;
         } else {
-          this.connect_timeout = Math.floor(config.connectionTimeoutMillis / 1e3);
+          this.connect_timeout = Math.floor(config2.connectionTimeoutMillis / 1e3);
         }
-        if (config.keepAlive === false) {
+        if (config2.keepAlive === false) {
           this.keepalives = 0;
-        } else if (config.keepAlive === true) {
+        } else if (config2.keepAlive === true) {
           this.keepalives = 1;
         }
-        if (typeof config.keepAliveInitialDelayMillis === "number") {
-          this.keepalives_idle = Math.floor(config.keepAliveInitialDelayMillis / 1e3);
+        if (typeof config2.keepAliveInitialDelayMillis === "number") {
+          this.keepalives_idle = Math.floor(config2.keepAliveInitialDelayMillis / 1e3);
         }
       }
       getLibpqConnectionString(cb) {
@@ -1995,21 +1999,21 @@ var require_query = __commonJS({
     var Result2 = require_result();
     var utils = require_utils();
     var Query2 = class extends EventEmitter3 {
-      constructor(config, values, callback) {
+      constructor(config2, values, callback) {
         super();
-        config = utils.normalizeQueryConfig(config, values, callback);
-        this.text = config.text;
-        this.values = config.values;
-        this.rows = config.rows;
-        this.types = config.types;
-        this.name = config.name;
-        this.queryMode = config.queryMode;
-        this.binary = config.binary;
-        this.portal = config.portal || "";
-        this.callback = config.callback;
-        this._rowMode = config.rowMode;
-        if (process.domain && config.callback) {
-          this.callback = process.domain.bind(config.callback);
+        config2 = utils.normalizeQueryConfig(config2, values, callback);
+        this.text = config2.text;
+        this.values = config2.values;
+        this.rows = config2.rows;
+        this.types = config2.types;
+        this.name = config2.name;
+        this.queryMode = config2.queryMode;
+        this.binary = config2.binary;
+        this.portal = config2.portal || "";
+        this.callback = config2.callback;
+        this._rowMode = config2.rowMode;
+        if (process.domain && config2.callback) {
+          this.callback = process.domain.bind(config2.callback);
         }
         this._result = new Result2(this._rowMode, this.types);
         this._results = this._result;
@@ -2387,22 +2391,22 @@ var require_buffer_writer = __commonJS({
         this.buffer[this.offset++] = num >>> 0 & 255;
         return this;
       }
-      addCString(string) {
-        if (!string) {
+      addCString(string3) {
+        if (!string3) {
           this.ensure(1);
         } else {
-          const len = Buffer.byteLength(string);
+          const len = Buffer.byteLength(string3);
           this.ensure(len + 1);
-          this.buffer.write(string, this.offset, "utf-8");
+          this.buffer.write(string3, this.offset, "utf-8");
           this.offset += len;
         }
         this.buffer[this.offset++] = 0;
         return this;
       }
-      addString(string = "") {
-        const len = Buffer.byteLength(string);
+      addString(string3 = "") {
+        const len = Buffer.byteLength(string3);
         this.ensure(len);
-        this.buffer.write(string, this.offset);
+        this.buffer.write(string3, this.offset);
         this.offset += len;
         return this;
       }
@@ -2412,8 +2416,8 @@ var require_buffer_writer = __commonJS({
       // `addInt32(Buffer.byteLength(s)).addString(s)` pairing scanned the string
       // three times (byteLength for the prefix, byteLength again inside addString,
       // then the encode), which is costly for large text parameters.
-      addInt32PrefixedString(string) {
-        const len = Buffer.byteLength(string);
+      addInt32PrefixedString(string3) {
+        const len = Buffer.byteLength(string3);
         this.ensure(4 + len);
         const buffer2 = this.buffer;
         let offset = this.offset;
@@ -2421,7 +2425,7 @@ var require_buffer_writer = __commonJS({
         buffer2[offset++] = len >>> 16 & 255;
         buffer2[offset++] = len >>> 8 & 255;
         buffer2[offset++] = len >>> 0 & 255;
-        buffer2.write(string, offset, "utf-8");
+        buffer2.write(string3, offset, "utf-8");
         this.offset = offset + len;
         return this;
       }
@@ -2505,7 +2509,7 @@ var require_serializer = __commonJS({
       );
     };
     var emptyArray = [];
-    var parse3 = (query3) => {
+    var parse4 = (query3) => {
       const name = query3.name || "";
       if (name.length > 63) {
         console.error("Warning! Postgres only supports 63 characters for query names.");
@@ -2549,16 +2553,16 @@ var require_serializer = __commonJS({
         }
       }
     };
-    var bind = (config = {}) => {
-      const portal = config.portal || "";
-      const statement = config.statement || "";
-      const binary = config.binary || false;
-      const values = config.values || emptyArray;
+    var bind = (config2 = {}) => {
+      const portal = config2.portal || "";
+      const statement = config2.statement || "";
+      const binary = config2.binary || false;
+      const values = config2.values || emptyArray;
       const len = values.length;
       writer.addCString(portal).addCString(statement);
       writer.addInt16(len);
       try {
-        writeValues(values, config.valueMapper);
+        writeValues(values, config2.valueMapper);
       } catch (err2) {
         writer.clear();
         paramWriter.clear();
@@ -2577,12 +2581,12 @@ var require_serializer = __commonJS({
       );
     };
     var emptyExecute = Buffer.from([69, 0, 0, 0, 9, 0, 0, 0, 0, 0]);
-    var execute = (config) => {
-      if (!config || !config.portal && !config.rows) {
+    var execute = (config2) => {
+      if (!config2 || !config2.portal && !config2.rows) {
         return emptyExecute;
       }
-      const portal = config.portal || "";
-      const rows = config.rows || 0;
+      const portal = config2.portal || "";
+      const rows = config2.rows || 0;
       const portalLength = Buffer.byteLength(portal);
       const len = 4 + portalLength + 1 + 4;
       const buff = Buffer.allocUnsafe(1 + len);
@@ -2602,13 +2606,13 @@ var require_serializer = __commonJS({
       buffer2.writeInt32BE(secretKey, 12);
       return buffer2;
     };
-    var cstringMessage = (code, string) => {
-      const stringLen = Buffer.byteLength(string);
+    var cstringMessage = (code, string3) => {
+      const stringLen = Buffer.byteLength(string3);
       const len = 4 + stringLen + 1;
       const buffer2 = Buffer.allocUnsafe(1 + len);
       buffer2[0] = code;
       buffer2.writeInt32BE(len, 1);
-      buffer2.write(string, 5, "utf-8");
+      buffer2.write(string3, 5, "utf-8");
       buffer2[len] = 0;
       return buffer2;
     };
@@ -2660,7 +2664,7 @@ var require_serializer = __commonJS({
       sendSASLInitialResponseMessage,
       sendSCRAMClientFinalMessage,
       query: query2,
-      parse: parse3,
+      parse: parse4,
       bind,
       execute,
       describe,
@@ -3049,7 +3053,7 @@ var require_dist = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.DatabaseError = exports2.serialize = void 0;
-    exports2.parse = parse3;
+    exports2.parse = parse4;
     var messages_1 = require_messages();
     Object.defineProperty(exports2, "DatabaseError", { enumerable: true, get: function() {
       return messages_1.DatabaseError;
@@ -3059,7 +3063,7 @@ var require_dist = __commonJS({
       return serializer_1.serialize;
     } });
     var parser_1 = require_parser();
-    function parse3(stream, callback) {
+    function parse4(stream, callback) {
       const parser = new parser_1.Parser();
       stream.on("data", (buffer2) => parser.parse(buffer2, callback));
       return new Promise((resolve) => stream.on("end", () => resolve()));
@@ -3147,25 +3151,25 @@ var require_connection = __commonJS({
   "node_modules/pg/lib/connection.js"(exports2, module2) {
     "use strict";
     var EventEmitter3 = require("events").EventEmitter;
-    var { parse: parse3, serialize } = require_dist();
+    var { parse: parse4, serialize } = require_dist();
     var stream = require_stream();
     var { getStream } = stream;
     var flushBuffer = serialize.flush();
     var syncBuffer = serialize.sync();
     var endBuffer = serialize.end();
     var Connection2 = class extends EventEmitter3 {
-      constructor(config) {
+      constructor(config2) {
         super();
-        config = config || {};
-        this.stream = config.stream || getStream(config.ssl);
+        config2 = config2 || {};
+        this.stream = config2.stream || getStream(config2.ssl);
         if (typeof this.stream === "function") {
-          this.stream = this.stream(config);
+          this.stream = this.stream(config2);
         }
-        this._keepAlive = config.keepAlive;
-        this._keepAliveInitialDelayMillis = config.keepAliveInitialDelayMillis;
+        this._keepAlive = config2.keepAlive;
+        this._keepAliveInitialDelayMillis = config2.keepAliveInitialDelayMillis;
         this.parsedStatements = {};
-        this.ssl = config.ssl || false;
-        this.sslNegotiation = config.sslNegotiation || "postgres";
+        this.ssl = config2.ssl || false;
+        this.sslNegotiation = config2.sslNegotiation || "postgres";
         this._ending = false;
         this._emitMessage = false;
         const self2 = this;
@@ -3186,11 +3190,11 @@ var require_connection = __commonJS({
           }
           self2.emit("connect");
         });
-        const reportStreamError = function(error) {
-          if (self2._ending && (error.code === "ECONNRESET" || error.code === "EPIPE")) {
+        const reportStreamError = function(error2) {
+          if (self2._ending && (error2.code === "ECONNRESET" || error2.code === "EPIPE")) {
             return;
           }
-          self2.emit("error", error);
+          self2.emit("error", error2);
         };
         this.stream.on("error", reportStreamError);
         this.stream.on("close", function() {
@@ -3247,7 +3251,7 @@ var require_connection = __commonJS({
         self2.emit("sslconnect");
       }
       attachListeners(stream2) {
-        parse3(stream2, (msg) => {
+        parse4(stream2, (msg) => {
           const eventName = msg.name === "error" ? "errorMessage" : msg.name;
           if (this._emitMessage) {
             this.emit("message", msg);
@@ -3258,8 +3262,8 @@ var require_connection = __commonJS({
       requestSsl() {
         this.stream.write(serialize.requestSsl());
       }
-      startup(config) {
-        this.stream.write(serialize.startup(config));
+      startup(config2) {
+        this.stream.write(serialize.startup(config2));
       }
       cancel(processID, secretKey) {
         this._send(serialize.cancel(processID, secretKey));
@@ -3287,12 +3291,12 @@ var require_connection = __commonJS({
         this._send(serialize.parse(query2));
       }
       // send bind message
-      bind(config) {
-        this._send(serialize.bind(config));
+      bind(config2) {
+        this._send(serialize.bind(config2));
       }
       // send execute message
-      execute(config) {
-        this._send(serialize.execute(config));
+      execute(config2) {
+        this._send(serialize.execute(config2));
       }
       flush() {
         if (this.stream.writable) {
@@ -3347,7 +3351,7 @@ var require_split2 = __commonJS({
     var { StringDecoder } = require("string_decoder");
     var kLast = Symbol("last");
     var kDecoder = Symbol("decoder");
-    function transform(chunk, enc, cb) {
+    function transform2(chunk, enc, cb) {
       let list;
       if (this.overflow) {
         const buf = this[kDecoder].write(chunk);
@@ -3363,8 +3367,8 @@ var require_split2 = __commonJS({
       for (let i = 0; i < list.length; i++) {
         try {
           push(this, this.mapper(list[i]));
-        } catch (error) {
-          return cb(error);
+        } catch (error2) {
+          return cb(error2);
         }
       }
       this.overflow = this[kLast].length > this.maxLength;
@@ -3379,8 +3383,8 @@ var require_split2 = __commonJS({
       if (this[kLast]) {
         try {
           push(this, this.mapper(this[kLast]));
-        } catch (error) {
-          return cb(error);
+        } catch (error2) {
+          return cb(error2);
         }
       }
       cb();
@@ -3419,7 +3423,7 @@ var require_split2 = __commonJS({
       }
       options = Object.assign({}, options);
       options.autoDestroy = true;
-      options.transform = transform;
+      options.transform = transform2;
       options.flush = flush;
       options.readableObjectMode = true;
       const stream = new Transform2(options);
@@ -3482,8 +3486,8 @@ var require_helper = __commonJS({
       return old;
     };
     module2.exports.getFileName = function(rawEnv) {
-      var env = rawEnv || process.env;
-      var file = env.PGPASSFILE || (isWin ? path.join(env.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env.HOME || "./", ".pgpass"));
+      var env2 = rawEnv || process.env;
+      var file = env2.PGPASSFILE || (isWin ? path.join(env2.APPDATA || "./", "postgresql", "pgpass.conf") : path.join(env2.HOME || "./", ".pgpass"));
       return file;
     };
     module2.exports.usePgPass = function(stats, fname) {
@@ -3681,9 +3685,9 @@ var require_client = __commonJS({
       return defaultValue;
     }
     var Client2 = class extends EventEmitter3 {
-      constructor(config) {
+      constructor(config2) {
         super();
-        this.connectionParameters = new ConnectionParameters(config);
+        this.connectionParameters = new ConnectionParameters(config2);
         this.user = this.connectionParameters.user;
         this.database = this.connectionParameters.database;
         this.port = this.connectionParameters.port;
@@ -3695,7 +3699,7 @@ var require_client = __commonJS({
           value: this.connectionParameters.password
         });
         this.replication = this.connectionParameters.replication;
-        const c = config || {};
+        const c = config2 || {};
         if (c.Promise) {
           byoPromiseDeprecationNotice();
         }
@@ -3797,19 +3801,19 @@ var require_client = __commonJS({
         });
         this._attachListeners(con);
         con.once("end", () => {
-          const error = this._ending ? new Error("Connection terminated") : new Error("Connection terminated unexpectedly");
+          const error2 = this._ending ? new Error("Connection terminated") : new Error("Connection terminated unexpectedly");
           clearTimeout(this.connectionTimeoutHandle);
-          this._errorAllQueries(error);
+          this._errorAllQueries(error2);
           this._ended = true;
           if (!this._ending) {
             if (this._connecting && !this._connectionError) {
               if (this._connectionCallback) {
-                this._connectionCallback(error);
+                this._connectionCallback(error2);
               } else {
-                this._handleErrorEvent(error);
+                this._handleErrorEvent(error2);
               }
             } else if (!this._connectionError) {
-              this._handleErrorEvent(error);
+              this._handleErrorEvent(error2);
             }
           }
           process.nextTick(() => {
@@ -3823,9 +3827,9 @@ var require_client = __commonJS({
           return;
         }
         return new this._Promise((resolve, reject) => {
-          this._connect((error) => {
-            if (error) {
-              reject(error);
+          this._connect((error2) => {
+            if (error2) {
+              reject(error2);
             } else {
               resolve(this);
             }
@@ -4001,8 +4005,8 @@ var require_client = __commonJS({
       _handleRowDescription(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected rowDescription message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected rowDescription message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleRowDescription(msg);
@@ -4010,8 +4014,8 @@ var require_client = __commonJS({
       _handleDataRow(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected dataRow message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected dataRow message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleDataRow(msg);
@@ -4019,8 +4023,8 @@ var require_client = __commonJS({
       _handlePortalSuspended(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected portalSuspended message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected portalSuspended message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handlePortalSuspended(this.connection);
@@ -4028,8 +4032,8 @@ var require_client = __commonJS({
       _handleEmptyQuery(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected emptyQuery message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected emptyQuery message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleEmptyQuery(this.connection);
@@ -4037,8 +4041,8 @@ var require_client = __commonJS({
       _handleCommandComplete(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected commandComplete message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected commandComplete message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleCommandComplete(msg, this.connection);
@@ -4046,8 +4050,8 @@ var require_client = __commonJS({
       _handleParseComplete() {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected parseComplete message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected parseComplete message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         if (activeQuery.name) {
@@ -4057,8 +4061,8 @@ var require_client = __commonJS({
       _handleCopyInResponse(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected copyInResponse message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected copyInResponse message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleCopyInResponse(this.connection);
@@ -4066,8 +4070,8 @@ var require_client = __commonJS({
       _handleCopyData(msg) {
         const activeQuery = this._getActiveQuery();
         if (activeQuery == null) {
-          const error = new Error("Received unexpected copyData message from backend.");
-          this._handleErrorEvent(error);
+          const error2 = new Error("Received unexpected copyData message from backend.");
+          this._handleErrorEvent(error2);
           return;
         }
         activeQuery.handleCopyData(msg, this.connection);
@@ -4156,14 +4160,14 @@ var require_client = __commonJS({
           }
         }
       }
-      query(config, values, callback) {
+      query(config2, values, callback) {
         let query2;
         let result;
-        if (config == null) {
+        if (config2 == null) {
           throw new TypeError("Client was passed a null or undefined query");
         }
-        if (typeof config.submit === "function") {
-          result = query2 = config;
+        if (typeof config2.submit === "function") {
+          result = query2 = config2;
           if (!query2.callback) {
             if (typeof values === "function") {
               query2.callback = values;
@@ -4172,7 +4176,7 @@ var require_client = __commonJS({
             }
           }
         } else {
-          query2 = new Query2(config, values, callback);
+          query2 = new Query2(config2, values, callback);
           if (!query2.callback) {
             result = new this._Promise((resolve, reject) => {
               query2.callback = (err2, res) => err2 ? reject(err2) : resolve(res);
@@ -4184,16 +4188,16 @@ var require_client = __commonJS({
             throw new TypeError("callback is not a function");
           }
         }
-        const readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
+        const readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
         if (readTimeout) {
           const queryCallback = query2.callback || (() => {
           });
           const readTimeoutTimer = setTimeout(() => {
-            const error = new Error("Query read timeout");
+            const error2 = new Error("Query read timeout");
             process.nextTick(() => {
-              query2.handleError(error, this.connection);
+              query2.handleError(error2, this.connection);
             });
-            queryCallback(error);
+            queryCallback(error2);
             query2.callback = () => {
             };
             const index = this._queryQueue.indexOf(query2);
@@ -4707,16 +4711,16 @@ var require_query2 = __commonJS({
     var EventEmitter3 = require("events").EventEmitter;
     var util6 = require("util");
     var utils = require_utils();
-    var NativeQuery = module2.exports = function(config, values, callback) {
+    var NativeQuery = module2.exports = function(config2, values, callback) {
       EventEmitter3.call(this);
-      config = utils.normalizeQueryConfig(config, values, callback);
-      this.text = config.text;
-      this.values = config.values;
-      this.name = config.name;
-      this.queryMode = config.queryMode;
-      this.callback = config.callback;
+      config2 = utils.normalizeQueryConfig(config2, values, callback);
+      this.text = config2.text;
+      this.values = config2.values;
+      this.name = config2.name;
+      this.queryMode = config2.queryMode;
+      this.callback = config2.callback;
       this.state = "new";
-      this._arrayMode = config.rowMode === "array";
+      this._arrayMode = config2.rowMode === "array";
       this._emitRowEvents = false;
       this.on(
         "newListener",
@@ -4861,11 +4865,11 @@ var require_client2 = __commonJS({
       },
       "Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead."
     );
-    var Client2 = module2.exports = function(config) {
+    var Client2 = module2.exports = function(config2) {
       EventEmitter3.call(this);
-      config = config || {};
-      this._Promise = config.Promise || global.Promise;
-      this._types = new TypeOverrides2(config.types);
+      config2 = config2 || {};
+      this._Promise = config2.Promise || global.Promise;
+      this._types = new TypeOverrides2(config2.types);
       this.native = new Native({
         types: this._types
       });
@@ -4874,8 +4878,8 @@ var require_client2 = __commonJS({
       this._connecting = false;
       this._connected = false;
       this._queryable = true;
-      const cp = this.connectionParameters = new ConnectionParameters(config);
-      if (config.nativeConnectionString) cp.nativeConnectionString = config.nativeConnectionString;
+      const cp = this.connectionParameters = new ConnectionParameters(config2);
+      if (config2.nativeConnectionString) cp.nativeConnectionString = config2.nativeConnectionString;
       this.user = cp.user;
       Object.defineProperty(this, "password", {
         configurable: true,
@@ -4943,32 +4947,32 @@ var require_client2 = __commonJS({
         return;
       }
       return new this._Promise((resolve, reject) => {
-        this._connect((error) => {
-          if (error) {
-            reject(error);
+        this._connect((error2) => {
+          if (error2) {
+            reject(error2);
           } else {
             resolve(this);
           }
         });
       });
     };
-    Client2.prototype.query = function(config, values, callback) {
+    Client2.prototype.query = function(config2, values, callback) {
       let query2;
       let result;
       let readTimeout;
       let readTimeoutTimer;
       let queryCallback;
-      if (config === null || config === void 0) {
+      if (config2 === null || config2 === void 0) {
         throw new TypeError("Client was passed a null or undefined query");
-      } else if (typeof config.submit === "function") {
-        readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-        result = query2 = config;
+      } else if (typeof config2.submit === "function") {
+        readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
+        result = query2 = config2;
         if (typeof values === "function") {
-          config.callback = values;
+          config2.callback = values;
         }
       } else {
-        readTimeout = config.query_timeout || this.connectionParameters.query_timeout;
-        query2 = new NativeQuery(config, values, callback);
+        readTimeout = config2.query_timeout || this.connectionParameters.query_timeout;
+        query2 = new NativeQuery(config2, values, callback);
         if (!query2.callback) {
           let resolveOut, rejectOut;
           result = new this._Promise((resolve, reject) => {
@@ -4985,11 +4989,11 @@ var require_client2 = __commonJS({
         queryCallback = query2.callback || (() => {
         });
         readTimeoutTimer = setTimeout(() => {
-          const error = new Error("Query read timeout");
+          const error2 = new Error("Query read timeout");
           process.nextTick(() => {
-            query2.handleError(error, this.connection);
+            query2.handleError(error2, this.connection);
           });
-          queryCallback(error);
+          queryCallback(error2);
           query2.callback = () => {
           };
           const index = this._queryQueue.indexOf(query2);
@@ -5187,7 +5191,7 @@ var require_ms = __commonJS({
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
-        return parse3(val);
+        return parse4(val);
       } else if (type === "number" && isFinite(val)) {
         return options.long ? fmtLong(val) : fmtShort(val);
       }
@@ -5195,7 +5199,7 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse3(str3) {
+    function parse4(str3) {
       str3 = String(str3);
       if (str3.length > 100) {
         return;
@@ -5293,17 +5297,17 @@ var require_ms = __commonJS({
 // node_modules/https-proxy-agent/node_modules/debug/src/common.js
 var require_common = __commonJS({
   "node_modules/https-proxy-agent/node_modules/debug/src/common.js"(exports2, module2) {
-    function setup(env) {
+    function setup(env2) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
       createDebug.coerce = coerce2;
       createDebug.disable = disable2;
       createDebug.enable = enable2;
-      createDebug.enabled = enabled2;
+      createDebug.enabled = enabled4;
       createDebug.humanize = require_ms();
       createDebug.destroy = destroy2;
-      Object.keys(env).forEach((key) => {
-        createDebug[key] = env[key];
+      Object.keys(env2).forEach((key) => {
+        createDebug[key] = env2[key];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -5359,7 +5363,7 @@ var require_common = __commonJS({
         debug.namespace = namespace;
         debug.useColors = createDebug.useColors();
         debug.color = createDebug.selectColor(namespace);
-        debug.extend = extend2;
+        debug.extend = extend3;
         debug.destroy = createDebug.destroy;
         Object.defineProperty(debug, "enabled", {
           enumerable: true,
@@ -5383,7 +5387,7 @@ var require_common = __commonJS({
         }
         return debug;
       }
-      function extend2(namespace, delimiter2) {
+      function extend3(namespace, delimiter2) {
         const newDebug = createDebug(this.namespace + (typeof delimiter2 === "undefined" ? ":" : delimiter2) + namespace);
         newDebug.log = this.log;
         return newDebug;
@@ -5438,7 +5442,7 @@ var require_common = __commonJS({
         createDebug.enable("");
         return namespaces;
       }
-      function enabled2(name) {
+      function enabled4(name) {
         for (const skip of createDebug.skips) {
           if (matchesTemplate(name, skip)) {
             return false;
@@ -5605,14 +5609,14 @@ var require_browser = __commonJS({
         } else {
           exports2.storage.removeItem("debug");
         }
-      } catch (error) {
+      } catch (error2) {
       }
     }
     function load() {
       let r;
       try {
         r = exports2.storage.getItem("debug") || exports2.storage.getItem("DEBUG");
-      } catch (error) {
+      } catch (error2) {
       }
       if (!r && typeof process !== "undefined" && "env" in process) {
         r = process.env.DEBUG;
@@ -5622,7 +5626,7 @@ var require_browser = __commonJS({
     function localstorage() {
       try {
         return localStorage;
-      } catch (error) {
+      } catch (error2) {
       }
     }
     module2.exports = require_common()(exports2);
@@ -5630,17 +5634,166 @@ var require_browser = __commonJS({
     formatters.j = function(v) {
       try {
         return JSON.stringify(v);
-      } catch (error) {
-        return "[UnexpectedJSONParseError]: " + error.message;
+      } catch (error2) {
+        return "[UnexpectedJSONParseError]: " + error2.message;
       }
     };
+  }
+});
+
+// node_modules/supports-color/index.js
+var supports_color_exports = {};
+__export(supports_color_exports, {
+  createSupportsColor: () => createSupportsColor,
+  default: () => supports_color_default
+});
+function hasFlag(flag, argv = globalThis.Deno ? globalThis.Deno.args : import_node_process3.default.argv) {
+  const prefix2 = flag.startsWith("-") ? "" : flag.length === 1 ? "-" : "--";
+  const position = argv.indexOf(prefix2 + flag);
+  const terminatorPosition = argv.indexOf("--");
+  return position !== -1 && (terminatorPosition === -1 || position < terminatorPosition);
+}
+function envForceColor() {
+  if (!("FORCE_COLOR" in env)) {
+    return;
+  }
+  if (env.FORCE_COLOR === "true") {
+    return 1;
+  }
+  if (env.FORCE_COLOR === "false") {
+    return 0;
+  }
+  if (env.FORCE_COLOR.length === 0) {
+    return 1;
+  }
+  const level = Math.min(Number.parseInt(env.FORCE_COLOR, 10), 3);
+  if (![0, 1, 2, 3].includes(level)) {
+    return;
+  }
+  return level;
+}
+function translateLevel(level) {
+  if (level === 0) {
+    return false;
+  }
+  return {
+    level,
+    hasBasic: true,
+    has256: level >= 2,
+    has16m: level >= 3
+  };
+}
+function _supportsColor(haveStream, { streamIsTTY, sniffFlags = true } = {}) {
+  const noFlagForceColor = envForceColor();
+  if (noFlagForceColor !== void 0) {
+    flagForceColor = noFlagForceColor;
+  }
+  const forceColor = sniffFlags ? flagForceColor : noFlagForceColor;
+  if (forceColor === 0) {
+    return 0;
+  }
+  if (sniffFlags) {
+    if (hasFlag("color=16m") || hasFlag("color=full") || hasFlag("color=truecolor")) {
+      return 3;
+    }
+    if (hasFlag("color=256")) {
+      return 2;
+    }
+  }
+  if ("TF_BUILD" in env && "AGENT_NAME" in env) {
+    return 1;
+  }
+  if (haveStream && !streamIsTTY && forceColor === void 0) {
+    return 0;
+  }
+  const min = forceColor || 0;
+  if (env.TERM === "dumb") {
+    return min;
+  }
+  if (import_node_process3.default.platform === "win32") {
+    const osRelease = import_node_os2.default.release().split(".");
+    if (Number(osRelease[0]) >= 10 && Number(osRelease[2]) >= 10586) {
+      return Number(osRelease[2]) >= 14931 ? 3 : 2;
+    }
+    return 1;
+  }
+  if ("CI" in env) {
+    if (["GITHUB_ACTIONS", "GITEA_ACTIONS", "CIRCLECI"].some((key) => key in env)) {
+      return 3;
+    }
+    if (["TRAVIS", "APPVEYOR", "GITLAB_CI", "BUILDKITE", "DRONE"].some((sign3) => sign3 in env) || env.CI_NAME === "codeship") {
+      return 1;
+    }
+    return min;
+  }
+  if ("TEAMCITY_VERSION" in env) {
+    return /^(9\.(0*[1-9]\d*)\.|\d{2,}\.)/.test(env.TEAMCITY_VERSION) ? 1 : 0;
+  }
+  if (env.COLORTERM === "truecolor") {
+    return 3;
+  }
+  if (env.TERM === "xterm-kitty") {
+    return 3;
+  }
+  if (env.TERM === "xterm-ghostty") {
+    return 3;
+  }
+  if (env.TERM === "wezterm") {
+    return 3;
+  }
+  if ("TERM_PROGRAM" in env) {
+    const version3 = Number.parseInt((env.TERM_PROGRAM_VERSION || "").split(".")[0], 10);
+    switch (env.TERM_PROGRAM) {
+      case "iTerm.app": {
+        return version3 >= 3 ? 3 : 2;
+      }
+      case "Apple_Terminal": {
+        return 2;
+      }
+    }
+  }
+  if (/-256(color)?$/i.test(env.TERM)) {
+    return 2;
+  }
+  if (/^screen|^xterm|^vt100|^vt220|^rxvt|color|ansi|cygwin|linux/i.test(env.TERM)) {
+    return 1;
+  }
+  if ("COLORTERM" in env) {
+    return 1;
+  }
+  return min;
+}
+function createSupportsColor(stream, options = {}) {
+  const level = _supportsColor(stream, {
+    streamIsTTY: stream && stream.isTTY,
+    ...options
+  });
+  return translateLevel(level);
+}
+var import_node_process3, import_node_os2, import_node_tty, env, flagForceColor, supportsColor, supports_color_default;
+var init_supports_color = __esm({
+  "node_modules/supports-color/index.js"() {
+    import_node_process3 = __toESM(require("node:process"), 1);
+    import_node_os2 = __toESM(require("node:os"), 1);
+    import_node_tty = __toESM(require("node:tty"), 1);
+    ({ env } = import_node_process3.default);
+    if (hasFlag("no-color") || hasFlag("no-colors") || hasFlag("color=false") || hasFlag("color=never")) {
+      flagForceColor = 0;
+    } else if (hasFlag("color") || hasFlag("colors") || hasFlag("color=true") || hasFlag("color=always")) {
+      flagForceColor = 1;
+    }
+    supportsColor = {
+      stdout: createSupportsColor({ isTTY: import_node_tty.default.isatty(1) }),
+      stderr: createSupportsColor({ isTTY: import_node_tty.default.isatty(2) })
+    };
+    supports_color_default = supportsColor;
   }
 });
 
 // node_modules/https-proxy-agent/node_modules/debug/src/node.js
 var require_node = __commonJS({
   "node_modules/https-proxy-agent/node_modules/debug/src/node.js"(exports2, module2) {
-    var tty = require("tty");
+    var tty2 = require("tty");
     var util6 = require("util");
     exports2.init = init;
     exports2.log = log2;
@@ -5655,8 +5808,8 @@ var require_node = __commonJS({
     );
     exports2.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = require("supports-color");
-      if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
+      const supportsColor2 = (init_supports_color(), __toCommonJS(supports_color_exports));
+      if (supportsColor2 && (supportsColor2.stderr || supportsColor2).level >= 2) {
         exports2.colors = [
           20,
           21,
@@ -5736,7 +5889,7 @@ var require_node = __commonJS({
           221
         ];
       }
-    } catch (error) {
+    } catch (error2) {
     }
     exports2.inspectOpts = Object.keys(process.env).filter((key) => {
       return /^debug_/i.test(key);
@@ -5758,7 +5911,7 @@ var require_node = __commonJS({
       return obj;
     }, {});
     function useColors() {
-      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(process.stderr.fd);
+      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty2.isatty(process.stderr.fd);
     }
     function formatArgs(args) {
       const { namespace: name, useColors: useColors2 } = this;
@@ -6209,7 +6362,7 @@ var require_dist3 = __commonJS({
         this.connectOpts = {
           // Attempt to negotiate http/1.1 for proxy servers that support http/2
           ALPNProtocols: ["http/1.1"],
-          ...opts ? omit(opts, "headers") : null,
+          ...opts ? omit2(opts, "headers") : null,
           host,
           port
         };
@@ -6258,7 +6411,7 @@ var require_dist3 = __commonJS({
           if (opts.secureEndpoint) {
             debug("Upgrading socket connection to TLS");
             return tls.connect({
-              ...omit(setServernameFromNonIpHost(opts), "host", "path", "port"),
+              ...omit2(setServernameFromNonIpHost(opts), "host", "path", "port"),
               socket
             });
           }
@@ -6281,7 +6434,7 @@ var require_dist3 = __commonJS({
     function resume(socket) {
       socket.resume();
     }
-    function omit(obj, ...keys) {
+    function omit2(obj, ...keys) {
       const ret = {};
       let key;
       for (key in obj) {
@@ -6307,7 +6460,7 @@ var require_ms2 = __commonJS({
       options = options || {};
       var type = typeof val;
       if (type === "string" && val.length > 0) {
-        return parse3(val);
+        return parse4(val);
       } else if (type === "number" && isFinite(val)) {
         return options.long ? fmtLong(val) : fmtShort(val);
       }
@@ -6315,7 +6468,7 @@ var require_ms2 = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse3(str3) {
+    function parse4(str3) {
       str3 = String(str3);
       if (str3.length > 100) {
         return;
@@ -6413,17 +6566,17 @@ var require_ms2 = __commonJS({
 // node_modules/http-proxy-agent/node_modules/debug/src/common.js
 var require_common2 = __commonJS({
   "node_modules/http-proxy-agent/node_modules/debug/src/common.js"(exports2, module2) {
-    function setup(env) {
+    function setup(env2) {
       createDebug.debug = createDebug;
       createDebug.default = createDebug;
       createDebug.coerce = coerce2;
       createDebug.disable = disable2;
       createDebug.enable = enable2;
-      createDebug.enabled = enabled2;
+      createDebug.enabled = enabled4;
       createDebug.humanize = require_ms2();
       createDebug.destroy = destroy2;
-      Object.keys(env).forEach((key) => {
-        createDebug[key] = env[key];
+      Object.keys(env2).forEach((key) => {
+        createDebug[key] = env2[key];
       });
       createDebug.names = [];
       createDebug.skips = [];
@@ -6479,7 +6632,7 @@ var require_common2 = __commonJS({
         debug.namespace = namespace;
         debug.useColors = createDebug.useColors();
         debug.color = createDebug.selectColor(namespace);
-        debug.extend = extend2;
+        debug.extend = extend3;
         debug.destroy = createDebug.destroy;
         Object.defineProperty(debug, "enabled", {
           enumerable: true,
@@ -6503,7 +6656,7 @@ var require_common2 = __commonJS({
         }
         return debug;
       }
-      function extend2(namespace, delimiter2) {
+      function extend3(namespace, delimiter2) {
         const newDebug = createDebug(this.namespace + (typeof delimiter2 === "undefined" ? ":" : delimiter2) + namespace);
         newDebug.log = this.log;
         return newDebug;
@@ -6558,7 +6711,7 @@ var require_common2 = __commonJS({
         createDebug.enable("");
         return namespaces;
       }
-      function enabled2(name) {
+      function enabled4(name) {
         for (const skip of createDebug.skips) {
           if (matchesTemplate(name, skip)) {
             return false;
@@ -6725,14 +6878,14 @@ var require_browser2 = __commonJS({
         } else {
           exports2.storage.removeItem("debug");
         }
-      } catch (error) {
+      } catch (error2) {
       }
     }
     function load() {
       let r;
       try {
         r = exports2.storage.getItem("debug") || exports2.storage.getItem("DEBUG");
-      } catch (error) {
+      } catch (error2) {
       }
       if (!r && typeof process !== "undefined" && "env" in process) {
         r = process.env.DEBUG;
@@ -6742,7 +6895,7 @@ var require_browser2 = __commonJS({
     function localstorage() {
       try {
         return localStorage;
-      } catch (error) {
+      } catch (error2) {
       }
     }
     module2.exports = require_common2()(exports2);
@@ -6750,8 +6903,8 @@ var require_browser2 = __commonJS({
     formatters.j = function(v) {
       try {
         return JSON.stringify(v);
-      } catch (error) {
-        return "[UnexpectedJSONParseError]: " + error.message;
+      } catch (error2) {
+        return "[UnexpectedJSONParseError]: " + error2.message;
       }
     };
   }
@@ -6760,7 +6913,7 @@ var require_browser2 = __commonJS({
 // node_modules/http-proxy-agent/node_modules/debug/src/node.js
 var require_node2 = __commonJS({
   "node_modules/http-proxy-agent/node_modules/debug/src/node.js"(exports2, module2) {
-    var tty = require("tty");
+    var tty2 = require("tty");
     var util6 = require("util");
     exports2.init = init;
     exports2.log = log2;
@@ -6775,8 +6928,8 @@ var require_node2 = __commonJS({
     );
     exports2.colors = [6, 2, 3, 4, 5, 1];
     try {
-      const supportsColor = require("supports-color");
-      if (supportsColor && (supportsColor.stderr || supportsColor).level >= 2) {
+      const supportsColor2 = (init_supports_color(), __toCommonJS(supports_color_exports));
+      if (supportsColor2 && (supportsColor2.stderr || supportsColor2).level >= 2) {
         exports2.colors = [
           20,
           21,
@@ -6856,7 +7009,7 @@ var require_node2 = __commonJS({
           221
         ];
       }
-    } catch (error) {
+    } catch (error2) {
     }
     exports2.inspectOpts = Object.keys(process.env).filter((key) => {
       return /^debug_/i.test(key);
@@ -6878,7 +7031,7 @@ var require_node2 = __commonJS({
       return obj;
     }, {});
     function useColors() {
-      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty.isatty(process.stderr.fd);
+      return "colors" in exports2.inspectOpts ? Boolean(exports2.inspectOpts.colors) : tty2.isatty(process.stderr.fd);
     }
     function formatArgs(args) {
       const { namespace: name, useColors: useColors2 } = this;
@@ -6994,7 +7147,7 @@ var require_dist4 = __commonJS({
         const host = (this.proxy.hostname || this.proxy.host).replace(/^\[|\]$/g, "");
         const port = this.proxy.port ? parseInt(this.proxy.port, 10) : this.proxy.protocol === "https:" ? 443 : 80;
         this.connectOpts = {
-          ...opts ? omit(opts, "headers") : null,
+          ...opts ? omit2(opts, "headers") : null,
           host,
           port
         };
@@ -7007,8 +7160,8 @@ var require_dist4 = __commonJS({
       setRequestProps(req, opts) {
         const { proxy } = this;
         const protocol = opts.secureEndpoint ? "https:" : "http:";
-        const hostname = req.getHeader("host") || "localhost";
-        const base = `${protocol}//${hostname}`;
+        const hostname2 = req.getHeader("host") || "localhost";
+        const base = `${protocol}//${hostname2}`;
         const url2 = new url_1.URL(req.path, base);
         if (opts.port !== 80) {
           url2.port = String(opts.port);
@@ -7059,7 +7212,7 @@ var require_dist4 = __commonJS({
     };
     HttpProxyAgent2.protocols = ["http", "https"];
     exports2.HttpProxyAgent = HttpProxyAgent2;
-    function omit(obj, ...keys) {
+    function omit2(obj, ...keys) {
       const ret = {};
       let key;
       for (key in obj) {
@@ -7293,7 +7446,7 @@ function evaluateCaseReadiness(input) {
   const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
   return {
     checks,
-    ready: checks.every((check) => check.ok),
+    ready: checks.every((check2) => check2.ok),
     requiredFieldsPresent,
     inspectionReady,
     vehicleDetailsReady,
@@ -7537,13 +7690,13 @@ var util;
 (function(util6) {
   util6.assertEqual = (_) => {
   };
-  function assertIs(_arg) {
+  function assertIs2(_arg) {
   }
-  util6.assertIs = assertIs;
-  function assertNever(_x) {
+  util6.assertIs = assertIs2;
+  function assertNever2(_x) {
     throw new Error();
   }
-  util6.assertNever = assertNever;
+  util6.assertNever = assertNever2;
   util6.arrayToEnum = (items) => {
     const obj = {};
     for (const item of items) {
@@ -7564,10 +7717,10 @@ var util;
       return obj[e];
     });
   };
-  util6.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object) => {
+  util6.objectKeys = typeof Object.keys === "function" ? (obj) => Object.keys(obj) : (object2) => {
     const keys = [];
-    for (const key in object) {
-      if (Object.prototype.hasOwnProperty.call(object, key)) {
+    for (const key in object2) {
+      if (Object.prototype.hasOwnProperty.call(object2, key)) {
         keys.push(key);
       }
     }
@@ -7581,10 +7734,10 @@ var util;
     return void 0;
   };
   util6.isInteger = typeof Number.isInteger === "function" ? (val) => Number.isInteger(val) : (val) => typeof val === "number" && Number.isFinite(val) && Math.floor(val) === val;
-  function joinValues(array, separator = " | ") {
-    return array.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
+  function joinValues2(array2, separator = " | ") {
+    return array2.map((val) => typeof val === "string" ? `'${val}'` : val).join(separator);
   }
-  util6.joinValues = joinValues;
+  util6.joinValues = joinValues2;
   util6.jsonStringifyReplacer = (_, value) => {
     if (typeof value === "bigint") {
       return value.toString();
@@ -7712,31 +7865,31 @@ var ZodError = class _ZodError extends Error {
     this.issues = issues;
   }
   format(_mapper) {
-    const mapper = _mapper || function(issue) {
-      return issue.message;
+    const mapper = _mapper || function(issue2) {
+      return issue2.message;
     };
     const fieldErrors = { _errors: [] };
-    const processError = (error) => {
-      for (const issue of error.issues) {
-        if (issue.code === "invalid_union") {
-          issue.unionErrors.map(processError);
-        } else if (issue.code === "invalid_return_type") {
-          processError(issue.returnTypeError);
-        } else if (issue.code === "invalid_arguments") {
-          processError(issue.argumentsError);
-        } else if (issue.path.length === 0) {
-          fieldErrors._errors.push(mapper(issue));
+    const processError = (error2) => {
+      for (const issue2 of error2.issues) {
+        if (issue2.code === "invalid_union") {
+          issue2.unionErrors.map(processError);
+        } else if (issue2.code === "invalid_return_type") {
+          processError(issue2.returnTypeError);
+        } else if (issue2.code === "invalid_arguments") {
+          processError(issue2.argumentsError);
+        } else if (issue2.path.length === 0) {
+          fieldErrors._errors.push(mapper(issue2));
         } else {
           let curr = fieldErrors;
           let i = 0;
-          while (i < issue.path.length) {
-            const el = issue.path[i];
-            const terminal = i === issue.path.length - 1;
+          while (i < issue2.path.length) {
+            const el = issue2.path[i];
+            const terminal = i === issue2.path.length - 1;
             if (!terminal) {
               curr[el] = curr[el] || { _errors: [] };
             } else {
               curr[el] = curr[el] || { _errors: [] };
-              curr[el]._errors.push(mapper(issue));
+              curr[el]._errors.push(mapper(issue2));
             }
             curr = curr[el];
             i++;
@@ -7761,7 +7914,7 @@ var ZodError = class _ZodError extends Error {
   get isEmpty() {
     return this.issues.length === 0;
   }
-  flatten(mapper = (issue) => issue.message) {
+  flatten(mapper = (issue2) => issue2.message) {
     const fieldErrors = {};
     const formErrors = [];
     for (const sub of this.issues) {
@@ -7780,35 +7933,35 @@ var ZodError = class _ZodError extends Error {
   }
 };
 ZodError.create = (issues) => {
-  const error = new ZodError(issues);
-  return error;
+  const error2 = new ZodError(issues);
+  return error2;
 };
 
 // node_modules/zod/v3/locales/en.js
-var errorMap = (issue, _ctx) => {
+var errorMap = (issue2, _ctx) => {
   let message2;
-  switch (issue.code) {
+  switch (issue2.code) {
     case ZodIssueCode.invalid_type:
-      if (issue.received === ZodParsedType.undefined) {
+      if (issue2.received === ZodParsedType.undefined) {
         message2 = "Required";
       } else {
-        message2 = `Expected ${issue.expected}, received ${issue.received}`;
+        message2 = `Expected ${issue2.expected}, received ${issue2.received}`;
       }
       break;
     case ZodIssueCode.invalid_literal:
-      message2 = `Invalid literal value, expected ${JSON.stringify(issue.expected, util.jsonStringifyReplacer)}`;
+      message2 = `Invalid literal value, expected ${JSON.stringify(issue2.expected, util.jsonStringifyReplacer)}`;
       break;
     case ZodIssueCode.unrecognized_keys:
-      message2 = `Unrecognized key(s) in object: ${util.joinValues(issue.keys, ", ")}`;
+      message2 = `Unrecognized key(s) in object: ${util.joinValues(issue2.keys, ", ")}`;
       break;
     case ZodIssueCode.invalid_union:
       message2 = `Invalid input`;
       break;
     case ZodIssueCode.invalid_union_discriminator:
-      message2 = `Invalid discriminator value. Expected ${util.joinValues(issue.options)}`;
+      message2 = `Invalid discriminator value. Expected ${util.joinValues(issue2.options)}`;
       break;
     case ZodIssueCode.invalid_enum_value:
-      message2 = `Invalid enum value. Expected ${util.joinValues(issue.options)}, received '${issue.received}'`;
+      message2 = `Invalid enum value. Expected ${util.joinValues(issue2.options)}, received '${issue2.received}'`;
       break;
     case ZodIssueCode.invalid_arguments:
       message2 = `Invalid function arguments`;
@@ -7820,50 +7973,50 @@ var errorMap = (issue, _ctx) => {
       message2 = `Invalid date`;
       break;
     case ZodIssueCode.invalid_string:
-      if (typeof issue.validation === "object") {
-        if ("includes" in issue.validation) {
-          message2 = `Invalid input: must include "${issue.validation.includes}"`;
-          if (typeof issue.validation.position === "number") {
-            message2 = `${message2} at one or more positions greater than or equal to ${issue.validation.position}`;
+      if (typeof issue2.validation === "object") {
+        if ("includes" in issue2.validation) {
+          message2 = `Invalid input: must include "${issue2.validation.includes}"`;
+          if (typeof issue2.validation.position === "number") {
+            message2 = `${message2} at one or more positions greater than or equal to ${issue2.validation.position}`;
           }
-        } else if ("startsWith" in issue.validation) {
-          message2 = `Invalid input: must start with "${issue.validation.startsWith}"`;
-        } else if ("endsWith" in issue.validation) {
-          message2 = `Invalid input: must end with "${issue.validation.endsWith}"`;
+        } else if ("startsWith" in issue2.validation) {
+          message2 = `Invalid input: must start with "${issue2.validation.startsWith}"`;
+        } else if ("endsWith" in issue2.validation) {
+          message2 = `Invalid input: must end with "${issue2.validation.endsWith}"`;
         } else {
-          util.assertNever(issue.validation);
+          util.assertNever(issue2.validation);
         }
-      } else if (issue.validation !== "regex") {
-        message2 = `Invalid ${issue.validation}`;
+      } else if (issue2.validation !== "regex") {
+        message2 = `Invalid ${issue2.validation}`;
       } else {
         message2 = "Invalid";
       }
       break;
     case ZodIssueCode.too_small:
-      if (issue.type === "array")
-        message2 = `Array must contain ${issue.exact ? "exactly" : issue.inclusive ? `at least` : `more than`} ${issue.minimum} element(s)`;
-      else if (issue.type === "string")
-        message2 = `String must contain ${issue.exact ? "exactly" : issue.inclusive ? `at least` : `over`} ${issue.minimum} character(s)`;
-      else if (issue.type === "number")
-        message2 = `Number must be ${issue.exact ? `exactly equal to ` : issue.inclusive ? `greater than or equal to ` : `greater than `}${issue.minimum}`;
-      else if (issue.type === "bigint")
-        message2 = `Number must be ${issue.exact ? `exactly equal to ` : issue.inclusive ? `greater than or equal to ` : `greater than `}${issue.minimum}`;
-      else if (issue.type === "date")
-        message2 = `Date must be ${issue.exact ? `exactly equal to ` : issue.inclusive ? `greater than or equal to ` : `greater than `}${new Date(Number(issue.minimum))}`;
+      if (issue2.type === "array")
+        message2 = `Array must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `more than`} ${issue2.minimum} element(s)`;
+      else if (issue2.type === "string")
+        message2 = `String must contain ${issue2.exact ? "exactly" : issue2.inclusive ? `at least` : `over`} ${issue2.minimum} character(s)`;
+      else if (issue2.type === "number")
+        message2 = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
+      else if (issue2.type === "bigint")
+        message2 = `Number must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${issue2.minimum}`;
+      else if (issue2.type === "date")
+        message2 = `Date must be ${issue2.exact ? `exactly equal to ` : issue2.inclusive ? `greater than or equal to ` : `greater than `}${new Date(Number(issue2.minimum))}`;
       else
         message2 = "Invalid input";
       break;
     case ZodIssueCode.too_big:
-      if (issue.type === "array")
-        message2 = `Array must contain ${issue.exact ? `exactly` : issue.inclusive ? `at most` : `less than`} ${issue.maximum} element(s)`;
-      else if (issue.type === "string")
-        message2 = `String must contain ${issue.exact ? `exactly` : issue.inclusive ? `at most` : `under`} ${issue.maximum} character(s)`;
-      else if (issue.type === "number")
-        message2 = `Number must be ${issue.exact ? `exactly` : issue.inclusive ? `less than or equal to` : `less than`} ${issue.maximum}`;
-      else if (issue.type === "bigint")
-        message2 = `BigInt must be ${issue.exact ? `exactly` : issue.inclusive ? `less than or equal to` : `less than`} ${issue.maximum}`;
-      else if (issue.type === "date")
-        message2 = `Date must be ${issue.exact ? `exactly` : issue.inclusive ? `smaller than or equal to` : `smaller than`} ${new Date(Number(issue.maximum))}`;
+      if (issue2.type === "array")
+        message2 = `Array must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `less than`} ${issue2.maximum} element(s)`;
+      else if (issue2.type === "string")
+        message2 = `String must contain ${issue2.exact ? `exactly` : issue2.inclusive ? `at most` : `under`} ${issue2.maximum} character(s)`;
+      else if (issue2.type === "number")
+        message2 = `Number must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
+      else if (issue2.type === "bigint")
+        message2 = `BigInt must be ${issue2.exact ? `exactly` : issue2.inclusive ? `less than or equal to` : `less than`} ${issue2.maximum}`;
+      else if (issue2.type === "date")
+        message2 = `Date must be ${issue2.exact ? `exactly` : issue2.inclusive ? `smaller than or equal to` : `smaller than`} ${new Date(Number(issue2.maximum))}`;
       else
         message2 = "Invalid input";
       break;
@@ -7874,14 +8027,14 @@ var errorMap = (issue, _ctx) => {
       message2 = `Intersection results could not be merged`;
       break;
     case ZodIssueCode.not_multiple_of:
-      message2 = `Number must be a multiple of ${issue.multipleOf}`;
+      message2 = `Number must be a multiple of ${issue2.multipleOf}`;
       break;
     case ZodIssueCode.not_finite:
       message2 = "Number must be finite";
       break;
     default:
       message2 = _ctx.defaultError;
-      util.assertNever(issue);
+      util.assertNever(issue2);
   }
   return { message: message2 };
 };
@@ -7925,7 +8078,7 @@ var makeIssue = (params) => {
 var EMPTY_PATH = [];
 function addIssueToContext(ctx, issueData) {
   const overrideMap = getErrorMap();
-  const issue = makeIssue({
+  const issue2 = makeIssue({
     issueData,
     data: ctx.data,
     path: ctx.path,
@@ -7940,7 +8093,7 @@ function addIssueToContext(ctx, issueData) {
       // then global default map
     ].filter((x) => !!x)
   });
-  ctx.common.issues.push(issue);
+  ctx.common.issues.push(issue2);
 }
 var ParseStatus = class _ParseStatus {
   constructor() {
@@ -8045,8 +8198,8 @@ var handleResult = (ctx, result) => {
       get error() {
         if (this._error)
           return this._error;
-        const error = new ZodError(ctx.common.issues);
-        this._error = error;
+        const error2 = new ZodError(ctx.common.issues);
+        this._error = error2;
         return this._error;
       }
     };
@@ -8197,7 +8350,7 @@ var ZodType = class {
     const result = await (isAsync(maybeAsyncResult) ? maybeAsyncResult : Promise.resolve(maybeAsyncResult));
     return handleResult(ctx, result);
   }
-  refine(check, message2) {
+  refine(check2, message2) {
     const getIssueProperties = (val) => {
       if (typeof message2 === "string" || typeof message2 === "undefined") {
         return { message: message2 };
@@ -8208,7 +8361,7 @@ var ZodType = class {
       }
     };
     return this._refinement((val, ctx) => {
-      const result = check(val);
+      const result = check2(val);
       const setError = () => ctx.addIssue({
         code: ZodIssueCode.custom,
         ...getIssueProperties(val)
@@ -8231,9 +8384,9 @@ var ZodType = class {
       }
     });
   }
-  refinement(check, refinementData) {
+  refinement(check2, refinementData) {
     return this._refinement((val, ctx) => {
-      if (!check(val)) {
+      if (!check2(val)) {
         ctx.addIssue(typeof refinementData === "function" ? refinementData(val, ctx) : refinementData);
         return false;
       } else {
@@ -8305,12 +8458,12 @@ var ZodType = class {
   and(incoming) {
     return ZodIntersection.create(this, incoming, this._def);
   }
-  transform(transform) {
+  transform(transform2) {
     return new ZodEffects({
       ...processCreateParams(this._def),
       schema: this,
       typeName: ZodFirstPartyTypeKind.ZodEffects,
-      effect: { type: "transform", transform }
+      effect: { type: "transform", transform: transform2 }
     });
   }
   default(def) {
@@ -8398,11 +8551,11 @@ function datetimeRegex(args) {
   regex = `${regex}(${opts.join("|")})`;
   return new RegExp(`^${regex}$`);
 }
-function isValidIP(ip, version2) {
-  if ((version2 === "v4" || !version2) && ipv4Regex.test(ip)) {
+function isValidIP(ip, version3) {
+  if ((version3 === "v4" || !version3) && ipv4Regex.test(ip)) {
     return true;
   }
-  if ((version2 === "v6" || !version2) && ipv6Regex.test(ip)) {
+  if ((version3 === "v6" || !version3) && ipv6Regex.test(ip)) {
     return true;
   }
   return false;
@@ -8414,8 +8567,8 @@ function isValidJWT(jwt, alg) {
     const [header] = jwt.split(".");
     if (!header)
       return false;
-    const base64 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
-    const decoded = JSON.parse(atob(base64));
+    const base642 = header.replace(/-/g, "+").replace(/_/g, "/").padEnd(header.length + (4 - header.length % 4) % 4, "=");
+    const decoded = JSON.parse(atob(base642));
     if (typeof decoded !== "object" || decoded === null)
       return false;
     if ("typ" in decoded && decoded?.typ !== "JWT")
@@ -8429,22 +8582,22 @@ function isValidJWT(jwt, alg) {
     return false;
   }
 }
-function isValidCidr(ip, version2) {
-  if ((version2 === "v4" || !version2) && ipv4CidrRegex.test(ip)) {
+function isValidCidr(ip, version3) {
+  if ((version3 === "v4" || !version3) && ipv4CidrRegex.test(ip)) {
     return true;
   }
-  if ((version2 === "v6" || !version2) && ipv6CidrRegex.test(ip)) {
+  if ((version3 === "v6" || !version3) && ipv6CidrRegex.test(ip)) {
     return true;
   }
   return false;
 }
-var ZodString = class _ZodString extends ZodType {
+var ZodString = class _ZodString2 extends ZodType {
   _parse(input) {
     if (this._def.coerce) {
       input.data = String(input.data);
     }
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.string) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.string) {
       const ctx2 = this._getOrReturnCtx(input);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
@@ -8455,70 +8608,70 @@ var ZodString = class _ZodString extends ZodType {
     }
     const status = new ParseStatus();
     let ctx = void 0;
-    for (const check of this._def.checks) {
-      if (check.kind === "min") {
-        if (input.data.length < check.value) {
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        if (input.data.length < check2.value) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
-            minimum: check.value,
+            minimum: check2.value,
             type: "string",
             inclusive: true,
             exact: false,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "max") {
-        if (input.data.length > check.value) {
+      } else if (check2.kind === "max") {
+        if (input.data.length > check2.value) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
-            maximum: check.value,
+            maximum: check2.value,
             type: "string",
             inclusive: true,
             exact: false,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "length") {
-        const tooBig = input.data.length > check.value;
-        const tooSmall = input.data.length < check.value;
+      } else if (check2.kind === "length") {
+        const tooBig = input.data.length > check2.value;
+        const tooSmall = input.data.length < check2.value;
         if (tooBig || tooSmall) {
           ctx = this._getOrReturnCtx(input, ctx);
           if (tooBig) {
             addIssueToContext(ctx, {
               code: ZodIssueCode.too_big,
-              maximum: check.value,
+              maximum: check2.value,
               type: "string",
               inclusive: true,
               exact: true,
-              message: check.message
+              message: check2.message
             });
           } else if (tooSmall) {
             addIssueToContext(ctx, {
               code: ZodIssueCode.too_small,
-              minimum: check.value,
+              minimum: check2.value,
               type: "string",
               inclusive: true,
               exact: true,
-              message: check.message
+              message: check2.message
             });
           }
           status.dirty();
         }
-      } else if (check.kind === "email") {
+      } else if (check2.kind === "email") {
         if (!emailRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "email",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "emoji") {
+      } else if (check2.kind === "emoji") {
         if (!emojiRegex) {
           emojiRegex = new RegExp(_emojiRegex, "u");
         }
@@ -8527,61 +8680,61 @@ var ZodString = class _ZodString extends ZodType {
           addIssueToContext(ctx, {
             validation: "emoji",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "uuid") {
+      } else if (check2.kind === "uuid") {
         if (!uuidRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "uuid",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "nanoid") {
+      } else if (check2.kind === "nanoid") {
         if (!nanoidRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "nanoid",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "cuid") {
+      } else if (check2.kind === "cuid") {
         if (!cuidRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "cuid",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "cuid2") {
+      } else if (check2.kind === "cuid2") {
         if (!cuid2Regex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "cuid2",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "ulid") {
+      } else if (check2.kind === "ulid") {
         if (!ulidRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "ulid",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "url") {
+      } else if (check2.kind === "url") {
         try {
           new URL(input.data);
         } catch {
@@ -8589,153 +8742,153 @@ var ZodString = class _ZodString extends ZodType {
           addIssueToContext(ctx, {
             validation: "url",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "regex") {
-        check.regex.lastIndex = 0;
-        const testResult = check.regex.test(input.data);
+      } else if (check2.kind === "regex") {
+        check2.regex.lastIndex = 0;
+        const testResult = check2.regex.test(input.data);
         if (!testResult) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "regex",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "trim") {
+      } else if (check2.kind === "trim") {
         input.data = input.data.trim();
-      } else if (check.kind === "includes") {
-        if (!input.data.includes(check.value, check.position)) {
+      } else if (check2.kind === "includes") {
+        if (!input.data.includes(check2.value, check2.position)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
-            validation: { includes: check.value, position: check.position },
-            message: check.message
+            validation: { includes: check2.value, position: check2.position },
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "toLowerCase") {
+      } else if (check2.kind === "toLowerCase") {
         input.data = input.data.toLowerCase();
-      } else if (check.kind === "toUpperCase") {
+      } else if (check2.kind === "toUpperCase") {
         input.data = input.data.toUpperCase();
-      } else if (check.kind === "startsWith") {
-        if (!input.data.startsWith(check.value)) {
+      } else if (check2.kind === "startsWith") {
+        if (!input.data.startsWith(check2.value)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
-            validation: { startsWith: check.value },
-            message: check.message
+            validation: { startsWith: check2.value },
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "endsWith") {
-        if (!input.data.endsWith(check.value)) {
+      } else if (check2.kind === "endsWith") {
+        if (!input.data.endsWith(check2.value)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
-            validation: { endsWith: check.value },
-            message: check.message
+            validation: { endsWith: check2.value },
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "datetime") {
-        const regex = datetimeRegex(check);
+      } else if (check2.kind === "datetime") {
+        const regex = datetimeRegex(check2);
         if (!regex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "datetime",
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "date") {
+      } else if (check2.kind === "date") {
         const regex = dateRegex;
         if (!regex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "date",
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "time") {
-        const regex = timeRegex(check);
+      } else if (check2.kind === "time") {
+        const regex = timeRegex(check2);
         if (!regex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_string,
             validation: "time",
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "duration") {
+      } else if (check2.kind === "duration") {
         if (!durationRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "duration",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "ip") {
-        if (!isValidIP(input.data, check.version)) {
+      } else if (check2.kind === "ip") {
+        if (!isValidIP(input.data, check2.version)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "ip",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "jwt") {
-        if (!isValidJWT(input.data, check.alg)) {
+      } else if (check2.kind === "jwt") {
+        if (!isValidJWT(input.data, check2.alg)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "jwt",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "cidr") {
-        if (!isValidCidr(input.data, check.version)) {
+      } else if (check2.kind === "cidr") {
+        if (!isValidCidr(input.data, check2.version)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "cidr",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "base64") {
+      } else if (check2.kind === "base64") {
         if (!base64Regex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "base64",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "base64url") {
+      } else if (check2.kind === "base64url") {
         if (!base64urlRegex.test(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             validation: "base64url",
             code: ZodIssueCode.invalid_string,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
       } else {
-        util.assertNever(check);
+        util.assertNever(check2);
       }
     }
     return { status: status.value, value: input.data };
@@ -8747,10 +8900,10 @@ var ZodString = class _ZodString extends ZodType {
       ...errorUtil.errToObj(message2)
     });
   }
-  _addCheck(check) {
-    return new _ZodString({
+  _addCheck(check2) {
+    return new _ZodString2({
       ...this._def,
-      checks: [...this._def.checks, check]
+      checks: [...this._def.checks, check2]
     });
   }
   email(message2) {
@@ -8890,19 +9043,19 @@ var ZodString = class _ZodString extends ZodType {
     return this.min(1, errorUtil.errToObj(message2));
   }
   trim() {
-    return new _ZodString({
+    return new _ZodString2({
       ...this._def,
       checks: [...this._def.checks, { kind: "trim" }]
     });
   }
   toLowerCase() {
-    return new _ZodString({
+    return new _ZodString2({
       ...this._def,
       checks: [...this._def.checks, { kind: "toLowerCase" }]
     });
   }
   toUpperCase() {
-    return new _ZodString({
+    return new _ZodString2({
       ...this._def,
       checks: [...this._def.checks, { kind: "toUpperCase" }]
     });
@@ -9003,8 +9156,8 @@ var ZodNumber = class _ZodNumber extends ZodType {
     if (this._def.coerce) {
       input.data = Number(input.data);
     }
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.number) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.number) {
       const ctx2 = this._getOrReturnCtx(input);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
@@ -9015,67 +9168,67 @@ var ZodNumber = class _ZodNumber extends ZodType {
     }
     let ctx = void 0;
     const status = new ParseStatus();
-    for (const check of this._def.checks) {
-      if (check.kind === "int") {
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "int") {
         if (!util.isInteger(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.invalid_type,
             expected: "integer",
             received: "float",
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input.data < check.value : input.data <= check.value;
+      } else if (check2.kind === "min") {
+        const tooSmall = check2.inclusive ? input.data < check2.value : input.data <= check2.value;
         if (tooSmall) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
-            minimum: check.value,
+            minimum: check2.value,
             type: "number",
-            inclusive: check.inclusive,
+            inclusive: check2.inclusive,
             exact: false,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input.data > check.value : input.data >= check.value;
+      } else if (check2.kind === "max") {
+        const tooBig = check2.inclusive ? input.data > check2.value : input.data >= check2.value;
         if (tooBig) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
-            maximum: check.value,
+            maximum: check2.value,
             type: "number",
-            inclusive: check.inclusive,
+            inclusive: check2.inclusive,
             exact: false,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "multipleOf") {
-        if (floatSafeRemainder(input.data, check.value) !== 0) {
+      } else if (check2.kind === "multipleOf") {
+        if (floatSafeRemainder(input.data, check2.value) !== 0) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
-            multipleOf: check.value,
-            message: check.message
+            multipleOf: check2.value,
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "finite") {
+      } else if (check2.kind === "finite") {
         if (!Number.isFinite(input.data)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_finite,
-            message: check.message
+            message: check2.message
           });
           status.dirty();
         }
       } else {
-        util.assertNever(check);
+        util.assertNever(check2);
       }
     }
     return { status: status.value, value: input.data };
@@ -9106,10 +9259,10 @@ var ZodNumber = class _ZodNumber extends ZodType {
       ]
     });
   }
-  _addCheck(check) {
+  _addCheck(check2) {
     return new _ZodNumber({
       ...this._def,
-      checks: [...this._def.checks, check]
+      checks: [...this._def.checks, check2]
     });
   }
   int(message2) {
@@ -9238,51 +9391,51 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
         return this._getInvalidInput(input);
       }
     }
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.bigint) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.bigint) {
       return this._getInvalidInput(input);
     }
     let ctx = void 0;
     const status = new ParseStatus();
-    for (const check of this._def.checks) {
-      if (check.kind === "min") {
-        const tooSmall = check.inclusive ? input.data < check.value : input.data <= check.value;
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        const tooSmall = check2.inclusive ? input.data < check2.value : input.data <= check2.value;
         if (tooSmall) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
             type: "bigint",
-            minimum: check.value,
-            inclusive: check.inclusive,
-            message: check.message
+            minimum: check2.value,
+            inclusive: check2.inclusive,
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "max") {
-        const tooBig = check.inclusive ? input.data > check.value : input.data >= check.value;
+      } else if (check2.kind === "max") {
+        const tooBig = check2.inclusive ? input.data > check2.value : input.data >= check2.value;
         if (tooBig) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
             type: "bigint",
-            maximum: check.value,
-            inclusive: check.inclusive,
-            message: check.message
+            maximum: check2.value,
+            inclusive: check2.inclusive,
+            message: check2.message
           });
           status.dirty();
         }
-      } else if (check.kind === "multipleOf") {
-        if (input.data % check.value !== BigInt(0)) {
+      } else if (check2.kind === "multipleOf") {
+        if (input.data % check2.value !== BigInt(0)) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.not_multiple_of,
-            multipleOf: check.value,
-            message: check.message
+            multipleOf: check2.value,
+            message: check2.message
           });
           status.dirty();
         }
       } else {
-        util.assertNever(check);
+        util.assertNever(check2);
       }
     }
     return { status: status.value, value: input.data };
@@ -9322,10 +9475,10 @@ var ZodBigInt = class _ZodBigInt extends ZodType {
       ]
     });
   }
-  _addCheck(check) {
+  _addCheck(check2) {
     return new _ZodBigInt({
       ...this._def,
-      checks: [...this._def.checks, check]
+      checks: [...this._def.checks, check2]
     });
   }
   positive(message2) {
@@ -9401,8 +9554,8 @@ var ZodBoolean = class extends ZodType {
     if (this._def.coerce) {
       input.data = Boolean(input.data);
     }
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.boolean) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.boolean) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -9426,8 +9579,8 @@ var ZodDate = class _ZodDate extends ZodType {
     if (this._def.coerce) {
       input.data = new Date(input.data);
     }
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.date) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.date) {
       const ctx2 = this._getOrReturnCtx(input);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
@@ -9445,35 +9598,35 @@ var ZodDate = class _ZodDate extends ZodType {
     }
     const status = new ParseStatus();
     let ctx = void 0;
-    for (const check of this._def.checks) {
-      if (check.kind === "min") {
-        if (input.data.getTime() < check.value) {
+    for (const check2 of this._def.checks) {
+      if (check2.kind === "min") {
+        if (input.data.getTime() < check2.value) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_small,
-            message: check.message,
+            message: check2.message,
             inclusive: true,
             exact: false,
-            minimum: check.value,
+            minimum: check2.value,
             type: "date"
           });
           status.dirty();
         }
-      } else if (check.kind === "max") {
-        if (input.data.getTime() > check.value) {
+      } else if (check2.kind === "max") {
+        if (input.data.getTime() > check2.value) {
           ctx = this._getOrReturnCtx(input, ctx);
           addIssueToContext(ctx, {
             code: ZodIssueCode.too_big,
-            message: check.message,
+            message: check2.message,
             inclusive: true,
             exact: false,
-            maximum: check.value,
+            maximum: check2.value,
             type: "date"
           });
           status.dirty();
         }
       } else {
-        util.assertNever(check);
+        util.assertNever(check2);
       }
     }
     return {
@@ -9481,10 +9634,10 @@ var ZodDate = class _ZodDate extends ZodType {
       value: new Date(input.data.getTime())
     };
   }
-  _addCheck(check) {
+  _addCheck(check2) {
     return new _ZodDate({
       ...this._def,
-      checks: [...this._def.checks, check]
+      checks: [...this._def.checks, check2]
     });
   }
   min(minDate, message2) {
@@ -9532,8 +9685,8 @@ ZodDate.create = (params) => {
 };
 var ZodSymbol = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.symbol) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.symbol) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -9553,8 +9706,8 @@ ZodSymbol.create = (params) => {
 };
 var ZodUndefined = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.undefined) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.undefined) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -9574,8 +9727,8 @@ ZodUndefined.create = (params) => {
 };
 var ZodNull = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.null) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.null) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -9642,8 +9795,8 @@ ZodNever.create = (params) => {
 };
 var ZodVoid = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.undefined) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.undefined) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -9804,8 +9957,8 @@ var ZodObject = class _ZodObject extends ZodType {
     return this._cached;
   }
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.object) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.object) {
       const ctx2 = this._getOrReturnCtx(input);
       addIssueToContext(ctx2, {
         code: ZodIssueCode.invalid_type,
@@ -9898,9 +10051,9 @@ var ZodObject = class _ZodObject extends ZodType {
       ...this._def,
       unknownKeys: "strict",
       ...message2 !== void 0 ? {
-        errorMap: (issue, ctx) => {
-          const defaultError = this._def.errorMap?.(issue, ctx).message ?? ctx.defaultError;
-          if (issue.code === "unrecognized_keys")
+        errorMap: (issue2, ctx) => {
+          const defaultError = this._def.errorMap?.(issue2, ctx).message ?? ctx.defaultError;
+          if (issue2.code === "unrecognized_keys")
             return {
               message: errorUtil.errToObj(message2).message ?? defaultError
             };
@@ -10701,25 +10854,25 @@ var ZodFunction = class _ZodFunction extends ZodType {
       });
       return INVALID;
     }
-    function makeArgsIssue(args, error) {
+    function makeArgsIssue(args, error2) {
       return makeIssue({
         data: args,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_arguments,
-          argumentsError: error
+          argumentsError: error2
         }
       });
     }
-    function makeReturnsIssue(returns, error) {
+    function makeReturnsIssue(returns, error2) {
       return makeIssue({
         data: returns,
         path: ctx.path,
         errorMaps: [ctx.common.contextualErrorMap, ctx.schemaErrorMap, getErrorMap(), en_default].filter((x) => !!x),
         issueData: {
           code: ZodIssueCode.invalid_return_type,
-          returnTypeError: error
+          returnTypeError: error2
         }
       });
     }
@@ -10728,15 +10881,15 @@ var ZodFunction = class _ZodFunction extends ZodType {
     if (this._def.returns instanceof ZodPromise) {
       const me = this;
       return OK(async function(...args) {
-        const error = new ZodError([]);
+        const error2 = new ZodError([]);
         const parsedArgs = await me._def.args.parseAsync(args, params).catch((e) => {
-          error.addIssue(makeArgsIssue(args, e));
-          throw error;
+          error2.addIssue(makeArgsIssue(args, e));
+          throw error2;
         });
         const result = await Reflect.apply(fn, this, parsedArgs);
         const parsedReturns = await me._def.returns._def.type.parseAsync(result, params).catch((e) => {
-          error.addIssue(makeReturnsIssue(result, e));
-          throw error;
+          error2.addIssue(makeReturnsIssue(result, e));
+          throw error2;
         });
         return parsedReturns;
       });
@@ -11103,18 +11256,18 @@ ZodEffects.create = (schema, effect, params) => {
     ...processCreateParams(params)
   });
 };
-ZodEffects.createWithPreprocess = (preprocess, schema, params) => {
+ZodEffects.createWithPreprocess = (preprocess2, schema, params) => {
   return new ZodEffects({
     schema,
-    effect: { type: "preprocess", transform: preprocess },
+    effect: { type: "preprocess", transform: preprocess2 },
     typeName: ZodFirstPartyTypeKind.ZodEffects,
     ...processCreateParams(params)
   });
 };
 var ZodOptional = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType === ZodParsedType.undefined) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 === ZodParsedType.undefined) {
       return OK(void 0);
     }
     return this._def.innerType._parse(input);
@@ -11132,8 +11285,8 @@ ZodOptional.create = (type, params) => {
 };
 var ZodNullable = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType === ZodParsedType.null) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 === ZodParsedType.null) {
       return OK(null);
     }
     return this._def.innerType._parse(input);
@@ -11229,8 +11382,8 @@ ZodCatch.create = (type, params) => {
 };
 var ZodNaN = class extends ZodType {
   _parse(input) {
-    const parsedType = this._getType(input);
-    if (parsedType !== ZodParsedType.nan) {
+    const parsedType2 = this._getType(input);
+    if (parsedType2 !== ZodParsedType.nan) {
       const ctx = this._getOrReturnCtx(input);
       addIssueToContext(ctx, {
         code: ZodIssueCode.invalid_type,
@@ -11345,10 +11498,10 @@ function cleanParams(params, data) {
   const p2 = typeof p === "string" ? { message: p } : p;
   return p2;
 }
-function custom(check, _params = {}, fatal) {
-  if (check)
+function custom(check2, _params = {}, fatal) {
+  if (check2)
     return ZodAny.create().superRefine((data, ctx) => {
-      const r = check(data);
+      const r = check2(data);
       if (r instanceof Promise) {
         return r.then((r2) => {
           if (!r2) {
@@ -12176,6 +12329,32 @@ function suggestedOutlookFolder(subtype) {
   }
 }
 
+// packages/domain/dist/domain/outlook-link.js
+var OUTLOOK_WEB_LINK_HOSTS = [
+  "outlook.office365.com",
+  "outlook.office.com"
+];
+var OUTLOOK_WEB_LINK_HOST_SET = new Set(OUTLOOK_WEB_LINK_HOSTS);
+function normalizeOutlookWebLink(value) {
+  if (typeof value !== "string")
+    return void 0;
+  const raw = value.trim();
+  if (!raw || raw.length > 4096)
+    return void 0;
+  try {
+    const url2 = new URL(raw);
+    if (url2.protocol !== "https:")
+      return void 0;
+    if (url2.username || url2.password || url2.port)
+      return void 0;
+    if (!OUTLOOK_WEB_LINK_HOST_SET.has(url2.hostname.toLowerCase()))
+      return void 0;
+    return url2.toString();
+  } catch {
+    return void 0;
+  }
+}
+
 // packages/domain/dist/domain/retro-case.js
 var CASE_PO_SHAPE_RE = /^(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})$/i;
 function normalizeCasePo(raw) {
@@ -12509,38 +12688,38 @@ function parseBigintDef(def, refs) {
   };
   if (!def.checks)
     return res;
-  for (const check of def.checks) {
-    switch (check.kind) {
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
       case "min":
         if (refs.target === "jsonSchema7") {
-          if (check.inclusive) {
-            setResponseValueAndErrors(res, "minimum", check.value, check.message, refs);
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
           } else {
-            setResponseValueAndErrors(res, "exclusiveMinimum", check.value, check.message, refs);
+            setResponseValueAndErrors(res, "exclusiveMinimum", check2.value, check2.message, refs);
           }
         } else {
-          if (!check.inclusive) {
+          if (!check2.inclusive) {
             res.exclusiveMinimum = true;
           }
-          setResponseValueAndErrors(res, "minimum", check.value, check.message, refs);
+          setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
         }
         break;
       case "max":
         if (refs.target === "jsonSchema7") {
-          if (check.inclusive) {
-            setResponseValueAndErrors(res, "maximum", check.value, check.message, refs);
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
           } else {
-            setResponseValueAndErrors(res, "exclusiveMaximum", check.value, check.message, refs);
+            setResponseValueAndErrors(res, "exclusiveMaximum", check2.value, check2.message, refs);
           }
         } else {
-          if (!check.inclusive) {
+          if (!check2.inclusive) {
             res.exclusiveMaximum = true;
           }
-          setResponseValueAndErrors(res, "maximum", check.value, check.message, refs);
+          setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
         }
         break;
       case "multipleOf":
-        setResponseValueAndErrors(res, "multipleOf", check.value, check.message, refs);
+        setResponseValueAndErrors(res, "multipleOf", check2.value, check2.message, refs);
         break;
     }
   }
@@ -12596,15 +12775,15 @@ var integerDateParser = (def, refs) => {
   if (refs.target === "openApi3") {
     return res;
   }
-  for (const check of def.checks) {
-    switch (check.kind) {
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
       case "min":
         setResponseValueAndErrors(
           res,
           "minimum",
-          check.value,
+          check2.value,
           // This is in milliseconds
-          check.message,
+          check2.message,
           refs
         );
         break;
@@ -12612,9 +12791,9 @@ var integerDateParser = (def, refs) => {
         setResponseValueAndErrors(
           res,
           "maximum",
-          check.value,
+          check2.value,
           // This is in milliseconds
-          check.message,
+          check2.message,
           refs
         );
         break;
@@ -12688,20 +12867,20 @@ function parseIntersectionDef(def, refs) {
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/literal.js
 function parseLiteralDef(def, refs) {
-  const parsedType = typeof def.value;
-  if (parsedType !== "bigint" && parsedType !== "number" && parsedType !== "boolean" && parsedType !== "string") {
+  const parsedType2 = typeof def.value;
+  if (parsedType2 !== "bigint" && parsedType2 !== "number" && parsedType2 !== "boolean" && parsedType2 !== "string") {
     return {
       type: Array.isArray(def.value) ? "array" : "object"
     };
   }
   if (refs.target === "openApi3") {
     return {
-      type: parsedType === "bigint" ? "integer" : parsedType,
+      type: parsedType2 === "bigint" ? "integer" : parsedType2,
       enum: [def.value]
     };
   }
   return {
-    type: parsedType === "bigint" ? "integer" : parsedType,
+    type: parsedType2 === "bigint" ? "integer" : parsedType2,
     const: def.value
   };
 }
@@ -12760,118 +12939,118 @@ function parseStringDef(def, refs) {
     type: "string"
   };
   if (def.checks) {
-    for (const check of def.checks) {
-      switch (check.kind) {
+    for (const check2 of def.checks) {
+      switch (check2.kind) {
         case "min":
-          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check.value) : check.value, check.message, refs);
+          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check2.value) : check2.value, check2.message, refs);
           break;
         case "max":
-          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check.value) : check.value, check.message, refs);
+          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check2.value) : check2.value, check2.message, refs);
           break;
         case "email":
           switch (refs.emailStrategy) {
             case "format:email":
-              addFormat(res, "email", check.message, refs);
+              addFormat(res, "email", check2.message, refs);
               break;
             case "format:idn-email":
-              addFormat(res, "idn-email", check.message, refs);
+              addFormat(res, "idn-email", check2.message, refs);
               break;
             case "pattern:zod":
-              addPattern(res, zodPatterns.email, check.message, refs);
+              addPattern(res, zodPatterns.email, check2.message, refs);
               break;
           }
           break;
         case "url":
-          addFormat(res, "uri", check.message, refs);
+          addFormat(res, "uri", check2.message, refs);
           break;
         case "uuid":
-          addFormat(res, "uuid", check.message, refs);
+          addFormat(res, "uuid", check2.message, refs);
           break;
         case "regex":
-          addPattern(res, check.regex, check.message, refs);
+          addPattern(res, check2.regex, check2.message, refs);
           break;
         case "cuid":
-          addPattern(res, zodPatterns.cuid, check.message, refs);
+          addPattern(res, zodPatterns.cuid, check2.message, refs);
           break;
         case "cuid2":
-          addPattern(res, zodPatterns.cuid2, check.message, refs);
+          addPattern(res, zodPatterns.cuid2, check2.message, refs);
           break;
         case "startsWith":
-          addPattern(res, RegExp(`^${escapeLiteralCheckValue(check.value, refs)}`), check.message, refs);
+          addPattern(res, RegExp(`^${escapeLiteralCheckValue(check2.value, refs)}`), check2.message, refs);
           break;
         case "endsWith":
-          addPattern(res, RegExp(`${escapeLiteralCheckValue(check.value, refs)}$`), check.message, refs);
+          addPattern(res, RegExp(`${escapeLiteralCheckValue(check2.value, refs)}$`), check2.message, refs);
           break;
         case "datetime":
-          addFormat(res, "date-time", check.message, refs);
+          addFormat(res, "date-time", check2.message, refs);
           break;
         case "date":
-          addFormat(res, "date", check.message, refs);
+          addFormat(res, "date", check2.message, refs);
           break;
         case "time":
-          addFormat(res, "time", check.message, refs);
+          addFormat(res, "time", check2.message, refs);
           break;
         case "duration":
-          addFormat(res, "duration", check.message, refs);
+          addFormat(res, "duration", check2.message, refs);
           break;
         case "length":
-          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check.value) : check.value, check.message, refs);
-          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check.value) : check.value, check.message, refs);
+          setResponseValueAndErrors(res, "minLength", typeof res.minLength === "number" ? Math.max(res.minLength, check2.value) : check2.value, check2.message, refs);
+          setResponseValueAndErrors(res, "maxLength", typeof res.maxLength === "number" ? Math.min(res.maxLength, check2.value) : check2.value, check2.message, refs);
           break;
         case "includes": {
-          addPattern(res, RegExp(escapeLiteralCheckValue(check.value, refs)), check.message, refs);
+          addPattern(res, RegExp(escapeLiteralCheckValue(check2.value, refs)), check2.message, refs);
           break;
         }
         case "ip": {
-          if (check.version !== "v6") {
-            addFormat(res, "ipv4", check.message, refs);
+          if (check2.version !== "v6") {
+            addFormat(res, "ipv4", check2.message, refs);
           }
-          if (check.version !== "v4") {
-            addFormat(res, "ipv6", check.message, refs);
+          if (check2.version !== "v4") {
+            addFormat(res, "ipv6", check2.message, refs);
           }
           break;
         }
         case "base64url":
-          addPattern(res, zodPatterns.base64url, check.message, refs);
+          addPattern(res, zodPatterns.base64url, check2.message, refs);
           break;
         case "jwt":
-          addPattern(res, zodPatterns.jwt, check.message, refs);
+          addPattern(res, zodPatterns.jwt, check2.message, refs);
           break;
         case "cidr": {
-          if (check.version !== "v6") {
-            addPattern(res, zodPatterns.ipv4Cidr, check.message, refs);
+          if (check2.version !== "v6") {
+            addPattern(res, zodPatterns.ipv4Cidr, check2.message, refs);
           }
-          if (check.version !== "v4") {
-            addPattern(res, zodPatterns.ipv6Cidr, check.message, refs);
+          if (check2.version !== "v4") {
+            addPattern(res, zodPatterns.ipv6Cidr, check2.message, refs);
           }
           break;
         }
         case "emoji":
-          addPattern(res, zodPatterns.emoji(), check.message, refs);
+          addPattern(res, zodPatterns.emoji(), check2.message, refs);
           break;
         case "ulid": {
-          addPattern(res, zodPatterns.ulid, check.message, refs);
+          addPattern(res, zodPatterns.ulid, check2.message, refs);
           break;
         }
         case "base64": {
           switch (refs.base64Strategy) {
             case "format:binary": {
-              addFormat(res, "binary", check.message, refs);
+              addFormat(res, "binary", check2.message, refs);
               break;
             }
             case "contentEncoding:base64": {
-              setResponseValueAndErrors(res, "contentEncoding", "base64", check.message, refs);
+              setResponseValueAndErrors(res, "contentEncoding", "base64", check2.message, refs);
               break;
             }
             case "pattern:zod": {
-              addPattern(res, zodPatterns.base64, check.message, refs);
+              addPattern(res, zodPatterns.base64, check2.message, refs);
               break;
             }
           }
           break;
         }
         case "nanoid": {
-          addPattern(res, zodPatterns.nanoid, check.message, refs);
+          addPattern(res, zodPatterns.nanoid, check2.message, refs);
         }
         case "toLowerCase":
         case "toUpperCase":
@@ -12879,14 +13058,14 @@ function parseStringDef(def, refs) {
           break;
         default:
           /* @__PURE__ */ ((_) => {
-          })(check);
+          })(check2);
       }
     }
   }
   return res;
 }
-function escapeLiteralCheckValue(literal, refs) {
-  return refs.patternStrategy === "escape" ? escapeNonAlphaNumeric(literal) : literal;
+function escapeLiteralCheckValue(literal2, refs) {
+  return refs.patternStrategy === "escape" ? escapeNonAlphaNumeric(literal2) : literal2;
 }
 var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0123456789");
 function escapeNonAlphaNumeric(source) {
@@ -13110,11 +13289,11 @@ function parseMapDef(def, refs) {
 
 // node_modules/zod-to-json-schema/dist/esm/parsers/nativeEnum.js
 function parseNativeEnumDef(def) {
-  const object = def.values;
+  const object2 = def.values;
   const actualKeys = Object.keys(def.values).filter((key) => {
-    return typeof object[object[key]] !== "number";
+    return typeof object2[object2[key]] !== "number";
   });
-  const actualValues = actualKeys.map((key) => object[key]);
+  const actualValues = actualKeys.map((key) => object2[key]);
   const parsedTypes = Array.from(new Set(actualValues.map((values) => typeof values)));
   return {
     type: parsedTypes.length === 1 ? parsedTypes[0] === "string" ? "string" : "number" : ["string", "number"],
@@ -13249,42 +13428,42 @@ function parseNumberDef(def, refs) {
   };
   if (!def.checks)
     return res;
-  for (const check of def.checks) {
-    switch (check.kind) {
+  for (const check2 of def.checks) {
+    switch (check2.kind) {
       case "int":
         res.type = "integer";
-        addErrorMessage(res, "type", check.message, refs);
+        addErrorMessage(res, "type", check2.message, refs);
         break;
       case "min":
         if (refs.target === "jsonSchema7") {
-          if (check.inclusive) {
-            setResponseValueAndErrors(res, "minimum", check.value, check.message, refs);
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
           } else {
-            setResponseValueAndErrors(res, "exclusiveMinimum", check.value, check.message, refs);
+            setResponseValueAndErrors(res, "exclusiveMinimum", check2.value, check2.message, refs);
           }
         } else {
-          if (!check.inclusive) {
+          if (!check2.inclusive) {
             res.exclusiveMinimum = true;
           }
-          setResponseValueAndErrors(res, "minimum", check.value, check.message, refs);
+          setResponseValueAndErrors(res, "minimum", check2.value, check2.message, refs);
         }
         break;
       case "max":
         if (refs.target === "jsonSchema7") {
-          if (check.inclusive) {
-            setResponseValueAndErrors(res, "maximum", check.value, check.message, refs);
+          if (check2.inclusive) {
+            setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
           } else {
-            setResponseValueAndErrors(res, "exclusiveMaximum", check.value, check.message, refs);
+            setResponseValueAndErrors(res, "exclusiveMaximum", check2.value, check2.message, refs);
           }
         } else {
-          if (!check.inclusive) {
+          if (!check2.inclusive) {
             res.exclusiveMaximum = true;
           }
-          setResponseValueAndErrors(res, "maximum", check.value, check.message, refs);
+          setResponseValueAndErrors(res, "maximum", check2.value, check2.message, refs);
         }
         break;
       case "multipleOf":
-        setResponseValueAndErrors(res, "multipleOf", check.value, check.message, refs);
+        setResponseValueAndErrors(res, "multipleOf", check2.value, check2.message, refs);
         break;
     }
   }
@@ -13298,7 +13477,7 @@ function parseObjectDef(def, refs) {
     type: "object",
     properties: {}
   };
-  const required = [];
+  const required2 = [];
   const shape = def.shape();
   for (const propName3 in shape) {
     let propDef = shape[propName3];
@@ -13325,11 +13504,11 @@ function parseObjectDef(def, refs) {
     }
     result.properties[propName3] = parsedDef;
     if (!propOptional) {
-      required.push(propName3);
+      required2.push(propName3);
     }
   }
-  if (required.length) {
-    result.required = required;
+  if (required2.length) {
+    result.required = required2;
   }
   const additionalProperties = decideAdditionalProperties(def, refs);
   if (additionalProperties !== void 0) {
@@ -13678,7 +13857,8 @@ var PROVENANCE_SOURCE_TYPES = [
   "azure_vision",
   "web_lookup",
   "whatsapp",
-  "manual_upload"
+  "manual_upload",
+  "unknown"
 ];
 var REVIEW_STATES = ["not_required", "needs_review", "reviewed", "conflict"];
 var EVA_FIELD_KEYS = [
@@ -13695,14 +13875,20 @@ var EVA_FIELD_KEYS = [
   "mileage",
   "mileageUnit"
 ];
+var FieldProvenanceParam = external_exports.object({
+  sourceType: external_exports.enum(PROVENANCE_SOURCE_TYPES),
+  sourceLabel: external_exports.string().min(1).max(400),
+  confidence: external_exports.number().min(0).max(1).optional()
+}).strict();
+var EvaFieldConflictParam = external_exports.object({
+  candidateValue: external_exports.string().min(1).max(4e3),
+  provenance: FieldProvenanceParam
+}).strict();
 var EvaFieldParam = external_exports.object({
   value: external_exports.string(),
-  provenance: external_exports.object({
-    sourceType: external_exports.enum(PROVENANCE_SOURCE_TYPES),
-    sourceLabel: external_exports.string().min(1).max(400),
-    confidence: external_exports.number().min(0).max(1).optional()
-  }).strict(),
-  reviewState: external_exports.enum(REVIEW_STATES)
+  provenance: FieldProvenanceParam,
+  reviewState: external_exports.enum(REVIEW_STATES),
+  conflicts: external_exports.array(EvaFieldConflictParam).min(1).max(50).optional()
 }).strict();
 var EvaFieldsParam = external_exports.object(Object.fromEntries(EVA_FIELD_KEYS.map((key) => [key, EvaFieldParam]))).strict();
 var EditableEvaFieldsParam = external_exports.object({
@@ -14277,7 +14463,8 @@ var field_provenance_source_type_default = {
     { value: 100000007, name: "azure_vision", label: "Azure Vision" },
     { value: 100000008, name: "web_lookup", label: "Web Lookup" },
     { value: 100000009, name: "whatsapp", label: "WhatsApp" },
-    { value: 100000010, name: "manual_upload", label: "Manual Upload" }
+    { value: 100000010, name: "manual_upload", label: "Manual Upload" },
+    { value: 100000011, name: "unknown", label: "Source Not Recorded" }
   ]
 };
 
@@ -14380,7 +14567,14 @@ var audit_event_default = {
         { value: 100000052, name: "image_analysis_generated", label: "Image Analysis Generated" },
         { value: 100000053, name: "report_delivered", label: "Report Delivered" },
         { value: 100000054, name: "chaser_suggested", label: "Chase suggested" },
-        { value: 100000055, name: "evidence_upload_result", label: "Files Checked" }
+        { value: 100000055, name: "evidence_upload_result", label: "Files Checked" },
+        { value: 100000056, name: "capture_session_created", label: "Capture Session Created" },
+        { value: 100000057, name: "capture_session_rotated", label: "Capture Session Rotated" },
+        { value: 100000058, name: "capture_session_revoked", label: "Capture Session Revoked" },
+        { value: 100000059, name: "capture_asset_validated", label: "Capture Asset Validated" },
+        { value: 100000060, name: "capture_session_completed", label: "Capture Session Completed" },
+        { value: 100000061, name: "capture_session_retargeted", label: "Capture Session Retargeted" },
+        { value: 100000062, name: "capture_session_locked", label: "Capture Session Locked" }
       ]
     },
     {
@@ -14551,6 +14745,7 @@ function normalize(input) {
   }
   return encoded;
 }
+var encode = (input) => import_node_buffer.Buffer.from(input).toString("base64url");
 var decode = (input) => new Uint8Array(import_node_buffer.Buffer.from(normalize(input), "base64url"));
 
 // node_modules/jose/dist/node/esm/util/errors.js
@@ -15431,7 +15626,7 @@ async function compactVerify(jws, key, options) {
 }
 
 // node_modules/jose/dist/node/esm/lib/epoch.js
-var epoch_default = (date) => Math.floor(date.getTime() / 1e3);
+var epoch_default = (date3) => Math.floor(date3.getTime() / 1e3);
 
 // node_modules/jose/dist/node/esm/lib/secs.js
 var minute = 60;
@@ -15600,6 +15795,188 @@ async function jwtVerify(jwt, key, options) {
   return result;
 }
 
+// node_modules/jose/dist/node/esm/jws/flattened/sign.js
+var FlattenedSign = class {
+  _payload;
+  _protectedHeader;
+  _unprotectedHeader;
+  constructor(payload) {
+    if (!(payload instanceof Uint8Array)) {
+      throw new TypeError("payload must be an instance of Uint8Array");
+    }
+    this._payload = payload;
+  }
+  setProtectedHeader(protectedHeader) {
+    if (this._protectedHeader) {
+      throw new TypeError("setProtectedHeader can only be called once");
+    }
+    this._protectedHeader = protectedHeader;
+    return this;
+  }
+  setUnprotectedHeader(unprotectedHeader) {
+    if (this._unprotectedHeader) {
+      throw new TypeError("setUnprotectedHeader can only be called once");
+    }
+    this._unprotectedHeader = unprotectedHeader;
+    return this;
+  }
+  async sign(key, options) {
+    if (!this._protectedHeader && !this._unprotectedHeader) {
+      throw new JWSInvalid("either setProtectedHeader or setUnprotectedHeader must be called before #sign()");
+    }
+    if (!is_disjoint_default(this._protectedHeader, this._unprotectedHeader)) {
+      throw new JWSInvalid("JWS Protected and JWS Unprotected Header Parameter names must be disjoint");
+    }
+    const joseHeader = {
+      ...this._protectedHeader,
+      ...this._unprotectedHeader
+    };
+    const extensions = validate_crit_default(JWSInvalid, /* @__PURE__ */ new Map([["b64", true]]), options?.crit, this._protectedHeader, joseHeader);
+    let b64 = true;
+    if (extensions.has("b64")) {
+      b64 = this._protectedHeader.b64;
+      if (typeof b64 !== "boolean") {
+        throw new JWSInvalid('The "b64" (base64url-encode payload) Header Parameter must be a boolean');
+      }
+    }
+    const { alg } = joseHeader;
+    if (typeof alg !== "string" || !alg) {
+      throw new JWSInvalid('JWS "alg" (Algorithm) Header Parameter missing or invalid');
+    }
+    checkKeyTypeWithJwk(alg, key, "sign");
+    let payload = this._payload;
+    if (b64) {
+      payload = encoder.encode(encode(payload));
+    }
+    let protectedHeader;
+    if (this._protectedHeader) {
+      protectedHeader = encoder.encode(encode(JSON.stringify(this._protectedHeader)));
+    } else {
+      protectedHeader = encoder.encode("");
+    }
+    const data = concat(protectedHeader, encoder.encode("."), payload);
+    const signature = await sign_default(alg, key, data);
+    const jws = {
+      signature: encode(signature),
+      payload: ""
+    };
+    if (b64) {
+      jws.payload = decoder.decode(payload);
+    }
+    if (this._unprotectedHeader) {
+      jws.header = this._unprotectedHeader;
+    }
+    if (this._protectedHeader) {
+      jws.protected = decoder.decode(protectedHeader);
+    }
+    return jws;
+  }
+};
+
+// node_modules/jose/dist/node/esm/jws/compact/sign.js
+var CompactSign = class {
+  _flattened;
+  constructor(payload) {
+    this._flattened = new FlattenedSign(payload);
+  }
+  setProtectedHeader(protectedHeader) {
+    this._flattened.setProtectedHeader(protectedHeader);
+    return this;
+  }
+  async sign(key, options) {
+    const jws = await this._flattened.sign(key, options);
+    if (jws.payload === void 0) {
+      throw new TypeError("use the flattened module for creating JWS with b64: false");
+    }
+    return `${jws.protected}.${jws.payload}.${jws.signature}`;
+  }
+};
+
+// node_modules/jose/dist/node/esm/jwt/produce.js
+function validateInput(label, input) {
+  if (!Number.isFinite(input)) {
+    throw new TypeError(`Invalid ${label} input`);
+  }
+  return input;
+}
+var ProduceJWT = class {
+  _payload;
+  constructor(payload = {}) {
+    if (!isObject(payload)) {
+      throw new TypeError("JWT Claims Set MUST be an object");
+    }
+    this._payload = payload;
+  }
+  setIssuer(issuer) {
+    this._payload = { ...this._payload, iss: issuer };
+    return this;
+  }
+  setSubject(subject) {
+    this._payload = { ...this._payload, sub: subject };
+    return this;
+  }
+  setAudience(audience) {
+    this._payload = { ...this._payload, aud: audience };
+    return this;
+  }
+  setJti(jwtId) {
+    this._payload = { ...this._payload, jti: jwtId };
+    return this;
+  }
+  setNotBefore(input) {
+    if (typeof input === "number") {
+      this._payload = { ...this._payload, nbf: validateInput("setNotBefore", input) };
+    } else if (input instanceof Date) {
+      this._payload = { ...this._payload, nbf: validateInput("setNotBefore", epoch_default(input)) };
+    } else {
+      this._payload = { ...this._payload, nbf: epoch_default(/* @__PURE__ */ new Date()) + secs_default(input) };
+    }
+    return this;
+  }
+  setExpirationTime(input) {
+    if (typeof input === "number") {
+      this._payload = { ...this._payload, exp: validateInput("setExpirationTime", input) };
+    } else if (input instanceof Date) {
+      this._payload = { ...this._payload, exp: validateInput("setExpirationTime", epoch_default(input)) };
+    } else {
+      this._payload = { ...this._payload, exp: epoch_default(/* @__PURE__ */ new Date()) + secs_default(input) };
+    }
+    return this;
+  }
+  setIssuedAt(input) {
+    if (typeof input === "undefined") {
+      this._payload = { ...this._payload, iat: epoch_default(/* @__PURE__ */ new Date()) };
+    } else if (input instanceof Date) {
+      this._payload = { ...this._payload, iat: validateInput("setIssuedAt", epoch_default(input)) };
+    } else if (typeof input === "string") {
+      this._payload = {
+        ...this._payload,
+        iat: validateInput("setIssuedAt", epoch_default(/* @__PURE__ */ new Date()) + secs_default(input))
+      };
+    } else {
+      this._payload = { ...this._payload, iat: validateInput("setIssuedAt", input) };
+    }
+    return this;
+  }
+};
+
+// node_modules/jose/dist/node/esm/jwt/sign.js
+var SignJWT = class extends ProduceJWT {
+  _protectedHeader;
+  setProtectedHeader(protectedHeader) {
+    this._protectedHeader = protectedHeader;
+    return this;
+  }
+  async sign(key, options) {
+    const sig = new CompactSign(encoder.encode(JSON.stringify(this._payload)));
+    sig.setProtectedHeader(this._protectedHeader);
+    if (Array.isArray(this._protectedHeader?.crit) && this._protectedHeader.crit.includes("b64") && this._protectedHeader.b64 === false) {
+      throw new JWTInvalid("JWTs MUST NOT use unencoded payload");
+    }
+    return sig.sign(key, options);
+  }
+};
+
 // node_modules/jose/dist/node/esm/jwks/local.js
 function getKtyFromAlg(alg) {
   switch (typeof alg === "string" && alg.slice(0, 2)) {
@@ -15681,9 +16058,9 @@ var LocalJWKSet = class {
       throw new JWKSNoMatchingKey();
     }
     if (length !== 1) {
-      const error = new JWKSMultipleMatchingKeys();
+      const error2 = new JWKSMultipleMatchingKeys();
       const { _cached } = this;
-      error[Symbol.asyncIterator] = async function* () {
+      error2[Symbol.asyncIterator] = async function* () {
         for (const jwk2 of candidates) {
           try {
             yield await importWithAlgCache(_cached, jwk2, alg);
@@ -15691,21 +16068,21 @@ var LocalJWKSet = class {
           }
         }
       };
-      throw error;
+      throw error2;
     }
     return importWithAlgCache(this._cached, jwk, alg);
   }
 };
 async function importWithAlgCache(cache2, jwk, alg) {
-  const cached = cache2.get(jwk) || cache2.set(jwk, {}).get(jwk);
-  if (cached[alg] === void 0) {
+  const cached2 = cache2.get(jwk) || cache2.set(jwk, {}).get(jwk);
+  if (cached2[alg] === void 0) {
     const key = await importJWK({ ...jwk, ext: true }, alg);
     if (key instanceof Uint8Array || key.type !== "public") {
       throw new JWKSInvalid("JSON Web Key Set members must be public keys");
     }
-    cached[alg] = key;
+    cached2[alg] = key;
   }
-  return cached[alg];
+  return cached2[alg];
 }
 function createLocalJWKSet(jwks) {
   const set = new LocalJWKSet(jwks);
@@ -15948,18 +16325,32 @@ async function authenticate(req) {
     throw e;
   }
 }
-function withRole(required, handler) {
+function withRole(required2, handler) {
   return async (req, ctx) => {
     try {
       const claims = await authenticate(req);
       const roles = claims.roles ?? [];
-      const ok = required === "CollisionSpike.Superuser" ? hasSuperuser(roles) : roles.includes("CollisionSpike.User") || hasSuperuser(roles);
+      const ok = required2 === "CollisionSpike.Superuser" ? hasSuperuser(roles) : roles.includes("CollisionSpike.User") || hasSuperuser(roles);
       if (!ok) return { status: 403, jsonBody: { error: "forbidden" } };
       return await handler(req, ctx, claims);
     } catch (e) {
       return toErrorResponse(e, ctx);
     }
   };
+}
+var IMAGE_INGEST_AGENT_ROLE = "CollisionSpike.ImageIngest";
+function hasDelegatedUserIdentity(claims) {
+  return typeof claims.scp === "string" || typeof claims.preferred_username === "string";
+}
+function isImageIngestAgentPrincipal(claims) {
+  const roles = claims.roles ?? [];
+  return roles.length === 1 && roles[0] === IMAGE_INGEST_AGENT_ROLE && !hasDelegatedUserIdentity(claims);
+}
+function mcpPrincipalKind(claims) {
+  if (isImageIngestAgentPrincipal(claims)) return "image_ingest_agent";
+  const roles = claims.roles ?? [];
+  if (hasDelegatedUserIdentity(claims) && (roles.includes("CollisionSpike.User") || hasSuperuser(roles))) return "readonly_staff";
+  return void 0;
 }
 
 // node_modules/pg/esm/index.mjs
@@ -16001,6 +16392,14 @@ function getPool() {
 async function query(sql, params) {
   const result = await getPool().query(sql, params);
   return result.rows;
+}
+async function assertStaffRlsContext() {
+  const rows = await query(
+    "SELECT current_setting('app.role', true) AS app_role"
+  );
+  if (rows[0]?.app_role !== "staff") {
+    throw new Error("The least-privilege database context is unavailable.");
+  }
 }
 async function tx(fn) {
   const client2 = await getPool().connect();
@@ -16087,15 +16486,30 @@ var AUDIT_ACTION_CODE_LABELS = {
   // image_analysis_generated
   100000054: "Chase suggested",
   // chaser_suggested
-  100000055: "Files checked"
+  100000055: "Files checked",
   // evidence_upload_result
+  100000056: "Photo request created",
+  // capture_session_created
+  100000057: "Photo request link replaced",
+  // capture_session_rotated
+  100000058: "Photo request cancelled",
+  // capture_session_revoked
+  100000059: "Photo checked",
+  // capture_asset_validated
+  100000060: "Photos received",
+  // capture_session_completed
+  100000061: "Photo request moved",
+  // capture_session_retargeted
+  100000062: "Photo request secured"
+  // capture_session_locked
 };
 var DEFAULT_LABEL = "Updated";
 var GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+var GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 function humanActorName(raw) {
   const s = (raw ?? "").trim();
   if (!s) return void 0;
-  if (GUID_RE.test(s)) return void 0;
+  if (GUID_RE.test(s) || GUID_ANYWHERE_RE.test(s)) return void 0;
   if (s.toLowerCase() === "system") return void 0;
   const at = s.indexOf("@");
   if (at > 0) return s.slice(0, at);
@@ -16108,7 +16522,6 @@ function auditActionLabel(actionCode) {
   if (name && AUDIT_ACTION_LABELS[name]) return AUDIT_ACTION_LABELS[name];
   return AUDIT_ACTION_CODE_LABELS[code] ?? DEFAULT_LABEL;
 }
-var GUID_ANYWHERE_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 var ARROW_RE = /->|→/;
 var KEY_VALUE_RE = /\b\w+=[^\s]/;
 function plainDetail(raw) {
@@ -16183,7 +16596,7 @@ var EVA_COLUMN_BY_KEY = {
   mileageUnit: "eva_mileage_unit"
 };
 function provenanceRowToEvaField(value, row) {
-  const sourceType = sourceTypeCodec.toName(row?.source_type_code) ?? "staff";
+  const sourceType = sourceTypeCodec.toName(row?.source_type_code) ?? "unknown";
   const reviewState = reviewStateCodec.toName(row?.review_state_code) ?? "needs_review";
   const confidence = row?.confidence;
   return {
@@ -16191,7 +16604,7 @@ function provenanceRowToEvaField(value, row) {
     reviewState,
     provenance: {
       sourceType,
-      sourceLabel: row?.source_label ?? "Staff entry",
+      sourceLabel: row?.source_label ?? "Source not recorded",
       ...confidence != null ? { confidence: Number(confidence) } : {}
     }
   };
@@ -16214,7 +16627,8 @@ function rowToEvaFields(rec, provenanceRows = []) {
   for (const desc of EVA_FIELD_ORDER) {
     const value = rec[EVA_COLUMN_BY_KEY[desc.key]] ?? "";
     const currentComparable = comparableProvenanceValue(desc.key, value);
-    const provenance = (byField.get(desc.key) ?? []).filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable).sort((a, b) => {
+    const fieldProvenance = byField.get(desc.key) ?? [];
+    const provenance = fieldProvenance.filter((row) => comparableProvenanceValue(desc.key, row.value) === currentComparable).sort((a, b) => {
       const reviewedA = reviewStateCodec.toName(a.review_state_code) === "reviewed" ? 1 : 0;
       const reviewedB = reviewStateCodec.toName(b.review_state_code) === "reviewed" ? 1 : 0;
       if (reviewedA !== reviewedB) return reviewedB - reviewedA;
@@ -16226,10 +16640,32 @@ function rowToEvaFields(rec, provenanceRows = []) {
       if (timeA !== timeB) return timeB - timeA;
       return String(a.id ?? "").localeCompare(String(b.id ?? ""));
     })[0];
-    out[desc.key] = provenanceRowToEvaField(
+    const mapped = provenanceRowToEvaField(
       value,
       provenance
     );
+    const conflictByValue = /* @__PURE__ */ new Map();
+    const unresolvedConflicts = fieldProvenance.filter(
+      (row) => reviewStateCodec.toName(row.review_state_code) === "conflict" && comparableProvenanceValue(desc.key, row.value) !== currentComparable
+    ).sort((a, b) => {
+      const timeA = new Date(String(a.updated_at ?? a.created_at ?? 0)).getTime() || 0;
+      const timeB = new Date(String(b.updated_at ?? b.created_at ?? 0)).getTime() || 0;
+      if (timeA !== timeB) return timeB - timeA;
+      return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+    });
+    for (const row of unresolvedConflicts) {
+      const comparable = comparableProvenanceValue(desc.key, row.value);
+      if (comparable == null || conflictByValue.has(comparable)) continue;
+      conflictByValue.set(comparable, {
+        candidateValue: String(row.value).trim(),
+        provenance: provenanceRowToEvaField("", row).provenance
+      });
+    }
+    if (conflictByValue.size > 0) {
+      mapped.reviewState = "conflict";
+      mapped.conflicts = [...conflictByValue.values()];
+    }
+    out[desc.key] = mapped;
   }
   out.vatStatus = { ...out.vatStatus, value: out.vatStatus.value };
   out.mileageUnit = { ...out.mileageUnit, value: out.mileageUnit.value };
@@ -16344,6 +16780,7 @@ function rowToEvidence(rec) {
     ...rec.excluded != null ? { excluded: rec.excluded } : {},
     ...rec.exclusion_reason ? { exclusionReason: rec.exclusion_reason } : {},
     ...rec.excluded === true && rec.exclusion_decision_source === "classifier" ? { reviewRequired: true } : {},
+    ...rec.excluded === true && rec.exclusion_decision_source === "staff" ? { excludedByStaff: true } : {},
     // Vision reflection flag + its reviewer dismissal (TKT-123). Columns land via
     // the 2026-07-09 evidence-reflection delta; conditional spreads tolerate a
     // pre-delta row/query shape.
@@ -16566,10 +17003,12 @@ function rowToInboundEmail(rec) {
   const classifierMode = CLASSIFIER_MODES.includes(
     rec.classifier_mode ?? ""
   ) ? rec.classifier_mode : "deterministic";
+  const outlookWebLink = normalizeOutlookWebLink(rec.outlook_web_link);
   return {
     id: rec.id ?? "",
     name: rec.name ?? "",
     sourceMessageId: rec.source_message_id ?? "",
+    ...outlookWebLink ? { outlookWebLink } : {},
     subject: rec.subject ?? "",
     fromAddress: rec.from_address ?? "",
     senderDomain: rec.sender_domain ?? "",
@@ -16897,7 +17336,14 @@ var AUDIT_ACTION = {
   // TKT-166 — one batch-level Manual Intake result, including refusals, partial
   // outcomes and eventual retry recovery. Per-file evidence_added remains the
   // immutable success record for every newly persisted evidence row.
-  evidence_upload_result: 100000055
+  evidence_upload_result: 100000055,
+  capture_session_created: 100000056,
+  capture_session_rotated: 100000057,
+  capture_session_revoked: 100000058,
+  capture_asset_validated: 100000059,
+  capture_session_completed: 100000060,
+  capture_session_retargeted: 100000061,
+  capture_session_locked: 100000062
 };
 var SEVERITY_CODE = {
   info: 1e8,
@@ -16940,8 +17386,8 @@ async function writeAudit(opts, transactionQuery) {
   }
 }
 function actorFromClaims(claims) {
-  const pick = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
-  return pick(claims.oid) ?? pick(claims.preferred_username) ?? pick(claims.name) ?? pick(claims.sub);
+  const pick2 = (v) => typeof v === "string" && v.length > 0 ? v : void 0;
+  return pick2(claims.oid) ?? pick2(claims.preferred_username) ?? pick2(claims.name) ?? pick2(claims.sub);
 }
 
 // api/src/lib/inspection-prefill.ts
@@ -17248,6 +17694,11 @@ var gates = {
   // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
   // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
   mcpServer: () => process.env.MCP_SERVER_ENABLED === "true",
+  // TKT-154 — autonomous registration-bound IMAGE ingestion. Independent kill switch:
+  // read-only MCP remains available while this write lane is dark. The route also requires
+  // the dedicated app-only role and the exact programme test-root setting below.
+  mcpImageIngest: () => process.env.MCP_IMAGE_INGEST_ENABLED === "true",
+  mcpImageIngestBoxRootId: () => process.env.MCP_IMAGE_INGEST_BOX_ROOT_ID ?? "",
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: () => process.env.BOX_API_ENABLED === "true",
   // #22
@@ -17519,7 +17970,8 @@ async function withResolvedEvidenceBackfillTarget(inboundEmailId, requestedCaseI
 // api/src/lib/terminal-transition.ts
 async function markEvaSubmittedUsing(q, caseId, actor) {
   const updated = await q(
-    `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false, updated_at = now()
+    `UPDATE case_ SET status_code = $1, submitted_at = now(), on_hold = false,
+                      on_hold_reason = NULL, updated_at = now()
      WHERE id = $2 AND status_code = $3
      RETURNING id`,
     [statusToInt("eva_submitted"), caseId, statusToInt("ready_for_eva")]
@@ -17536,7 +17988,8 @@ async function markEvaSubmittedUsing(q, caseId, actor) {
 }
 async function markCaseDoneUsing(q, input) {
   const updated = await q(
-    `UPDATE case_ SET status_code = $1, on_hold = false, updated_at = now()
+    `UPDATE case_ SET status_code = $1, on_hold = false, on_hold_reason = NULL,
+                      updated_at = now()
      WHERE id = $2 AND status_code = $3
      RETURNING id`,
     [statusToInt("done"), input.caseId, statusToInt("eva_submitted")]
@@ -17565,8 +18018,8 @@ function stableJson(value) {
     return encoded === void 0 ? "undefined" : encoded;
   }
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  const record = value;
-  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
+  const record2 = value;
+  return `{${Object.keys(record2).sort().map((key) => `${JSON.stringify(key)}:${stableJson(record2[key])}`).join(",")}}`;
 }
 function manualIntakeRequestHash(value) {
   return (0, import_node_crypto6.createHash)("sha256").update(stableJson(value), "utf8").digest("hex");
@@ -17836,12 +18289,12 @@ async function loadColumns(table) {
   }
 }
 function tableColumns(table) {
-  let cached = columnCache.get(table);
-  if (!cached) {
-    cached = loadColumns(table);
-    columnCache.set(table, cached);
+  let cached2 = columnCache.get(table);
+  if (!cached2) {
+    cached2 = loadColumns(table);
+    columnCache.set(table, cached2);
   }
-  return cached;
+  return cached2;
 }
 async function hasColumn(table, column) {
   const cols = await tableColumns(table);
@@ -17968,6 +18421,337 @@ function vrmLinkRefConflict(incomingJobref, caseKnownRefs) {
   const known = caseKnownRefs.map(normalizeRefToken).filter(Boolean);
   if (known.length === 0) return false;
   return !known.includes(incoming);
+}
+
+// api/src/lib/provider-recovery.ts
+var PROVIDER_UNRESOLVED_HOLD_REASON = "provider_unresolved";
+var PROVIDER_ARCHIVE_PENDING_HOLD_REASON = "provider_archive_pending";
+async function completeProviderRecoveryUsing(q, input) {
+  const rows = await q(
+    `SELECT c.case_po, c.on_hold, c.on_hold_reason, c.work_provider_id, c.box_folder_id,
+            c.case_type_code, wp.principal_code, wp.provider_automation_mode_code
+       FROM case_ c
+       JOIN work_provider wp ON wp.id = $2 AND wp.active = true
+      WHERE c.id = $1 AND c.work_provider_id = $2
+      FOR UPDATE OF c, wp`,
+    [input.caseId, input.resolvedProviderId]
+  );
+  const row = rows[0];
+  if (!row) {
+    return {
+      outcome: "blocked",
+      holdCleared: false,
+      blockedReason: "provider_not_active_or_not_bound"
+    };
+  }
+  const providerAutomationMode = automationModeCodec.toName(row.provider_automation_mode_code) ?? "review_auto";
+  const existingCasePo = String(row.case_po ?? "").trim();
+  const principalCode = String(row.principal_code ?? "").trim();
+  const existingFolderId = String(row.box_folder_id ?? "").trim();
+  if (existingCasePo) {
+    const identity = matchPrincipalByCasePo(existingCasePo, [principalCode]);
+    if (!identity || identity.principal !== principalCode.toUpperCase()) {
+      return {
+        outcome: "blocked",
+        holdCleared: false,
+        casePo: existingCasePo,
+        providerAutomationMode,
+        principalCode,
+        blockedReason: "case_po_provider_mismatch"
+      };
+    }
+  }
+  if (row.on_hold_reason === PROVIDER_ARCHIVE_PENDING_HOLD_REASON) {
+    return {
+      outcome: "identity_ready",
+      holdCleared: false,
+      casePo: existingCasePo || void 0,
+      casePoSource: existingCasePo ? "adopted" : void 0,
+      providerAutomationMode,
+      principalCode
+    };
+  }
+  if (row.on_hold_reason !== PROVIDER_UNRESOLVED_HOLD_REASON) {
+    return {
+      outcome: "not_needed",
+      holdCleared: false,
+      ...existingCasePo ? { casePo: existingCasePo } : {},
+      providerAutomationMode,
+      principalCode
+    };
+  }
+  if (!existingCasePo && existingFolderId) {
+    return {
+      outcome: "blocked",
+      holdCleared: false,
+      providerAutomationMode,
+      principalCode,
+      blockedReason: "archive_identity_requires_review"
+    };
+  }
+  if (!existingCasePo && input.allowCasePoMint === false) {
+    return {
+      outcome: "blocked",
+      holdCleared: false,
+      providerAutomationMode,
+      principalCode,
+      blockedReason: "mint_not_allowed"
+    };
+  }
+  if (!existingCasePo && !principalCode) {
+    return {
+      outcome: "blocked",
+      holdCleared: false,
+      providerAutomationMode,
+      blockedReason: "provider_principal_missing"
+    };
+  }
+  const storedCaseType = caseTypeCodec.toName(row.case_type_code);
+  const caseType = storedCaseType ?? input.caseType ?? "standard";
+  const marker2 = markerForMint(caseType, principalCode, input.caseTypeDual === true);
+  const casePo = existingCasePo || await mintCasePo(q, principalCode, void 0, marker2);
+  const casePoSource = existingCasePo ? "adopted" : "minted";
+  const updated = await q(
+    `UPDATE case_
+        SET case_po = COALESCE(NULLIF(btrim(case_po), ''), $2),
+            on_hold = true,
+            on_hold_reason = $5,
+            updated_at = now()
+      WHERE id = $1
+        AND work_provider_id = $3
+        AND on_hold_reason = $4
+      RETURNING case_po`,
+    [
+      input.caseId,
+      casePo,
+      input.resolvedProviderId,
+      PROVIDER_UNRESOLVED_HOLD_REASON,
+      PROVIDER_ARCHIVE_PENDING_HOLD_REASON
+    ]
+  );
+  if (!updated[0]) throw new Error("provider recovery target changed while locked");
+  const effectiveCasePo = String(updated[0].case_po ?? casePo);
+  await writeAuditStrict({
+    action: AUDIT_ACTION.provider_matched,
+    caseId: input.caseId,
+    summary: `Provider confirmed; ${casePoSource === "minted" ? "Case/PO created" : "existing Case/PO kept"} and Archive folder pending`,
+    before: {
+      onHold: row.on_hold,
+      onHoldReason: row.on_hold_reason,
+      casePo: row.case_po
+    },
+    after: {
+      workProviderId: input.resolvedProviderId,
+      onHold: true,
+      onHoldReason: PROVIDER_ARCHIVE_PENDING_HOLD_REASON,
+      casePo: effectiveCasePo
+    }
+  }, q);
+  return {
+    outcome: "identity_ready",
+    holdCleared: false,
+    casePo: effectiveCasePo,
+    casePoSource,
+    providerAutomationMode,
+    principalCode,
+    casePoMarker: marker2
+  };
+}
+async function stampCaseArchiveFolderUsing(q, input) {
+  const rows = await q(
+    `SELECT box_folder_id, on_hold_reason
+       FROM case_
+      WHERE id = $1
+      FOR UPDATE`,
+    [input.caseId]
+  );
+  const row = rows[0];
+  if (!row) {
+    return {
+      found: false,
+      applied: false,
+      boxFolderId: null,
+      providerRecoveryCompleted: false
+    };
+  }
+  const existingFolderId = String(row.box_folder_id ?? "").trim();
+  if (existingFolderId && existingFolderId !== input.boxFolderId) {
+    return {
+      found: true,
+      applied: false,
+      boxFolderId: existingFolderId,
+      providerRecoveryCompleted: false
+    };
+  }
+  let applied = false;
+  if (!existingFolderId) {
+    await q(
+      `UPDATE case_
+          SET box_folder_id = $2, box_folder_url = $3, updated_at = now()
+        WHERE id = $1`,
+      [input.caseId, input.boxFolderId, input.boxFolderUrl]
+    );
+    await writeAuditStrict({
+      action: AUDIT_ACTION.box_folder_created,
+      caseId: input.caseId,
+      summary: `Archive folder ${input.boxFolderId} linked to case`,
+      after: { boxFolderId: input.boxFolderId, boxFolderUrl: input.boxFolderUrl }
+    }, q);
+    applied = true;
+  }
+  let providerRecoveryCompleted = Boolean(existingFolderId || input.boxFolderId) && row.on_hold_reason !== PROVIDER_UNRESOLVED_HOLD_REASON && row.on_hold_reason !== PROVIDER_ARCHIVE_PENDING_HOLD_REASON;
+  let statusGeneration;
+  if (row.on_hold_reason === PROVIDER_ARCHIVE_PENDING_HOLD_REASON) {
+    await q(
+      `UPDATE case_
+          SET on_hold = false, on_hold_reason = NULL, updated_at = now()
+        WHERE id = $1 AND on_hold_reason = $2`,
+      [input.caseId, PROVIDER_ARCHIVE_PENDING_HOLD_REASON]
+    );
+    statusGeneration = await requestStatusRecompute(q, input.caseId);
+    await writeAuditStrict({
+      action: AUDIT_ACTION.provider_matched,
+      caseId: input.caseId,
+      summary: "Provider recovery completed after the Archive folder was linked",
+      before: { onHold: true, onHoldReason: PROVIDER_ARCHIVE_PENDING_HOLD_REASON },
+      after: {
+        onHold: false,
+        boxFolderId: input.boxFolderId,
+        statusGeneration
+      }
+    }, q);
+    providerRecoveryCompleted = true;
+  }
+  return {
+    found: true,
+    applied,
+    boxFolderId: input.boxFolderId,
+    providerRecoveryCompleted,
+    ...statusGeneration != null ? { statusGeneration } : {}
+  };
+}
+
+// api/src/lib/provider-archive-outbox.ts
+async function requestProviderArchive(q, caseId) {
+  const rows = await q(
+    `UPDATE case_
+        SET provider_archive_requested_generation = provider_archive_requested_generation + 1,
+            provider_archive_requested_at = now(),
+            provider_archive_attempt_count = 0,
+            provider_archive_next_attempt_at = now(),
+            provider_archive_last_error = NULL,
+            updated_at = now()
+      WHERE id = $1
+      RETURNING provider_archive_requested_generation`,
+    [caseId]
+  );
+  if (!rows[0]) throw new Error("provider Archive target case disappeared");
+  return Number(rows[0].provider_archive_requested_generation);
+}
+async function cancelProviderArchive(q, caseId) {
+  await q(
+    `UPDATE case_
+        SET provider_archive_completed_generation = provider_archive_requested_generation,
+            provider_archive_completed_at = CASE
+              WHEN provider_archive_completed_generation < provider_archive_requested_generation
+                THEN now()
+              ELSE provider_archive_completed_at
+            END,
+            provider_archive_last_error = CASE
+              WHEN provider_archive_completed_generation < provider_archive_requested_generation
+                THEN 'superseded by merge target'
+              ELSE provider_archive_last_error
+            END,
+            updated_at = now()
+      WHERE id = $1
+        AND provider_archive_completed_generation < provider_archive_requested_generation`,
+    [caseId]
+  );
+}
+
+// api/src/lib/outlook-link-backfill.ts
+async function listOutlookLinkBackfillCandidates(limit) {
+  const bounded = Math.max(1, Math.min(100, Math.trunc(limit) || 25));
+  const rows = await query(
+    `SELECT ie.id, ie.source_mailbox, ie.source_message_id
+       FROM inbound_email ie
+      WHERE NULLIF(btrim(ie.source_mailbox), '') IS NOT NULL
+        AND NULLIF(btrim(ie.source_message_id), '') IS NOT NULL
+        AND (ie.graph_message_id IS NULL OR ie.outlook_web_link IS NULL)
+        AND NOT EXISTS (
+          SELECT 1 FROM outlook_link_backfill_ledger l
+           WHERE l.inbound_email_id = ie.id
+             AND l.outcome IN ('resolved','not_found','not_accessible','ambiguous','identity_conflict')
+        )
+      ORDER BY ie.received_on DESC NULLS LAST, ie.id
+      LIMIT $1`,
+    [bounded]
+  );
+  return rows.map((row) => ({
+    inboundEmailId: String(row.id),
+    sourceMailbox: String(row.source_mailbox),
+    sourceMessageId: String(row.source_message_id)
+  }));
+}
+async function insertLedger(q, result, outcome, graphMessageId, outlookWebLink) {
+  await q(
+    `INSERT INTO outlook_link_backfill_ledger
+       (attempt_id, inbound_email_id, source_mailbox, source_message_id,
+        outcome, reason, graph_message_id, outlook_web_link)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     ON CONFLICT (attempt_id) DO NOTHING`,
+    [
+      result.attemptId,
+      result.inboundEmailId,
+      result.sourceMailbox,
+      result.sourceMessageId,
+      outcome,
+      result.reason.slice(0, 300),
+      graphMessageId,
+      outlookWebLink
+    ]
+  );
+}
+async function recordOutlookLinkBackfillResult(result) {
+  return tx(async (q) => {
+    const rows = await q(
+      `SELECT source_mailbox, source_message_id, graph_message_id, outlook_web_link
+         FROM inbound_email WHERE id = $1 FOR UPDATE`,
+      [result.inboundEmailId]
+    );
+    const row = rows[0];
+    if (!row) return { recorded: false, applied: false, outcome: "missing_row" };
+    const currentMailbox = String(row.source_mailbox ?? "");
+    const currentMessageId = String(row.source_message_id ?? "");
+    if (currentMailbox !== result.sourceMailbox || currentMessageId !== result.sourceMessageId) {
+      await insertLedger(q, result, "stale_source", null, null);
+      return { recorded: true, applied: false, outcome: "stale_source" };
+    }
+    if (result.outcome !== "resolved") {
+      await insertLedger(q, result, result.outcome, null, null);
+      return { recorded: true, applied: false, outcome: result.outcome };
+    }
+    const graphMessageId = (result.graphMessageId ?? "").trim();
+    const outlookWebLink = normalizeOutlookWebLink(result.outlookWebLink) ?? null;
+    if (!graphMessageId || graphMessageId.length > 1024 || !outlookWebLink) {
+      await insertLedger(q, result, "unavailable", null, null);
+      return { recorded: true, applied: false, outcome: "unavailable" };
+    }
+    const existingGraphId = String(row.graph_message_id ?? "").trim();
+    const existingLink = normalizeOutlookWebLink(row.outlook_web_link) ?? "";
+    if (existingGraphId && existingGraphId !== graphMessageId || existingLink && existingLink !== outlookWebLink) {
+      await insertLedger(q, result, "identity_conflict", graphMessageId, outlookWebLink);
+      return { recorded: true, applied: false, outcome: "identity_conflict" };
+    }
+    await q(
+      `UPDATE inbound_email
+          SET graph_message_id = $4, outlook_web_link = $5, updated_at = now()
+        WHERE id = $1 AND source_mailbox = $2 AND source_message_id = $3`,
+      [result.inboundEmailId, result.sourceMailbox, result.sourceMessageId, graphMessageId, outlookWebLink]
+    );
+    await insertLedger(q, result, "resolved", graphMessageId, outlookWebLink);
+    return { recorded: true, applied: true, outcome: "resolved" };
+  });
 }
 
 // api/src/lib/archive-mirror-outbox.ts
@@ -18141,12 +18925,29 @@ async function recomputeStatus(caseId, acknowledgeGeneration) {
   }
   return result;
 }
-async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary) {
+async function applyParserFields(caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
+  return tx((q) => applyParserFieldsUsing(
+    q,
+    caseId,
+    parserRef,
+    parserMileage,
+    parserMileageUnit,
+    parserEva,
+    workProviderId,
+    intermediary,
+    recoveryContext
+  ));
+}
+async function applyParserFieldsUsing(q, caseId, parserRef, parserMileage, parserMileageUnit, parserEva, workProviderId, intermediary, recoveryContext) {
   let providerResolutionSource = "none";
   let resolvedProviderId;
+  let effectiveCasePo = "";
+  let providerRecovery;
   const result = () => ({
     providerResolutionSource,
-    ...resolvedProviderId ? { resolvedProviderId } : {}
+    ...resolvedProviderId ? { resolvedProviderId } : {},
+    ...effectiveCasePo ? { casePo: effectiveCasePo } : {},
+    ...providerRecovery ? { providerRecovery } : {}
   });
   const ref = (parserRef ?? "").trim();
   const mileageRaw = parserMileage != null ? String(parserMileage).trim() : "";
@@ -18154,6 +18955,12 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   const unitRaw = (parserMileageUnit ?? "").trim();
   const unit = unitRaw === "Miles" || unitRaw === "Km" ? unitRaw : "";
   const evaCandidates = selectParserEvaCandidates(parserEva);
+  const explicitClaimantConflicts = (parserEva?.claimant_conflicts ?? []).map((candidate) => ({
+    value: String(candidate?.value ?? "").trim().slice(0, 200),
+    sourceType: "email_text",
+    sourceLabel: "From email body",
+    sourceReference: String(candidate?.source_reference ?? parserEva?.source_reference ?? "").trim().slice(0, 400)
+  })).filter((candidate) => Boolean(candidate.value));
   const matchedProviderId = (workProviderId ?? "").trim();
   const mightFillWorkProviderFromCorpus = Boolean(matchedProviderId) && !evaCandidates.some((c) => c.column === "eva_work_provider");
   const rawContentProvider = (parserEva?.work_provider ?? "").toString().trim();
@@ -18161,24 +18968,31 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   // firm's report, never the instructing provider — skip the corpus match entirely.
   !isEngineerReportLayoutSentinel(rawContentProvider);
   const singleIntermediaryCandidate = intermediary && intermediary.candidateProviderIds.length === 1 ? intermediary.candidateProviderIds[0] : null;
-  if (!ref && !mileage && evaCandidates.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent && !singleIntermediaryCandidate) {
+  if (!ref && !mileage && evaCandidates.length === 0 && explicitClaimantConflicts.length === 0 && !mightFillWorkProviderFromCorpus && !mightMatchWorkProviderIdFromContent && !singleIntermediaryCandidate) {
     return result();
   }
-  const readCols = [
+  const readCols = Array.from(/* @__PURE__ */ new Set([
     "case_ref",
     "ov_claim_number",
     "eva_mileage",
     "eva_work_provider",
     "work_provider_id",
+    "case_po",
+    "eva_claimant_name",
     ...evaCandidates.map((c) => c.column)
-  ];
-  const cur = await query(`SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1`, [caseId]);
+  ]));
+  const cur = await q(
+    `SELECT ${readCols.join(", ")} FROM case_ WHERE id = $1 FOR UPDATE`,
+    [caseId]
+  );
   if (!cur[0]) return result();
+  effectiveCasePo = String(cur[0].case_po ?? "").trim();
   const isEmpty = (v) => !String(v ?? "").trim();
   const sets = [];
   const vals = [];
   let mileageFilled = false;
   const provenance = [];
+  const claimantConflicts = [];
   if (ref && isEmpty(cur[0].case_ref)) {
     sets.push(`case_ref = $${sets.length + 1}`);
     vals.push(ref.slice(0, 100));
@@ -18204,12 +19018,71 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
         field: cand.provenanceField,
         value: cand.value,
         sourceType: cand.sourceType ?? "pdf_extraction",
-        sourceLabel: cand.sourceLabel ?? "From instructions"
+        sourceLabel: cand.sourceLabel ?? "From instructions",
+        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
+      });
+    } else if (cand.provenanceField === "claimantName" && String(cur[0][cand.column] ?? "").trim().toLocaleLowerCase("en-GB") !== cand.value.trim().toLocaleLowerCase("en-GB")) {
+      claimantConflicts.push({
+        value: cand.value,
+        sourceType: cand.sourceType ?? "pdf_extraction",
+        sourceLabel: cand.sourceLabel ?? "From instructions",
+        sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
       });
     }
   }
+  const selectedClaimant = evaCandidates.find(
+    (candidate) => candidate.provenanceField === "claimantName"
+  )?.value ?? "";
+  const effectiveClaimant = String(cur[0].eva_claimant_name ?? "").trim() || selectedClaimant;
+  const seenConflictKeys = new Set(
+    claimantConflicts.map((candidate) => candidate.value.trim().toLocaleLowerCase("en-GB"))
+  );
+  for (const candidate of explicitClaimantConflicts) {
+    const key = candidate.value.toLocaleLowerCase("en-GB");
+    if (key === effectiveClaimant.toLocaleLowerCase("en-GB") || seenConflictKeys.has(key)) continue;
+    seenConflictKeys.add(key);
+    claimantConflicts.push(candidate);
+  }
+  for (const conflict of claimantConflicts) {
+    const sourceCode = sourceTypeCodec.toInt(conflict.sourceType) ?? 100000001;
+    const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
+    const inserted = await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference,
+          review_state_code)
+       SELECT $1, $2, 'claimantName', $3, $4, $5, NULLIF($6, ''), $7
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM field_level_provenance
+         WHERE case_id = $2
+           AND field_name = 'claimantName'
+           AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+           AND COALESCE(source_reference, '') = $6
+       )
+       RETURNING id`,
+      [
+        `${caseId}:claimantName:conflict`,
+        caseId,
+        conflict.value,
+        sourceCode,
+        `${conflict.sourceLabel} \u2014 differs from the saved claimant`,
+        conflict.sourceReference,
+        conflictCode
+      ]
+    );
+    if (inserted.length > 0) {
+      await writeAudit({
+        action: AUDIT_ACTION.parser_called,
+        caseId,
+        severity: "warning",
+        summary: "A retained source names a different claimant \u2014 kept the saved claimant for review",
+        before: { claimantName: cur[0].eva_claimant_name },
+        after: { candidateClaimantName: conflict.value, provenanceId: inserted[0].id }
+      }, q);
+    }
+  }
   if (mightMatchWorkProviderIdFromContent) {
-    const providerRows = await query(
+    const providerRows = await q(
       "SELECT id, principal_code, display_name FROM work_provider WHERE active = true"
     );
     const contentCandidates = providerRows.map((r) => ({
@@ -18219,11 +19092,11 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
     }));
     const contentMatch = matchWorkProviderByContentString(rawContentProvider, contentCandidates);
     if (contentMatch.outcome === "matched") {
-      const existingWorkProviderId = cur[0].work_provider_id ?? null;
+      const existingWorkProviderId2 = cur[0].work_provider_id ?? null;
       const corroborated = Boolean(
         intermediary?.candidateProviderIds?.includes(contentMatch.workProviderId)
       );
-      if (isEmpty(existingWorkProviderId)) {
+      if (isEmpty(existingWorkProviderId2)) {
         sets.push(`work_provider_id = $${sets.length + 1}`);
         vals.push(contentMatch.workProviderId);
         providerResolutionSource = "instruction_content";
@@ -18243,23 +19116,51 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
               workProviderId: contentMatch.workProviderId,
               viaIntermediaryImageSourceId: intermediary?.imageSourceId
             }
-          });
+          }, q);
         }
-      } else if (existingWorkProviderId !== contentMatch.workProviderId) {
+      } else if (existingWorkProviderId2 === contentMatch.workProviderId) {
+        providerResolutionSource = "instruction_content";
+        resolvedProviderId = contentMatch.workProviderId;
+      } else if (existingWorkProviderId2 !== contentMatch.workProviderId) {
         await writeAudit({
           action: AUDIT_ACTION.provider_matched,
           caseId,
           severity: "warning",
           summary: "Instruction content names a different work provider than the one already on the case \u2014 kept the existing provider",
-          before: { workProviderId: existingWorkProviderId },
+          before: { workProviderId: existingWorkProviderId2 },
           after: { contentDetectedWorkProviderId: contentMatch.workProviderId }
-        });
+        }, q);
       }
     }
   }
-  const alreadySettingWorkProviderId = sets.some((s) => s.startsWith("work_provider_id ="));
+  let alreadySettingWorkProviderId = sets.some((s) => s.startsWith("work_provider_id ="));
+  const existingWorkProviderId = String(cur[0].work_provider_id ?? "").trim();
+  if (matchedProviderId && !resolvedProviderId && !alreadySettingWorkProviderId) {
+    if (!existingWorkProviderId) {
+      const wpRows = await q(
+        "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
+        [matchedProviderId]
+      );
+      if (wpRows[0]) {
+        sets.push(`work_provider_id = $${sets.length + 1}`);
+        vals.push(matchedProviderId);
+        providerResolutionSource = "sender_domain";
+        resolvedProviderId = matchedProviderId;
+        provenance.push({
+          field: "workProviderId",
+          value: matchedProviderId,
+          sourceType: "corpus",
+          sourceLabel: "Matched sender domain"
+        });
+        alreadySettingWorkProviderId = true;
+      }
+    } else if (existingWorkProviderId === matchedProviderId) {
+      providerResolutionSource = "sender_domain";
+      resolvedProviderId = matchedProviderId;
+    }
+  }
   if (singleIntermediaryCandidate && !alreadySettingWorkProviderId && isEmpty(cur[0].work_provider_id)) {
-    const wpRows = await query(
+    const wpRows = await q(
       "SELECT display_name FROM work_provider WHERE id = $1 AND active = true",
       [singleIntermediaryCandidate]
     );
@@ -18293,11 +19194,14 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
           workProviderId: singleIntermediaryCandidate,
           viaIntermediaryImageSourceId: intermediary?.imageSourceId
         }
-      });
+      }, q);
     }
+  } else if (singleIntermediaryCandidate && !resolvedProviderId && existingWorkProviderId === singleIntermediaryCandidate) {
+    providerResolutionSource = "single_intermediary";
+    resolvedProviderId = singleIntermediaryCandidate;
   }
   if (mightFillWorkProviderFromCorpus && isEmpty(cur[0].eva_work_provider)) {
-    const wpRows = await query(
+    const wpRows = await q(
       "SELECT display_name FROM work_provider WHERE id = $1",
       [matchedProviderId]
     );
@@ -18315,18 +19219,20 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
       });
     }
   }
-  if (sets.length === 0) return result();
-  vals.push(caseId);
-  await query(
-    `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
-    vals
-  );
+  if (sets.length > 0) {
+    vals.push(caseId);
+    await q(
+      `UPDATE case_ SET ${sets.join(", ")}, updated_at = now() WHERE id = $${vals.length}`,
+      vals
+    );
+  }
   if (mileageFilled) {
     provenance.unshift({
       field: "mileage",
       value: mileage.slice(0, 20),
       sourceType: "pdf_extraction",
-      sourceLabel: "From instructions"
+      sourceLabel: "From instructions",
+      sourceReference: String(parserEva?.source_reference ?? "").trim().slice(0, 400)
     });
   }
   const pdfSourceTypeCode = sourceTypeCodec.toInt("pdf_extraction") ?? 100000001;
@@ -18334,15 +19240,70 @@ async function applyParserFields(caseId, parserRef, parserMileage, parserMileage
   const corpusSourceTypeCode = sourceTypeCodec.toInt("corpus") ?? 100000003;
   for (const p of provenance) {
     const sourceTypeCode = p.sourceType === "corpus" ? corpusSourceTypeCode : p.sourceType === "email_text" ? emailSourceTypeCode : pdfSourceTypeCode;
-    await query(
+    const insertProvenance = () => q(
       `INSERT INTO field_level_provenance
-         (name, case_id, field_name, value, source_type_code, source_label)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [`${caseId}:${p.field}`, caseId, p.field, p.value, sourceTypeCode, p.sourceLabel]
-    ).catch(() => {
+         (name, case_id, field_name, value, source_type_code, source_label, source_reference)
+       VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''))`,
+      [
+        `${caseId}:${p.field}`,
+        caseId,
+        p.field,
+        p.value,
+        sourceTypeCode,
+        p.sourceLabel,
+        p.sourceReference ?? ""
+      ]
+    );
+    if (p.field === "claimantName") {
+      await insertProvenance();
+      continue;
+    }
+    await q("SAVEPOINT parser_provenance_write");
+    try {
+      await insertProvenance();
+      await q("RELEASE SAVEPOINT parser_provenance_write");
+    } catch (error2) {
+      await q("ROLLBACK TO SAVEPOINT parser_provenance_write");
+      await q("RELEASE SAVEPOINT parser_provenance_write");
+      console.warn("[applyParserFields] non-claimant provenance write failed", {
+        caseId,
+        field: p.field,
+        error: error2 instanceof Error ? error2.message : String(error2)
+      });
+    }
+  }
+  if (resolvedProviderId && recoveryContext) {
+    providerRecovery = await completeProviderRecoveryUsing(q, {
+      caseId,
+      resolvedProviderId,
+      ...recoveryContext.caseType ? { caseType: recoveryContext.caseType } : {},
+      caseTypeDual: recoveryContext.caseTypeDual === true,
+      allowCasePoMint: recoveryContext.allowCasePoMint !== false
     });
+    if (providerRecovery.outcome === "identity_ready") {
+      await requestProviderArchive(q, caseId);
+    }
+    effectiveCasePo = providerRecovery.casePo ?? effectiveCasePo;
   }
   return result();
+}
+async function exactCaseForSourceMessage(q, sourceMessageId) {
+  const rows = await q(
+    `SELECT c.id, c.case_po, c.status_code, wp.provider_automation_mode_code
+       FROM case_ c
+       LEFT JOIN work_provider wp ON wp.id = c.work_provider_id
+      WHERE c.source_message_id = $1`,
+    [sourceMessageId]
+  );
+  if (!rows[0]) return null;
+  const status = caseStatusCodec.toName(rows[0].status_code) ?? "error";
+  return {
+    caseId: rows[0].id,
+    casePo: rows[0].case_po ?? null,
+    providerAutomationMode: automationModeCodec.toName(rows[0].provider_automation_mode_code) ?? "manual",
+    status,
+    replayAllowed: !TERMINAL_STATUSES.includes(status)
+  };
 }
 import_functions.app.http("internalProviderMatchRecords", {
   methods: ["GET"],
@@ -18417,10 +19378,17 @@ import_functions.app.http("internalDedupContext", {
   handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
     const workProviderId = req.query.get("workProviderId") ?? "";
     const vrm = req.query.get("vrm") ?? "";
+    const sourceMessageId = (req.query.get("messageId") ?? "").trim();
+    const exactSourceOwner = sourceMessageId ? await exactCaseForSourceMessage(query, sourceMessageId) : null;
     if (!workProviderId) {
       return {
         status: 200,
-        jsonBody: { openProviderCases: [], seenMessageIds: [], seenPayloadHashes: [] }
+        jsonBody: {
+          openProviderCases: [],
+          seenMessageIds: [],
+          seenPayloadHashes: [],
+          ...exactSourceOwner ? { exactSourceOwner } : {}
+        }
       };
     }
     const caseRows = vrm ? await query(
@@ -18459,7 +19427,12 @@ import_functions.app.http("internalDedupContext", {
     const seenPayloadHashes = hashRows.map((r) => r.payload_hash);
     return {
       status: 200,
-      jsonBody: { openProviderCases, seenMessageIds, seenPayloadHashes }
+      jsonBody: {
+        openProviderCases,
+        seenMessageIds,
+        seenPayloadHashes,
+        ...exactSourceOwner ? { exactSourceOwner } : {}
+      }
     };
   })
 });
@@ -18514,6 +19487,10 @@ import_functions.app.http("internalCasesResolve", {
       );
     }
     const vrm = vrmGuard.value;
+    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
+    const caseTypeDual = body2.caseTypeDual === true;
+    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
+    const auditGateOn = gates.auditCases();
     let providerAutomationMode = "manual";
     if (workProviderId) {
       const wpMode = await query(
@@ -18522,28 +19499,64 @@ import_functions.app.http("internalCasesResolve", {
       );
       providerAutomationMode = automationModeCodec.toName(wpMode[0]?.provider_automation_mode_code) ?? "review_auto";
     }
-    if (decision.resolution === "attach" && decision.targetCaseId) {
-      await upsertInboundEmail(inbound, workProviderId, decision.targetCaseId, void 0, body2.parserVrm);
-      await applyParserFields(
-        decision.targetCaseId,
+    const persistExistingCase = async (targetCaseId, exactReplay) => {
+      await upsertInboundEmail(inbound, workProviderId, targetCaseId, void 0, body2.parserVrm);
+      const parserFieldsResult2 = await applyParserFields(
+        targetCaseId,
         body2.parserRef,
         body2.parserMileage,
         body2.parserMileageUnit,
         body2.parserEva,
         workProviderId,
-        intermediary
+        intermediary,
+        {
+          caseType: auditGateOn ? caseType : "standard",
+          caseTypeDual,
+          allowCasePoMint: true
+        }
       );
+      if (parserFieldsResult2.resolvedProviderId && parserFieldsResult2.resolvedProviderId !== workProviderId) {
+        await upsertInboundEmail(
+          inbound,
+          parserFieldsResult2.resolvedProviderId,
+          targetCaseId,
+          void 0,
+          body2.parserVrm
+        );
+      }
+      providerAutomationMode = parserFieldsResult2.providerRecovery?.providerAutomationMode ?? providerAutomationMode;
+      const attachedIdentity = await query(
+        "SELECT case_po FROM case_ WHERE id = $1",
+        [targetCaseId]
+      );
+      const effectiveCasePo2 = parserFieldsResult2.casePo ?? (String(attachedIdentity[0]?.case_po ?? "").trim() || null);
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
-        caseId: decision.targetCaseId,
-        summary: `Email ${inbound.internetMessageId} attached to existing case`,
-        after: { messageId: inbound.internetMessageId, resolution: "attach" }
+        caseId: targetCaseId,
+        summary: exactReplay ? `Email ${inbound.internetMessageId} replayed against its existing case` : `Email ${inbound.internetMessageId} attached to existing case`,
+        after: {
+          messageId: inbound.internetMessageId,
+          resolution: exactReplay ? "replay" : "attach",
+          casePo: effectiveCasePo2,
+          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
+        }
       });
-      await markOutstandingChasersResponded(decision.targetCaseId, "dedup attach");
+      if (!exactReplay) {
+        await markOutstandingChasersResponded(targetCaseId, "dedup attach");
+      }
       return {
         status: 200,
-        jsonBody: { outcome: "attached", caseId: decision.targetCaseId, providerAutomationMode }
+        jsonBody: {
+          outcome: exactReplay ? "replayed" : "attached",
+          caseId: targetCaseId,
+          casePo: effectiveCasePo2,
+          providerAutomationMode,
+          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
+        }
       };
+    };
+    if ((decision.resolution === "attach" || decision.resolution === "replay") && decision.targetCaseId) {
+      return persistExistingCase(decision.targetCaseId, decision.resolution === "replay");
     }
     const blockedCategory = await mintBlockedByCategory(inbound.internetMessageId);
     if (blockedCategory) {
@@ -18568,10 +19581,6 @@ import_functions.app.http("internalCasesResolve", {
     const subject = (inbound.subject ?? "").trim();
     const name = ([vrm || null, subject || null].filter(Boolean).join(" \xB7 ") || "Email intake").slice(0, 100);
     const emailKindCode = intakeChannelKindCodec.toInt("email") ?? null;
-    const caseType = caseTypeCodec.toInt(body2.caseType) != null ? body2.caseType : "standard";
-    const caseTypeDual = body2.caseTypeDual === true;
-    const caseTypeSignals = Array.isArray(body2.caseTypeSignals) ? body2.caseTypeSignals : [];
-    const auditGateOn = gates.auditCases();
     let created;
     try {
       created = await tx(async (q) => {
@@ -18628,6 +19637,8 @@ import_functions.app.http("internalCasesResolve", {
         if (newClient) {
           cols.push("on_hold");
           vals.push(true);
+          cols.push("on_hold_reason");
+          vals.push("provider_unresolved");
           cols.push("action_reason_code");
           vals.push(actionReasonCodec.toInt("needs_review") ?? null);
         }
@@ -18647,6 +19658,25 @@ import_functions.app.http("internalCasesResolve", {
           ctx.error(`[cases/resolve] case_po unique collision (${constraint})`);
           return { status: 500, jsonBody: { error: "case_po_collision" } };
         }
+        const replay = await exactCaseForSourceMessage(query, inbound.internetMessageId);
+        if (replay) {
+          ctx.log(JSON.stringify({
+            evt: "caseResolvePersist",
+            outcome: replay.replayAllowed ? "replay_recovered" : "terminal_duplicate_dropped",
+            caseId: replay.caseId,
+            sourceMessageExact: true
+          }));
+          if (replay.replayAllowed) return persistExistingCase(replay.caseId, true);
+          return {
+            status: 200,
+            jsonBody: {
+              outcome: "already_ingested",
+              caseId: replay.caseId,
+              casePo: replay.casePo,
+              providerAutomationMode: replay.providerAutomationMode
+            }
+          };
+        }
         return { status: 409, jsonBody: { error: "conflict", detail: "source_message_id already exists" } };
       }
       throw e;
@@ -18660,17 +19690,43 @@ import_functions.app.http("internalCasesResolve", {
       body2.parserMileageUnit,
       body2.parserEva,
       workProviderId,
-      intermediary
+      intermediary,
+      {
+        caseType: auditGateOn ? caseType : "standard",
+        caseTypeDual,
+        allowCasePoMint: true
+      }
     );
+    if (parserFieldsResult.resolvedProviderId && parserFieldsResult.resolvedProviderId !== workProviderId) {
+      await upsertInboundEmail(
+        inbound,
+        parserFieldsResult.resolvedProviderId,
+        newCaseId,
+        void 0,
+        body2.parserVrm
+      );
+    }
+    const providerCompletion = parserFieldsResult.providerRecovery;
+    const effectiveCasePo = parserFieldsResult.casePo ?? created.casePo;
+    const effectivePrincipalCode = providerCompletion?.principalCode ?? created.principalCode;
+    const effectiveMarker = providerCompletion?.casePoMarker ?? created.mintedMarker;
+    const effectiveNewClient = created.newClient && providerCompletion?.holdCleared !== true;
+    providerAutomationMode = providerCompletion?.providerAutomationMode ?? providerAutomationMode;
     const auditAction = AUDIT_ACTION[decision.auditAction] ?? AUDIT_ACTION.case_created;
     await writeAudit({
       action: auditAction,
       caseId: newCaseId,
       summary: `Case ${decision.resolution}: ${name}`,
-      after: { resolution: decision.resolution, status: rawStatus, vrm, casePo: created.casePo }
+      after: {
+        resolution: decision.resolution,
+        status: rawStatus,
+        vrm,
+        casePo: effectiveCasePo,
+        providerRecovery: providerCompletion?.outcome ?? "not_needed"
+      }
     });
     if (caseType !== "standard") {
-      const allowlisted = allowedCaseTypes(created.principalCode).includes(caseType);
+      const allowlisted = allowedCaseTypes(effectivePrincipalCode).includes(caseType);
       if (!auditGateOn) {
         await writeAudit({
           action: AUDIT_ACTION.case_created,
@@ -18678,12 +19734,12 @@ import_functions.app.http("internalCasesResolve", {
           summary: `Case-type '${caseType}' detected (observe-only \u2014 AUDIT_CASES_ENABLED off; minted standard)`,
           after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
         });
-      } else if (!allowlisted && !created.newClient) {
+      } else if (!allowlisted && !effectiveNewClient) {
         await writeAudit({
           action: AUDIT_ACTION.case_created,
           caseId: newCaseId,
           severity: "warning",
-          summary: `Case-type '${caseType}' detected for non-allowlisted provider ${created.principalCode} \u2014 minted standard; review case type`,
+          summary: `Case-type '${caseType}' detected for non-allowlisted provider ${effectivePrincipalCode} \u2014 minted standard; review case type`,
           after: { caseType, dual: caseTypeDual, signals: caseTypeSignals, applied: false }
         });
         await query(
@@ -18692,7 +19748,7 @@ import_functions.app.http("internalCasesResolve", {
             "Case-type review",
             newCaseId,
             "Email intake (auto)",
-            `${caseType === "diminution" ? "Diminution" : "Audit"} signals detected (${caseTypeSignals.join("; ") || "see audit log"}) but ${created.principalCode || "this provider"} is not in the case-type marker allowlist \u2014 case minted as standard. Confirm the case type.`
+            `${caseType === "diminution" ? "Diminution" : "Audit"} signals detected (${caseTypeSignals.join("; ") || "see audit log"}) but ${effectivePrincipalCode || "this provider"} is not in the case-type marker allowlist \u2014 case minted as standard. Confirm the case type.`
           ]
         ).catch(() => {
         });
@@ -18700,19 +19756,19 @@ import_functions.app.http("internalCasesResolve", {
         await writeAudit({
           action: AUDIT_ACTION.case_created,
           caseId: newCaseId,
-          summary: `Case-type '${caseType}' applied` + (created.mintedMarker ? ` \u2014 minted ${created.casePo} from the ${created.mintedMarker} sequence` : caseTypeDual ? ` \u2014 dual report+audit letter, standard number kept (audit ID derived at review)` : ""),
+          summary: `Case-type '${caseType}' applied` + (effectiveMarker ? ` \u2014 minted ${effectiveCasePo} from the ${effectiveMarker} sequence` : caseTypeDual ? ` \u2014 dual report+audit letter, standard number kept (audit ID derived at review)` : ""),
           after: {
             caseType,
             dual: caseTypeDual,
             signals: caseTypeSignals,
             applied: true,
-            marker: created.mintedMarker,
-            casePo: created.casePo
+            marker: effectiveMarker,
+            casePo: effectiveCasePo
           }
         });
       }
     }
-    if (created.newClient) {
+    if (effectiveNewClient) {
       const domain = senderDomain(inbound.senderAddress ?? "");
       let heldIntermediary = null;
       if (intermediary) {
@@ -18771,7 +19827,13 @@ import_functions.app.http("internalCasesResolve", {
     }
     return {
       status: 200,
-      jsonBody: { outcome: "created", caseId: newCaseId, casePo: created.casePo, providerAutomationMode }
+      jsonBody: {
+        outcome: "created",
+        caseId: newCaseId,
+        casePo: effectiveCasePo,
+        providerAutomationMode,
+        providerRecovery: providerCompletion?.outcome ?? "not_needed"
+      }
     };
   })
 });
@@ -18802,20 +19864,27 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
   const signals = classification ? JSON.stringify(classification.signals ?? []) : null;
   const bodyJobref = clampVarchar(classification?.bodyJobref, 64).value || null;
   const conversationId = (inbound.conversationId ?? "").trim() || null;
+  const rawGraphMessageId = (inbound.graphMessageId ?? "").trim();
+  const normalizedOutlookWebLink = normalizeOutlookWebLink(inbound.outlookWebLink) ?? null;
+  const hasCompleteOutlookTuple = rawGraphMessageId.length > 0 && rawGraphMessageId.length <= 1024 && normalizedOutlookWebLink !== null;
+  const graphMessageId = hasCompleteOutlookTuple ? rawGraphMessageId : null;
+  const outlookWebLink = hasCompleteOutlookTuple ? normalizedOutlookWebLink : null;
   try {
     const presentCols = await tableColumns("inbound_email");
-    const optional = planOptionalColumns(
+    const optional2 = planOptionalColumns(
       "inbound_email",
       [
         { column: "body_jobref", value: bodyJobref },
-        { column: "conversation_id", value: conversationId }
+        { column: "conversation_id", value: conversationId },
+        { column: "graph_message_id", value: graphMessageId },
+        { column: "outlook_web_link", value: outlookWebLink }
       ],
       presentCols,
       19
     );
-    const optionalColsFragment = optional.cols.length ? `, ${optional.cols.join(", ")}` : "";
-    const optionalValsFragment = optional.placeholders.length ? `, ${optional.placeholders.join(", ")}` : "";
-    const optionalUpdateFragment = optional.updateSets.length ? `${optional.updateSets.join(",\n         ")},
+    const optionalColsFragment = optional2.cols.length ? `, ${optional2.cols.join(", ")}` : "";
+    const optionalValsFragment = optional2.placeholders.length ? `, ${optional2.placeholders.join(", ")}` : "";
+    const optionalUpdateFragment = optional2.updateSets.length ? `${optional2.updateSets.join(",\n         ")},
          ` : "";
     const rows = await query(
       `INSERT INTO inbound_email
@@ -18824,7 +19893,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
           confidence, classifier_mode, signals, triage_state, body_vrm, body_caseref,
           body_preview, case_id, work_provider_id${optionalColsFragment})
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
-       ON CONFLICT (source_message_id) DO UPDATE SET
+       ON CONFLICT (source_mailbox, source_message_id) DO UPDATE SET
          case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
          category_code    = CASE
                               WHEN inbound_email.classifier_mode = 'human'
@@ -18863,7 +19932,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
         subject || null,
         inbound.senderAddress ?? null,
         senderDomain(inbound.senderAddress ?? ""),
-        inbound.sourceMailbox ?? null,
+        (inbound.sourceMailbox ?? "").trim().toLowerCase() || null,
         inbound.receivedAt ?? null,
         (inbound.attachments?.length ?? 0) > 0,
         categoryCode,
@@ -18876,7 +19945,7 @@ async function upsertInboundEmail(inbound, workProviderId, caseId, classificatio
         caseId,
         workProviderId,
         triageState ?? null,
-        ...optional.values
+        ...optional2.values
       ]
     );
     const inboundEmailId = rows[0]?.id ?? null;
@@ -20132,7 +21201,8 @@ import_functions.app.http("internalCasesArchiveEvidence", {
                     content_type AS "contentType",
                     storage_path AS "blobPath",
                     archive_mirror_claim_token::text AS "claimToken",
-                    archive_mirror_decision_generation AS "decisionGeneration"`,
+                    archive_mirror_decision_generation AS "decisionGeneration",
+                    source_label AS "sourceLabel"`,
         [lockedCase.caseId]
       );
       rows.sort((a, b) => a.filename.localeCompare(b.filename));
@@ -20622,7 +21692,7 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
                 NULLIF(btrim(e.storage_path), '') IS NOT NULL
                 AND e.source_label IN (
                   'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload'
+                  'staff_legacy_upload', 'agent_image_ingest'
                 )
               )
             )
@@ -20634,7 +21704,7 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
               OR (
                 e.source_label IN (
                   'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                  'staff_legacy_upload'
+                  'staff_legacy_upload', 'agent_image_ingest'
                 )
                 AND e.excluded = true
                 AND e.exclusion_decision_source = 'classifier'
@@ -20646,7 +21716,7 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
               OR e.created_at > now() - interval '14 days'
               OR e.source_label IN (
                 'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload'
+                'staff_legacy_upload', 'agent_image_ingest'
               )
             )
             AND e.box_classify_dead_lettered_at IS NULL
@@ -20656,7 +21726,7 @@ import_functions.app.http("internalEvidenceUnclassifiedBox", {
               wp.ai_allowed IS DISTINCT FROM false
               OR e.source_label IN (
                 'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                'staff_legacy_upload'
+                'staff_legacy_upload', 'agent_image_ingest'
               )
             )`;
     const rows = req.method?.toUpperCase() === "POST" ? await query(
@@ -20763,7 +21833,7 @@ import_functions.app.http("internalEvidenceBoxClassification", {
                      AND excluded = true
                      AND source_label IN (
                        'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                       'staff_legacy_upload'
+                       'staff_legacy_upload', 'agent_image_ingest'
                      )
                     THEN 'Image needs staff review'
                     ELSE exclusion_reason
@@ -20779,7 +21849,7 @@ import_functions.app.http("internalEvidenceBoxClassification", {
                 OR (
                   source_label IN (
                     'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload'
+                    'staff_legacy_upload', 'agent_image_ingest'
                   )
                   AND excluded = true
                   AND exclusion_decision_source = 'classifier'
@@ -20837,7 +21907,7 @@ import_functions.app.http("internalEvidenceBoxClassification", {
                   $4::text <> '' AND storage_path = $4
                   AND source_label IN (
                     'staff_add_evidence', 'staff_manual_intake', 'staff_assistant_confirmed',
-                    'staff_legacy_upload'
+                    'staff_legacy_upload', 'agent_image_ingest'
                   )
                 )
               )
@@ -20997,27 +22067,57 @@ import_functions.app.http("internalCaseBoxFolderStamp", {
     if (!caseId || !boxFolderId) {
       return { status: 400, jsonBody: { error: "caseId and boxFolderId required" } };
     }
-    const stamped = await query(
-      `UPDATE case_
-            SET box_folder_id = $2, box_folder_url = $3, updated_at = now()
-          WHERE id = $1 AND box_folder_id IS NULL
-        RETURNING box_folder_id`,
-      [caseId, boxFolderId, boxFolderUrl]
-    );
-    if (stamped.length > 0) {
-      await writeAudit({
-        action: AUDIT_ACTION.box_folder_created,
-        caseId,
-        summary: `Archive folder ${boxFolderId} linked to case`,
-        after: { boxFolderId, boxFolderUrl }
-      });
-      return { status: 200, jsonBody: { applied: true, boxFolderId } };
+    const result = await tx((q) => stampCaseArchiveFolderUsing(q, {
+      caseId,
+      boxFolderId,
+      boxFolderUrl
+    }));
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions.app.http("internalOutlookLinkBackfillCandidates", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/outlook-links/backfill-candidates",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const limit = Number(req.query.get("limit") ?? "25");
+    const rows = await listOutlookLinkBackfillCandidates(limit);
+    return { status: 200, jsonBody: { rows } };
+  })
+});
+import_functions.app.http("internalOutlookLinkBackfillResult", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/outlook-links/backfill-result",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    const text = (key) => typeof body2[key] === "string" ? String(body2[key]).trim() : "";
+    const attemptId = text("attemptId");
+    const inboundEmailId = text("inboundEmailId");
+    const sourceMailbox = text("sourceMailbox");
+    const sourceMessageId = text("sourceMessageId");
+    const outcome = text("outcome");
+    const allowed = [
+      "resolved",
+      "not_found",
+      "not_accessible",
+      "ambiguous",
+      "unavailable"
+    ];
+    if (!attemptId || !inboundEmailId || !sourceMailbox || !sourceMessageId || !allowed.includes(outcome)) {
+      return { status: 400, jsonBody: { error: "invalid backfill result" } };
     }
-    const cur = await query("SELECT box_folder_id FROM case_ WHERE id = $1", [caseId]);
-    return {
-      status: 200,
-      jsonBody: { applied: false, boxFolderId: cur[0]?.box_folder_id ?? null }
-    };
+    const result = await recordOutlookLinkBackfillResult({
+      attemptId,
+      inboundEmailId,
+      sourceMailbox,
+      sourceMessageId,
+      outcome,
+      reason: text("reason") || outcome,
+      ...text("graphMessageId") ? { graphMessageId: text("graphMessageId") } : {},
+      ...text("outlookWebLink") ? { outlookWebLink: text("outlookWebLink") } : {}
+    });
+    return { status: result.recorded ? 200 : 404, jsonBody: result };
   })
 });
 
@@ -21148,6 +22248,19 @@ async function callBoxListFolder(folderId, limit = 1e3, offset = 0) {
     `/api/box/folders/${encodeURIComponent(folderId)}/items?limit=${limit}&offset=${offset}`
   );
 }
+async function verifyBoxWriteScope(folderId) {
+  const base = process.env.BOX_FN_URL;
+  const key = process.env.BOX_FN_KEY;
+  if (!base || !key) throw new Error("[functions-client] BOX_FN_URL/BOX_FN_KEY not configured");
+  return callFn(
+    base,
+    key,
+    "POST",
+    "/api/box/scope/write-check",
+    { folderId },
+    { timeoutMs: FN_STAGE_TIMEOUT_MS }
+  );
+}
 async function listBoxFolderNames(folderId) {
   const names = [];
   const limit = 1e3;
@@ -21248,8 +22361,8 @@ async function downloadBoxFileContent(fileId) {
 
 // api/src/lib/box-file-request-outbox.ts
 var import_node_crypto7 = require("node:crypto");
-function allowedBoxHost(hostname) {
-  const host = hostname.toLowerCase();
+function allowedBoxHost(hostname2) {
+  const host = hostname2.toLowerCase();
   return host === "app.box.com" || host.endsWith(".app.box.com");
 }
 function publicBoxOrigin() {
@@ -21358,8 +22471,8 @@ async function requestBoxFileRequestIntent(q, caseId, folderId, templateId, opti
   );
   return { generation: requested, alreadyCompleted: false };
 }
-async function deferClaim(caseId, claimToken, error) {
-  const reason = (error instanceof Error ? error.message : String(error)).slice(0, 200);
+async function deferClaim(caseId, claimToken, error2) {
+  const reason = (error2 instanceof Error ? error2.message : String(error2)).slice(0, 200);
   try {
     await tx(async (q) => {
       await lockCaseForMutation(q, caseId);
@@ -21383,10 +22496,10 @@ async function deferClaim(caseId, claimToken, error) {
     console.error("[box-file-request] could not defer claimed work", deferError);
   }
 }
-function replacementReason(error) {
-  if (!(error instanceof FunctionCallError)) return void 0;
-  if (error.status === 404) return "remote_request_deleted";
-  if (error.status === 400 || error.status === 403) return "request_folder_mismatch";
+function replacementReason(error2) {
+  if (!(error2 instanceof FunctionCallError)) return void 0;
+  if (error2.status === 404) return "remote_request_deleted";
+  if (error2.status === 400 || error2.status === 403) return "request_folder_mismatch";
   return void 0;
 }
 async function queueReplacement(caseId, expected, templateId, reason, actor) {
@@ -21427,7 +22540,7 @@ async function queueReplacement(caseId, expected, templateId, reason, actor) {
     return "queued";
   });
 }
-async function stampValidatedRequest(caseId, expected, state3, summary, reason, actor) {
+async function stampValidatedRequest(caseId, expected, state3, summary2, reason, actor) {
   return tx(async (q) => {
     const locked = await lockCaseForMutation(q, caseId);
     if (locked.kind !== "active") return false;
@@ -21453,11 +22566,11 @@ async function stampValidatedRequest(caseId, expected, state3, summary, reason, 
         WHERE case_id = $1`,
       [locked.caseId]
     );
-    if (summary) {
+    if (summary2) {
       await writeAudit({
         action: AUDIT_ACTION.box_file_request_copied,
         caseId: locked.caseId,
-        summary,
+        summary: summary2,
         before: { status: "inactive", fileRequestUrl: expected.url },
         after: {
           status: "active",
@@ -21476,10 +22589,10 @@ async function validateStampedRequest(caseId, folderId, templateId, stamped, act
   let raw;
   try {
     raw = await callBoxGetFileRequest(stamped.id, folderId);
-  } catch (error) {
-    const reason = replacementReason(error);
+  } catch (error2) {
+    const reason = replacementReason(error2);
     if (!reason) {
-      return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+      return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
     }
     const queued = await queueReplacement(caseId, stamped, templateId, reason, actor);
     if (queued === "missing") return { kind: "missing" };
@@ -21545,8 +22658,8 @@ async function validateStampedRequest(caseId, folderId, templateId, stamped, act
       ...reactivated.expiresAt ? { expiresAt: reactivated.expiresAt } : {},
       reused: true
     };
-  } catch (error) {
-    const reason = replacementReason(error);
+  } catch (error2) {
+    const reason = replacementReason(error2);
     if (reason) {
       const queued = await queueReplacement(
         caseId,
@@ -21559,7 +22672,7 @@ async function validateStampedRequest(caseId, folderId, templateId, stamped, act
       if (queued === "retired") return { kind: "error", reason: "case_retired_during_repair" };
       return processBoxFileRequestIntent(caseId, actor);
     }
-    return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
   }
 }
 async function processBoxFileRequestIntent(requestedCaseId, actor) {
@@ -21699,9 +22812,9 @@ async function processBoxFileRequestIntent(requestedCaseId, actor) {
       ...copied.expiresAt ? { expiresAt: copied.expiresAt } : {},
       reused: false
     };
-  } catch (error) {
-    await deferClaim(claim.caseId, claimToken, error);
-    return { kind: "pending", reason: error instanceof Error ? error.message : String(error) };
+  } catch (error2) {
+    await deferClaim(claim.caseId, claimToken, error2);
+    return { kind: "pending", reason: error2 instanceof Error ? error2.message : String(error2) };
   }
 }
 async function ensureActiveBoxFileRequest(requestedCaseId, templateId, actor) {
@@ -21834,6 +22947,74 @@ async function loadCaseLite(id, q = query) {
   const rows = await q(`${CASE_SELECT} WHERE c.id = $1`, [id]);
   return rows[0] ? rowToCase(rows[0]) : void 0;
 }
+function comparableClaimant(value) {
+  return String(value ?? "").trim().toLocaleLowerCase("en-GB");
+}
+async function mergeClaimantProvenance(q, sourceCaseId, targetCaseId, sourceClaimant, targetClaimant) {
+  const sourceValue = sourceClaimant.trim();
+  const targetValue = targetClaimant.trim();
+  const filled = Boolean(sourceValue) && !targetValue;
+  const conflict = Boolean(sourceValue) && Boolean(targetValue) && comparableClaimant(sourceValue) !== comparableClaimant(targetValue);
+  if (filled) {
+    await q(
+      `UPDATE case_
+          SET eva_claimant_name = $2, updated_at = now()
+        WHERE id = $1
+          AND btrim(COALESCE(eva_claimant_name, '')) = ''`,
+      [targetCaseId, sourceValue.slice(0, 200)]
+    );
+  }
+  const conflictCode = reviewStateCodec.toInt("conflict") ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET case_id = $2,
+            name = CONCAT($2::text, ':merged:', id::text),
+            source_label = LEFT(
+              CASE
+                WHEN btrim(COALESCE(source_label, '')) = '' THEN 'Carried over from merged case'
+                ELSE source_label || ' \u2014 carried over from merged case'
+              END,
+              400
+            ),
+            review_state_code = CASE
+              WHEN $3::boolean
+               AND field_name = 'claimantName'
+               AND lower(btrim(COALESCE(value, ''))) = lower(btrim($4))
+                THEN $5
+              ELSE review_state_code
+            END,
+            updated_at = now()
+      WHERE case_id = $1`,
+    [sourceCaseId, targetCaseId, conflict, sourceValue, conflictCode]
+  );
+  if (sourceValue) {
+    const unknownCode = sourceTypeCodec.toInt("unknown") ?? 100000011;
+    const needsReviewCode = reviewStateCodec.toInt("needs_review") ?? 100000001;
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, review_state_code,
+          source_reference)
+       SELECT $1, $2, 'claimantName', $3, $4,
+              'Source not recorded \u2014 carried over from merged case', $5, $6
+       WHERE NOT EXISTS (
+         SELECT 1
+           FROM field_level_provenance
+          WHERE case_id = $2
+            AND field_name = 'claimantName'
+            AND lower(btrim(COALESCE(value, ''))) = lower(btrim($3))
+       )`,
+      [
+        `${targetCaseId}:claimantName:merged:${sourceCaseId}`,
+        targetCaseId,
+        sourceValue.slice(0, 200),
+        unknownCode,
+        conflict ? conflictCode : needsReviewCode,
+        `case:${sourceCaseId}`
+      ]
+    );
+  }
+  return { filled, conflict };
+}
 async function recomputeStatus2(caseId, actor) {
   const prefillProbe = await loadCaseFull(caseId, /* @__PURE__ */ new Date());
   if (!prefillProbe) return false;
@@ -21875,6 +23056,14 @@ async function upsertManualProvenance(caseId, fieldName, value) {
   try {
     const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
     const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+    const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
+    await query(
+      `UPDATE field_level_provenance
+          SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+              reviewed_at = now(), updated_at = now()
+        WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+      [caseId, fieldName, conflict, reviewed]
+    );
     const upd = await query(
       `UPDATE field_level_provenance
           SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
@@ -21905,6 +23094,14 @@ async function upsertManualProvenance(caseId, fieldName, value) {
 async function upsertManualProvenanceStrict(q, caseId, fieldName, value) {
   const staff = sourceTypeCodec.toInt("staff") ?? 1e8;
   const reviewed = reviewStateCodec.toInt("reviewed") ?? 100000002;
+  const conflict = reviewStateCodec.toInt("conflict") ?? 100000003;
+  await q(
+    `UPDATE field_level_provenance
+        SET review_state_code = $4, reviewed_by = 'Manual edit (case page)',
+            reviewed_at = now(), updated_at = now()
+      WHERE case_id = $1 AND field_name = $2 AND review_state_code = $3`,
+    [caseId, fieldName, conflict, reviewed]
+  );
   const updated = await q(
     `UPDATE field_level_provenance
         SET value = $3, source_type_code = $4, source_label = 'Manual edit (case page)',
@@ -22290,9 +23487,9 @@ import_functions2.app.http("patchCase", {
         const evaluated = await recomputeStatus2(id, actor);
         if (!evaluated) throw new Error("case was not available for readiness evaluation");
         await acknowledgeStatusRecompute(query, id, outcome.statusGeneration);
-      } catch (error) {
+      } catch (error2) {
         ctx.warn(
-          `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
+          `[patch-case] readiness recompute remains pending for ${id} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
         );
       }
     }
@@ -22306,6 +23503,52 @@ import_functions2.app.http("patchCase", {
 });
 function isObjectRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function requiredSourceTypeCode(sourceType) {
+  const code = sourceTypeCodec.toInt(sourceType);
+  if (code == null) throw new Error(`unsupported provenance source type: ${sourceType}`);
+  return code;
+}
+function requiredReviewStateCode(reviewState) {
+  const code = reviewStateCodec.toInt(reviewState);
+  if (code == null) throw new Error(`unsupported provenance review state: ${reviewState}`);
+  return code;
+}
+async function insertCreateFieldProvenance(q, caseId, fieldName, field) {
+  const rows = [
+    {
+      name: `${caseId}:${fieldName}`,
+      value: field.value,
+      provenance: field.provenance,
+      reviewStateCode: requiredReviewStateCode(field.reviewState)
+    },
+    ...(field.conflicts ?? []).map((conflict, index) => ({
+      name: `${caseId}:${fieldName}:conflict:${String(index + 1).padStart(2, "0")}`,
+      value: conflict.candidateValue,
+      provenance: conflict.provenance,
+      reviewStateCode: requiredReviewStateCode("conflict")
+    }))
+  ];
+  for (const row of rows) {
+    await q(
+      `INSERT INTO field_level_provenance
+         (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        row.name,
+        caseId,
+        fieldName,
+        row.value,
+        requiredSourceTypeCode(row.provenance.sourceType),
+        row.provenance.sourceLabel,
+        row.provenance.confidence ?? null,
+        row.reviewStateCode
+      ]
+    );
+  }
+}
+function createFieldProvenanceRequired(input, field) {
+  return input.writeProvenance === true || (field.conflicts?.length ?? 0) > 0;
 }
 function normalizeCreateCaseInput(raw) {
   if (!isObjectRecord(raw)) return void 0;
@@ -22437,7 +23680,10 @@ import_functions2.app.http("createCase", {
     if (providerRow) add("work_provider_id", providerRow.id);
     const suppliedCasePo = (input.casePo ?? "").trim().toUpperCase();
     const principalForAutoMint = !suppliedCasePo ? pcode.toUpperCase() : "";
-    if (input.onHold) add("on_hold", true);
+    if (input.onHold) {
+      add("on_hold", true);
+      add("on_hold_reason", "manual");
+    }
     if (input.insuredName) add("ov_insured_name", input.insuredName);
     if (input.providerReference) add("ov_claim_number", input.providerReference);
     if (input.inspectionDecision && input.inspectionDecision !== "unknown") {
@@ -22470,6 +23716,8 @@ import_functions2.app.http("createCase", {
         );
         const id = rows[0]?.id;
         if (!id) throw new Error("case create returned no id");
+        const claimant = input.evaFields.claimantName;
+        await insertCreateFieldProvenance(q, id, "claimantName", claimant);
         if (operationBinding) {
           await finishManualIntakeOperation(
             q,
@@ -22491,38 +23739,24 @@ import_functions2.app.http("createCase", {
         }
         return { id, replayed: false };
       });
-    } catch (error) {
-      if (error instanceof ManualIntakeOperationConflict || operationBinding && isUniqueViolation(error)) {
+    } catch (error2) {
+      if (error2 instanceof ManualIntakeOperationConflict || operationBinding && isUniqueViolation(error2)) {
         return {
           status: 409,
           jsonBody: { error: "manual intake operation does not match this case or file selection" }
         };
       }
-      throw error;
+      throw error2;
     }
     const newId = createOutcome.id;
     if (operationBinding) {
       await tx(async (q) => {
         if (!await manualIntakeSideEffectsPending(q, operationBinding.idempotencyKey)) return;
-        if (input.writeProvenance) {
-          for (const desc of EVA_FIELD_ORDER) {
-            const field = input.evaFields[desc.key];
-            await q(
-              `INSERT INTO field_level_provenance
-                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [
-                `${newId}:${desc.key}`,
-                newId,
-                desc.key,
-                field.value,
-                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 1e8,
-                field.provenance.sourceLabel,
-                field.provenance.confidence ?? null,
-                reviewStateCodec.toInt(field.reviewState) ?? 100000001
-              ]
-            );
-          }
+        for (const desc of EVA_FIELD_ORDER) {
+          if (desc.key === "claimantName") continue;
+          const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) continue;
+          await insertCreateFieldProvenance(q, newId, desc.key, field);
         }
         const receivedFrom2 = (input.receivedFrom ?? "").trim();
         const receivedOn2 = (input.receivedOn ?? "").trim();
@@ -22550,26 +23784,13 @@ import_functions2.app.http("createCase", {
         await finishManualIntakeSideEffects(q, operationBinding.idempotencyKey);
       });
     }
-    if (!operationBinding && input.writeProvenance) {
+    if (!operationBinding) {
       await Promise.all(
-        EVA_FIELD_ORDER.map(async (desc) => {
+        EVA_FIELD_ORDER.filter((desc) => desc.key !== "claimantName").map(async (desc) => {
           const field = input.evaFields[desc.key];
+          if (!createFieldProvenanceRequired(input, field)) return;
           try {
-            await query(
-              `INSERT INTO field_level_provenance
-                 (name, case_id, field_name, value, source_type_code, source_label, confidence, review_state_code)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-              [
-                `${newId}:${desc.key}`,
-                newId,
-                desc.key,
-                field.value,
-                sourceTypeCodec.toInt(field.provenance.sourceType) ?? 1e8,
-                field.provenance.sourceLabel,
-                field.provenance.confidence ?? null,
-                reviewStateCodec.toInt(field.reviewState) ?? 100000001
-              ]
-            );
+            await insertCreateFieldProvenance(query, newId, desc.key, field);
           } catch {
           }
         })
@@ -22661,11 +23882,11 @@ import_functions2.app.http("retryManualIntakeArchive", {
         }
         return rows.length;
       });
-    } catch (error) {
-      if (error instanceof ManualIntakeOperationConflict) {
-        return { status: 409, jsonBody: { error: error.message } };
+    } catch (error2) {
+      if (error2 instanceof ManualIntakeOperationConflict) {
+        return { status: 409, jsonBody: { error: error2.message } };
       }
-      throw error;
+      throw error2;
     }
     if (requeued === -1) return { status: 404, jsonBody: { error: "case not found" } };
     if (requeued === -2) return { status: 409, jsonBody: { error: "case is not active" } };
@@ -22731,7 +23952,12 @@ import_functions2.app.http("setOnHold", {
         return { kind: "stale", currentVersion };
       }
       const updated = await q(
-        "UPDATE case_ SET on_hold = $2, updated_at = now() WHERE id = $1 RETURNING updated_at",
+        `UPDATE case_
+            SET on_hold = $2,
+                on_hold_reason = CASE WHEN $2 THEN 'manual' ELSE NULL END,
+                updated_at = now()
+          WHERE id = $1
+          RETURNING updated_at`,
         [id, body2.onHold]
       );
       await writeAudit({
@@ -22825,7 +24051,7 @@ import_functions2.app.http("logChase", {
       };
     }
     const channelLabel = channel === "whatsapp" ? "WhatsApp" : "email";
-    const summary = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
+    const summary2 = `Chased via ${channelLabel} \u2014 ${templateLabel}.`.slice(0, 400);
     const outcome = await tx(async (q) => {
       const locked = await q(
         `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
@@ -22855,7 +24081,7 @@ import_functions2.app.http("logChase", {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
          RETURNING *`,
         [
-          summary,
+          summary2,
           id,
           100000002,
           existing.provider.slice(0, 200),
@@ -22942,6 +24168,12 @@ import_functions2.app.http("mergeCandidates", {
 });
 var MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
 var MERGE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+var MergeProviderRecoveryBlocked = class extends Error {
+  constructor(reason) {
+    super(`Provider recovery could not continue: ${reason}`);
+    this.reason = reason;
+  }
+};
 async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
   const locked = await q(
     `SELECT id, case_id, sha256, created_at,
@@ -22958,7 +24190,12 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
     const expires = new Date(row.archive_mirror_claim_expires_at).getTime();
     return Number.isFinite(expires) && expires > now;
   })) {
-    return { movedEvidence: 0, collidingEvidence: 0, archiveBusy: true };
+    return {
+      movedEvidence: 0,
+      collidingEvidence: 0,
+      evidenceReplacements: /* @__PURE__ */ new Map(),
+      archiveBusy: true
+    };
   }
   const canonicalSha = (value) => {
     const trimmed = (value ?? "").trim();
@@ -22971,6 +24208,7 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
     if (sha && !survivorBySha.has(sha)) survivorBySha.set(sha, row.id);
   }
   const collisionSourceIds = [];
+  const evidenceReplacements = /* @__PURE__ */ new Map();
   for (const row of locked) {
     if (row.case_id.toLowerCase() !== sourceCaseId) continue;
     const sha = canonicalSha(row.sha256);
@@ -22981,6 +24219,7 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
       continue;
     }
     collisionSourceIds.push(row.id);
+    evidenceReplacements.set(row.id, survivorId);
     const survivors = await q(
       `UPDATE evidence AS survivor
           SET storage_path = COALESCE(survivor.storage_path, redundant.storage_path),
@@ -23106,7 +24345,11 @@ async function mergeEvidenceRows(q, sourceCaseId, targetCaseId) {
       [moved.map((row) => row.id), targetCaseId]
     );
   }
-  return { movedEvidence: moved.length, collidingEvidence: collisionSourceIds.length };
+  return {
+    movedEvidence: moved.length,
+    collidingEvidence: collisionSourceIds.length,
+    evidenceReplacements
+  };
 }
 async function manualIntakeMergeConflict(q, sourceCaseId, targetCaseId) {
   const operations = await q(
@@ -23205,6 +24448,70 @@ async function reconcileMergeFileRequestIntent(q, sourceCaseId, targetCaseId) {
   );
   return void 0;
 }
+async function lockCaptureSessionsForMerge(q, sourceCaseId) {
+  const relations = await q(
+    "SELECT to_regclass('public.capture_session')::text AS capture_session_regclass"
+  );
+  if (!relations[0]?.capture_session_regclass) return [];
+  const locked = await q(
+    `SELECT id FROM capture_session
+      WHERE case_id = $1
+      ORDER BY id
+      FOR UPDATE`,
+    [sourceCaseId]
+  );
+  return locked.map((row) => row.id);
+}
+async function lockCaptureAssetsForMerge(q, sessionIds) {
+  if (sessionIds.length === 0) return [];
+  const locked = await q(
+    `SELECT id FROM capture_asset
+      WHERE session_id = ANY($1::uuid[])
+      ORDER BY id
+      FOR UPDATE`,
+    [sessionIds]
+  );
+  return locked.map((row) => row.id);
+}
+async function repointLockedCaptureAssetsForMerge(q, assetIds, evidenceReplacements) {
+  if (assetIds.length === 0 || evidenceReplacements.size === 0) return;
+  for (const [redundantEvidenceId, survivorEvidenceId] of [...evidenceReplacements].sort()) {
+    await q(
+      `UPDATE capture_asset
+          SET evidence_id = $2, updated_at = now()
+        WHERE evidence_id = $1 AND id = ANY($3::uuid[])`,
+      [redundantEvidenceId, survivorEvidenceId, assetIds]
+    );
+  }
+}
+async function reparentLockedCaptureSessionsForMerge(q, sessionIds, sourceCaseId, targetCaseId, actor) {
+  if (sessionIds.length === 0) return;
+  const moved = await q(
+    `UPDATE capture_session
+        SET case_id = $2, updated_at = now()
+      WHERE case_id = $1 AND id = ANY($3::uuid[])
+      RETURNING id`,
+    [sourceCaseId, targetCaseId, sessionIds]
+  );
+  if (moved.length !== sessionIds.length) {
+    throw new Error("capture session ownership changed while case merge locks were held");
+  }
+  for (const sessionId of [...sessionIds].sort()) {
+    await writeAuditStrict({
+      action: AUDIT_ACTION.capture_session_retargeted,
+      caseId: targetCaseId,
+      actor: actor ?? "staff",
+      summary: "Guided capture session moved to merged case survivor",
+      before: { caseId: sourceCaseId },
+      after: {
+        sessionId,
+        caseId: targetCaseId,
+        lineage: [sourceCaseId, targetCaseId],
+        reason: "case_merge"
+      }
+    }, q);
+  }
+}
 import_functions2.app.http("mergeCases", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -23220,7 +24527,7 @@ import_functions2.app.http("mergeCases", {
     if (sourceCaseId === targetCaseId) {
       return { status: 400, jsonBody: { error: "Cannot merge a case into itself." } };
     }
-    const merged = await tx(async (q) => {
+    const runMerge = () => tx(async (q) => {
       await acquireCaseMutationLocks(q, [sourceCaseId, targetCaseId]);
       const orderedIds = orderedCaseMutationIds([sourceCaseId, targetCaseId]);
       const lockedCases = await q(
@@ -23256,6 +24563,23 @@ import_functions2.app.http("mergeCases", {
           error: "Cannot merge into a finalised case."
         };
       }
+      const providerArchiveBusy = await q(
+        `SELECT id
+           FROM case_
+          WHERE id = ANY($1::uuid[])
+            AND (
+              provider_archive_completed_generation < provider_archive_requested_generation
+              OR on_hold_reason = 'provider_archive_pending'
+            )`,
+        [[sourceCaseId, targetCaseId]]
+      );
+      if (providerArchiveBusy.length > 0) {
+        return {
+          kind: "error",
+          status: 409,
+          error: "Archive folder work is still finishing for one of these cases. Try the merge again shortly."
+        };
+      }
       const manualIntakeConflict = await manualIntakeMergeConflict(
         q,
         sourceCaseId,
@@ -23264,6 +24588,8 @@ import_functions2.app.http("mergeCases", {
       if (manualIntakeConflict) {
         return { kind: "error", status: 409, error: manualIntakeConflict };
       }
+      const captureSessionIds = await lockCaptureSessionsForMerge(q, sourceCaseId);
+      const captureAssetIds = await lockCaptureAssetsForMerge(q, captureSessionIds);
       const fileRequestConflict = await reconcileMergeFileRequestIntent(
         q,
         sourceCaseId,
@@ -23276,7 +24602,12 @@ import_functions2.app.http("mergeCases", {
         "SELECT id FROM inbound_email WHERE case_id = $1 ORDER BY id FOR UPDATE",
         [sourceCaseId]
       );
-      const { movedEvidence, collidingEvidence, archiveBusy } = await mergeEvidenceRows(
+      const {
+        movedEvidence,
+        collidingEvidence,
+        evidenceReplacements,
+        archiveBusy
+      } = await mergeEvidenceRows(
         q,
         sourceCaseId,
         targetCaseId
@@ -23289,9 +24620,24 @@ import_functions2.app.http("mergeCases", {
         };
       }
       await transferStaffUploadOwnership(q, sourceCaseId, targetCaseId);
+      await repointLockedCaptureAssetsForMerge(q, captureAssetIds, evidenceReplacements);
+      await reparentLockedCaptureSessionsForMerge(
+        q,
+        captureSessionIds,
+        sourceCaseId,
+        targetCaseId,
+        actor
+      );
       const movedEmails = await q(
         "UPDATE inbound_email SET case_id = $2, updated_at = now() WHERE case_id = $1 RETURNING id",
         [sourceCaseId, targetCaseId]
+      );
+      const claimantMerge = await mergeClaimantProvenance(
+        q,
+        sourceCaseId,
+        targetCaseId,
+        src.evaFields.claimantName.value,
+        tgt.evaFields.claimantName.value
       );
       const fkRows = await q(
         "SELECT id, work_provider_id FROM case_ WHERE id = ANY($1::uuid[])",
@@ -23301,6 +24647,8 @@ import_functions2.app.http("mergeCases", {
       const tgtFk = fkRows.find((r) => r.id === targetCaseId)?.work_provider_id ?? null;
       const providerDecision = decideMergeProvider(srcFk, tgtFk);
       let providerFilled = false;
+      let providerRecoveryOutcome;
+      let providerArchiveGeneration;
       if (!providerDecision.crossProvider && providerDecision.filledFrom === "source" && providerDecision.providerId) {
         await q(
           `UPDATE case_ SET work_provider_id = $2, updated_at = now()
@@ -23338,10 +24686,24 @@ import_functions2.app.http("mergeCases", {
           await q("RELEASE SAVEPOINT merge_provider_provenance");
         }
         providerFilled = true;
+        const recovery = await completeProviderRecoveryUsing(q, {
+          caseId: targetCaseId,
+          resolvedProviderId: providerDecision.providerId,
+          allowCasePoMint: true
+        });
+        if (recovery.outcome === "blocked") {
+          throw new MergeProviderRecoveryBlocked(recovery.blockedReason ?? "provider recovery blocked");
+        }
+        providerRecoveryOutcome = recovery.outcome;
+        if (recovery.outcome === "identity_ready") {
+          providerArchiveGeneration = await requestProviderArchive(q, targetCaseId);
+        }
       }
+      await cancelProviderArchive(q, sourceCaseId);
       await q(
         `UPDATE case_
-           SET status_code = $2, duplicate_keys = $3, on_hold = false, updated_at = now()
+           SET status_code = $2, duplicate_keys = $3, on_hold = false,
+               on_hold_reason = NULL, updated_at = now()
          WHERE id = $1`,
         [sourceCaseId, statusToInt("linked_to_instruction"), JSON.stringify({ mergedInto: targetCaseId })]
       );
@@ -23349,14 +24711,19 @@ import_functions2.app.http("mergeCases", {
       await writeAudit({
         action: AUDIT_ACTION.case_attached,
         caseId: targetCaseId,
-        summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""})`,
+        summary: `Merged ${sourceCaseId} into ${targetCaseId} (${movedEvidence} evidence, ${movedEmails.length} emails${providerFilled ? ", provider carried over from the merged case" : ""}${providerRecoveryOutcome === "identity_ready" ? ", Archive folder queued" : ""}${claimantMerge.filled ? ", claimant carried over from the merged case" : ""}${claimantMerge.conflict ? ", claimant difference kept for review" : ""})`,
         after: {
           sourceCaseId,
           targetCaseId,
           movedEvidence,
           collidingEvidence,
           movedEmails: movedEmails.length,
-          providerFilled
+          providerFilled,
+          providerRecoveryOutcome,
+          providerArchiveGeneration,
+          claimantFilled: claimantMerge.filled,
+          claimantConflict: claimantMerge.conflict,
+          captureSessionsRetargeted: captureSessionIds.length
         },
         ...actor ? { actor } : {}
       }, q);
@@ -23366,9 +24733,25 @@ import_functions2.app.http("mergeCases", {
         collidingEvidence,
         movedEmails: movedEmails.length,
         providerFilled,
+        providerRecoveryOutcome,
+        providerArchiveGeneration,
+        claimantFilled: claimantMerge.filled,
+        claimantConflict: claimantMerge.conflict,
         statusGeneration
       };
     });
+    let merged;
+    try {
+      merged = await runMerge();
+    } catch (e) {
+      if (e instanceof MergeProviderRecoveryBlocked) {
+        return {
+          status: 409,
+          jsonBody: { error: "Provider recovery needs review before these cases can be merged." }
+        };
+      }
+      throw e;
+    }
     if (merged.kind === "error") {
       return { status: merged.status, jsonBody: { error: merged.error } };
     }
@@ -23392,10 +24775,13 @@ import_functions2.app.http("imagesForCase", {
   handler: withRole("CollisionSpike.User", async (req) => {
     const id = req.params.id;
     const rows = await query(
-      // Automatic exclusions stay visible in the REVIEW list so staff can recover a false
-      // positive. Staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
-      // row remains acceptedForEva=false and therefore cannot affect readiness/order/export.
-      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true) ORDER BY sequence_index NULLS LAST, created_at",
+      // Automatic exclusions and every public guided-capture row stay visible in REVIEW so staff
+      // can make or revisit the evidential decision. TKT-200 explicitly requires an excluded guided
+      // photo to remain visible after a staff rejection; the DTO distinguishes that state for plain
+      // UI copy. Other staff/provider/cleanup/legacy exclusions stay hidden. Every returned excluded
+      // row remains acceptedForEva=false and cannot affect readiness/order/export until a staff PATCH
+      // explicitly includes and accepts it.
+      "SELECT * FROM evidence WHERE case_id = $1 AND kind_code = (SELECT code FROM choice_evidence_kind WHERE name = 'image') AND (excluded = false OR exclusion_decision_source = 'classifier' OR person_reflection = true OR source_label = 'public_guided_capture') ORDER BY sequence_index NULLS LAST, created_at",
       [id]
     );
     return { status: 200, jsonBody: rows.map(rowToEvidence) };
@@ -23448,12 +24834,24 @@ import_functions2.app.http("removeCase", {
       casePo: existing.casePo ?? null,
       provider: existing.provider
     };
-    await query(
+    const closed = await query(
       `UPDATE case_
-          SET status_code = $2, on_hold = false, closed_at = now(), updated_at = now()
-        WHERE id = $1`,
+          SET status_code = $2, on_hold = false, on_hold_reason = NULL,
+              closed_at = now(), updated_at = now()
+        WHERE id = $1
+          AND on_hold_reason IS DISTINCT FROM 'provider_archive_pending'
+          AND provider_archive_completed_generation >= provider_archive_requested_generation
+      RETURNING id`,
       [id, statusToInt("removed")]
     );
+    if (!closed[0]) {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "Archive folder work is still finishing for this case. Try again shortly."
+        }
+      };
+    }
     await writeAudit({
       action: AUDIT_ACTION.case_removed,
       caseId: id,
@@ -23645,8 +25043,8 @@ import_functions2.app.http("caseBoxCopyFileRequest", {
           message: "The image-upload link is still being created. Please try again shortly."
         }
       };
-    } catch (error) {
-      ctx.error("[caseBoxCopyFileRequest] failed", error);
+    } catch (error2) {
+      ctx.error("[caseBoxCopyFileRequest] failed", error2);
       return {
         status: 200,
         jsonBody: {
@@ -24068,9 +25466,9 @@ import_functions4.app.http("saveInspectionDecision", {
       const evaluated = await recomputeStatus2(caseId, actor);
       if (!evaluated) throw new Error("case was not available for readiness evaluation");
       await acknowledgeStatusRecompute(query, caseId, outcome.statusGeneration);
-    } catch (error) {
+    } catch (error2) {
       ctx.warn(
-        `[inspection-decision] readiness recompute remains pending for ${caseId} (generation ${outcome.statusGeneration}): ${error instanceof Error ? error.message : String(error)}`
+        `[inspection-decision] readiness recompute remains pending for ${caseId} (generation ${outcome.statusGeneration}): ${error2 instanceof Error ? error2.message : String(error2)}`
       );
     }
     const current = await query("SELECT updated_at FROM case_ WHERE id = $1", [caseId]);
@@ -24250,7 +25648,7 @@ import_functions5.app.http("dashboardSummary", {
       inbound = tallyActiveInboundCounts(inboundRows);
     } catch {
     }
-    const summary = {
+    const summary2 = {
       liveCounts: computeLiveCounts(all),
       throughput: computeThroughput(all, now),
       queueCounts: computeQueueCounts(all),
@@ -24259,7 +25657,7 @@ import_functions5.app.http("dashboardSummary", {
       agingExceptions: computeAgingExceptions(all, now),
       inbound
     };
-    return { status: 200, jsonBody: summary };
+    return { status: 200, jsonBody: summary2 };
   })
 });
 
@@ -24475,6 +25873,41 @@ function classifyEnqueueFailure(e) {
   };
 }
 
+// api/src/lib/outlook-link-resolver.ts
+var TIMEOUT_MS = 1e4;
+async function resolveCurrentOutlookLink(input) {
+  const url2 = (process.env.OUTLOOK_LINK_RESOLVER_URL ?? "").trim();
+  const key = (process.env.OUTLOOK_LINK_RESOLVER_KEY ?? "").trim();
+  if (!url2 || !key) return { status: "unavailable" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(url2, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-functions-key": key
+      },
+      body: JSON.stringify(input),
+      signal: controller.signal
+    });
+    if (!response.ok) return { status: "unavailable" };
+    const payload = await response.json().catch(() => ({}));
+    if (payload.status === "available") {
+      const outlookWebLink = normalizeOutlookWebLink(payload.outlookWebLink);
+      return outlookWebLink ? { status: "available", outlookWebLink } : { status: "unavailable" };
+    }
+    if (payload.status === "not_found" || payload.status === "not_accessible" || payload.status === "missing_identity" || payload.status === "unavailable") {
+      return { status: payload.status };
+    }
+    return { status: "unavailable" };
+  } catch {
+    return { status: "unavailable" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // api/src/functions/inbound.ts
 var TRIAGE_AUDIT_ACTION = {
   dismissed: AUDIT_ACTION.inbound_dismissed,
@@ -24563,14 +25996,14 @@ import_functions8.app.http("inboundEmailCounts", {
       const rows = await query("SELECT category_code, triage_state FROM inbound_email");
       const counts = tallyActiveInboundCounts(rows);
       return { status: 200, jsonBody: counts };
-    } catch (error) {
+    } catch (error2) {
       const correlationId = ctx.invocationId || (0, import_node_crypto8.randomUUID)();
       ctx.error(
         JSON.stringify({
           evt: "inboundCountsFailed",
           correlationId,
-          errorName: error instanceof Error ? error.name : "UnknownError",
-          detail: error instanceof Error ? error.message : String(error)
+          errorName: error2 instanceof Error ? error2.name : "UnknownError",
+          detail: error2 instanceof Error ? error2.message : String(error2)
         })
       );
       return {
@@ -24599,12 +26032,37 @@ import_functions8.app.http("inboundEmailById", {
     );
     const row = rows[0];
     if (!row) return { status: 404, jsonBody: { error: "not found" } };
-    const version2 = versionToken(row.updated_at);
+    const version3 = versionToken(row.updated_at);
     return {
       status: 200,
-      jsonBody: { ...rowToInboundEmail(row), version: version2 },
-      headers: { ETag: `"${version2}"`, "Access-Control-Expose-Headers": "ETag" }
+      jsonBody: { ...rowToInboundEmail(row), version: version3 },
+      headers: { ETag: `"${version3}"`, "Access-Control-Expose-Headers": "ETag" }
     };
+  })
+});
+import_functions8.app.http("inboundOutlookLink", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "inbound/{id:guid}/outlook-link",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const id = req.params.id;
+    if (!isUuid(id)) return { status: 400, jsonBody: { error: "invalid id" } };
+    const rows = await query(
+      `SELECT source_mailbox, graph_message_id
+         FROM inbound_email
+        WHERE id = $1`,
+      [id]
+    );
+    const row = rows[0];
+    if (!row) return { status: 404, jsonBody: { error: "not found" } };
+    const sourceMailbox = typeof row.source_mailbox === "string" ? row.source_mailbox.trim() : "";
+    const graphMessageId = typeof row.graph_message_id === "string" ? row.graph_message_id.trim() : "";
+    if (!sourceMailbox || !graphMessageId) {
+      const result2 = { status: "missing_identity" };
+      return { status: 200, jsonBody: result2 };
+    }
+    const result = await resolveCurrentOutlookLink({ sourceMailbox, graphMessageId });
+    return { status: 200, jsonBody: result };
   })
 });
 import_functions8.app.http("setTriageState", {
@@ -26133,9 +27591,9 @@ function getRandomIntegerInclusive(min, max) {
 }
 
 // node_modules/@typespec/ts-http-runtime/dist/esm/util/delay.js
-function calculateRetryDelay(retryAttempt, config) {
-  const exponentialDelay = config.retryDelayInMs * Math.pow(2, retryAttempt);
-  const clampedDelay = Math.min(config.maxRetryDelayInMs, exponentialDelay);
+function calculateRetryDelay(retryAttempt, config2) {
+  const exponentialDelay = config2.retryDelayInMs * Math.pow(2, retryAttempt);
+  const clampedDelay = Math.min(config2.maxRetryDelayInMs, exponentialDelay);
   const retryAfterInMs = clampedDelay / 2 + getRandomIntegerInclusive(0, clampedDelay / 2);
   return { retryAfterInMs };
 }
@@ -26200,8 +27658,8 @@ function getRetryAfterInMs(response) {
     const retryAfterHeader = response.headers.get(RetryAfterHeader);
     if (!retryAfterHeader)
       return;
-    const date = Date.parse(retryAfterHeader);
-    const diff = date - Date.now();
+    const date3 = Date.parse(retryAfterHeader);
+    const diff = date3 - Date.now();
     return Number.isFinite(diff) ? Math.max(0, diff) : void 0;
   } catch {
     return void 0;
@@ -26852,20 +28310,20 @@ function redirectPolicy2(options = {}) {
 }
 
 // node_modules/@azure/core-rest-pipeline/dist/esm/util/userAgentPlatform.js
-var import_node_os2 = __toESM(require("node:os"), 1);
-var import_node_process3 = __toESM(require("node:process"), 1);
+var import_node_os3 = __toESM(require("node:os"), 1);
+var import_node_process4 = __toESM(require("node:process"), 1);
 function getHeaderName2() {
   return "User-Agent";
 }
 async function setPlatformSpecificData2(map) {
-  if (import_node_process3.default && import_node_process3.default.versions) {
-    const osInfo = `${import_node_os2.default.type()} ${import_node_os2.default.release()}; ${import_node_os2.default.arch()}`;
-    if (import_node_process3.default.versions.bun) {
-      map.set("Bun", `${import_node_process3.default.versions.bun} (${osInfo})`);
-    } else if (import_node_process3.default.versions.deno) {
-      map.set("Deno", `${import_node_process3.default.versions.deno} (${osInfo})`);
-    } else if (import_node_process3.default.versions.node) {
-      map.set("Node", `${import_node_process3.default.versions.node} (${osInfo})`);
+  if (import_node_process4.default && import_node_process4.default.versions) {
+    const osInfo = `${import_node_os3.default.type()} ${import_node_os3.default.release()}; ${import_node_os3.default.arch()}`;
+    if (import_node_process4.default.versions.bun) {
+      map.set("Bun", `${import_node_process4.default.versions.bun} (${osInfo})`);
+    } else if (import_node_process4.default.versions.deno) {
+      map.set("Deno", `${import_node_process4.default.versions.deno} (${osInfo})`);
+    } else if (import_node_process4.default.versions.node) {
+      map.set("Node", `${import_node_process4.default.versions.node} (${osInfo})`);
     }
   }
 }
@@ -27292,14 +28750,14 @@ function tryCreateSpan(tracingClient2, request, spanAttributes) {
     return void 0;
   }
 }
-function tryProcessError(span, error) {
+function tryProcessError(span, error2) {
   try {
     span.setStatus({
       status: "error",
-      error: isError2(error) ? error : void 0
+      error: isError2(error2) ? error2 : void 0
     });
-    if (isRestError2(error) && error.statusCode) {
-      span.setAttribute("http.status_code", error.statusCode);
+    if (isRestError2(error2) && error2.statusCode) {
+      span.setAttribute("http.status_code", error2.statusCode);
     }
     span.end();
   } catch (e) {
@@ -27615,9 +29073,9 @@ function bearerTokenAuthenticationPolicy(options) {
         logger: logger7
       });
       let response;
-      let error;
+      let error2;
       let shouldSendRequest;
-      [response, error] = await trySendRequest(request, next);
+      [response, error2] = await trySendRequest(request, next);
       if (isChallengeResponse(response)) {
         let claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate"));
         if (claims) {
@@ -27636,7 +29094,7 @@ function bearerTokenAuthenticationPolicy(options) {
             logger: logger7
           }, parsedClaim);
           if (shouldSendRequest) {
-            [response, error] = await trySendRequest(request, next);
+            [response, error2] = await trySendRequest(request, next);
           }
         } else if (callbacks.authorizeRequestOnChallenge) {
           shouldSendRequest = await callbacks.authorizeRequestOnChallenge({
@@ -27647,7 +29105,7 @@ function bearerTokenAuthenticationPolicy(options) {
             logger: logger7
           });
           if (shouldSendRequest) {
-            [response, error] = await trySendRequest(request, next);
+            [response, error2] = await trySendRequest(request, next);
           }
           if (isChallengeResponse(response)) {
             claims = getCaeChallengeClaims(response.headers.get("WWW-Authenticate") ?? "");
@@ -27667,14 +29125,14 @@ function bearerTokenAuthenticationPolicy(options) {
                 logger: logger7
               }, parsedClaim);
               if (shouldSendRequest) {
-                [response, error] = await trySendRequest(request, next);
+                [response, error2] = await trySendRequest(request, next);
               }
             }
           }
         }
       }
-      if (error) {
-        throw error;
+      if (error2) {
+        throw error2;
       } else {
         return response;
       }
@@ -27748,8 +29206,8 @@ function isDuration(value) {
   return validateISODuration.test(value);
 }
 var validUuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i;
-function isValidUuid(uuid) {
-  return validUuidRegex.test(uuid);
+function isValidUuid(uuid2) {
+  return validUuidRegex.test(uuid2);
 }
 function handleNullableResponseAndWrappableBody(responseObject) {
   const combinedHeadersAndBody = {
@@ -27875,7 +29333,7 @@ var SerializerImpl = class {
    *
    * @returns A valid serialized Javascript object
    */
-  serialize(mapper, object, objectName, options = { xml: {} }) {
+  serialize(mapper, object2, objectName, options = { xml: {} }) {
     const updatedOptions = {
       xml: {
         rootName: options.xml.rootName ?? "",
@@ -27892,40 +29350,40 @@ var SerializerImpl = class {
       payload = [];
     }
     if (mapper.isConstant) {
-      object = mapper.defaultValue;
+      object2 = mapper.defaultValue;
     }
-    const { required, nullable } = mapper;
-    if (required && nullable && object === void 0) {
+    const { required: required2, nullable: nullable2 } = mapper;
+    if (required2 && nullable2 && object2 === void 0) {
       throw new Error(`${objectName} cannot be undefined.`);
     }
-    if (required && !nullable && (object === void 0 || object === null)) {
+    if (required2 && !nullable2 && (object2 === void 0 || object2 === null)) {
       throw new Error(`${objectName} cannot be null or undefined.`);
     }
-    if (!required && nullable === false && object === null) {
+    if (!required2 && nullable2 === false && object2 === null) {
       throw new Error(`${objectName} cannot be null.`);
     }
-    if (object === void 0 || object === null) {
-      payload = object;
+    if (object2 === void 0 || object2 === null) {
+      payload = object2;
     } else {
       if (mapperType.match(/^any$/i) !== null) {
-        payload = object;
+        payload = object2;
       } else if (mapperType.match(/^(Number|String|Boolean|Object|Stream|Uuid)$/i) !== null) {
-        payload = serializeBasicTypes(mapperType, objectName, object);
+        payload = serializeBasicTypes(mapperType, objectName, object2);
       } else if (mapperType.match(/^Enum$/i) !== null) {
         const enumMapper = mapper;
-        payload = serializeEnumType(objectName, enumMapper.type.allowedValues, object);
+        payload = serializeEnumType(objectName, enumMapper.type.allowedValues, object2);
       } else if (mapperType.match(/^(Date|DateTime|TimeSpan|DateTimeRfc1123|UnixTime)$/i) !== null) {
-        payload = serializeDateTypes(mapperType, object, objectName);
+        payload = serializeDateTypes(mapperType, object2, objectName);
       } else if (mapperType.match(/^ByteArray$/i) !== null) {
-        payload = serializeByteArrayType(objectName, object);
+        payload = serializeByteArrayType(objectName, object2);
       } else if (mapperType.match(/^Base64Url$/i) !== null) {
-        payload = serializeBase64UrlType(objectName, object);
+        payload = serializeBase64UrlType(objectName, object2);
       } else if (mapperType.match(/^Sequence$/i) !== null) {
-        payload = serializeSequenceType(this, mapper, object, objectName, Boolean(this.isXML), updatedOptions);
+        payload = serializeSequenceType(this, mapper, object2, objectName, Boolean(this.isXML), updatedOptions);
       } else if (mapperType.match(/^Dictionary$/i) !== null) {
-        payload = serializeDictionaryType(this, mapper, object, objectName, Boolean(this.isXML), updatedOptions);
+        payload = serializeDictionaryType(this, mapper, object2, objectName, Boolean(this.isXML), updatedOptions);
       } else if (mapperType.match(/^Composite$/i) !== null) {
-        payload = serializeCompositeType(this, mapper, object, objectName, Boolean(this.isXML), updatedOptions);
+        payload = serializeCompositeType(this, mapper, object2, objectName, Boolean(this.isXML), updatedOptions);
       }
     }
     return payload;
@@ -28165,8 +29623,8 @@ function serializeDateTypes(typeName, value, objectName) {
   }
   return value;
 }
-function serializeSequenceType(serializer, mapper, object, objectName, isXml, options) {
-  if (!Array.isArray(object)) {
+function serializeSequenceType(serializer, mapper, object2, objectName, isXml, options) {
+  if (!Array.isArray(object2)) {
     throw new Error(`${objectName} must be of type Array.`);
   }
   let elementType = mapper.type.element;
@@ -28177,8 +29635,8 @@ function serializeSequenceType(serializer, mapper, object, objectName, isXml, op
     elementType = serializer.modelMappers[elementType.type.className] ?? elementType;
   }
   const tempArray = [];
-  for (let i = 0; i < object.length; i++) {
-    const serializedValue = serializer.serialize(elementType, object[i], objectName, options);
+  for (let i = 0; i < object2.length; i++) {
+    const serializedValue = serializer.serialize(elementType, object2[i], objectName, options);
     if (isXml && elementType.xmlNamespace) {
       const xmlnsKey = elementType.xmlNamespacePrefix ? `xmlns:${elementType.xmlNamespacePrefix}` : "xmlns";
       if (elementType.type.name === "Composite") {
@@ -28195,8 +29653,8 @@ function serializeSequenceType(serializer, mapper, object, objectName, isXml, op
   }
   return tempArray;
 }
-function serializeDictionaryType(serializer, mapper, object, objectName, isXml, options) {
-  if (typeof object !== "object") {
+function serializeDictionaryType(serializer, mapper, object2, objectName, isXml, options) {
+  if (typeof object2 !== "object") {
     throw new Error(`${objectName} must be of type object.`);
   }
   const valueType = mapper.type.value;
@@ -28204,8 +29662,8 @@ function serializeDictionaryType(serializer, mapper, object, objectName, isXml, 
     throw new Error(`"value" metadata for a Dictionary must be defined in the mapper and it must of type "object" in ${objectName}.`);
   }
   const tempDictionary = {};
-  for (const key of Object.keys(object)) {
-    const serializedValue = serializer.serialize(valueType, object[key], objectName, options);
+  for (const key of Object.keys(object2)) {
+    const serializedValue = serializer.serialize(valueType, object2[key], objectName, options);
     tempDictionary[key] = getXmlObjectValue(valueType, serializedValue, isXml, options);
   }
   if (isXml && mapper.xmlNamespace) {
@@ -28245,11 +29703,11 @@ function resolveModelProperties(serializer, mapper, objectName) {
   }
   return modelProps;
 }
-function serializeCompositeType(serializer, mapper, object, objectName, isXml, options) {
+function serializeCompositeType(serializer, mapper, object2, objectName, isXml, options) {
   if (getPolymorphicDiscriminatorRecursively(serializer, mapper)) {
-    mapper = getPolymorphicMapper(serializer, mapper, object, "clientName");
+    mapper = getPolymorphicMapper(serializer, mapper, object2, "clientName");
   }
-  if (object !== void 0 && object !== null) {
+  if (object2 !== void 0 && object2 !== null) {
     const payload = {};
     const modelProps = resolveModelProperties(serializer, mapper, objectName);
     for (const key of Object.keys(modelProps)) {
@@ -28270,7 +29728,7 @@ function serializeCompositeType(serializer, mapper, object, objectName, isXml, o
         propName3 = paths.pop();
         for (const pathName of paths) {
           const childObject = parentObject[pathName];
-          if ((childObject === void 0 || childObject === null) && (object[key] !== void 0 && object[key] !== null || propertyMapper.defaultValue !== void 0)) {
+          if ((childObject === void 0 || childObject === null) && (object2[key] !== void 0 && object2[key] !== null || propertyMapper.defaultValue !== void 0)) {
             parentObject[pathName] = {};
           }
           parentObject = parentObject[pathName];
@@ -28285,7 +29743,7 @@ function serializeCompositeType(serializer, mapper, object, objectName, isXml, o
           };
         }
         const propertyObjectName = propertyMapper.serializedName !== "" ? objectName + "." + propertyMapper.serializedName : objectName;
-        let toSerialize = object[key];
+        let toSerialize = object2[key];
         const polymorphicDiscriminator = getPolymorphicDiscriminatorRecursively(serializer, mapper);
         if (polymorphicDiscriminator && polymorphicDiscriminator.clientName === key && (toSerialize === void 0 || toSerialize === null)) {
           toSerialize = mapper.serializedName;
@@ -28307,11 +29765,11 @@ function serializeCompositeType(serializer, mapper, object, objectName, isXml, o
     const additionalPropertiesMapper = resolveAdditionalProperties(serializer, mapper, objectName);
     if (additionalPropertiesMapper) {
       const propNames = Object.keys(modelProps);
-      for (const clientPropName of Object.keys(object)) {
+      for (const clientPropName of Object.keys(object2)) {
         const isAdditionalProperty = propNames.every((pn) => pn !== clientPropName);
         if (isAdditionalProperty) {
           Object.defineProperty(payload, clientPropName, {
-            value: serializer.serialize(additionalPropertiesMapper, object[clientPropName], objectName + '["' + clientPropName + '"]', options),
+            value: serializer.serialize(additionalPropertiesMapper, object2[clientPropName], objectName + '["' + clientPropName + '"]', options),
             enumerable: true,
             configurable: true,
             writable: true
@@ -28321,7 +29779,7 @@ function serializeCompositeType(serializer, mapper, object, objectName, isXml, o
     }
     return payload;
   }
-  return object;
+  return object2;
 }
 function getXmlObjectValue(propertyMapper, serializedValue, isXml, options) {
   if (!isXml || !propertyMapper.xmlNamespace) {
@@ -28521,7 +29979,7 @@ function getIndexDiscriminator(discriminators, discriminatorValue, typeName) {
   }
   return void 0;
 }
-function getPolymorphicMapper(serializer, mapper, object, polymorphicPropertyName) {
+function getPolymorphicMapper(serializer, mapper, object2, polymorphicPropertyName) {
   const polymorphicDiscriminator = getPolymorphicDiscriminatorRecursively(serializer, mapper);
   if (polymorphicDiscriminator) {
     let discriminatorName = polymorphicDiscriminator[polymorphicPropertyName];
@@ -28529,7 +29987,7 @@ function getPolymorphicMapper(serializer, mapper, object, polymorphicPropertyNam
       if (polymorphicPropertyName === "serializedName") {
         discriminatorName = discriminatorName.replace(/\\/gi, "");
       }
-      const discriminatorValue = object[discriminatorName];
+      const discriminatorValue = object2[discriminatorName];
       const typeName = mapper.type.uberParent ?? mapper.type.className;
       if (typeof discriminatorValue === "string" && typeName) {
         const polymorphicMapper = getIndexDiscriminator(serializer.modelMappers.discriminators, discriminatorValue, typeName);
@@ -28715,9 +30173,9 @@ async function deserializeResponseBody(jsonContentTypes, xmlContentTypes, respon
     return parsedResponse;
   }
   const responseSpec = getOperationResponseMap(parsedResponse);
-  const { error, shouldReturnResponse } = handleErrorResponse(parsedResponse, operationSpec, responseSpec, options);
-  if (error) {
-    throw error;
+  const { error: error2, shouldReturnResponse } = handleErrorResponse(parsedResponse, operationSpec, responseSpec, options);
+  if (error2) {
+    throw error2;
   } else if (shouldReturnResponse) {
     return parsedResponse;
   }
@@ -28764,13 +30222,13 @@ function handleErrorResponse(parsedResponse, operationSpec, responseSpec, option
   }
   const errorResponseSpec = responseSpec ?? operationSpec.responses.default;
   const initialErrorMessage = parsedResponse.request.streamResponseStatusCodes?.has(parsedResponse.status) ? `Unexpected status code: ${parsedResponse.status}` : parsedResponse.bodyAsText;
-  const error = new RestError2(initialErrorMessage, {
+  const error2 = new RestError2(initialErrorMessage, {
     statusCode: parsedResponse.status,
     request: parsedResponse.request,
     response: parsedResponse
   });
   if (!errorResponseSpec && !(parsedResponse.parsedBody?.error?.code && parsedResponse.parsedBody?.error?.message)) {
-    throw error;
+    throw error2;
   }
   const defaultBodyMapper = errorResponseSpec?.bodyMapper;
   const defaultHeadersMapper = errorResponseSpec?.headersMapper;
@@ -28790,21 +30248,21 @@ function handleErrorResponse(parsedResponse, operationSpec, responseSpec, option
         deserializedError = operationSpec.serializer.deserialize(defaultBodyMapper, valueToDeserialize, "error.response.parsedBody", options);
       }
       const internalError = parsedBody.error || deserializedError || parsedBody;
-      error.code = internalError.code;
+      error2.code = internalError.code;
       if (internalError.message) {
-        error.message = internalError.message;
+        error2.message = internalError.message;
       }
       if (defaultBodyMapper) {
-        error.response.parsedBody = deserializedError;
+        error2.response.parsedBody = deserializedError;
       }
     }
     if (parsedResponse.headers && defaultHeadersMapper) {
-      error.response.parsedHeaders = operationSpec.serializer.deserialize(defaultHeadersMapper, parsedResponse.headers.toJSON(), "operationRes.parsedHeaders");
+      error2.response.parsedHeaders = operationSpec.serializer.deserialize(defaultHeadersMapper, parsedResponse.headers.toJSON(), "operationRes.parsedHeaders");
     }
   } catch (defaultError) {
-    error.message = `Error "${defaultError.message}" occurred in deserializing the responseBody - "${parsedResponse.bodyAsText}" for the default response.`;
+    error2.message = `Error "${defaultError.message}" occurred in deserializing the responseBody - "${parsedResponse.bodyAsText}" for the default response.`;
   }
-  return { error, shouldReturnResponse: false };
+  return { error: error2, shouldReturnResponse: false };
 }
 async function parse2(jsonContentTypes, xmlContentTypes, operationResponse, opts, parseXML2) {
   if (!operationResponse.request.streamResponseStatusCodes?.has(operationResponse.status) && operationResponse.bodyAsText) {
@@ -28918,10 +30376,10 @@ function serializeRequestBody(request, operationArguments, operationSpec, string
   if (operationSpec.requestBody && operationSpec.requestBody.mapper) {
     request.body = getOperationArgumentValueFromParameter(operationArguments, operationSpec.requestBody);
     const bodyMapper = operationSpec.requestBody.mapper;
-    const { required, serializedName, xmlName, xmlElementName, xmlNamespace, xmlNamespacePrefix, nullable } = bodyMapper;
+    const { required: required2, serializedName, xmlName, xmlElementName, xmlNamespace, xmlNamespacePrefix, nullable: nullable2 } = bodyMapper;
     const typeName = bodyMapper.type.name;
     try {
-      if (request.body !== void 0 && request.body !== null || nullable && request.body === null || required) {
+      if (request.body !== void 0 && request.body !== null || nullable2 && request.body === null || required2) {
         const requestBodyParameterPathString = getPathStringFromParameter(operationSpec.requestBody);
         request.body = operationSpec.serializer.serialize(bodyMapper, request.body, requestBodyParameterPathString, updatedOptions);
         const isStream = typeName === MapperTypeNames.Stream;
@@ -28942,8 +30400,8 @@ function serializeRequestBody(request, operationArguments, operationSpec, string
           request.body = JSON.stringify(request.body);
         }
       }
-    } catch (error) {
-      throw new Error(`Error "${error.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, void 0, "  ")}.`);
+    } catch (error2) {
+      throw new Error(`Error "${error2.message}" occurred in serializing the payload - ${JSON.stringify(serializedName, void 0, "  ")}.`);
     }
   } else if (operationSpec.formDataParameters && operationSpec.formDataParameters.length > 0) {
     request.formData = {};
@@ -29312,16 +30770,16 @@ var ServiceClient = class {
         options.onResponse(rawResponse, flatResponse);
       }
       return flatResponse;
-    } catch (error) {
-      if (typeof error === "object" && error?.response) {
-        const rawResponse = error.response;
-        const flatResponse = flattenResponse(rawResponse, operationSpec.responses[error.statusCode] || operationSpec.responses["default"]);
-        error.details = flatResponse;
+    } catch (error2) {
+      if (typeof error2 === "object" && error2?.response) {
+        const rawResponse = error2.response;
+        const flatResponse = flattenResponse(rawResponse, operationSpec.responses[error2.statusCode] || operationSpec.responses["default"]);
+        error2.details = flatResponse;
         if (options?.onResponse) {
-          options.onResponse(rawResponse, flatResponse, error);
+          options.onResponse(rawResponse, flatResponse, error2);
         }
       }
-      throw error;
+      throw error2;
     }
   }
 };
@@ -29739,10 +31197,10 @@ var ExtendedServiceClient = class extends ServiceClient {
   async sendOperationRequest(operationArguments, operationSpec) {
     const userProvidedCallBack = operationArguments?.options?.onResponse;
     let lastResponse;
-    function onResponse(rawResponse, flatResponse, error) {
+    function onResponse(rawResponse, flatResponse, error2) {
       lastResponse = rawResponse;
       if (userProvidedCallBack) {
-        userProvidedCallBack(rawResponse, flatResponse, error);
+        userProvidedCallBack(rawResponse, flatResponse, error2);
       }
     }
     operationArguments.options = {
@@ -29811,9 +31269,9 @@ var nameStartChar = ":A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u037
 var nameChar = nameStartChar + "\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040";
 var nameRegexp = "[" + nameStartChar + "][" + nameChar + "]*";
 var regexName = new RegExp("^" + nameRegexp + "$");
-function getAllMatches(string, regex) {
+function getAllMatches(string3, regex) {
   const matches = [];
-  let match = regex.exec(string);
+  let match = regex.exec(string3);
   while (match) {
     const allmatches = [];
     allmatches.startIndex = regex.lastIndex - match[0].length;
@@ -29822,12 +31280,12 @@ function getAllMatches(string, regex) {
       allmatches.push(match[index]);
     }
     matches.push(allmatches);
-    match = regex.exec(string);
+    match = regex.exec(string3);
   }
   return matches;
 }
-var isName = function(string) {
-  const match = regexName.exec(string);
+var isName = function(string3) {
+  const match = regexName.exec(string3);
   return !(match === null || typeof match === "undefined");
 };
 function isExist(v) {
@@ -31471,8 +32929,8 @@ var EntityDecoder = class {
    * Call this as soon as the document's `<?xml version="...">` declaration is parsed.
    * @param {1.0|1.1|number} version
    */
-  setXmlVersion(version2) {
-    this._ncrXmlVersion = version2 === 1.1 ? 1.1 : 1;
+  setXmlVersion(version3) {
+    this._ncrXmlVersion = version3 === 1.1 ? 1.1 : 1;
   }
   // -------------------------------------------------------------------------
   // Primary API
@@ -35377,22 +36835,22 @@ Builder.prototype.buildAttrPairStr = function(attrName, val, isStopNode) {
     return " " + attrName;
   } else return " " + attrName + '="' + escapeAttribute(val) + '"';
 };
-function processTextOrObjNode(object, key, level, matcher, xmlVersion) {
-  const attrValues = this.extractAttributes(object);
+function processTextOrObjNode(object2, key, level, matcher, xmlVersion) {
+  const attrValues = this.extractAttributes(object2);
   matcher.push(key, attrValues);
   const isStopNode = this.checkStopNode(matcher);
   if (isStopNode) {
-    const rawContent2 = this.buildRawContent(object);
-    const attrStr = this.buildAttributesForStopNode(object);
+    const rawContent2 = this.buildRawContent(object2);
+    const attrStr = this.buildAttributesForStopNode(object2);
     matcher.pop();
     return this.buildObjectNode(rawContent2, key, attrStr, level);
   }
-  const result = this.j2x(object, level + 1, matcher, xmlVersion);
+  const result = this.j2x(object2, level + 1, matcher, xmlVersion);
   matcher.pop();
   if (key[0] === "?") {
     return this.buildTextValNode("", key, result.attrStr, level, matcher);
-  } else if (object[this.options.textNodeName] !== void 0 && Object.keys(object).length === 1) {
-    return this.buildTextValNode(object[this.options.textNodeName], key, result.attrStr, level, matcher);
+  } else if (object2[this.options.textNodeName] !== void 0 && Object.keys(object2).length === 1) {
+    return this.buildTextValNode(object2[this.options.textNodeName], key, result.attrStr, level, matcher);
   } else {
     return this.buildObjectNode(result.val, key, result.attrStr, level);
   }
@@ -36150,7 +37608,7 @@ var NativeCRC64 = (() => {
         if (!ret.buffer) {
           ret = new Uint8Array(ret);
         }
-        assert(ret.buffer);
+        assert2(ret.buffer);
         return ret;
       };
       readAsync = (filename, onload, onerror) => {
@@ -36196,7 +37654,7 @@ var NativeCRC64 = (() => {
           return new Uint8Array(readbuffer(f));
         }
         data = read(f, "binary");
-        assert(typeof data == "object");
+        assert2(typeof data == "object");
         return data;
       };
       readAsync = function readAsync2(f, onload, onerror) {
@@ -36285,15 +37743,15 @@ var NativeCRC64 = (() => {
     legacyModuleProp("thisProgram", "thisProgram");
     if (Module["quit"]) quit_ = Module["quit"];
     legacyModuleProp("quit", "quit_");
-    assert(typeof Module["memoryInitializerPrefixURL"] == "undefined", "Module.memoryInitializerPrefixURL option was removed, use Module.locateFile instead");
-    assert(typeof Module["pthreadMainPrefixURL"] == "undefined", "Module.pthreadMainPrefixURL option was removed, use Module.locateFile instead");
-    assert(typeof Module["cdInitializerPrefixURL"] == "undefined", "Module.cdInitializerPrefixURL option was removed, use Module.locateFile instead");
-    assert(typeof Module["filePackagePrefixURL"] == "undefined", "Module.filePackagePrefixURL option was removed, use Module.locateFile instead");
-    assert(typeof Module["read"] == "undefined", "Module.read option was removed (modify read_ in JS)");
-    assert(typeof Module["readAsync"] == "undefined", "Module.readAsync option was removed (modify readAsync in JS)");
-    assert(typeof Module["readBinary"] == "undefined", "Module.readBinary option was removed (modify readBinary in JS)");
-    assert(typeof Module["setWindowTitle"] == "undefined", "Module.setWindowTitle option was removed (modify setWindowTitle in JS)");
-    assert(typeof Module["TOTAL_MEMORY"] == "undefined", "Module.TOTAL_MEMORY has been renamed Module.INITIAL_MEMORY");
+    assert2(typeof Module["memoryInitializerPrefixURL"] == "undefined", "Module.memoryInitializerPrefixURL option was removed, use Module.locateFile instead");
+    assert2(typeof Module["pthreadMainPrefixURL"] == "undefined", "Module.pthreadMainPrefixURL option was removed, use Module.locateFile instead");
+    assert2(typeof Module["cdInitializerPrefixURL"] == "undefined", "Module.cdInitializerPrefixURL option was removed, use Module.locateFile instead");
+    assert2(typeof Module["filePackagePrefixURL"] == "undefined", "Module.filePackagePrefixURL option was removed, use Module.locateFile instead");
+    assert2(typeof Module["read"] == "undefined", "Module.read option was removed (modify read_ in JS)");
+    assert2(typeof Module["readAsync"] == "undefined", "Module.readAsync option was removed (modify readAsync in JS)");
+    assert2(typeof Module["readBinary"] == "undefined", "Module.readBinary option was removed (modify readBinary in JS)");
+    assert2(typeof Module["setWindowTitle"] == "undefined", "Module.setWindowTitle option was removed (modify setWindowTitle in JS)");
+    assert2(typeof Module["TOTAL_MEMORY"] == "undefined", "Module.TOTAL_MEMORY has been renamed Module.INITIAL_MEMORY");
     legacyModuleProp("read", "read_");
     legacyModuleProp("readAsync", "readAsync");
     legacyModuleProp("readBinary", "readBinary");
@@ -36302,7 +37760,7 @@ var NativeCRC64 = (() => {
     var PROXYFS = "PROXYFS is no longer included by default; build with -lproxyfs.js";
     var WORKERFS = "WORKERFS is no longer included by default; build with -lworkerfs.js";
     var NODEFS = "NODEFS is no longer included by default; build with -lnodefs.js";
-    assert(!ENVIRONMENT_IS_SHELL, "shell environment detected but not enabled at build time.  Add 'shell' to `-sENVIRONMENT` to enable.");
+    assert2(!ENVIRONMENT_IS_SHELL, "shell environment detected but not enabled at build time.  Add 'shell' to `-sENVIRONMENT` to enable.");
     var STACK_ALIGN = 16;
     var POINTER_SIZE = 4;
     function getNativeTypeSize(type) {
@@ -36330,7 +37788,7 @@ var NativeCRC64 = (() => {
           }
           if (type[0] === "i") {
             const bits = Number(type.substr(1));
-            assert(bits % 8 === 0, "getNativeTypeSize invalid bits " + bits + ", type " + type);
+            assert2(bits % 8 === 0, "getNativeTypeSize invalid bits " + bits + ", type " + type);
             return bits / 8;
           }
           return 0;
@@ -36401,7 +37859,7 @@ var NativeCRC64 = (() => {
     var wasmMemory;
     var ABORT = false;
     var EXITSTATUS;
-    function assert(condition, text) {
+    function assert2(condition, text) {
       if (!condition) {
         abort("Assertion failed" + (text ? ": " + text : ""));
       }
@@ -36481,7 +37939,7 @@ var NativeCRC64 = (() => {
       return outIdx - startIdx;
     }
     function stringToUTF8(str3, outPtr, maxBytesToWrite) {
-      assert(typeof maxBytesToWrite == "number", "stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!");
+      assert2(typeof maxBytesToWrite == "number", "stringToUTF8(str, outPtr, maxBytesToWrite) is missing the third parameter that specifies the length of the output buffer!");
       return stringToUTF8Array(str3, HEAPU8, outPtr, maxBytesToWrite);
     }
     function lengthBytesUTF8(str3) {
@@ -36514,20 +37972,20 @@ var NativeCRC64 = (() => {
       Module["HEAPF64"] = HEAPF64 = new Float64Array(buf);
     }
     var STACK_SIZE = 5242880;
-    if (Module["STACK_SIZE"]) assert(STACK_SIZE === Module["STACK_SIZE"], "the stack size can no longer be determined at runtime");
+    if (Module["STACK_SIZE"]) assert2(STACK_SIZE === Module["STACK_SIZE"], "the stack size can no longer be determined at runtime");
     var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 16777216;
     legacyModuleProp("INITIAL_MEMORY", "INITIAL_MEMORY");
-    assert(INITIAL_MEMORY >= STACK_SIZE, "INITIAL_MEMORY should be larger than STACK_SIZE, was " + INITIAL_MEMORY + "! (STACK_SIZE=" + STACK_SIZE + ")");
-    assert(
+    assert2(INITIAL_MEMORY >= STACK_SIZE, "INITIAL_MEMORY should be larger than STACK_SIZE, was " + INITIAL_MEMORY + "! (STACK_SIZE=" + STACK_SIZE + ")");
+    assert2(
       typeof Int32Array != "undefined" && typeof Float64Array !== "undefined" && Int32Array.prototype.subarray != void 0 && Int32Array.prototype.set != void 0,
       "JS engine does not provide full typed array support"
     );
-    assert(!Module["wasmMemory"], "Use of `wasmMemory` detected.  Use -sIMPORTED_MEMORY to define wasmMemory externally");
-    assert(INITIAL_MEMORY == 16777216, "Detected runtime INITIAL_MEMORY setting.  Use -sIMPORTED_MEMORY to define wasmMemory dynamically");
+    assert2(!Module["wasmMemory"], "Use of `wasmMemory` detected.  Use -sIMPORTED_MEMORY to define wasmMemory externally");
+    assert2(INITIAL_MEMORY == 16777216, "Detected runtime INITIAL_MEMORY setting.  Use -sIMPORTED_MEMORY to define wasmMemory dynamically");
     var wasmTable;
     function writeStackCookie() {
       var max = _emscripten_stack_get_end();
-      assert((max & 3) == 0);
+      assert2((max & 3) == 0);
       if (max == 0) {
         max += 4;
       }
@@ -36574,7 +38032,7 @@ var NativeCRC64 = (() => {
       callRuntimeCallbacks(__ATPRERUN__);
     }
     function initRuntime() {
-      assert(!runtimeInitialized);
+      assert2(!runtimeInitialized);
       runtimeInitialized = true;
       checkStackCookie();
       callRuntimeCallbacks(__ATINIT__);
@@ -36600,10 +38058,10 @@ var NativeCRC64 = (() => {
     function addOnPostRun(cb) {
       __ATPOSTRUN__.unshift(cb);
     }
-    assert(Math.imul, "This browser does not support Math.imul(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
-    assert(Math.fround, "This browser does not support Math.fround(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
-    assert(Math.clz32, "This browser does not support Math.clz32(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
-    assert(Math.trunc, "This browser does not support Math.trunc(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
+    assert2(Math.imul, "This browser does not support Math.imul(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
+    assert2(Math.fround, "This browser does not support Math.fround(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
+    assert2(Math.clz32, "This browser does not support Math.clz32(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
+    assert2(Math.trunc, "This browser does not support Math.trunc(), build with LEGACY_VM_SUPPORT or POLYFILL_OLD_MATH_FUNCTIONS to add in a polyfill");
     var runDependencies = 0;
     var runDependencyWatcher = null;
     var dependenciesFulfilled = null;
@@ -36621,7 +38079,7 @@ var NativeCRC64 = (() => {
         Module["monitorRunDependencies"](runDependencies);
       }
       if (id) {
-        assert(!runDependencyTracking[id]);
+        assert2(!runDependencyTracking[id]);
         runDependencyTracking[id] = 1;
         if (runDependencyWatcher === null && typeof setInterval != "undefined") {
           runDependencyWatcher = setInterval(function() {
@@ -36653,7 +38111,7 @@ var NativeCRC64 = (() => {
         Module["monitorRunDependencies"](runDependencies);
       }
       if (id) {
-        assert(runDependencyTracking[id]);
+        assert2(runDependencyTracking[id]);
         delete runDependencyTracking[id];
       } else {
         err2("warning: run dependency removed without ID");
@@ -36733,9 +38191,9 @@ var NativeCRC64 = (() => {
         if (!fixedasm) {
           asm2 = Module["asm"];
         }
-        assert(runtimeInitialized, "native function `" + displayName + "` called before runtime initialization");
+        assert2(runtimeInitialized, "native function `" + displayName + "` called before runtime initialization");
         if (!asm2[name]) {
-          assert(asm2[name], "exported native function `" + displayName + "` not found");
+          assert2(asm2[name], "exported native function `" + displayName + "` not found");
         }
         return asm2[name].apply(null, arguments);
       };
@@ -37364,8 +38822,8 @@ var NativeCRC64 = (() => {
       "nRBcnJheUZyb21TdHJpbmcAAEGwkcECC2Ioc2l6ZV90IGlkeCwgc2l6ZV90IHNpemUpPDo6PnsgdGhyb3cg",
       "J0FycmF5IGluZGV4ICcgKyBpZHggKyAnIG91dCBvZiBib3VuZHM6IFswLCcgKyBzaXplICsgJyknOyB9AA=="
     ].join("");
-    function _base64ToArrayBuffer(base64) {
-      var binary_string = window.atob(base64);
+    function _base64ToArrayBuffer(base642) {
+      var binary_string = window.atob(base642);
       var len = binary_string.length;
       var bytes = new Uint8Array(len);
       for (var i = 0; i < len; i++) {
@@ -37394,17 +38852,17 @@ var NativeCRC64 = (() => {
         var exports3 = instance.exports;
         Module["asm"] = exports3;
         wasmMemory = Module["asm"]["memory"];
-        assert(wasmMemory, "memory not found in wasm exports");
+        assert2(wasmMemory, "memory not found in wasm exports");
         updateGlobalBufferAndViews(wasmMemory.buffer);
         wasmTable = Module["asm"]["__indirect_function_table"];
-        assert(wasmTable, "table not found in wasm exports");
+        assert2(wasmTable, "table not found in wasm exports");
         addOnInit(Module["asm"]["__wasm_call_ctors"]);
         removeRunDependency("wasm-instantiate");
       }
       addRunDependency("wasm-instantiate");
       var trueModule = Module;
       function receiveInstantiationResult(result) {
-        assert(Module === trueModule, "the Module object should not be replaced during async compilation - perhaps the order of HTML elements is wrong?");
+        assert2(Module === trueModule, "the Module object should not be replaced during async compilation - perhaps the order of HTML elements is wrong?");
         trueModule = null;
         receiveInstance(result["instance"]);
       }
@@ -37536,7 +38994,7 @@ var NativeCRC64 = (() => {
     function _emscripten_resize_heap(requestedSize) {
       var oldSize = HEAPU8.length;
       requestedSize = requestedSize >>> 0;
-      assert(requestedSize > oldSize);
+      assert2(requestedSize > oldSize);
       var maxHeapSize = getHeapMax();
       if (requestedSize > maxHeapSize) {
         err2("Cannot enlarge memory, asked to go up to " + requestedSize + " bytes, but the limit is " + maxHeapSize + " bytes!");
@@ -37556,7 +39014,7 @@ var NativeCRC64 = (() => {
       return false;
     }
     var SYSCALLS = { varargs: void 0, get: function() {
-      assert(SYSCALLS.varargs != void 0);
+      assert2(SYSCALLS.varargs != void 0);
       SYSCALLS.varargs += 4;
       var ret = HEAP32[SYSCALLS.varargs - 4 >> 2];
       return ret;
@@ -37568,8 +39026,8 @@ var NativeCRC64 = (() => {
       abort("fd_close called without SYSCALLS_REQUIRE_FILESYSTEM");
     }
     function convertI32PairToI53Checked(lo, hi) {
-      assert(lo == lo >>> 0 || lo == (lo | 0));
-      assert(hi === (hi | 0));
+      assert2(lo == lo >>> 0 || lo == (lo | 0));
+      assert2(hi === (hi | 0));
       return hi + 2097152 >>> 0 < 4194305 - !!lo ? (lo >>> 0) + hi * 4294967296 : NaN;
     }
     function _fd_seek(fd, offset_low, offset_high, whence, newOffset) {
@@ -37578,7 +39036,7 @@ var NativeCRC64 = (() => {
     var printCharBuffers = [null, [], []];
     function printChar(stream, curr) {
       var buffer3 = printCharBuffers[stream];
-      assert(buffer3);
+      assert2(buffer3);
       if (curr === 0 || curr === 10) {
         (stream === 1 ? out : err2)(UTF8ArrayToString(buffer3, 0));
         buffer3.length = 0;
@@ -38083,7 +39541,7 @@ var NativeCRC64 = (() => {
         initRuntime();
         readyPromiseResolve(Module);
         if (Module["onRuntimeInitialized"]) Module["onRuntimeInitialized"]();
-        assert(!Module["_main"], 'compiled without a main, but one is present. if you added it from JS, use Module["onRuntimeInitialized"]');
+        assert2(!Module["_main"], 'compiled without a main, but one is present. if you added it from JS, use Module["onRuntimeInitialized"]');
         postRun();
       }
       if (Module["setStatus"]) {
@@ -38192,18 +39650,18 @@ var NativeCRC64 = (() => {
         if (!ensureCache.buffer) {
           ensureCache.size += 128;
           ensureCache.buffer = Module["_malloc"](ensureCache.size);
-          assert(ensureCache.buffer);
+          assert2(ensureCache.buffer);
         }
         ensureCache.pos = 0;
       },
-      alloc: function(array, view) {
-        assert(ensureCache.buffer);
+      alloc: function(array2, view) {
+        assert2(ensureCache.buffer);
         var bytes = view.BYTES_PER_ELEMENT;
-        var len = array.length * bytes;
+        var len = array2.length * bytes;
         len = len + 7 & -8;
         var ret;
         if (ensureCache.pos + len >= ensureCache.size) {
-          assert(len > 0);
+          assert2(len > 0);
           ensureCache.needed += len;
           ret = Module["_malloc"](len);
           ensureCache.temps.push(ret);
@@ -38213,7 +39671,7 @@ var NativeCRC64 = (() => {
         }
         return ret;
       },
-      copy: function(array, view, offset) {
+      copy: function(array2, view, offset) {
         offset >>>= 0;
         var bytes = view.BYTES_PER_ELEMENT;
         switch (bytes) {
@@ -38227,8 +39685,8 @@ var NativeCRC64 = (() => {
             offset >>>= 3;
             break;
         }
-        for (var i = 0; i < array.length; i++) {
-          view[offset + i] = array[i];
+        for (var i = 0; i < array2.length; i++) {
+          view[offset + i] = array2[i];
         }
       }
     };
@@ -38611,8 +40069,8 @@ async function BrowserStream(source, contentLength2) {
     pull(controller) {
       pump(reader, controller, encodingStream).then(() => {
         return;
-      }).catch(function(error) {
-        controller.error(error);
+      }).catch(function(error2) {
+        controller.error(error2);
       });
     }
   });
@@ -38667,10 +40125,10 @@ var StructuredMessageEncodingStream = class extends import_node_stream3.Readable
   _read() {
     this.source.resume();
   }
-  _destroy(error, callback) {
+  _destroy(error2, callback) {
     this.removeSourceEventHandlers();
     this.source.destroy();
-    callback(error === null ? void 0 : error);
+    callback(error2 === null ? void 0 : error2);
   }
 };
 
@@ -38910,10 +40368,10 @@ var StructuredMessageDecodingStream = class extends import_node_stream4.Readable
     }
     this.removeSourceEventHandlers();
   };
-  _destroy(error, callback) {
+  _destroy(error2, callback) {
     this.removeSourceEventHandlers();
     this.source.destroy();
-    callback(error === null ? void 0 : error);
+    callback(error2 === null ? void 0 : error2);
   }
 };
 
@@ -39676,8 +41134,8 @@ var StorageSharedKeyCredentialPolicy = class extends CredentialPolicy {
     headersArray.sort((a, b) => {
       return compareHeader(a.name.toLowerCase(), b.name.toLowerCase());
     });
-    headersArray = headersArray.filter((value, index, array) => {
-      if (index > 0 && value.name.toLowerCase() === array[index - 1].name.toLowerCase()) {
+    headersArray = headersArray.filter((value, index, array2) => {
+      if (index > 0 && value.name.toLowerCase() === array2[index - 1].name.toLowerCase()) {
         return false;
       }
       return true;
@@ -40014,25 +41472,25 @@ function storageRetryPolicy(options = {}) {
   const maxRetryDelayInMs = options.maxRetryDelayInMs ?? DEFAULT_RETRY_OPTIONS2.maxRetryDelayInMs;
   const secondaryHost = options.secondaryHost ?? DEFAULT_RETRY_OPTIONS2.secondaryHost;
   const tryTimeoutInMs = options.tryTimeoutInMs ?? DEFAULT_RETRY_OPTIONS2.tryTimeoutInMs;
-  function shouldRetry({ isPrimaryRetry, attempt, response, error }) {
+  function shouldRetry({ isPrimaryRetry, attempt, response, error: error2 }) {
     if (attempt >= maxTries) {
       logger5.info(`RetryPolicy: Attempt(s) ${attempt} >= maxTries ${maxTries}, no further try.`);
       return false;
     }
-    if (error) {
+    if (error2) {
       for (const retriableError of retriableErrors) {
-        if (error.name.toUpperCase().includes(retriableError) || error.message.toUpperCase().includes(retriableError) || error.code && error.code.toString().toUpperCase() === retriableError) {
+        if (error2.name.toUpperCase().includes(retriableError) || error2.message.toUpperCase().includes(retriableError) || error2.code && error2.code.toString().toUpperCase() === retriableError) {
           logger5.info(`RetryPolicy: Network error ${retriableError} found, will retry.`);
           return true;
         }
       }
-      if (error?.code === "PARSE_ERROR" && error?.message.startsWith(`Error "Error: Unclosed root tag`)) {
+      if (error2?.code === "PARSE_ERROR" && error2?.message.startsWith(`Error "Error: Unclosed root tag`)) {
         logger5.info("RetryPolicy: Incomplete XML response likely due to service timeout, will retry.");
         return true;
       }
     }
-    if (response || error) {
-      const statusCode = response?.status ?? error?.statusCode ?? 0;
+    if (response || error2) {
+      const statusCode = response?.status ?? error2?.statusCode ?? 0;
       if (!isPrimaryRetry && statusCode === 404) {
         logger5.info(`RetryPolicy: Secondary access with 404, will retry.`);
         return true;
@@ -40086,12 +41544,12 @@ function storageRetryPolicy(options = {}) {
       let attempt = 1;
       let retryAgain = true;
       let response;
-      let error;
+      let error2;
       while (retryAgain) {
         const isPrimaryRetry = secondaryHas404 || !secondaryUrl || !["GET", "HEAD", "OPTIONS"].includes(request.method) || attempt % 2 === 1;
         request.url = isPrimaryRetry ? primaryUrl : secondaryUrl;
         response = void 0;
-        error = void 0;
+        error2 = void 0;
         try {
           logger5.info(`RetryPolicy: =====> Try=${attempt} ${isPrimaryRetry ? "Primary" : "Secondary"}`);
           response = await next(request);
@@ -40099,13 +41557,13 @@ function storageRetryPolicy(options = {}) {
         } catch (e) {
           if (isRestError2(e)) {
             logger5.error(`RetryPolicy: Caught error, message: ${e.message}, code: ${e.code}`);
-            error = e;
+            error2 = e;
           } else {
             logger5.error(`RetryPolicy: Caught error, message: ${getErrorMessage(e)}`);
             throw e;
           }
         }
-        retryAgain = shouldRetry({ isPrimaryRetry, attempt, response, error });
+        retryAgain = shouldRetry({ isPrimaryRetry, attempt, response, error: error2 });
         if (retryAgain) {
           await delay3(calculateDelay(isPrimaryRetry, attempt), request.abortSignal, RETRY_ABORT_ERROR2);
         }
@@ -40114,7 +41572,7 @@ function storageRetryPolicy(options = {}) {
       if (response) {
         return response;
       }
-      throw error ?? new RestError2("RetryPolicy failed without known error.");
+      throw error2 ?? new RestError2("RetryPolicy failed without known error.");
     }
   };
 }
@@ -40165,8 +41623,8 @@ function storageSharedKeyCredentialPolicy(options) {
     headersArray.sort((a, b) => {
       return compareHeader(a.name.toLowerCase(), b.name.toLowerCase());
     });
-    headersArray = headersArray.filter((value, index, array) => {
-      if (index > 0 && value.name.toLowerCase() === array[index - 1].name.toLowerCase()) {
+    headersArray = headersArray.filter((value, index, array2) => {
+      if (index > 0 && value.name.toLowerCase() === array2[index - 1].name.toLowerCase()) {
         return false;
       }
       return true;
@@ -54516,8 +55974,8 @@ function appendToURLQuery(url2, queryParts) {
   urlParsed.search = query2;
   return urlParsed.toString();
 }
-function truncatedISO8061Date(date, withMilliseconds = true) {
-  const dateString = date.toISOString();
+function truncatedISO8061Date(date3, withMilliseconds = true) {
+  const dateString = date3.toISOString();
   return withMilliseconds ? dateString.substring(0, dateString.length - 1) + "0000Z" : dateString.substring(0, dateString.length - 5) + "Z";
 }
 function base64encode(content) {
@@ -54570,7 +56028,7 @@ function getAccountNameFromUrl(url2) {
       accountName = "";
     }
     return accountName;
-  } catch (error) {
+  } catch (error2) {
     throw new Error("Unable to extract accountName with provided information.");
   }
 }
@@ -55428,8 +56886,8 @@ var SASQueryParameters = class {
     }
     return void 0;
   }
-  constructor(version2, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn2, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType2, userDelegationKey, preauthorizedAgentObjectId, correlationId, encryptionScope2, delegatedUserObjectId, requestHeaderKeys, requestQueryParameterKeys, directoryDepth) {
-    this.version = version2;
+  constructor(version3, signature, permissionsOrOptions, services, resourceTypes, protocol, startsOn, expiresOn2, ipRange, identifier, resource, cacheControl, contentDisposition, contentEncoding, contentLanguage, contentType2, userDelegationKey, preauthorizedAgentObjectId, correlationId, encryptionScope2, delegatedUserObjectId, requestHeaderKeys, requestQueryParameterKeys, directoryDepth) {
+    this.version = version3;
     this.signature = signature;
     if (permissionsOrOptions !== void 0 && typeof permissionsOrOptions !== "string") {
       this.permissions = permissionsOrOptions.permissions;
@@ -55663,7 +57121,7 @@ function generateBlobSASQueryParameters(blobSASSignatureValues, sharedKeyCredent
   return generateBlobSASQueryParametersInternal(blobSASSignatureValues, sharedKeyCredentialOrUserDelegationKey, accountName).sasQueryParameters;
 }
 function generateBlobSASQueryParametersInternal(blobSASSignatureValues, sharedKeyCredentialOrUserDelegationKey, accountName) {
-  const version2 = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
+  const version3 = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
   const sharedKeyCredential = sharedKeyCredentialOrUserDelegationKey instanceof StorageSharedKeyCredential ? sharedKeyCredentialOrUserDelegationKey : void 0;
   let userDelegationKeyCredential;
   if (sharedKeyCredential === void 0 && accountName !== void 0) {
@@ -55672,35 +57130,35 @@ function generateBlobSASQueryParametersInternal(blobSASSignatureValues, sharedKe
   if (sharedKeyCredential === void 0 && userDelegationKeyCredential === void 0) {
     throw TypeError("Invalid sharedKeyCredential, userDelegationKey or accountName.");
   }
-  if (version2 >= "2020-12-06") {
+  if (version3 >= "2020-12-06") {
     if (sharedKeyCredential !== void 0) {
       return generateBlobSASQueryParameters20201206(blobSASSignatureValues, sharedKeyCredential);
     } else {
-      if (version2 >= "2026-04-06") {
+      if (version3 >= "2026-04-06") {
         return generateBlobSASQueryParametersUDK20260406(blobSASSignatureValues, userDelegationKeyCredential);
-      } else if (version2 >= "2025-07-05") {
+      } else if (version3 >= "2025-07-05") {
         return generateBlobSASQueryParametersUDK20250705(blobSASSignatureValues, userDelegationKeyCredential);
       } else {
         return generateBlobSASQueryParametersUDK20201206(blobSASSignatureValues, userDelegationKeyCredential);
       }
     }
   }
-  if (version2 >= "2018-11-09") {
+  if (version3 >= "2018-11-09") {
     if (sharedKeyCredential !== void 0) {
-      if (version2 >= "2020-02-10") {
+      if (version3 >= "2020-02-10") {
         return generateBlobSASQueryParameters20200210(blobSASSignatureValues, sharedKeyCredential);
       } else {
         return generateBlobSASQueryParameters20181109(blobSASSignatureValues, sharedKeyCredential);
       }
     } else {
-      if (version2 >= "2020-02-10") {
+      if (version3 >= "2020-02-10") {
         return generateBlobSASQueryParametersUDK20200210(blobSASSignatureValues, userDelegationKeyCredential);
       } else {
         return generateBlobSASQueryParametersUDK20181109(blobSASSignatureValues, userDelegationKeyCredential);
       }
     }
   }
-  if (version2 >= "2015-04-05") {
+  if (version3 >= "2015-04-05") {
     if (sharedKeyCredential !== void 0) {
       return generateBlobSASQueryParameters20150405(blobSASSignatureValues, sharedKeyCredential);
     } else {
@@ -56255,44 +57713,44 @@ function getCanonicalName(accountName, containerName2, blobName) {
   return elements.join("");
 }
 function SASSignatureValuesSanityCheckAndAutofill(blobSASSignatureValues) {
-  const version2 = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
-  if (blobSASSignatureValues.snapshotTime && version2 < "2018-11-09") {
+  const version3 = blobSASSignatureValues.version ? blobSASSignatureValues.version : SERVICE_VERSION;
+  if (blobSASSignatureValues.snapshotTime && version3 < "2018-11-09") {
     throw RangeError("'version' must be >= '2018-11-09' when providing 'snapshotTime'.");
   }
   if (blobSASSignatureValues.blobName === void 0 && blobSASSignatureValues.snapshotTime) {
     throw RangeError("Must provide 'blobName' when providing 'snapshotTime'.");
   }
-  if (blobSASSignatureValues.versionId && version2 < "2019-10-10") {
+  if (blobSASSignatureValues.versionId && version3 < "2019-10-10") {
     throw RangeError("'version' must be >= '2019-10-10' when providing 'versionId'.");
   }
   if (blobSASSignatureValues.blobName === void 0 && blobSASSignatureValues.versionId) {
     throw RangeError("Must provide 'blobName' when providing 'versionId'.");
   }
-  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.setImmutabilityPolicy && version2 < "2020-08-04") {
+  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.setImmutabilityPolicy && version3 < "2020-08-04") {
     throw RangeError("'version' must be >= '2020-08-04' when provided 'i' permission.");
   }
-  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.deleteVersion && version2 < "2019-10-10") {
+  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.deleteVersion && version3 < "2019-10-10") {
     throw RangeError("'version' must be >= '2019-10-10' when providing 'x' permission.");
   }
-  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.permanentDelete && version2 < "2019-10-10") {
+  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.permanentDelete && version3 < "2019-10-10") {
     throw RangeError("'version' must be >= '2019-10-10' when providing 'y' permission.");
   }
-  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.tag && version2 < "2019-12-12") {
+  if (blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.tag && version3 < "2019-12-12") {
     throw RangeError("'version' must be >= '2019-12-12' when providing 't' permission.");
   }
-  if (version2 < "2020-02-10" && blobSASSignatureValues.permissions && (blobSASSignatureValues.permissions.move || blobSASSignatureValues.permissions.execute)) {
+  if (version3 < "2020-02-10" && blobSASSignatureValues.permissions && (blobSASSignatureValues.permissions.move || blobSASSignatureValues.permissions.execute)) {
     throw RangeError("'version' must be >= '2020-02-10' when providing the 'm' or 'e' permission.");
   }
-  if (version2 < "2021-04-10" && blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.filterByTags) {
+  if (version3 < "2021-04-10" && blobSASSignatureValues.permissions && blobSASSignatureValues.permissions.filterByTags) {
     throw RangeError("'version' must be >= '2021-04-10' when providing the 'f' permission.");
   }
-  if (version2 < "2020-02-10" && (blobSASSignatureValues.preauthorizedAgentObjectId || blobSASSignatureValues.correlationId)) {
+  if (version3 < "2020-02-10" && (blobSASSignatureValues.preauthorizedAgentObjectId || blobSASSignatureValues.correlationId)) {
     throw RangeError("'version' must be >= '2020-02-10' when providing 'preauthorizedAgentObjectId' or 'correlationId'.");
   }
-  if (blobSASSignatureValues.encryptionScope && version2 < "2020-12-06") {
+  if (blobSASSignatureValues.encryptionScope && version3 < "2020-12-06") {
     throw RangeError("'version' must be >= '2020-12-06' when provided 'encryptionScope' in SAS.");
   }
-  blobSASSignatureValues.version = version2;
+  blobSASSignatureValues.version = version3;
   return blobSASSignatureValues;
 }
 function trimBlobName(blobName) {
@@ -56360,14 +57818,14 @@ var BlobLeaseClient = class {
    * @param options - option to configure lease management operations.
    * @returns Response data for acquire lease operation.
    */
-  async acquireLease(duration2, options = {}) {
+  async acquireLease(duration4, options = {}) {
     if (this._isContainer && (options.conditions?.ifMatch && options.conditions?.ifMatch !== ETagNone || options.conditions?.ifNoneMatch && options.conditions?.ifNoneMatch !== ETagNone || options.conditions?.tagConditions)) {
       throw new RangeError("The IfMatch, IfNoneMatch and tags access conditions are ignored by the service. Values other than undefined or their default values are not acceptable.");
     }
     return tracingClient.withSpan("BlobLeaseClient-acquireLease", options, async (updatedOptions) => {
       return assertResponse(await this._containerOrBlobOperation.acquireLease({
         abortSignal: options.abortSignal,
-        duration: duration2,
+        duration: duration4,
         modifiedAccessConditions: {
           ...options.conditions,
           ifTags: options.conditions?.tagConditions
@@ -56567,8 +58025,8 @@ var RetriableReadableStream = class extends import_node_stream5.Readable {
           this.source = newSource;
           this.setSourceEventHandlers();
           return;
-        }).catch((error) => {
-          this.destroy(error);
+        }).catch((error2) => {
+          this.destroy(error2);
         });
       } else {
         this.destroy(new Error(`Data corruption failure: received less data than required and reached maxRetires limitation. Received data offset: ${this.offset - 1}, data needed offset: ${this.end}, retries: ${this.retries}, max retries: ${this.maxRetryRequests}`));
@@ -56577,10 +58035,10 @@ var RetriableReadableStream = class extends import_node_stream5.Readable {
       this.destroy(new Error(`Data corruption failure: Received more data than original request, data needed offset is ${this.end}, received offset: ${this.offset - 1}`));
     }
   };
-  _destroy(error, callback) {
+  _destroy(error2, callback) {
     this.removeSourceEventHandlers();
     this.source.destroy();
-    callback(error === null ? void 0 : error);
+    callback(error2 === null ? void 0 : error2);
   }
 };
 
@@ -57347,14 +58805,14 @@ var AvroRecordType = class extends AvroType {
   }
   // eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
   async read(stream, options = {}) {
-    const record = {};
-    record["$schema"] = this._name;
+    const record2 = {};
+    record2["$schema"] = this._name;
     for (const key in this._fields) {
       if (Object.prototype.hasOwnProperty.call(this._fields, key)) {
-        record[key] = await this._fields[key].read(stream, options);
+        record2[key] = await this._fields[key].read(stream, options);
       }
     }
-    return record;
+    return record2;
   }
 };
 
@@ -58262,9 +59720,9 @@ var Poller = class {
     if (this.operation.state.isCancelled) {
       this.stopped = true;
       if (!this.resolveOnUnsuccessful) {
-        const error = new PollerCancelledError("Operation was canceled");
-        this.reject(error);
-        throw error;
+        const error2 = new PollerCancelledError("Operation was canceled");
+        this.reject(error2);
+        throw error2;
       }
     }
     if (this.isDone() && this.resolve) {
@@ -58569,8 +60027,8 @@ var Batch = class {
         this.actives--;
         this.completed++;
         this.parallelExecute();
-      } catch (error) {
-        this.emitter.emit("error", error);
+      } catch (error2) {
+        this.emitter.emit("error", error2);
       }
     });
   }
@@ -58585,9 +60043,9 @@ var Batch = class {
     this.parallelExecute();
     return new Promise((resolve, reject) => {
       this.emitter.on("finish", resolve);
-      this.emitter.on("error", (error) => {
+      this.emitter.on("error", (error2) => {
         this.state = BatchStates.Error;
-        reject(error);
+        reject(error2);
       });
     });
   }
@@ -59485,8 +60943,8 @@ var BlobClient = class _BlobClient extends StorageClient2 {
       if (!buffer2) {
         try {
           buffer2 = Buffer.alloc(count);
-        } catch (error) {
-          throw new Error(`Unable to allocate the buffer of size: ${count}(in bytes). Please try passing your own buffer to the "downloadToBuffer" method or try using other methods like "download" or "downloadToFile".	 ${error.message}`);
+        } catch (error2) {
+          throw new Error(`Unable to allocate the buffer of size: ${count}(in bytes). Please try passing your own buffer to the "downloadToBuffer" method or try using other methods like "download" or "downloadToFile".	 ${error2.message}`);
         }
       }
       if (buffer2.length < count) {
@@ -59574,7 +61032,7 @@ var BlobClient = class _BlobClient extends StorageClient2 {
         throw new Error("Provided containerName is invalid.");
       }
       return { blobName, containerName: containerName2 };
-    } catch (error) {
+    } catch (error2) {
       throw new Error("Unable to extract blobName and containerName with provided information.");
     }
   }
@@ -63085,7 +64543,7 @@ var ContainerClient = class extends StorageClient2 {
         throw new Error("Provided containerName is invalid.");
       }
       return containerName2;
-    } catch (error) {
+    } catch (error2) {
       throw new Error("Unable to extract containerName with provided information.");
     }
   }
@@ -63525,30 +64983,30 @@ function generateAccountSASQueryParameters(accountSASSignatureValues, sharedKeyC
   return generateAccountSASQueryParametersInternal(accountSASSignatureValues, sharedKeyCredential).sasQueryParameters;
 }
 function generateAccountSASQueryParametersInternal(accountSASSignatureValues, sharedKeyCredential) {
-  const version2 = accountSASSignatureValues.version ? accountSASSignatureValues.version : SERVICE_VERSION;
-  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.setImmutabilityPolicy && version2 < "2020-08-04") {
+  const version3 = accountSASSignatureValues.version ? accountSASSignatureValues.version : SERVICE_VERSION;
+  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.setImmutabilityPolicy && version3 < "2020-08-04") {
     throw RangeError("'version' must be >= '2020-08-04' when provided 'i' permission.");
   }
-  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.deleteVersion && version2 < "2019-10-10") {
+  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.deleteVersion && version3 < "2019-10-10") {
     throw RangeError("'version' must be >= '2019-10-10' when provided 'x' permission.");
   }
-  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.permanentDelete && version2 < "2019-10-10") {
+  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.permanentDelete && version3 < "2019-10-10") {
     throw RangeError("'version' must be >= '2019-10-10' when provided 'y' permission.");
   }
-  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.tag && version2 < "2019-12-12") {
+  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.tag && version3 < "2019-12-12") {
     throw RangeError("'version' must be >= '2019-12-12' when provided 't' permission.");
   }
-  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.filter && version2 < "2019-12-12") {
+  if (accountSASSignatureValues.permissions && accountSASSignatureValues.permissions.filter && version3 < "2019-12-12") {
     throw RangeError("'version' must be >= '2019-12-12' when provided 'f' permission.");
   }
-  if (accountSASSignatureValues.encryptionScope && version2 < "2020-12-06") {
+  if (accountSASSignatureValues.encryptionScope && version3 < "2020-12-06") {
     throw RangeError("'version' must be >= '2020-12-06' when provided 'encryptionScope' in SAS.");
   }
   const parsedPermissions = AccountSASPermissions.parse(accountSASSignatureValues.permissions.toString());
   const parsedServices = AccountSASServices.parse(accountSASSignatureValues.services).toString();
   const parsedResourceTypes = AccountSASResourceTypes.parse(accountSASSignatureValues.resourceTypes).toString();
   let stringToSign;
-  if (version2 >= "2020-12-06") {
+  if (version3 >= "2020-12-06") {
     stringToSign = [
       sharedKeyCredential.accountName,
       parsedPermissions,
@@ -63558,7 +65016,7 @@ function generateAccountSASQueryParametersInternal(accountSASSignatureValues, sh
       truncatedISO8061Date(accountSASSignatureValues.expiresOn, false),
       accountSASSignatureValues.ipRange ? ipRangeToString(accountSASSignatureValues.ipRange) : "",
       accountSASSignatureValues.protocol ? accountSASSignatureValues.protocol : "",
-      version2,
+      version3,
       accountSASSignatureValues.encryptionScope ? accountSASSignatureValues.encryptionScope : "",
       ""
       // Account SAS requires an additional newline character
@@ -63573,14 +65031,14 @@ function generateAccountSASQueryParametersInternal(accountSASSignatureValues, sh
       truncatedISO8061Date(accountSASSignatureValues.expiresOn, false),
       accountSASSignatureValues.ipRange ? ipRangeToString(accountSASSignatureValues.ipRange) : "",
       accountSASSignatureValues.protocol ? accountSASSignatureValues.protocol : "",
-      version2,
+      version3,
       ""
       // Account SAS requires an additional newline character
     ].join("\n");
   }
   const signature = sharedKeyCredential.computeHMACSHA256(stringToSign);
   return {
-    sasQueryParameters: new SASQueryParameters(version2, signature, parsedPermissions.toString(), parsedServices, parsedResourceTypes, accountSASSignatureValues.protocol, accountSASSignatureValues.startsOn, accountSASSignatureValues.expiresOn, accountSASSignatureValues.ipRange, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, accountSASSignatureValues.encryptionScope),
+    sasQueryParameters: new SASQueryParameters(version3, signature, parsedPermissions.toString(), parsedServices, parsedResourceTypes, accountSASSignatureValues.protocol, accountSASSignatureValues.startsOn, accountSASSignatureValues.expiresOn, accountSASSignatureValues.ipRange, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, void 0, accountSASSignatureValues.encryptionScope),
     stringToSign
   };
 }
@@ -64306,6 +65764,19 @@ function client() {
   cachedClient = BlobServiceClient.fromConnectionString(conn);
   return cachedClient;
 }
+function managedIdentityClient() {
+  const account = process.env.EVIDENCE_BLOB_ACCOUNT;
+  if (!account) {
+    throw new Error("EVIDENCE_BLOB_ACCOUNT is required for user-delegation SAS");
+  }
+  if (!process.env.IDENTITY_ENDPOINT || !process.env.IDENTITY_HEADER) {
+    throw new Error("managed identity is required for user-delegation SAS");
+  }
+  return {
+    account,
+    service: new BlobServiceClient(`https://${account}.blob.core.windows.net`, miCredential)
+  };
+}
 function containerName() {
   return process.env.EVIDENCE_BLOB_CONTAINER ?? "evidence";
 }
@@ -64322,6 +65793,97 @@ function evidenceBlobPath(pathPrefix, filename) {
 }
 function sanitize(seg) {
   return seg.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 200) || "file";
+}
+async function createCaptureUploadSas(blobPath, contentType2, now = /* @__PURE__ */ new Date()) {
+  const { account, service } = managedIdentityClient();
+  const startsOn = new Date(now.getTime() - 6e4);
+  const expiresOn2 = new Date(now.getTime() + 5 * 6e4);
+  const key = await service.getUserDelegationKey(startsOn, expiresOn2);
+  const sas = generateBlobSASQueryParameters(
+    {
+      containerName: containerName(),
+      blobName: blobPath,
+      permissions: BlobSASPermissions.parse("cw"),
+      protocol: SASProtocol.Https,
+      startsOn,
+      expiresOn: expiresOn2,
+      contentType: contentType2
+    },
+    key,
+    account
+  ).toString();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  return {
+    uploadUrl: `${block.url}?${sas}`,
+    headers: {
+      "x-ms-blob-type": "BlockBlob",
+      "Content-Type": contentType2
+    },
+    expiresAt: expiresOn2.toISOString()
+  };
+}
+async function getCaptureBlobProperties(blobPath) {
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  try {
+    const properties = await block.getProperties();
+    return {
+      contentLength: properties.contentLength ?? -1,
+      contentType: properties.contentType ?? "application/octet-stream"
+    };
+  } catch (error2) {
+    if (error2.statusCode === 404) return void 0;
+    throw error2;
+  }
+}
+async function downloadCaptureBlobBytes(blobPath, maxBytes) {
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  return block.downloadToBuffer(0, maxBytes + 1);
+}
+async function promoteCaptureBlob(sessionId, assetId, sha256, bytes, contentType2) {
+  const { service } = managedIdentityClient();
+  const blobPath = captureValidatedBlobPath(sessionId, assetId, sha256);
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  try {
+    await block.uploadData(bytes, {
+      conditions: { ifNoneMatch: "*" },
+      blobHTTPHeaders: { blobContentType: contentType2 },
+      metadata: { sha256 }
+    });
+  } catch (error2) {
+    const storageError = error2;
+    const replayConflict = storageError.statusCode === 409 || storageError.statusCode === 412 || storageError.code === "BlobAlreadyExists" || storageError.code === "ConditionNotMet";
+    if (!replayConflict) throw error2;
+    const existing = await block.getProperties();
+    if (existing.contentLength !== bytes.length || existing.contentType !== contentType2 || existing.metadata?.sha256 !== sha256) {
+      throw new Error("validated capture object conflicts with existing content");
+    }
+  }
+  return blobPath;
+}
+function captureValidatedBlobPath(sessionId, assetId, sha256) {
+  return `capture-validated/${sanitize(sessionId)}/${sanitize(assetId)}/${sha256}`;
+}
+function captureStagingBlobPath(sessionId, assetId) {
+  return `capture/${sanitize(sessionId)}/${sanitize(assetId)}`;
+}
+function isCaptureManagedBlobPath(blobPath) {
+  return blobPath.startsWith("capture/") || blobPath.startsWith("capture-validated/");
+}
+async function deleteCaptureManagedBlob(blobPath) {
+  if (!isCaptureManagedBlobPath(blobPath)) {
+    throw new Error("refusing to delete a non-capture blob path");
+  }
+  const { service } = managedIdentityClient();
+  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  await block.deleteIfExists({ deleteSnapshots: "include" });
+}
+async function deleteCaptureStagingBlob(blobPath) {
+  if (!blobPath.startsWith("capture/")) {
+    throw new Error("refusing to delete a non-staging capture blob path");
+  }
+  await deleteCaptureManagedBlob(blobPath);
 }
 async function downloadEvidenceBytes(blobPath) {
   const container = client().getContainerClient(containerName());
@@ -64758,6 +66320,10 @@ import_functions10.app.http("internalRetroCreate", {
         if (onHold) {
           cols.push("on_hold");
           vals.push(true);
+          if (!identityVerified) {
+            cols.push("on_hold_reason");
+            vals.push("provider_unresolved");
+          }
           cols.push("action_reason_code");
           vals.push(actionReasonCodec.toInt(actionReason ?? "needs_review") ?? null);
         }
@@ -64809,6 +66375,21 @@ import_functions10.app.http("internalRetroCreate", {
       if (reconstructionSource !== "minimal") {
         await linkEnvelopeRow(original, poProviderId, hit.id, retroOriginalClassification(keys, casePo));
       }
+      const parserFieldsResult2 = await applyParserFields(
+        hit.id,
+        body2.parserRef,
+        body2.parserMileage,
+        body2.parserMileageUnit,
+        body2.parserEva,
+        poProviderId,
+        null,
+        {
+          caseType: auditGateOn ? caseType : "standard",
+          caseTypeDual: false,
+          allowCasePoMint: !casePo && !body2.boxFolder?.id
+        }
+      );
+      const effectiveCasePo2 = parserFieldsResult2.casePo ?? (String(hit.case_po ?? "").trim() || null);
       await writeAudit({
         action: AUDIT_ACTION.retro_case_linked,
         caseId: hit.id,
@@ -64817,7 +66398,12 @@ import_functions10.app.http("internalRetroCreate", {
       });
       return {
         status: 200,
-        jsonBody: { outcome: "already_exists_linked", caseId: hit.id, casePo: hit.case_po }
+        jsonBody: {
+          outcome: "already_exists_linked",
+          caseId: hit.id,
+          casePo: effectiveCasePo2,
+          providerRecovery: parserFieldsResult2.providerRecovery?.outcome ?? "not_needed"
+        }
       };
     }
     const caseId = result.caseId;
@@ -64825,23 +66411,35 @@ import_functions10.app.http("internalRetroCreate", {
       await linkEnvelopeRow(original, poProviderId, caseId, retroOriginalClassification(keys, casePo));
     }
     await linkEnvelopeRow(trigger, triggerProviderId, caseId);
-    await applyParserFields(
+    const parserFieldsResult = await applyParserFields(
       caseId,
       body2.parserRef,
       body2.parserMileage,
       body2.parserMileageUnit,
       body2.parserEva,
       poProviderId,
-      null
+      null,
+      {
+        caseType: auditGateOn ? caseType : "standard",
+        caseTypeDual: false,
+        // A discovered historical PO/folder is never forked. Outlook-only recovery has
+        // neither, so a provider resolved from its instruction may complete normally.
+        allowCasePoMint: !casePo && !body2.boxFolder?.id
+      }
     );
+    const effectiveCasePo = parserFieldsResult.casePo ?? (identityVerified ? casePo ?? null : null);
+    const effectiveProviderId = parserFieldsResult.resolvedProviderId ?? poProviderId;
+    const effectivePrincipalResolved = Boolean(effectiveProviderId);
+    const effectiveIdentityVerified = effectivePrincipalResolved && Boolean(effectiveCasePo);
+    const effectiveOnHold = parserFieldsResult.providerRecovery?.holdCleared === true ? false : onHold;
     await writeAudit({
       action: AUDIT_ACTION.retro_case_created,
       caseId,
       summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
       after: {
-        casePo: identityVerified ? casePo : null,
+        casePo: effectiveCasePo,
         status,
-        onHold,
+        onHold: effectiveOnHold,
         reconstructionSource,
         boxFolderId: body2.boxFolder?.id ?? null,
         keys,
@@ -64863,7 +66461,7 @@ import_functions10.app.http("internalRetroCreate", {
         }
       });
     }
-    if (!identityVerified) {
+    if (!effectiveIdentityVerified) {
       await query(
         `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
         [
@@ -64879,17 +66477,28 @@ import_functions10.app.http("internalRetroCreate", {
         caseId,
         severity: "warning",
         summary: "Retro case held \u2014 identity unverified (principal/Case-PO)",
-        after: { principalResolved, casePoKnown: Boolean(casePo), onHold: true }
+        after: {
+          principalResolved: effectivePrincipalResolved,
+          casePoKnown: Boolean(effectiveCasePo),
+          onHold: effectiveOnHold
+        }
       });
     }
-    ctx.log(JSON.stringify({ evt: "retroCreate", outcome: "created", caseId, casePo, reconstructionSource }));
+    ctx.log(JSON.stringify({
+      evt: "retroCreate",
+      outcome: "created",
+      caseId,
+      casePo: effectiveCasePo,
+      reconstructionSource
+    }));
     return {
       status: 200,
       jsonBody: {
         outcome: "created",
         caseId,
-        casePo: identityVerified ? casePo : null,
-        newClient: !principalResolved
+        casePo: effectiveCasePo,
+        newClient: !effectivePrincipalResolved,
+        providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? "not_needed"
       }
     };
   })
@@ -65673,642 +67282,5326 @@ import_functions12.app.http("globalSearch", {
 });
 
 // api/src/functions/mcp.ts
-var import_functions13 = require("@azure/functions");
-var MCP_PROTOCOL_VERSION = "2025-06-18";
-function rpcResult(id, result) {
-  return { jsonrpc: "2.0", id: id ?? null, result };
-}
-function rpcError(id, code, message2) {
-  return { jsonrpc: "2.0", id: id ?? null, error: { code, message: message2 } };
-}
-function agentToolNames() {
-  return new Set(agentCapabilities().map((c) => c.name));
-}
-async function handleMcpMessage(msg, exec) {
-  if (!msg || typeof msg !== "object") return rpcError(null, -32600, "invalid request");
-  const { id, method, params } = msg;
-  const isNotification = id === void 0 || id === null;
-  switch (method) {
-    case "initialize": {
-      const clientVer = params?.protocolVersion;
-      return rpcResult(id, {
-        protocolVersion: typeof clientVer === "string" ? clientVer : MCP_PROTOCOL_VERSION,
-        capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: "collisionspike-readonly", version: "0.1.0" },
-        instructions: "Read-only Collision Engineers case-intake tools. Every tool is a lookup \u2014 nothing here can create, change, or delete anything."
-      });
-    }
-    case "notifications/initialized":
-    case "notifications/cancelled":
-      return null;
-    case "ping":
-      return rpcResult(id, {});
-    case "tools/list": {
-      const tools = agentCapabilities().map((c) => ({
-        name: c.name,
-        description: c.description,
-        inputSchema: c.parameters
-      }));
-      return rpcResult(id, { tools });
-    }
-    case "tools/call": {
-      const name = String(params?.name ?? "");
-      const args = params?.arguments ?? {};
-      if (!capabilityByName(name) || !agentToolNames().has(name)) {
-        return rpcResult(id, {
-          content: [{ type: "text", text: `Tool "${name}" is not available.` }],
-          isError: true
-        });
-      }
-      try {
-        const result = await exec(name, args);
-        return rpcResult(id, { content: [{ type: "text", text: JSON.stringify(result) }] });
-      } catch (e) {
-        return rpcResult(id, {
-          content: [{ type: "text", text: `That lookup failed: ${e instanceof Error ? e.message : "error"}` }],
-          isError: true
-        });
-      }
-    }
-    default:
-      if (isNotification) return null;
-      return rpcError(id, -32601, `method not found: ${method ?? "(none)"}`);
-  }
-}
-import_functions13.app.http("mcpServer", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "mcp",
-  handler: withRole("CollisionSpike.User", async (req, _ctx) => {
-    if (!gates.mcpServer()) {
-      return { status: 404, jsonBody: rpcError(null, -32e3, "MCP server is not enabled") };
-    }
-    let body2;
-    try {
-      body2 = await req.json();
-    } catch {
-      return { status: 200, jsonBody: rpcError(null, -32700, "parse error") };
-    }
-    const exec = (name, args) => execTool(name, args);
-    if (Array.isArray(body2)) {
-      const out = (await Promise.all(body2.map((m) => handleMcpMessage(m, exec)))).filter(
-        (r) => r !== null
-      );
-      return out.length ? { status: 200, jsonBody: out } : { status: 202 };
-    }
-    const res = await handleMcpMessage(body2, exec);
-    return res ? { status: 200, jsonBody: res } : { status: 202 };
-  })
-});
-
-// api/src/functions/evidence.ts
 var import_functions14 = require("@azure/functions");
-import_functions14.app.http("evidenceContent", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "evidence/{id}/content",
-  handler: withRole("CollisionSpike.User", async (req, ctx) => {
-    const id = req.params.id;
-    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
-    try {
-      const rows = await query(
-        "SELECT id, storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
-        [id]
-      );
-      const row = rows[0];
-      if (!row) return { status: 404, jsonBody: { error: "not found" } };
-      const resolved = await resolveBytesForRow(row);
-      if (!resolved) return { status: 404, jsonBody: { error: "no inline content" } };
-      return {
-        status: 200,
-        headers: {
-          "Content-Type": resolved.contentType,
-          // Private (per-staff, RLS-scoped) but cacheable for the session — previews repeat.
-          "Cache-Control": "private, max-age=300",
-          "Content-Disposition": `inline; filename="${(resolved.fileName ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
-        },
-        body: resolved.bytes
-      };
-    } catch (e) {
-      ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
-      return { status: 404, jsonBody: { error: "unavailable" } };
-    }
-  })
-});
-import_functions14.app.http("patchEvidence", {
-  methods: ["PATCH"],
-  authLevel: "anonymous",
-  route: "evidence/{id}",
-  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
-    const id = req.params.id;
-    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const supplied = (key) => Object.prototype.hasOwnProperty.call(body2, key);
-    const supported = [
-      "imageRole",
-      "registrationVisible",
-      "acceptedForEva",
-      "excluded",
-      "reflectionDismissed"
-    ];
-    if (!supported.some(supplied)) {
-      return { status: 400, jsonBody: { error: "at least one review field is required" } };
-    }
-    if (supplied("imageRole") && typeof body2.imageRole !== "string") {
-      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
-    }
-    const roleCode = supplied("imageRole") ? imageRoleCodec.toInt(body2.imageRole) : void 0;
-    if (supplied("imageRole") && roleCode == null) {
-      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
-    }
-    for (const key of ["registrationVisible", "acceptedForEva", "excluded", "reflectionDismissed"]) {
-      if (supplied(key) && typeof body2[key] !== "boolean") {
-        return { status: 400, jsonBody: { error: `${key} must be boolean` } };
-      }
-    }
-    if (supplied("exclusionReason") && !supplied("excluded")) {
-      return { status: 400, jsonBody: { error: "exclusionReason requires excluded" } };
-    }
-    if (supplied("exclusionReason") && body2.exclusionReason !== null && typeof body2.exclusionReason !== "string") {
-      return { status: 400, jsonBody: { error: "exclusionReason must be text or null" } };
-    }
-    if (typeof body2.exclusionReason === "string" && body2.exclusionReason.trim().length > 400) {
-      return { status: 400, jsonBody: { error: "exclusionReason must be 400 characters or fewer" } };
-    }
-    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
-    const owner = await query(
-      "SELECT case_id FROM evidence WHERE id = $1 AND kind_code = $2",
-      [id, imageKind]
-    );
-    if (!owner[0]) return { status: 404, jsonBody: { error: "not found" } };
-    const mutation = await tx(async (q) => {
-      const caseLock = await lockCaseForMutation(q, owner[0].case_id);
-      if (caseLock.kind === "missing") return { kind: "missing" };
-      if (caseLock.kind === "retired") {
-        return { kind: "retired", mergedInto: caseLock.mergedInto };
-      }
-      const currentRows = await q(
-        "SELECT * FROM evidence WHERE id = $1 AND case_id = $2 AND kind_code = $3 FOR UPDATE",
-        [id, caseLock.caseId, imageKind]
-      );
-      const current = currentRows[0];
-      if (!current) return { kind: "moved" };
-      let nextRole = current.image_role_code;
-      let nextRoleSource = current.image_role_source;
-      let nextRegistration = current.registration_visible;
-      let nextRegistrationSource = current.registration_visible_source;
-      let nextAccepted = current.accepted_for_eva;
-      let nextAcceptedSource = current.accepted_for_eva_source;
-      let nextExcluded = current.excluded === true;
-      let nextReason = current.exclusion_reason ?? null;
-      let nextExclusionSource = current.exclusion_decision_source;
-      let nextReflectionDismissed = current.reflection_dismissed === true;
-      if (roleCode != null) {
-        nextRole = roleCode;
-        nextRoleSource = "staff";
-      }
-      if (typeof body2.registrationVisible === "boolean") {
-        nextRegistration = body2.registrationVisible;
-        nextRegistrationSource = "staff";
-      }
-      if (typeof body2.acceptedForEva === "boolean") {
-        nextAccepted = body2.acceptedForEva;
-        nextAcceptedSource = "staff";
-      }
-      const usableRole = body2.imageRole === "overview" || body2.imageRole === "damage_closeup" || body2.imageRole === "additional";
-      if (usableRole && body2.acceptedForEva === true && current.person_reflection !== true && (nextExclusionSource == null || nextExclusionSource === "classifier")) {
-        nextExcluded = false;
-        nextReason = null;
-        nextExclusionSource = "staff";
-      }
-      if (typeof body2.excluded === "boolean") {
-        nextExcluded = body2.excluded;
-        nextReason = body2.excluded ? (typeof body2.exclusionReason === "string" ? body2.exclusionReason.trim() : "") || "Excluded by reviewer" : null;
-        nextExclusionSource = "staff";
-      }
-      if (typeof body2.reflectionDismissed === "boolean") {
-        nextReflectionDismissed = body2.reflectionDismissed;
-      }
-      const readinessChanged = nextRole !== current.image_role_code || nextRegistration !== current.registration_visible || nextAccepted !== current.accepted_for_eva || nextExcluded !== current.excluded;
-      const changed = readinessChanged || nextReason !== current.exclusion_reason || nextRoleSource !== current.image_role_source || nextRegistrationSource !== current.registration_visible_source || nextAcceptedSource !== current.accepted_for_eva_source || nextExclusionSource !== current.exclusion_decision_source || nextReflectionDismissed !== current.reflection_dismissed;
-      const exclusionWouldStart = current.excluded !== true && nextExcluded === true;
-      const claimExpiresAt = current.archive_mirror_claim_expires_at ? new Date(String(current.archive_mirror_claim_expires_at)).getTime() : 0;
-      if (exclusionWouldStart && current.archive_mirror_claim_token && Number.isFinite(claimExpiresAt) && claimExpiresAt > Date.now()) {
-        return { kind: "archive_busy" };
-      }
-      if (!changed) {
-        return {
-          kind: "updated",
-          value: { current, updated: current, readinessChanged: false, changed: false }
-        };
-      }
-      const rows = await q(
-        `UPDATE evidence
-            SET image_role_code = $2,
-                image_role_source = $3,
-                registration_visible = $4,
-                registration_visible_source = $5,
-                accepted_for_eva = $6,
-                accepted_for_eva_source = $7,
-                excluded = $8,
-                exclusion_reason = $9,
-                exclusion_decision_source = $10,
-                reflection_dismissed = $11,
-                archive_mirror_decision_generation =
-                  archive_mirror_decision_generation +
-                  CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
-                updated_at = now()
-          WHERE id = $1 AND kind_code = $12
-            AND (
-              NOT $13
-              OR archive_mirror_claim_token IS NULL
-              OR archive_mirror_claim_expires_at <= now()
-            )
-          RETURNING *`,
-        [
-          id,
-          nextRole,
-          nextRoleSource,
-          nextRegistration,
-          nextRegistrationSource,
-          nextAccepted,
-          nextAcceptedSource,
-          nextExcluded,
-          nextReason,
-          nextExclusionSource,
-          nextReflectionDismissed,
-          imageKind,
-          exclusionWouldStart
-        ]
-      );
-      if (!rows[0]) return { kind: "moved" };
-      const becameArchiveEligible = current.excluded === true && nextExcluded === false && typeof current.storage_path === "string" && current.storage_path.trim().length > 0 && (typeof current.box_file_id !== "string" || current.box_file_id.trim().length === 0);
-      if (becameArchiveEligible) {
-        await requestArchiveMirrorIfEligible(q, rows[0]);
-      }
-      if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
-      return {
-        kind: "updated",
-        value: { current, updated: rows[0], readinessChanged, changed: true }
-      };
-    });
-    if (mutation.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
-    if (mutation.kind === "archive_busy") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "This photo is being added to the Archive. Try excluding it again shortly.",
-          code: "archive_in_progress"
-        }
-      };
-    }
-    if (mutation.kind === "retired" || mutation.kind === "moved") {
-      return {
-        status: 409,
-        jsonBody: {
-          error: "This case changed while the photo was being saved. Refresh and try again.",
-          ...mutation.kind === "retired" ? { targetCaseId: mutation.mergedInto } : {}
-        }
-      };
-    }
-    const result = mutation.value;
-    if (!result.changed) return { status: 200, jsonBody: rowToEvidence(result.updated) };
-    const actor = actorFromClaims(claims);
-    await writeAudit({
-      action: AUDIT_ACTION.attachment_classified,
-      ...result.updated.case_id ? { caseId: result.updated.case_id } : {},
-      summary: `Photo review updated for ${result.updated.file_name ?? id}`,
-      before: {
-        imageRole: result.current.image_role_code,
-        registrationVisible: result.current.registration_visible,
-        acceptedForEva: result.current.accepted_for_eva,
-        excluded: result.current.excluded,
-        reflectionDismissed: result.current.reflection_dismissed
-      },
-      after: {
-        evidenceId: id,
-        imageRole: result.updated.image_role_code,
-        registrationVisible: result.updated.registration_visible,
-        acceptedForEva: result.updated.accepted_for_eva,
-        excluded: result.updated.excluded,
-        reflectionDismissed: result.updated.reflection_dismissed
-      },
-      ...actor ? { actor } : {}
-    });
-    return { status: 200, jsonBody: rowToEvidence(result.updated) };
-  })
-});
 
-// api/src/functions/archive-mirror-outbox.ts
-var import_functions15 = require("@azure/functions");
-var ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
-async function withServiceAuth2(req, ctx, fn) {
+// node_modules/zod/v4/core/core.js
+var NEVER2 = Object.freeze({
+  status: "aborted"
+});
+// @__NO_SIDE_EFFECTS__
+function $constructor(name, initializer3, params) {
+  function init(inst, def) {
+    var _a;
+    Object.defineProperty(inst, "_zod", {
+      value: inst._zod ?? {},
+      enumerable: false
+    });
+    (_a = inst._zod).traits ?? (_a.traits = /* @__PURE__ */ new Set());
+    inst._zod.traits.add(name);
+    initializer3(inst, def);
+    for (const k in _.prototype) {
+      if (!(k in inst))
+        Object.defineProperty(inst, k, { value: _.prototype[k].bind(inst) });
+    }
+    inst._zod.constr = _;
+    inst._zod.def = def;
+  }
+  const Parent = params?.Parent ?? Object;
+  class Definition extends Parent {
+  }
+  Object.defineProperty(Definition, "name", { value: name });
+  function _(def) {
+    var _a;
+    const inst = params?.Parent ? new Definition() : this;
+    init(inst, def);
+    (_a = inst._zod).deferred ?? (_a.deferred = []);
+    for (const fn of inst._zod.deferred) {
+      fn();
+    }
+    return inst;
+  }
+  Object.defineProperty(_, "init", { value: init });
+  Object.defineProperty(_, Symbol.hasInstance, {
+    value: (inst) => {
+      if (params?.Parent && inst instanceof params.Parent)
+        return true;
+      return inst?._zod?.traits?.has(name);
+    }
+  });
+  Object.defineProperty(_, "name", { value: name });
+  return _;
+}
+var $brand = Symbol("zod_brand");
+var $ZodAsyncError = class extends Error {
+  constructor() {
+    super(`Encountered Promise during synchronous parse. Use .parseAsync() instead.`);
+  }
+};
+var globalConfig = {};
+function config(newConfig) {
+  if (newConfig)
+    Object.assign(globalConfig, newConfig);
+  return globalConfig;
+}
+
+// node_modules/zod/v4/core/util.js
+var util_exports = {};
+__export(util_exports, {
+  BIGINT_FORMAT_RANGES: () => BIGINT_FORMAT_RANGES,
+  Class: () => Class,
+  NUMBER_FORMAT_RANGES: () => NUMBER_FORMAT_RANGES,
+  aborted: () => aborted,
+  allowsEval: () => allowsEval,
+  assert: () => assert,
+  assertEqual: () => assertEqual,
+  assertIs: () => assertIs,
+  assertNever: () => assertNever,
+  assertNotEqual: () => assertNotEqual,
+  assignProp: () => assignProp,
+  cached: () => cached,
+  captureStackTrace: () => captureStackTrace,
+  cleanEnum: () => cleanEnum,
+  cleanRegex: () => cleanRegex,
+  clone: () => clone2,
+  createTransparentProxy: () => createTransparentProxy,
+  defineLazy: () => defineLazy,
+  esc: () => esc,
+  escapeRegex: () => escapeRegex,
+  extend: () => extend2,
+  finalizeIssue: () => finalizeIssue,
+  floatSafeRemainder: () => floatSafeRemainder2,
+  getElementAtPath: () => getElementAtPath,
+  getEnumValues: () => getEnumValues,
+  getLengthableOrigin: () => getLengthableOrigin,
+  getParsedType: () => getParsedType2,
+  getSizableOrigin: () => getSizableOrigin,
+  isObject: () => isObject3,
+  isPlainObject: () => isPlainObject,
+  issue: () => issue,
+  joinValues: () => joinValues,
+  jsonStringifyReplacer: () => jsonStringifyReplacer,
+  merge: () => merge,
+  normalizeParams: () => normalizeParams,
+  nullish: () => nullish,
+  numKeys: () => numKeys,
+  omit: () => omit,
+  optionalKeys: () => optionalKeys,
+  partial: () => partial,
+  pick: () => pick,
+  prefixIssues: () => prefixIssues,
+  primitiveTypes: () => primitiveTypes,
+  promiseAllObject: () => promiseAllObject,
+  propertyKeyTypes: () => propertyKeyTypes,
+  randomString: () => randomString,
+  required: () => required,
+  stringifyPrimitive: () => stringifyPrimitive,
+  unwrapMessage: () => unwrapMessage
+});
+function assertEqual(val) {
+  return val;
+}
+function assertNotEqual(val) {
+  return val;
+}
+function assertIs(_arg) {
+}
+function assertNever(_x) {
+  throw new Error();
+}
+function assert(_) {
+}
+function getEnumValues(entries) {
+  const numericValues = Object.values(entries).filter((v) => typeof v === "number");
+  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+  return values;
+}
+function joinValues(array2, separator = "|") {
+  return array2.map((val) => stringifyPrimitive(val)).join(separator);
+}
+function jsonStringifyReplacer(_, value) {
+  if (typeof value === "bigint")
+    return value.toString();
+  return value;
+}
+function cached(getter) {
+  const set = false;
+  return {
+    get value() {
+      if (!set) {
+        const value = getter();
+        Object.defineProperty(this, "value", { value });
+        return value;
+      }
+      throw new Error("cached value already set");
+    }
+  };
+}
+function nullish(input) {
+  return input === null || input === void 0;
+}
+function cleanRegex(source) {
+  const start = source.startsWith("^") ? 1 : 0;
+  const end = source.endsWith("$") ? source.length - 1 : source.length;
+  return source.slice(start, end);
+}
+function floatSafeRemainder2(val, step) {
+  const valDecCount = (val.toString().split(".")[1] || "").length;
+  const stepDecCount = (step.toString().split(".")[1] || "").length;
+  const decCount = valDecCount > stepDecCount ? valDecCount : stepDecCount;
+  const valInt = Number.parseInt(val.toFixed(decCount).replace(".", ""));
+  const stepInt = Number.parseInt(step.toFixed(decCount).replace(".", ""));
+  return valInt % stepInt / 10 ** decCount;
+}
+function defineLazy(object2, key, getter) {
+  const set = false;
+  Object.defineProperty(object2, key, {
+    get() {
+      if (!set) {
+        const value = getter();
+        object2[key] = value;
+        return value;
+      }
+      throw new Error("cached value already set");
+    },
+    set(v) {
+      Object.defineProperty(object2, key, {
+        value: v
+        // configurable: true,
+      });
+    },
+    configurable: true
+  });
+}
+function assignProp(target, prop, value) {
+  Object.defineProperty(target, prop, {
+    value,
+    writable: true,
+    enumerable: true,
+    configurable: true
+  });
+}
+function getElementAtPath(obj, path) {
+  if (!path)
+    return obj;
+  return path.reduce((acc, key) => acc?.[key], obj);
+}
+function promiseAllObject(promisesObj) {
+  const keys = Object.keys(promisesObj);
+  const promises = keys.map((key) => promisesObj[key]);
+  return Promise.all(promises).then((results) => {
+    const resolvedObj = {};
+    for (let i = 0; i < keys.length; i++) {
+      resolvedObj[keys[i]] = results[i];
+    }
+    return resolvedObj;
+  });
+}
+function randomString(length = 10) {
+  const chars = "abcdefghijklmnopqrstuvwxyz";
+  let str3 = "";
+  for (let i = 0; i < length; i++) {
+    str3 += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return str3;
+}
+function esc(str3) {
+  return JSON.stringify(str3);
+}
+var captureStackTrace = Error.captureStackTrace ? Error.captureStackTrace : (..._args) => {
+};
+function isObject3(data) {
+  return typeof data === "object" && data !== null && !Array.isArray(data);
+}
+var allowsEval = cached(() => {
+  if (typeof navigator !== "undefined" && navigator?.userAgent?.includes("Cloudflare")) {
+    return false;
+  }
   try {
-    await authenticate(req);
-    return await fn();
-  } catch (e) {
-    return toErrorResponse(e, ctx);
+    const F = Function;
+    new F("");
+    return true;
+  } catch (_) {
+    return false;
   }
-}
-function isMirrorEligible(row) {
-  const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
-  return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId;
-}
-import_functions15.app.http("internalArchiveMirrorOutboxPending", {
-  methods: ["GET"],
-  authLevel: "anonymous",
-  route: "internal/archive-mirror-outbox/pending",
-  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
-    const rawLimit = Number(req.query.get("limit") ?? "100");
-    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 500 ? rawLimit : 100;
-    const rows = await query(
-      `SELECT
-           o.evidence_id AS "evidenceId",
-           e.case_id AS "caseId",
-           o.requested_generation AS generation,
-           (e.excluded = false
-             AND NULLIF(btrim(e.storage_path), '') IS NOT NULL
-             AND NULLIF(btrim(e.box_file_id), '') IS NULL) AS "mirrorEligible"
-         FROM archive_mirror_outbox o
-         JOIN evidence e ON e.id = o.evidence_id
-        WHERE o.requested_generation > o.completed_generation
-          AND o.dead_lettered_at IS NULL
-          AND o.next_attempt_at <= now()
-        ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
-        LIMIT $1`,
-      [limit]
-    );
-    return {
-      status: 200,
-      jsonBody: {
-        rows: rows.map((row) => ({
-          evidenceId: row.evidenceId,
-          caseId: row.caseId,
-          generation: Number(row.generation),
-          mirrorEligible: row.mirrorEligible
-        }))
-      }
-    };
-  })
 });
-import_functions15.app.http("internalArchiveMirrorOutboxComplete", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/archive-mirror-outbox/{id}/complete",
-  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
-    const evidenceId = req.params.id?.trim();
-    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
-    if (!Number.isSafeInteger(generation) || generation < 1) {
-      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+function isPlainObject(o) {
+  if (isObject3(o) === false)
+    return false;
+  const ctor = o.constructor;
+  if (ctor === void 0)
+    return true;
+  const prot = ctor.prototype;
+  if (isObject3(prot) === false)
+    return false;
+  if (Object.prototype.hasOwnProperty.call(prot, "isPrototypeOf") === false) {
+    return false;
+  }
+  return true;
+}
+function numKeys(data) {
+  let keyCount = 0;
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      keyCount++;
     }
-    let result;
-    for (let attempt = 0; attempt < 4 && !result; attempt++) {
-      const owner = await query(
-        "SELECT case_id FROM evidence WHERE id = $1",
-        [evidenceId]
-      );
-      if (!owner[0]) {
-        result = { completed: true, pending: false, missing: true };
-        break;
+  }
+  return keyCount;
+}
+var getParsedType2 = (data) => {
+  const t = typeof data;
+  switch (t) {
+    case "undefined":
+      return "undefined";
+    case "string":
+      return "string";
+    case "number":
+      return Number.isNaN(data) ? "nan" : "number";
+    case "boolean":
+      return "boolean";
+    case "function":
+      return "function";
+    case "bigint":
+      return "bigint";
+    case "symbol":
+      return "symbol";
+    case "object":
+      if (Array.isArray(data)) {
+        return "array";
       }
-      const resolved = await tx(async (q) => {
-        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
-        const evidence = await q(
-          `SELECT case_id, excluded, storage_path, box_file_id
-               FROM evidence
-              WHERE id = $1
-              FOR UPDATE`,
-          [evidenceId]
-        );
-        const evidenceRow = evidence[0];
-        if (!evidenceRow) return { kind: "retry" };
-        const evidenceCaseId = evidenceRow.case_id.trim().toLowerCase();
-        if (evidenceCaseId !== lockedCase.caseId) {
-          return { kind: "retry" };
-        }
-        const rows = await q(
-          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
-               FROM archive_mirror_outbox
-              WHERE evidence_id = $1
-              FOR UPDATE`,
-          [evidenceId]
-        );
-        const outbox = rows[0];
-        if (!outbox) {
-          return { kind: "done", value: { completed: true, pending: false, missing: true } };
-        }
-        const requested = Number(outbox.requested_generation);
-        const completed = Number(outbox.completed_generation);
-        if (lockedCase.kind !== "active") {
-          return completed >= requested ? { kind: "done", value: { completed: true, pending: false } } : { kind: "retry" };
-        }
-        if (generation <= completed) {
-          return {
-            kind: "done",
-            value: { completed: true, pending: requested > completed }
-          };
-        }
-        const mirrorState = {
-          ...outbox,
-          excluded: evidenceRow.excluded,
-          storage_path: evidenceRow.storage_path,
-          box_file_id: evidenceRow.box_file_id
-        };
-        if (isMirrorEligible(mirrorState)) {
-          return {
-            kind: "done",
-            value: { completed: false, pending: true }
-          };
-        }
-        const acknowledged = Math.min(generation, requested);
-        await q(
-          `UPDATE archive_mirror_outbox
-                SET completed_generation = $2,
-                    completed_at = CASE WHEN $2 >= requested_generation THEN now() ELSE completed_at END,
-                    attempt_count = 0,
-                    next_attempt_at = now(),
-                    last_attempt_at = now(),
-                    last_error = NULL,
-                    dead_lettered_at = NULL,
-                    dead_letter_reason = NULL,
-                    updated_at = now()
-              WHERE evidence_id = $1`,
-          [evidenceId, acknowledged]
-        );
-        return {
-          kind: "done",
-          value: {
-            completed: true,
-            // A newer staff reversal raced this exact acknowledgement; leave it pending.
-            pending: acknowledged < requested
-          }
-        };
-      });
-      if (resolved.kind === "done") result = resolved.value;
-    }
-    if (!result) {
-      return {
-        status: 409,
-        jsonBody: { error: "evidence moved while completion was being checked", code: "evidence_moved" }
-      };
-    }
-    return { status: 200, jsonBody: result };
-  })
-});
-import_functions15.app.http("internalArchiveMirrorOutboxDefer", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/archive-mirror-outbox/{id}/defer",
-  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
-    const evidenceId = req.params.id?.trim();
-    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
-    const body2 = await req.json().catch(() => ({}));
-    const generation = Number(body2.generation);
-    if (!Number.isSafeInteger(generation) || generation < 1) {
-      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
-    }
-    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "archive pass incomplete" : "archive pass incomplete";
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const owner = await query(
-        "SELECT case_id FROM evidence WHERE id = $1",
-        [evidenceId]
-      );
-      if (!owner[0]) {
-        return { status: 200, jsonBody: { deferred: false, pending: false, missing: true } };
+      if (data === null) {
+        return "null";
       }
-      const deferred = await tx(async (q) => {
-        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
-        const evidence = await q(
-          `SELECT e.case_id,
-                    EXISTS (
-                      SELECT 1
-                        FROM staff_evidence_upload_item item
-                        JOIN staff_evidence_upload batch
-                          ON batch.idempotency_key = item.idempotency_key
-                         AND batch.case_id = item.case_id
-                       WHERE item.evidence_id = e.id
-                         AND item.case_id = e.case_id
-                         AND batch.source = 'manual_intake'
-                    ) AS manual_intake
-               FROM evidence e
-              WHERE e.id = $1
-              FOR UPDATE OF e`,
-          [evidenceId]
-        );
-        if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
-          return { kind: "retry" };
-        }
-        const outbox = await q(
-          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
-               FROM archive_mirror_outbox
-              WHERE evidence_id = $1
-              FOR UPDATE`,
-          [evidenceId]
-        );
-        if (!outbox[0]) {
-          return { kind: "done", value: { deferred: false, pending: false, missing: true } };
-        }
-        const requested = Number(outbox[0].requested_generation);
-        const completed = Number(outbox[0].completed_generation);
-        if (outbox[0].dead_lettered_at != null) {
-          return {
-            kind: "done",
-            value: { deferred: false, pending: false, deadLettered: true }
-          };
-        }
-        if (completed >= requested) {
-          return { kind: "done", value: { deferred: false, pending: false } };
-        }
-        if (lockedCase.kind !== "active" || requested !== generation) {
-          return { kind: "done", value: { deferred: false, pending: true } };
-        }
-        const rows = await q(
-          `UPDATE archive_mirror_outbox
-                SET attempt_count = attempt_count + 1,
-                    last_attempt_at = now(),
-                    last_error = $3::text,
-                    dead_lettered_at = CASE
-                      WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
-                    dead_letter_reason = CASE
-                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3::text ELSE NULL END,
-                    next_attempt_at = CASE
-                      WHEN $5 AND attempt_count + 1 >= $4 THEN now()
-                      ELSE now() + make_interval(
-                        secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
-                      )
-                    END,
-                    updated_at = now()
-              WHERE evidence_id = $1
-                AND requested_generation = $2
-                AND completed_generation < requested_generation
-            RETURNING next_attempt_at, dead_lettered_at`,
-          [
-            evidenceId,
-            generation,
-            reason,
-            ARCHIVE_MIRROR_MAX_ATTEMPTS,
-            evidence[0].manual_intake === true
-          ]
-        );
-        if (rows[0]?.dead_lettered_at != null) {
-          await requestStatusRecompute(q, lockedCase.caseId);
-        }
-        return {
-          kind: "done",
-          value: {
-            deferred: rows.length > 0,
-            pending: rows[0]?.dead_lettered_at == null,
-            deadLettered: rows[0]?.dead_lettered_at != null,
-            ...rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}
-          }
-        };
-      });
-      if (deferred.kind === "done") return { status: 200, jsonBody: deferred.value };
+      if (data.then && typeof data.then === "function" && data.catch && typeof data.catch === "function") {
+        return "promise";
+      }
+      if (typeof Map !== "undefined" && data instanceof Map) {
+        return "map";
+      }
+      if (typeof Set !== "undefined" && data instanceof Set) {
+        return "set";
+      }
+      if (typeof Date !== "undefined" && data instanceof Date) {
+        return "date";
+      }
+      if (typeof File !== "undefined" && data instanceof File) {
+        return "file";
+      }
+      return "object";
+    default:
+      throw new Error(`Unknown data type: ${t}`);
+  }
+};
+var propertyKeyTypes = /* @__PURE__ */ new Set(["string", "number", "symbol"]);
+var primitiveTypes = /* @__PURE__ */ new Set(["string", "number", "bigint", "boolean", "symbol", "undefined"]);
+function escapeRegex(str3) {
+  return str3.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function clone2(inst, def, params) {
+  const cl = new inst._zod.constr(def ?? inst._zod.def);
+  if (!def || params?.parent)
+    cl._zod.parent = inst;
+  return cl;
+}
+function normalizeParams(_params) {
+  const params = _params;
+  if (!params)
+    return {};
+  if (typeof params === "string")
+    return { error: () => params };
+  if (params?.message !== void 0) {
+    if (params?.error !== void 0)
+      throw new Error("Cannot specify both `message` and `error` params");
+    params.error = params.message;
+  }
+  delete params.message;
+  if (typeof params.error === "string")
+    return { ...params, error: () => params.error };
+  return params;
+}
+function createTransparentProxy(getter) {
+  let target;
+  return new Proxy({}, {
+    get(_, prop, receiver) {
+      target ?? (target = getter());
+      return Reflect.get(target, prop, receiver);
+    },
+    set(_, prop, value, receiver) {
+      target ?? (target = getter());
+      return Reflect.set(target, prop, value, receiver);
+    },
+    has(_, prop) {
+      target ?? (target = getter());
+      return Reflect.has(target, prop);
+    },
+    deleteProperty(_, prop) {
+      target ?? (target = getter());
+      return Reflect.deleteProperty(target, prop);
+    },
+    ownKeys(_) {
+      target ?? (target = getter());
+      return Reflect.ownKeys(target);
+    },
+    getOwnPropertyDescriptor(_, prop) {
+      target ?? (target = getter());
+      return Reflect.getOwnPropertyDescriptor(target, prop);
+    },
+    defineProperty(_, prop, descriptor) {
+      target ?? (target = getter());
+      return Reflect.defineProperty(target, prop, descriptor);
     }
+  });
+}
+function stringifyPrimitive(value) {
+  if (typeof value === "bigint")
+    return value.toString() + "n";
+  if (typeof value === "string")
+    return `"${value}"`;
+  return `${value}`;
+}
+function optionalKeys(shape) {
+  return Object.keys(shape).filter((k) => {
+    return shape[k]._zod.optin === "optional" && shape[k]._zod.optout === "optional";
+  });
+}
+var NUMBER_FORMAT_RANGES = {
+  safeint: [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER],
+  int32: [-2147483648, 2147483647],
+  uint32: [0, 4294967295],
+  float32: [-34028234663852886e22, 34028234663852886e22],
+  float64: [-Number.MAX_VALUE, Number.MAX_VALUE]
+};
+var BIGINT_FORMAT_RANGES = {
+  int64: [/* @__PURE__ */ BigInt("-9223372036854775808"), /* @__PURE__ */ BigInt("9223372036854775807")],
+  uint64: [/* @__PURE__ */ BigInt(0), /* @__PURE__ */ BigInt("18446744073709551615")]
+};
+function pick(schema, mask) {
+  const newShape = {};
+  const currDef = schema._zod.def;
+  for (const key in mask) {
+    if (!(key in currDef.shape)) {
+      throw new Error(`Unrecognized key: "${key}"`);
+    }
+    if (!mask[key])
+      continue;
+    newShape[key] = currDef.shape[key];
+  }
+  return clone2(schema, {
+    ...schema._zod.def,
+    shape: newShape,
+    checks: []
+  });
+}
+function omit(schema, mask) {
+  const newShape = { ...schema._zod.def.shape };
+  const currDef = schema._zod.def;
+  for (const key in mask) {
+    if (!(key in currDef.shape)) {
+      throw new Error(`Unrecognized key: "${key}"`);
+    }
+    if (!mask[key])
+      continue;
+    delete newShape[key];
+  }
+  return clone2(schema, {
+    ...schema._zod.def,
+    shape: newShape,
+    checks: []
+  });
+}
+function extend2(schema, shape) {
+  if (!isPlainObject(shape)) {
+    throw new Error("Invalid input to extend: expected a plain object");
+  }
+  const def = {
+    ...schema._zod.def,
+    get shape() {
+      const _shape = { ...schema._zod.def.shape, ...shape };
+      assignProp(this, "shape", _shape);
+      return _shape;
+    },
+    checks: []
+    // delete existing checks
+  };
+  return clone2(schema, def);
+}
+function merge(a, b) {
+  return clone2(a, {
+    ...a._zod.def,
+    get shape() {
+      const _shape = { ...a._zod.def.shape, ...b._zod.def.shape };
+      assignProp(this, "shape", _shape);
+      return _shape;
+    },
+    catchall: b._zod.def.catchall,
+    checks: []
+    // delete existing checks
+  });
+}
+function partial(Class2, schema, mask) {
+  const oldShape = schema._zod.def.shape;
+  const shape = { ...oldShape };
+  if (mask) {
+    for (const key in mask) {
+      if (!(key in oldShape)) {
+        throw new Error(`Unrecognized key: "${key}"`);
+      }
+      if (!mask[key])
+        continue;
+      shape[key] = Class2 ? new Class2({
+        type: "optional",
+        innerType: oldShape[key]
+      }) : oldShape[key];
+    }
+  } else {
+    for (const key in oldShape) {
+      shape[key] = Class2 ? new Class2({
+        type: "optional",
+        innerType: oldShape[key]
+      }) : oldShape[key];
+    }
+  }
+  return clone2(schema, {
+    ...schema._zod.def,
+    shape,
+    checks: []
+  });
+}
+function required(Class2, schema, mask) {
+  const oldShape = schema._zod.def.shape;
+  const shape = { ...oldShape };
+  if (mask) {
+    for (const key in mask) {
+      if (!(key in shape)) {
+        throw new Error(`Unrecognized key: "${key}"`);
+      }
+      if (!mask[key])
+        continue;
+      shape[key] = new Class2({
+        type: "nonoptional",
+        innerType: oldShape[key]
+      });
+    }
+  } else {
+    for (const key in oldShape) {
+      shape[key] = new Class2({
+        type: "nonoptional",
+        innerType: oldShape[key]
+      });
+    }
+  }
+  return clone2(schema, {
+    ...schema._zod.def,
+    shape,
+    // optional: [],
+    checks: []
+  });
+}
+function aborted(x, startIndex = 0) {
+  for (let i = startIndex; i < x.issues.length; i++) {
+    if (x.issues[i]?.continue !== true)
+      return true;
+  }
+  return false;
+}
+function prefixIssues(path, issues) {
+  return issues.map((iss) => {
+    var _a;
+    (_a = iss).path ?? (_a.path = []);
+    iss.path.unshift(path);
+    return iss;
+  });
+}
+function unwrapMessage(message2) {
+  return typeof message2 === "string" ? message2 : message2?.message;
+}
+function finalizeIssue(iss, ctx, config2) {
+  const full = { ...iss, path: iss.path ?? [] };
+  if (!iss.message) {
+    const message2 = unwrapMessage(iss.inst?._zod.def?.error?.(iss)) ?? unwrapMessage(ctx?.error?.(iss)) ?? unwrapMessage(config2.customError?.(iss)) ?? unwrapMessage(config2.localeError?.(iss)) ?? "Invalid input";
+    full.message = message2;
+  }
+  delete full.inst;
+  delete full.continue;
+  if (!ctx?.reportInput) {
+    delete full.input;
+  }
+  return full;
+}
+function getSizableOrigin(input) {
+  if (input instanceof Set)
+    return "set";
+  if (input instanceof Map)
+    return "map";
+  if (input instanceof File)
+    return "file";
+  return "unknown";
+}
+function getLengthableOrigin(input) {
+  if (Array.isArray(input))
+    return "array";
+  if (typeof input === "string")
+    return "string";
+  return "unknown";
+}
+function issue(...args) {
+  const [iss, input, inst] = args;
+  if (typeof iss === "string") {
     return {
-      status: 409,
-      jsonBody: { error: "evidence moved while retry was being deferred", code: "evidence_moved" }
+      message: iss,
+      code: "custom",
+      input,
+      inst
     };
-  })
+  }
+  return { ...iss };
+}
+function cleanEnum(obj) {
+  return Object.entries(obj).filter(([k, _]) => {
+    return Number.isNaN(Number.parseInt(k, 10));
+  }).map((el) => el[1]);
+}
+var Class = class {
+  constructor(..._args) {
+  }
+};
+
+// node_modules/zod/v4/core/errors.js
+var initializer = (inst, def) => {
+  inst.name = "$ZodError";
+  Object.defineProperty(inst, "_zod", {
+    value: inst._zod,
+    enumerable: false
+  });
+  Object.defineProperty(inst, "issues", {
+    value: def,
+    enumerable: false
+  });
+  Object.defineProperty(inst, "message", {
+    get() {
+      return JSON.stringify(def, jsonStringifyReplacer, 2);
+    },
+    enumerable: true
+    // configurable: false,
+  });
+  Object.defineProperty(inst, "toString", {
+    value: () => inst.message,
+    enumerable: false
+  });
+};
+var $ZodError = $constructor("$ZodError", initializer);
+var $ZodRealError = $constructor("$ZodError", initializer, { Parent: Error });
+function flattenError(error2, mapper = (issue2) => issue2.message) {
+  const fieldErrors = {};
+  const formErrors = [];
+  for (const sub of error2.issues) {
+    if (sub.path.length > 0) {
+      fieldErrors[sub.path[0]] = fieldErrors[sub.path[0]] || [];
+      fieldErrors[sub.path[0]].push(mapper(sub));
+    } else {
+      formErrors.push(mapper(sub));
+    }
+  }
+  return { formErrors, fieldErrors };
+}
+function formatError(error2, _mapper) {
+  const mapper = _mapper || function(issue2) {
+    return issue2.message;
+  };
+  const fieldErrors = { _errors: [] };
+  const processError = (error3) => {
+    for (const issue2 of error3.issues) {
+      if (issue2.code === "invalid_union" && issue2.errors.length) {
+        issue2.errors.map((issues) => processError({ issues }));
+      } else if (issue2.code === "invalid_key") {
+        processError({ issues: issue2.issues });
+      } else if (issue2.code === "invalid_element") {
+        processError({ issues: issue2.issues });
+      } else if (issue2.path.length === 0) {
+        fieldErrors._errors.push(mapper(issue2));
+      } else {
+        let curr = fieldErrors;
+        let i = 0;
+        while (i < issue2.path.length) {
+          const el = issue2.path[i];
+          const terminal = i === issue2.path.length - 1;
+          if (!terminal) {
+            curr[el] = curr[el] || { _errors: [] };
+          } else {
+            curr[el] = curr[el] || { _errors: [] };
+            curr[el]._errors.push(mapper(issue2));
+          }
+          curr = curr[el];
+          i++;
+        }
+      }
+    }
+  };
+  processError(error2);
+  return fieldErrors;
+}
+
+// node_modules/zod/v4/core/parse.js
+var _parse = (_Err) => (schema, value, _ctx, _params) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: false }) : { async: false };
+  const result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise) {
+    throw new $ZodAsyncError();
+  }
+  if (result.issues.length) {
+    const e = new (_params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    captureStackTrace(e, _params?.callee);
+    throw e;
+  }
+  return result.value;
+};
+var _parseAsync = (_Err) => async (schema, value, _ctx, params) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
+  let result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    result = await result;
+  if (result.issues.length) {
+    const e = new (params?.Err ?? _Err)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())));
+    captureStackTrace(e, params?.callee);
+    throw e;
+  }
+  return result.value;
+};
+var _safeParse = (_Err) => (schema, value, _ctx) => {
+  const ctx = _ctx ? { ..._ctx, async: false } : { async: false };
+  const result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise) {
+    throw new $ZodAsyncError();
+  }
+  return result.issues.length ? {
+    success: false,
+    error: new (_Err ?? $ZodError)(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: true, data: result.value };
+};
+var safeParse = /* @__PURE__ */ _safeParse($ZodRealError);
+var _safeParseAsync = (_Err) => async (schema, value, _ctx) => {
+  const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
+  let result = schema._zod.run({ value, issues: [] }, ctx);
+  if (result instanceof Promise)
+    result = await result;
+  return result.issues.length ? {
+    success: false,
+    error: new _Err(result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  } : { success: true, data: result.value };
+};
+var safeParseAsync = /* @__PURE__ */ _safeParseAsync($ZodRealError);
+
+// node_modules/zod/v4/core/regexes.js
+var cuid = /^[cC][^\s-]{8,}$/;
+var cuid2 = /^[0-9a-z]+$/;
+var ulid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/;
+var xid = /^[0-9a-vA-V]{20}$/;
+var ksuid = /^[A-Za-z0-9]{27}$/;
+var nanoid = /^[a-zA-Z0-9_-]{21}$/;
+var duration2 = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
+var guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+var uuid = (version3) => {
+  if (!version3)
+    return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$/;
+  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version3}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+};
+var email = /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+var _emoji = `^(\\p{Extended_Pictographic}|\\p{Emoji_Component})+$`;
+function emoji() {
+  return new RegExp(_emoji, "u");
+}
+var ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])$/;
+var ipv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})$/;
+var cidrv4 = /^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9][0-9]|[0-9])\/([0-9]|[1-2][0-9]|3[0-2])$/;
+var cidrv6 = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::|([0-9a-fA-F]{1,4})?::([0-9a-fA-F]{1,4}:?){0,6})\/(12[0-8]|1[01][0-9]|[1-9]?[0-9])$/;
+var base64 = /^$|^(?:[0-9a-zA-Z+/]{4})*(?:(?:[0-9a-zA-Z+/]{2}==)|(?:[0-9a-zA-Z+/]{3}=))?$/;
+var base64url = /^[A-Za-z0-9_-]*$/;
+var hostname = /^([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+$/;
+var e164 = /^\+(?:[0-9]){6,14}[0-9]$/;
+var dateSource = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))`;
+var date = /* @__PURE__ */ new RegExp(`^${dateSource}$`);
+function timeSource(args) {
+  const hhmm = `(?:[01]\\d|2[0-3]):[0-5]\\d`;
+  const regex = typeof args.precision === "number" ? args.precision === -1 ? `${hhmm}` : args.precision === 0 ? `${hhmm}:[0-5]\\d` : `${hhmm}:[0-5]\\d\\.\\d{${args.precision}}` : `${hhmm}(?::[0-5]\\d(?:\\.\\d+)?)?`;
+  return regex;
+}
+function time(args) {
+  return new RegExp(`^${timeSource(args)}$`);
+}
+function datetime(args) {
+  const time3 = timeSource({ precision: args.precision });
+  const opts = ["Z"];
+  if (args.local)
+    opts.push("");
+  if (args.offset)
+    opts.push(`([+-]\\d{2}:\\d{2})`);
+  const timeRegex2 = `${time3}(?:${opts.join("|")})`;
+  return new RegExp(`^${dateSource}T(?:${timeRegex2})$`);
+}
+var string = (params) => {
+  const regex = params ? `[\\s\\S]{${params?.minimum ?? 0},${params?.maximum ?? ""}}` : `[\\s\\S]*`;
+  return new RegExp(`^${regex}$`);
+};
+var integer = /^\d+$/;
+var number = /^-?\d+(?:\.\d+)?/i;
+var boolean = /true|false/i;
+var _null = /null/i;
+var lowercase = /^[^A-Z]*$/;
+var uppercase = /^[^a-z]*$/;
+
+// node_modules/zod/v4/core/checks.js
+var $ZodCheck = /* @__PURE__ */ $constructor("$ZodCheck", (inst, def) => {
+  var _a;
+  inst._zod ?? (inst._zod = {});
+  inst._zod.def = def;
+  (_a = inst._zod).onattach ?? (_a.onattach = []);
+});
+var numericOriginMap = {
+  number: "number",
+  bigint: "bigint",
+  object: "date"
+};
+var $ZodCheckLessThan = /* @__PURE__ */ $constructor("$ZodCheckLessThan", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const origin = numericOriginMap[typeof def.value];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    const curr = (def.inclusive ? bag.maximum : bag.exclusiveMaximum) ?? Number.POSITIVE_INFINITY;
+    if (def.value < curr) {
+      if (def.inclusive)
+        bag.maximum = def.value;
+      else
+        bag.exclusiveMaximum = def.value;
+    }
+  });
+  inst._zod.check = (payload) => {
+    if (def.inclusive ? payload.value <= def.value : payload.value < def.value) {
+      return;
+    }
+    payload.issues.push({
+      origin,
+      code: "too_big",
+      maximum: def.value,
+      input: payload.value,
+      inclusive: def.inclusive,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckGreaterThan = /* @__PURE__ */ $constructor("$ZodCheckGreaterThan", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const origin = numericOriginMap[typeof def.value];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    const curr = (def.inclusive ? bag.minimum : bag.exclusiveMinimum) ?? Number.NEGATIVE_INFINITY;
+    if (def.value > curr) {
+      if (def.inclusive)
+        bag.minimum = def.value;
+      else
+        bag.exclusiveMinimum = def.value;
+    }
+  });
+  inst._zod.check = (payload) => {
+    if (def.inclusive ? payload.value >= def.value : payload.value > def.value) {
+      return;
+    }
+    payload.issues.push({
+      origin,
+      code: "too_small",
+      minimum: def.value,
+      input: payload.value,
+      inclusive: def.inclusive,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckMultipleOf = /* @__PURE__ */ $constructor("$ZodCheckMultipleOf", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    var _a;
+    (_a = inst2._zod.bag).multipleOf ?? (_a.multipleOf = def.value);
+  });
+  inst._zod.check = (payload) => {
+    if (typeof payload.value !== typeof def.value)
+      throw new Error("Cannot mix number and bigint in multiple_of check.");
+    const isMultiple = typeof payload.value === "bigint" ? payload.value % def.value === BigInt(0) : floatSafeRemainder2(payload.value, def.value) === 0;
+    if (isMultiple)
+      return;
+    payload.issues.push({
+      origin: typeof payload.value,
+      code: "not_multiple_of",
+      divisor: def.value,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckNumberFormat = /* @__PURE__ */ $constructor("$ZodCheckNumberFormat", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  def.format = def.format || "float64";
+  const isInt = def.format?.includes("int");
+  const origin = isInt ? "int" : "number";
+  const [minimum, maximum] = NUMBER_FORMAT_RANGES[def.format];
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = def.format;
+    bag.minimum = minimum;
+    bag.maximum = maximum;
+    if (isInt)
+      bag.pattern = integer;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    if (isInt) {
+      if (!Number.isInteger(input)) {
+        payload.issues.push({
+          expected: origin,
+          format: def.format,
+          code: "invalid_type",
+          input,
+          inst
+        });
+        return;
+      }
+      if (!Number.isSafeInteger(input)) {
+        if (input > 0) {
+          payload.issues.push({
+            input,
+            code: "too_big",
+            maximum: Number.MAX_SAFE_INTEGER,
+            note: "Integers must be within the safe integer range.",
+            inst,
+            origin,
+            continue: !def.abort
+          });
+        } else {
+          payload.issues.push({
+            input,
+            code: "too_small",
+            minimum: Number.MIN_SAFE_INTEGER,
+            note: "Integers must be within the safe integer range.",
+            inst,
+            origin,
+            continue: !def.abort
+          });
+        }
+        return;
+      }
+    }
+    if (input < minimum) {
+      payload.issues.push({
+        origin: "number",
+        input,
+        code: "too_small",
+        minimum,
+        inclusive: true,
+        inst,
+        continue: !def.abort
+      });
+    }
+    if (input > maximum) {
+      payload.issues.push({
+        origin: "number",
+        input,
+        code: "too_big",
+        maximum,
+        inst
+      });
+    }
+  };
+});
+var $ZodCheckMaxLength = /* @__PURE__ */ $constructor("$ZodCheckMaxLength", (inst, def) => {
+  var _a;
+  $ZodCheck.init(inst, def);
+  (_a = inst._zod.def).when ?? (_a.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const curr = inst2._zod.bag.maximum ?? Number.POSITIVE_INFINITY;
+    if (def.maximum < curr)
+      inst2._zod.bag.maximum = def.maximum;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length <= def.maximum)
+      return;
+    const origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_big",
+      maximum: def.maximum,
+      inclusive: true,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckMinLength = /* @__PURE__ */ $constructor("$ZodCheckMinLength", (inst, def) => {
+  var _a;
+  $ZodCheck.init(inst, def);
+  (_a = inst._zod.def).when ?? (_a.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const curr = inst2._zod.bag.minimum ?? Number.NEGATIVE_INFINITY;
+    if (def.minimum > curr)
+      inst2._zod.bag.minimum = def.minimum;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length >= def.minimum)
+      return;
+    const origin = getLengthableOrigin(input);
+    payload.issues.push({
+      origin,
+      code: "too_small",
+      minimum: def.minimum,
+      inclusive: true,
+      input,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckLengthEquals = /* @__PURE__ */ $constructor("$ZodCheckLengthEquals", (inst, def) => {
+  var _a;
+  $ZodCheck.init(inst, def);
+  (_a = inst._zod.def).when ?? (_a.when = (payload) => {
+    const val = payload.value;
+    return !nullish(val) && val.length !== void 0;
+  });
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.minimum = def.length;
+    bag.maximum = def.length;
+    bag.length = def.length;
+  });
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const length = input.length;
+    if (length === def.length)
+      return;
+    const origin = getLengthableOrigin(input);
+    const tooBig = length > def.length;
+    payload.issues.push({
+      origin,
+      ...tooBig ? { code: "too_big", maximum: def.length } : { code: "too_small", minimum: def.length },
+      inclusive: true,
+      exact: true,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckStringFormat = /* @__PURE__ */ $constructor("$ZodCheckStringFormat", (inst, def) => {
+  var _a, _b;
+  $ZodCheck.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = def.format;
+    if (def.pattern) {
+      bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+      bag.patterns.add(def.pattern);
+    }
+  });
+  if (def.pattern)
+    (_a = inst._zod).check ?? (_a.check = (payload) => {
+      def.pattern.lastIndex = 0;
+      if (def.pattern.test(payload.value))
+        return;
+      payload.issues.push({
+        origin: "string",
+        code: "invalid_format",
+        format: def.format,
+        input: payload.value,
+        ...def.pattern ? { pattern: def.pattern.toString() } : {},
+        inst,
+        continue: !def.abort
+      });
+    });
+  else
+    (_b = inst._zod).check ?? (_b.check = () => {
+    });
+});
+var $ZodCheckRegex = /* @__PURE__ */ $constructor("$ZodCheckRegex", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    def.pattern.lastIndex = 0;
+    if (def.pattern.test(payload.value))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "regex",
+      input: payload.value,
+      pattern: def.pattern.toString(),
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckLowerCase = /* @__PURE__ */ $constructor("$ZodCheckLowerCase", (inst, def) => {
+  def.pattern ?? (def.pattern = lowercase);
+  $ZodCheckStringFormat.init(inst, def);
+});
+var $ZodCheckUpperCase = /* @__PURE__ */ $constructor("$ZodCheckUpperCase", (inst, def) => {
+  def.pattern ?? (def.pattern = uppercase);
+  $ZodCheckStringFormat.init(inst, def);
+});
+var $ZodCheckIncludes = /* @__PURE__ */ $constructor("$ZodCheckIncludes", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const escapedRegex = escapeRegex(def.includes);
+  const pattern = new RegExp(typeof def.position === "number" ? `^.{${def.position}}${escapedRegex}` : escapedRegex);
+  def.pattern = pattern;
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.includes(def.includes, def.position))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "includes",
+      includes: def.includes,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckStartsWith = /* @__PURE__ */ $constructor("$ZodCheckStartsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const pattern = new RegExp(`^${escapeRegex(def.prefix)}.*`);
+  def.pattern ?? (def.pattern = pattern);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.startsWith(def.prefix))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "starts_with",
+      prefix: def.prefix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckEndsWith = /* @__PURE__ */ $constructor("$ZodCheckEndsWith", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  const pattern = new RegExp(`.*${escapeRegex(def.suffix)}$`);
+  def.pattern ?? (def.pattern = pattern);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.patterns ?? (bag.patterns = /* @__PURE__ */ new Set());
+    bag.patterns.add(pattern);
+  });
+  inst._zod.check = (payload) => {
+    if (payload.value.endsWith(def.suffix))
+      return;
+    payload.issues.push({
+      origin: "string",
+      code: "invalid_format",
+      format: "ends_with",
+      suffix: def.suffix,
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodCheckOverwrite = /* @__PURE__ */ $constructor("$ZodCheckOverwrite", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  inst._zod.check = (payload) => {
+    payload.value = def.tx(payload.value);
+  };
 });
 
-// api/src/functions/box-file-request-outbox.ts
-var import_functions16 = require("@azure/functions");
-async function drainBoxFileRequestOutbox() {
-  if (!gates.boxApi() || !gates.boxFileRequest()) return { processed: 0, completed: 0 };
-  const caseIds = await pendingBoxFileRequestCaseIds();
-  let completed = 0;
-  for (const caseId of caseIds) {
-    const result = await processBoxFileRequestIntent(caseId);
-    if (result.kind === "ok") completed++;
+// node_modules/zod/v4/core/doc.js
+var Doc = class {
+  constructor(args = []) {
+    this.content = [];
+    this.indent = 0;
+    if (this)
+      this.args = args;
   }
-  return { processed: caseIds.length, completed };
-}
-import_functions16.app.timer("box-file-request-outbox-drain", {
-  schedule: "30 * * * * *",
-  handler: async () => {
+  indented(fn) {
+    this.indent += 1;
+    fn(this);
+    this.indent -= 1;
+  }
+  write(arg) {
+    if (typeof arg === "function") {
+      arg(this, { execution: "sync" });
+      arg(this, { execution: "async" });
+      return;
+    }
+    const content = arg;
+    const lines = content.split("\n").filter((x) => x);
+    const minIndent = Math.min(...lines.map((x) => x.length - x.trimStart().length));
+    const dedented = lines.map((x) => x.slice(minIndent)).map((x) => " ".repeat(this.indent * 2) + x);
+    for (const line of dedented) {
+      this.content.push(line);
+    }
+  }
+  compile() {
+    const F = Function;
+    const args = this?.args;
+    const content = this?.content ?? [``];
+    const lines = [...content.map((x) => `  ${x}`)];
+    return new F(...args, lines.join("\n"));
+  }
+};
+
+// node_modules/zod/v4/core/versions.js
+var version2 = {
+  major: 4,
+  minor: 0,
+  patch: 0
+};
+
+// node_modules/zod/v4/core/schemas.js
+var $ZodType = /* @__PURE__ */ $constructor("$ZodType", (inst, def) => {
+  var _a;
+  inst ?? (inst = {});
+  inst._zod.def = def;
+  inst._zod.bag = inst._zod.bag || {};
+  inst._zod.version = version2;
+  const checks = [...inst._zod.def.checks ?? []];
+  if (inst._zod.traits.has("$ZodCheck")) {
+    checks.unshift(inst);
+  }
+  for (const ch of checks) {
+    for (const fn of ch._zod.onattach) {
+      fn(inst);
+    }
+  }
+  if (checks.length === 0) {
+    (_a = inst._zod).deferred ?? (_a.deferred = []);
+    inst._zod.deferred?.push(() => {
+      inst._zod.run = inst._zod.parse;
+    });
+  } else {
+    const runChecks = (payload, checks2, ctx) => {
+      let isAborted2 = aborted(payload);
+      let asyncResult;
+      for (const ch of checks2) {
+        if (ch._zod.def.when) {
+          const shouldRun = ch._zod.def.when(payload);
+          if (!shouldRun)
+            continue;
+        } else if (isAborted2) {
+          continue;
+        }
+        const currLen = payload.issues.length;
+        const _ = ch._zod.check(payload);
+        if (_ instanceof Promise && ctx?.async === false) {
+          throw new $ZodAsyncError();
+        }
+        if (asyncResult || _ instanceof Promise) {
+          asyncResult = (asyncResult ?? Promise.resolve()).then(async () => {
+            await _;
+            const nextLen = payload.issues.length;
+            if (nextLen === currLen)
+              return;
+            if (!isAborted2)
+              isAborted2 = aborted(payload, currLen);
+          });
+        } else {
+          const nextLen = payload.issues.length;
+          if (nextLen === currLen)
+            continue;
+          if (!isAborted2)
+            isAborted2 = aborted(payload, currLen);
+        }
+      }
+      if (asyncResult) {
+        return asyncResult.then(() => {
+          return payload;
+        });
+      }
+      return payload;
+    };
+    inst._zod.run = (payload, ctx) => {
+      const result = inst._zod.parse(payload, ctx);
+      if (result instanceof Promise) {
+        if (ctx.async === false)
+          throw new $ZodAsyncError();
+        return result.then((result2) => runChecks(result2, checks, ctx));
+      }
+      return runChecks(result, checks, ctx);
+    };
+  }
+  inst["~standard"] = {
+    validate: (value) => {
+      try {
+        const r = safeParse(inst, value);
+        return r.success ? { value: r.data } : { issues: r.error?.issues };
+      } catch (_) {
+        return safeParseAsync(inst, value).then((r) => r.success ? { value: r.data } : { issues: r.error?.issues });
+      }
+    },
+    vendor: "zod",
+    version: 1
+  };
+});
+var $ZodString = /* @__PURE__ */ $constructor("$ZodString", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = [...inst?._zod.bag?.patterns ?? []].pop() ?? string(inst._zod.bag);
+  inst._zod.parse = (payload, _) => {
+    if (def.coerce)
+      try {
+        payload.value = String(payload.value);
+      } catch (_2) {
+      }
+    if (typeof payload.value === "string")
+      return payload;
+    payload.issues.push({
+      expected: "string",
+      code: "invalid_type",
+      input: payload.value,
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodStringFormat = /* @__PURE__ */ $constructor("$ZodStringFormat", (inst, def) => {
+  $ZodCheckStringFormat.init(inst, def);
+  $ZodString.init(inst, def);
+});
+var $ZodGUID = /* @__PURE__ */ $constructor("$ZodGUID", (inst, def) => {
+  def.pattern ?? (def.pattern = guid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodUUID = /* @__PURE__ */ $constructor("$ZodUUID", (inst, def) => {
+  if (def.version) {
+    const versionMap = {
+      v1: 1,
+      v2: 2,
+      v3: 3,
+      v4: 4,
+      v5: 5,
+      v6: 6,
+      v7: 7,
+      v8: 8
+    };
+    const v = versionMap[def.version];
+    if (v === void 0)
+      throw new Error(`Invalid UUID version: "${def.version}"`);
+    def.pattern ?? (def.pattern = uuid(v));
+  } else
+    def.pattern ?? (def.pattern = uuid());
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodEmail = /* @__PURE__ */ $constructor("$ZodEmail", (inst, def) => {
+  def.pattern ?? (def.pattern = email);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodURL = /* @__PURE__ */ $constructor("$ZodURL", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
     try {
-      await drainBoxFileRequestOutbox();
-    } catch (error) {
-      console.error("[box-file-request] timer drain failed", error);
+      const orig = payload.value;
+      const url2 = new URL(orig);
+      const href = url2.href;
+      if (def.hostname) {
+        def.hostname.lastIndex = 0;
+        if (!def.hostname.test(url2.hostname)) {
+          payload.issues.push({
+            code: "invalid_format",
+            format: "url",
+            note: "Invalid hostname",
+            pattern: hostname.source,
+            input: payload.value,
+            inst,
+            continue: !def.abort
+          });
+        }
+      }
+      if (def.protocol) {
+        def.protocol.lastIndex = 0;
+        if (!def.protocol.test(url2.protocol.endsWith(":") ? url2.protocol.slice(0, -1) : url2.protocol)) {
+          payload.issues.push({
+            code: "invalid_format",
+            format: "url",
+            note: "Invalid protocol",
+            pattern: def.protocol.source,
+            input: payload.value,
+            inst,
+            continue: !def.abort
+          });
+        }
+      }
+      if (!orig.endsWith("/") && href.endsWith("/")) {
+        payload.value = href.slice(0, -1);
+      } else {
+        payload.value = href;
+      }
+      return;
+    } catch (_) {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "url",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+var $ZodEmoji = /* @__PURE__ */ $constructor("$ZodEmoji", (inst, def) => {
+  def.pattern ?? (def.pattern = emoji());
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodNanoID = /* @__PURE__ */ $constructor("$ZodNanoID", (inst, def) => {
+  def.pattern ?? (def.pattern = nanoid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodCUID = /* @__PURE__ */ $constructor("$ZodCUID", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodCUID2 = /* @__PURE__ */ $constructor("$ZodCUID2", (inst, def) => {
+  def.pattern ?? (def.pattern = cuid2);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodULID = /* @__PURE__ */ $constructor("$ZodULID", (inst, def) => {
+  def.pattern ?? (def.pattern = ulid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodXID = /* @__PURE__ */ $constructor("$ZodXID", (inst, def) => {
+  def.pattern ?? (def.pattern = xid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodKSUID = /* @__PURE__ */ $constructor("$ZodKSUID", (inst, def) => {
+  def.pattern ?? (def.pattern = ksuid);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodISODateTime = /* @__PURE__ */ $constructor("$ZodISODateTime", (inst, def) => {
+  def.pattern ?? (def.pattern = datetime(def));
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodISODate = /* @__PURE__ */ $constructor("$ZodISODate", (inst, def) => {
+  def.pattern ?? (def.pattern = date);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodISOTime = /* @__PURE__ */ $constructor("$ZodISOTime", (inst, def) => {
+  def.pattern ?? (def.pattern = time(def));
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodISODuration = /* @__PURE__ */ $constructor("$ZodISODuration", (inst, def) => {
+  def.pattern ?? (def.pattern = duration2);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodIPv4 = /* @__PURE__ */ $constructor("$ZodIPv4", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv4);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = `ipv4`;
+  });
+});
+var $ZodIPv6 = /* @__PURE__ */ $constructor("$ZodIPv6", (inst, def) => {
+  def.pattern ?? (def.pattern = ipv6);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    const bag = inst2._zod.bag;
+    bag.format = `ipv6`;
+  });
+  inst._zod.check = (payload) => {
+    try {
+      new URL(`http://[${payload.value}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "ipv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+var $ZodCIDRv4 = /* @__PURE__ */ $constructor("$ZodCIDRv4", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv4);
+  $ZodStringFormat.init(inst, def);
+});
+var $ZodCIDRv6 = /* @__PURE__ */ $constructor("$ZodCIDRv6", (inst, def) => {
+  def.pattern ?? (def.pattern = cidrv6);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    const [address, prefix2] = payload.value.split("/");
+    try {
+      if (!prefix2)
+        throw new Error();
+      const prefixNum = Number(prefix2);
+      if (`${prefixNum}` !== prefix2)
+        throw new Error();
+      if (prefixNum < 0 || prefixNum > 128)
+        throw new Error();
+      new URL(`http://[${address}]`);
+    } catch {
+      payload.issues.push({
+        code: "invalid_format",
+        format: "cidrv6",
+        input: payload.value,
+        inst,
+        continue: !def.abort
+      });
+    }
+  };
+});
+function isValidBase64(data) {
+  if (data === "")
+    return true;
+  if (data.length % 4 !== 0)
+    return false;
+  try {
+    atob(data);
+    return true;
+  } catch {
+    return false;
+  }
+}
+var $ZodBase64 = /* @__PURE__ */ $constructor("$ZodBase64", (inst, def) => {
+  def.pattern ?? (def.pattern = base64);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    inst2._zod.bag.contentEncoding = "base64";
+  });
+  inst._zod.check = (payload) => {
+    if (isValidBase64(payload.value))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "base64",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+function isValidBase64URL(data) {
+  if (!base64url.test(data))
+    return false;
+  const base642 = data.replace(/[-_]/g, (c) => c === "-" ? "+" : "/");
+  const padded = base642.padEnd(Math.ceil(base642.length / 4) * 4, "=");
+  return isValidBase64(padded);
+}
+var $ZodBase64URL = /* @__PURE__ */ $constructor("$ZodBase64URL", (inst, def) => {
+  def.pattern ?? (def.pattern = base64url);
+  $ZodStringFormat.init(inst, def);
+  inst._zod.onattach.push((inst2) => {
+    inst2._zod.bag.contentEncoding = "base64url";
+  });
+  inst._zod.check = (payload) => {
+    if (isValidBase64URL(payload.value))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "base64url",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodE164 = /* @__PURE__ */ $constructor("$ZodE164", (inst, def) => {
+  def.pattern ?? (def.pattern = e164);
+  $ZodStringFormat.init(inst, def);
+});
+function isValidJWT2(token, algorithm = null) {
+  try {
+    const tokensParts = token.split(".");
+    if (tokensParts.length !== 3)
+      return false;
+    const [header] = tokensParts;
+    if (!header)
+      return false;
+    const parsedHeader = JSON.parse(atob(header));
+    if ("typ" in parsedHeader && parsedHeader?.typ !== "JWT")
+      return false;
+    if (!parsedHeader.alg)
+      return false;
+    if (algorithm && (!("alg" in parsedHeader) || parsedHeader.alg !== algorithm))
+      return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+var $ZodJWT = /* @__PURE__ */ $constructor("$ZodJWT", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  inst._zod.check = (payload) => {
+    if (isValidJWT2(payload.value, def.alg))
+      return;
+    payload.issues.push({
+      code: "invalid_format",
+      format: "jwt",
+      input: payload.value,
+      inst,
+      continue: !def.abort
+    });
+  };
+});
+var $ZodNumber = /* @__PURE__ */ $constructor("$ZodNumber", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = inst._zod.bag.pattern ?? number;
+  inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce)
+      try {
+        payload.value = Number(payload.value);
+      } catch (_) {
+      }
+    const input = payload.value;
+    if (typeof input === "number" && !Number.isNaN(input) && Number.isFinite(input)) {
+      return payload;
+    }
+    const received = typeof input === "number" ? Number.isNaN(input) ? "NaN" : !Number.isFinite(input) ? "Infinity" : void 0 : void 0;
+    payload.issues.push({
+      expected: "number",
+      code: "invalid_type",
+      input,
+      inst,
+      ...received ? { received } : {}
+    });
+    return payload;
+  };
+});
+var $ZodNumberFormat = /* @__PURE__ */ $constructor("$ZodNumber", (inst, def) => {
+  $ZodCheckNumberFormat.init(inst, def);
+  $ZodNumber.init(inst, def);
+});
+var $ZodBoolean = /* @__PURE__ */ $constructor("$ZodBoolean", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = boolean;
+  inst._zod.parse = (payload, _ctx) => {
+    if (def.coerce)
+      try {
+        payload.value = Boolean(payload.value);
+      } catch (_) {
+      }
+    const input = payload.value;
+    if (typeof input === "boolean")
+      return payload;
+    payload.issues.push({
+      expected: "boolean",
+      code: "invalid_type",
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodNull = /* @__PURE__ */ $constructor("$ZodNull", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.pattern = _null;
+  inst._zod.values = /* @__PURE__ */ new Set([null]);
+  inst._zod.parse = (payload, _ctx) => {
+    const input = payload.value;
+    if (input === null)
+      return payload;
+    payload.issues.push({
+      expected: "null",
+      code: "invalid_type",
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodUnknown = /* @__PURE__ */ $constructor("$ZodUnknown", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload) => payload;
+});
+var $ZodNever = /* @__PURE__ */ $constructor("$ZodNever", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _ctx) => {
+    payload.issues.push({
+      expected: "never",
+      code: "invalid_type",
+      input: payload.value,
+      inst
+    });
+    return payload;
+  };
+});
+function handleArrayResult(result, final, index) {
+  if (result.issues.length) {
+    final.issues.push(...prefixIssues(index, result.issues));
+  }
+  final.value[index] = result.value;
+}
+var $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    if (!Array.isArray(input)) {
+      payload.issues.push({
+        expected: "array",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    payload.value = Array(input.length);
+    const proms = [];
+    for (let i = 0; i < input.length; i++) {
+      const item = input[i];
+      const result = def.element._zod.run({
+        value: item,
+        issues: []
+      }, ctx);
+      if (result instanceof Promise) {
+        proms.push(result.then((result2) => handleArrayResult(result2, payload, i)));
+      } else {
+        handleArrayResult(result, payload, i);
+      }
+    }
+    if (proms.length) {
+      return Promise.all(proms).then(() => payload);
+    }
+    return payload;
+  };
+});
+function handleObjectResult(result, final, key) {
+  if (result.issues.length) {
+    final.issues.push(...prefixIssues(key, result.issues));
+  }
+  final.value[key] = result.value;
+}
+function handleOptionalObjectResult(result, final, key, input) {
+  if (result.issues.length) {
+    if (input[key] === void 0) {
+      if (key in input) {
+        final.value[key] = void 0;
+      } else {
+        final.value[key] = result.value;
+      }
+    } else {
+      final.issues.push(...prefixIssues(key, result.issues));
+    }
+  } else if (result.value === void 0) {
+    if (key in input)
+      final.value[key] = void 0;
+  } else {
+    final.value[key] = result.value;
+  }
+}
+var $ZodObject = /* @__PURE__ */ $constructor("$ZodObject", (inst, def) => {
+  $ZodType.init(inst, def);
+  const _normalized = cached(() => {
+    const keys = Object.keys(def.shape);
+    for (const k of keys) {
+      if (!(def.shape[k] instanceof $ZodType)) {
+        throw new Error(`Invalid element at key "${k}": expected a Zod schema`);
+      }
+    }
+    const okeys = optionalKeys(def.shape);
+    return {
+      shape: def.shape,
+      keys,
+      keySet: new Set(keys),
+      numKeys: keys.length,
+      optionalKeys: new Set(okeys)
+    };
+  });
+  defineLazy(inst._zod, "propValues", () => {
+    const shape = def.shape;
+    const propValues = {};
+    for (const key in shape) {
+      const field = shape[key]._zod;
+      if (field.values) {
+        propValues[key] ?? (propValues[key] = /* @__PURE__ */ new Set());
+        for (const v of field.values)
+          propValues[key].add(v);
+      }
+    }
+    return propValues;
+  });
+  const generateFastpass = (shape) => {
+    const doc = new Doc(["shape", "payload", "ctx"]);
+    const normalized = _normalized.value;
+    const parseStr = (key) => {
+      const k = esc(key);
+      return `shape[${k}]._zod.run({ value: input[${k}], issues: [] }, ctx)`;
+    };
+    doc.write(`const input = payload.value;`);
+    const ids = /* @__PURE__ */ Object.create(null);
+    let counter = 0;
+    for (const key of normalized.keys) {
+      ids[key] = `key_${counter++}`;
+    }
+    doc.write(`const newResult = {}`);
+    for (const key of normalized.keys) {
+      if (normalized.optionalKeys.has(key)) {
+        const id = ids[key];
+        doc.write(`const ${id} = ${parseStr(key)};`);
+        const k = esc(key);
+        doc.write(`
+        if (${id}.issues.length) {
+          if (input[${k}] === undefined) {
+            if (${k} in input) {
+              newResult[${k}] = undefined;
+            }
+          } else {
+            payload.issues = payload.issues.concat(
+              ${id}.issues.map((iss) => ({
+                ...iss,
+                path: iss.path ? [${k}, ...iss.path] : [${k}],
+              }))
+            );
+          }
+        } else if (${id}.value === undefined) {
+          if (${k} in input) newResult[${k}] = undefined;
+        } else {
+          newResult[${k}] = ${id}.value;
+        }
+        `);
+      } else {
+        const id = ids[key];
+        doc.write(`const ${id} = ${parseStr(key)};`);
+        doc.write(`
+          if (${id}.issues.length) payload.issues = payload.issues.concat(${id}.issues.map(iss => ({
+            ...iss,
+            path: iss.path ? [${esc(key)}, ...iss.path] : [${esc(key)}]
+          })));`);
+        doc.write(`newResult[${esc(key)}] = ${id}.value`);
+      }
+    }
+    doc.write(`payload.value = newResult;`);
+    doc.write(`return payload;`);
+    const fn = doc.compile();
+    return (payload, ctx) => fn(shape, payload, ctx);
+  };
+  let fastpass;
+  const isObject4 = isObject3;
+  const jit = !globalConfig.jitless;
+  const allowsEval2 = allowsEval;
+  const fastEnabled = jit && allowsEval2.value;
+  const catchall = def.catchall;
+  let value;
+  inst._zod.parse = (payload, ctx) => {
+    value ?? (value = _normalized.value);
+    const input = payload.value;
+    if (!isObject4(input)) {
+      payload.issues.push({
+        expected: "object",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    const proms = [];
+    if (jit && fastEnabled && ctx?.async === false && ctx.jitless !== true) {
+      if (!fastpass)
+        fastpass = generateFastpass(def.shape);
+      payload = fastpass(payload, ctx);
+    } else {
+      payload.value = {};
+      const shape = value.shape;
+      for (const key of value.keys) {
+        const el = shape[key];
+        const r = el._zod.run({ value: input[key], issues: [] }, ctx);
+        const isOptional = el._zod.optin === "optional" && el._zod.optout === "optional";
+        if (r instanceof Promise) {
+          proms.push(r.then((r2) => isOptional ? handleOptionalObjectResult(r2, payload, key, input) : handleObjectResult(r2, payload, key)));
+        } else if (isOptional) {
+          handleOptionalObjectResult(r, payload, key, input);
+        } else {
+          handleObjectResult(r, payload, key);
+        }
+      }
+    }
+    if (!catchall) {
+      return proms.length ? Promise.all(proms).then(() => payload) : payload;
+    }
+    const unrecognized = [];
+    const keySet = value.keySet;
+    const _catchall = catchall._zod;
+    const t = _catchall.def.type;
+    for (const key of Object.keys(input)) {
+      if (keySet.has(key))
+        continue;
+      if (t === "never") {
+        unrecognized.push(key);
+        continue;
+      }
+      const r = _catchall.run({ value: input[key], issues: [] }, ctx);
+      if (r instanceof Promise) {
+        proms.push(r.then((r2) => handleObjectResult(r2, payload, key)));
+      } else {
+        handleObjectResult(r, payload, key);
+      }
+    }
+    if (unrecognized.length) {
+      payload.issues.push({
+        code: "unrecognized_keys",
+        keys: unrecognized,
+        input,
+        inst
+      });
+    }
+    if (!proms.length)
+      return payload;
+    return Promise.all(proms).then(() => {
+      return payload;
+    });
+  };
+});
+function handleUnionResults(results, final, inst, ctx) {
+  for (const result of results) {
+    if (result.issues.length === 0) {
+      final.value = result.value;
+      return final;
     }
   }
+  final.issues.push({
+    code: "invalid_union",
+    input: final.value,
+    inst,
+    errors: results.map((result) => result.issues.map((iss) => finalizeIssue(iss, ctx, config())))
+  });
+  return final;
+}
+var $ZodUnion = /* @__PURE__ */ $constructor("$ZodUnion", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "optin", () => def.options.some((o) => o._zod.optin === "optional") ? "optional" : void 0);
+  defineLazy(inst._zod, "optout", () => def.options.some((o) => o._zod.optout === "optional") ? "optional" : void 0);
+  defineLazy(inst._zod, "values", () => {
+    if (def.options.every((o) => o._zod.values)) {
+      return new Set(def.options.flatMap((option) => Array.from(option._zod.values)));
+    }
+    return void 0;
+  });
+  defineLazy(inst._zod, "pattern", () => {
+    if (def.options.every((o) => o._zod.pattern)) {
+      const patterns = def.options.map((o) => o._zod.pattern);
+      return new RegExp(`^(${patterns.map((p) => cleanRegex(p.source)).join("|")})$`);
+    }
+    return void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    let async = false;
+    const results = [];
+    for (const option of def.options) {
+      const result = option._zod.run({
+        value: payload.value,
+        issues: []
+      }, ctx);
+      if (result instanceof Promise) {
+        results.push(result);
+        async = true;
+      } else {
+        if (result.issues.length === 0)
+          return result;
+        results.push(result);
+      }
+    }
+    if (!async)
+      return handleUnionResults(results, payload, inst, ctx);
+    return Promise.all(results).then((results2) => {
+      return handleUnionResults(results2, payload, inst, ctx);
+    });
+  };
 });
-import_functions16.app.http("internalBoxFileRequestOutboxDrain", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "internal/box-file-request-outbox/drain",
-  handler: (req, ctx) => withServiceAuth(req, ctx, async () => ({
-    status: 200,
-    jsonBody: await drainBoxFileRequestOutbox()
-  }))
+var $ZodDiscriminatedUnion = /* @__PURE__ */ $constructor("$ZodDiscriminatedUnion", (inst, def) => {
+  $ZodUnion.init(inst, def);
+  const _super = inst._zod.parse;
+  defineLazy(inst._zod, "propValues", () => {
+    const propValues = {};
+    for (const option of def.options) {
+      const pv = option._zod.propValues;
+      if (!pv || Object.keys(pv).length === 0)
+        throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(option)}"`);
+      for (const [k, v] of Object.entries(pv)) {
+        if (!propValues[k])
+          propValues[k] = /* @__PURE__ */ new Set();
+        for (const val of v) {
+          propValues[k].add(val);
+        }
+      }
+    }
+    return propValues;
+  });
+  const disc = cached(() => {
+    const opts = def.options;
+    const map = /* @__PURE__ */ new Map();
+    for (const o of opts) {
+      const values = o._zod.propValues[def.discriminator];
+      if (!values || values.size === 0)
+        throw new Error(`Invalid discriminated union option at index "${def.options.indexOf(o)}"`);
+      for (const v of values) {
+        if (map.has(v)) {
+          throw new Error(`Duplicate discriminator value "${String(v)}"`);
+        }
+        map.set(v, o);
+      }
+    }
+    return map;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    if (!isObject3(input)) {
+      payload.issues.push({
+        code: "invalid_type",
+        expected: "object",
+        input,
+        inst
+      });
+      return payload;
+    }
+    const opt = disc.value.get(input?.[def.discriminator]);
+    if (opt) {
+      return opt._zod.run(payload, ctx);
+    }
+    if (def.unionFallback) {
+      return _super(payload, ctx);
+    }
+    payload.issues.push({
+      code: "invalid_union",
+      errors: [],
+      note: "No matching discriminator",
+      input,
+      path: [def.discriminator],
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodIntersection = /* @__PURE__ */ $constructor("$ZodIntersection", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    const left = def.left._zod.run({ value: input, issues: [] }, ctx);
+    const right = def.right._zod.run({ value: input, issues: [] }, ctx);
+    const async = left instanceof Promise || right instanceof Promise;
+    if (async) {
+      return Promise.all([left, right]).then(([left2, right2]) => {
+        return handleIntersectionResults(payload, left2, right2);
+      });
+    }
+    return handleIntersectionResults(payload, left, right);
+  };
+});
+function mergeValues2(a, b) {
+  if (a === b) {
+    return { valid: true, data: a };
+  }
+  if (a instanceof Date && b instanceof Date && +a === +b) {
+    return { valid: true, data: a };
+  }
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const bKeys = Object.keys(b);
+    const sharedKeys = Object.keys(a).filter((key) => bKeys.indexOf(key) !== -1);
+    const newObj = { ...a, ...b };
+    for (const key of sharedKeys) {
+      const sharedValue = mergeValues2(a[key], b[key]);
+      if (!sharedValue.valid) {
+        return {
+          valid: false,
+          mergeErrorPath: [key, ...sharedValue.mergeErrorPath]
+        };
+      }
+      newObj[key] = sharedValue.data;
+    }
+    return { valid: true, data: newObj };
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return { valid: false, mergeErrorPath: [] };
+    }
+    const newArray = [];
+    for (let index = 0; index < a.length; index++) {
+      const itemA = a[index];
+      const itemB = b[index];
+      const sharedValue = mergeValues2(itemA, itemB);
+      if (!sharedValue.valid) {
+        return {
+          valid: false,
+          mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+        };
+      }
+      newArray.push(sharedValue.data);
+    }
+    return { valid: true, data: newArray };
+  }
+  return { valid: false, mergeErrorPath: [] };
+}
+function handleIntersectionResults(result, left, right) {
+  if (left.issues.length) {
+    result.issues.push(...left.issues);
+  }
+  if (right.issues.length) {
+    result.issues.push(...right.issues);
+  }
+  if (aborted(result))
+    return result;
+  const merged = mergeValues2(left.value, right.value);
+  if (!merged.valid) {
+    throw new Error(`Unmergable intersection. Error path: ${JSON.stringify(merged.mergeErrorPath)}`);
+  }
+  result.value = merged.data;
+  return result;
+}
+var $ZodRecord = /* @__PURE__ */ $constructor("$ZodRecord", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, ctx) => {
+    const input = payload.value;
+    if (!isPlainObject(input)) {
+      payload.issues.push({
+        expected: "record",
+        code: "invalid_type",
+        input,
+        inst
+      });
+      return payload;
+    }
+    const proms = [];
+    if (def.keyType._zod.values) {
+      const values = def.keyType._zod.values;
+      payload.value = {};
+      for (const key of values) {
+        if (typeof key === "string" || typeof key === "number" || typeof key === "symbol") {
+          const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+          if (result instanceof Promise) {
+            proms.push(result.then((result2) => {
+              if (result2.issues.length) {
+                payload.issues.push(...prefixIssues(key, result2.issues));
+              }
+              payload.value[key] = result2.value;
+            }));
+          } else {
+            if (result.issues.length) {
+              payload.issues.push(...prefixIssues(key, result.issues));
+            }
+            payload.value[key] = result.value;
+          }
+        }
+      }
+      let unrecognized;
+      for (const key in input) {
+        if (!values.has(key)) {
+          unrecognized = unrecognized ?? [];
+          unrecognized.push(key);
+        }
+      }
+      if (unrecognized && unrecognized.length > 0) {
+        payload.issues.push({
+          code: "unrecognized_keys",
+          input,
+          inst,
+          keys: unrecognized
+        });
+      }
+    } else {
+      payload.value = {};
+      for (const key of Reflect.ownKeys(input)) {
+        if (key === "__proto__")
+          continue;
+        const keyResult = def.keyType._zod.run({ value: key, issues: [] }, ctx);
+        if (keyResult instanceof Promise) {
+          throw new Error("Async schemas not supported in object keys currently");
+        }
+        if (keyResult.issues.length) {
+          payload.issues.push({
+            origin: "record",
+            code: "invalid_key",
+            issues: keyResult.issues.map((iss) => finalizeIssue(iss, ctx, config())),
+            input: key,
+            path: [key],
+            inst
+          });
+          payload.value[keyResult.value] = keyResult.value;
+          continue;
+        }
+        const result = def.valueType._zod.run({ value: input[key], issues: [] }, ctx);
+        if (result instanceof Promise) {
+          proms.push(result.then((result2) => {
+            if (result2.issues.length) {
+              payload.issues.push(...prefixIssues(key, result2.issues));
+            }
+            payload.value[keyResult.value] = result2.value;
+          }));
+        } else {
+          if (result.issues.length) {
+            payload.issues.push(...prefixIssues(key, result.issues));
+          }
+          payload.value[keyResult.value] = result.value;
+        }
+      }
+    }
+    if (proms.length) {
+      return Promise.all(proms).then(() => payload);
+    }
+    return payload;
+  };
+});
+var $ZodEnum = /* @__PURE__ */ $constructor("$ZodEnum", (inst, def) => {
+  $ZodType.init(inst, def);
+  const values = getEnumValues(def.entries);
+  inst._zod.values = new Set(values);
+  inst._zod.pattern = new RegExp(`^(${values.filter((k) => propertyKeyTypes.has(typeof k)).map((o) => typeof o === "string" ? escapeRegex(o) : o.toString()).join("|")})$`);
+  inst._zod.parse = (payload, _ctx) => {
+    const input = payload.value;
+    if (inst._zod.values.has(input)) {
+      return payload;
+    }
+    payload.issues.push({
+      code: "invalid_value",
+      values,
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodLiteral = /* @__PURE__ */ $constructor("$ZodLiteral", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.values = new Set(def.values);
+  inst._zod.pattern = new RegExp(`^(${def.values.map((o) => typeof o === "string" ? escapeRegex(o) : o ? o.toString() : String(o)).join("|")})$`);
+  inst._zod.parse = (payload, _ctx) => {
+    const input = payload.value;
+    if (inst._zod.values.has(input)) {
+      return payload;
+    }
+    payload.issues.push({
+      code: "invalid_value",
+      values: def.values,
+      input,
+      inst
+    });
+    return payload;
+  };
+});
+var $ZodTransform = /* @__PURE__ */ $constructor("$ZodTransform", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _ctx) => {
+    const _out = def.transform(payload.value, payload);
+    if (_ctx.async) {
+      const output = _out instanceof Promise ? _out : Promise.resolve(_out);
+      return output.then((output2) => {
+        payload.value = output2;
+        return payload;
+      });
+    }
+    if (_out instanceof Promise) {
+      throw new $ZodAsyncError();
+    }
+    payload.value = _out;
+    return payload;
+  };
+});
+var $ZodOptional = /* @__PURE__ */ $constructor("$ZodOptional", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  inst._zod.optout = "optional";
+  defineLazy(inst._zod, "values", () => {
+    return def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, void 0]) : void 0;
+  });
+  defineLazy(inst._zod, "pattern", () => {
+    const pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)})?$`) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    if (def.innerType._zod.optin === "optional") {
+      return def.innerType._zod.run(payload, ctx);
+    }
+    if (payload.value === void 0) {
+      return payload;
+    }
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+var $ZodNullable = /* @__PURE__ */ $constructor("$ZodNullable", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+  defineLazy(inst._zod, "pattern", () => {
+    const pattern = def.innerType._zod.pattern;
+    return pattern ? new RegExp(`^(${cleanRegex(pattern.source)}|null)$`) : void 0;
+  });
+  defineLazy(inst._zod, "values", () => {
+    return def.innerType._zod.values ? /* @__PURE__ */ new Set([...def.innerType._zod.values, null]) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    if (payload.value === null)
+      return payload;
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+var $ZodDefault = /* @__PURE__ */ $constructor("$ZodDefault", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    if (payload.value === void 0) {
+      payload.value = def.defaultValue;
+      return payload;
+    }
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => handleDefaultResult(result2, def));
+    }
+    return handleDefaultResult(result, def);
+  };
+});
+function handleDefaultResult(payload, def) {
+  if (payload.value === void 0) {
+    payload.value = def.defaultValue;
+  }
+  return payload;
+}
+var $ZodPrefault = /* @__PURE__ */ $constructor("$ZodPrefault", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    if (payload.value === void 0) {
+      payload.value = def.defaultValue;
+    }
+    return def.innerType._zod.run(payload, ctx);
+  };
+});
+var $ZodNonOptional = /* @__PURE__ */ $constructor("$ZodNonOptional", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "values", () => {
+    const v = def.innerType._zod.values;
+    return v ? new Set([...v].filter((x) => x !== void 0)) : void 0;
+  });
+  inst._zod.parse = (payload, ctx) => {
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => handleNonOptionalResult(result2, inst));
+    }
+    return handleNonOptionalResult(result, inst);
+  };
+});
+function handleNonOptionalResult(payload, inst) {
+  if (!payload.issues.length && payload.value === void 0) {
+    payload.issues.push({
+      code: "invalid_type",
+      expected: "nonoptional",
+      input: payload.value,
+      inst
+    });
+  }
+  return payload;
+}
+var $ZodCatch = /* @__PURE__ */ $constructor("$ZodCatch", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst._zod.optin = "optional";
+  defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  inst._zod.parse = (payload, ctx) => {
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then((result2) => {
+        payload.value = result2.value;
+        if (result2.issues.length) {
+          payload.value = def.catchValue({
+            ...payload,
+            error: {
+              issues: result2.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+            },
+            input: payload.value
+          });
+          payload.issues = [];
+        }
+        return payload;
+      });
+    }
+    payload.value = result.value;
+    if (result.issues.length) {
+      payload.value = def.catchValue({
+        ...payload,
+        error: {
+          issues: result.issues.map((iss) => finalizeIssue(iss, ctx, config()))
+        },
+        input: payload.value
+      });
+      payload.issues = [];
+    }
+    return payload;
+  };
+});
+var $ZodPipe = /* @__PURE__ */ $constructor("$ZodPipe", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "values", () => def.in._zod.values);
+  defineLazy(inst._zod, "optin", () => def.in._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.out._zod.optout);
+  inst._zod.parse = (payload, ctx) => {
+    const left = def.in._zod.run(payload, ctx);
+    if (left instanceof Promise) {
+      return left.then((left2) => handlePipeResult(left2, def, ctx));
+    }
+    return handlePipeResult(left, def, ctx);
+  };
+});
+function handlePipeResult(left, def, ctx) {
+  if (aborted(left)) {
+    return left;
+  }
+  return def.out._zod.run({ value: left.value, issues: left.issues }, ctx);
+}
+var $ZodReadonly = /* @__PURE__ */ $constructor("$ZodReadonly", (inst, def) => {
+  $ZodType.init(inst, def);
+  defineLazy(inst._zod, "propValues", () => def.innerType._zod.propValues);
+  defineLazy(inst._zod, "values", () => def.innerType._zod.values);
+  defineLazy(inst._zod, "optin", () => def.innerType._zod.optin);
+  defineLazy(inst._zod, "optout", () => def.innerType._zod.optout);
+  inst._zod.parse = (payload, ctx) => {
+    const result = def.innerType._zod.run(payload, ctx);
+    if (result instanceof Promise) {
+      return result.then(handleReadonlyResult);
+    }
+    return handleReadonlyResult(result);
+  };
+});
+function handleReadonlyResult(payload) {
+  payload.value = Object.freeze(payload.value);
+  return payload;
+}
+var $ZodCustom = /* @__PURE__ */ $constructor("$ZodCustom", (inst, def) => {
+  $ZodCheck.init(inst, def);
+  $ZodType.init(inst, def);
+  inst._zod.parse = (payload, _) => {
+    return payload;
+  };
+  inst._zod.check = (payload) => {
+    const input = payload.value;
+    const r = def.fn(input);
+    if (r instanceof Promise) {
+      return r.then((r2) => handleRefineResult(r2, payload, input, inst));
+    }
+    handleRefineResult(r, payload, input, inst);
+    return;
+  };
+});
+function handleRefineResult(result, payload, input, inst) {
+  if (!result) {
+    const _iss = {
+      code: "custom",
+      input,
+      inst,
+      // incorporates params.error into issue reporting
+      path: [...inst._zod.def.path ?? []],
+      // incorporates params.error into issue reporting
+      continue: !inst._zod.def.abort
+      // params: inst._zod.def.params,
+    };
+    if (inst._zod.def.params)
+      _iss.params = inst._zod.def.params;
+    payload.issues.push(issue(_iss));
+  }
+}
+
+// node_modules/zod/v4/locales/en.js
+var parsedType = (data) => {
+  const t = typeof data;
+  switch (t) {
+    case "number": {
+      return Number.isNaN(data) ? "NaN" : "number";
+    }
+    case "object": {
+      if (Array.isArray(data)) {
+        return "array";
+      }
+      if (data === null) {
+        return "null";
+      }
+      if (Object.getPrototypeOf(data) !== Object.prototype && data.constructor) {
+        return data.constructor.name;
+      }
+    }
+  }
+  return t;
+};
+var error = () => {
+  const Sizable = {
+    string: { unit: "characters", verb: "to have" },
+    file: { unit: "bytes", verb: "to have" },
+    array: { unit: "items", verb: "to have" },
+    set: { unit: "items", verb: "to have" }
+  };
+  function getSizing(origin) {
+    return Sizable[origin] ?? null;
+  }
+  const Nouns = {
+    regex: "input",
+    email: "email address",
+    url: "URL",
+    emoji: "emoji",
+    uuid: "UUID",
+    uuidv4: "UUIDv4",
+    uuidv6: "UUIDv6",
+    nanoid: "nanoid",
+    guid: "GUID",
+    cuid: "cuid",
+    cuid2: "cuid2",
+    ulid: "ULID",
+    xid: "XID",
+    ksuid: "KSUID",
+    datetime: "ISO datetime",
+    date: "ISO date",
+    time: "ISO time",
+    duration: "ISO duration",
+    ipv4: "IPv4 address",
+    ipv6: "IPv6 address",
+    cidrv4: "IPv4 range",
+    cidrv6: "IPv6 range",
+    base64: "base64-encoded string",
+    base64url: "base64url-encoded string",
+    json_string: "JSON string",
+    e164: "E.164 number",
+    jwt: "JWT",
+    template_literal: "input"
+  };
+  return (issue2) => {
+    switch (issue2.code) {
+      case "invalid_type":
+        return `Invalid input: expected ${issue2.expected}, received ${parsedType(issue2.input)}`;
+      case "invalid_value":
+        if (issue2.values.length === 1)
+          return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
+        return `Invalid option: expected one of ${joinValues(issue2.values, "|")}`;
+      case "too_big": {
+        const adj = issue2.inclusive ? "<=" : "<";
+        const sizing = getSizing(issue2.origin);
+        if (sizing)
+          return `Too big: expected ${issue2.origin ?? "value"} to have ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+        return `Too big: expected ${issue2.origin ?? "value"} to be ${adj}${issue2.maximum.toString()}`;
+      }
+      case "too_small": {
+        const adj = issue2.inclusive ? ">=" : ">";
+        const sizing = getSizing(issue2.origin);
+        if (sizing) {
+          return `Too small: expected ${issue2.origin} to have ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        }
+        return `Too small: expected ${issue2.origin} to be ${adj}${issue2.minimum.toString()}`;
+      }
+      case "invalid_format": {
+        const _issue = issue2;
+        if (_issue.format === "starts_with") {
+          return `Invalid string: must start with "${_issue.prefix}"`;
+        }
+        if (_issue.format === "ends_with")
+          return `Invalid string: must end with "${_issue.suffix}"`;
+        if (_issue.format === "includes")
+          return `Invalid string: must include "${_issue.includes}"`;
+        if (_issue.format === "regex")
+          return `Invalid string: must match pattern ${_issue.pattern}`;
+        return `Invalid ${Nouns[_issue.format] ?? issue2.format}`;
+      }
+      case "not_multiple_of":
+        return `Invalid number: must be a multiple of ${issue2.divisor}`;
+      case "unrecognized_keys":
+        return `Unrecognized key${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+      case "invalid_key":
+        return `Invalid key in ${issue2.origin}`;
+      case "invalid_union":
+        return "Invalid input";
+      case "invalid_element":
+        return `Invalid value in ${issue2.origin}`;
+      default:
+        return `Invalid input`;
+    }
+  };
+};
+function en_default2() {
+  return {
+    localeError: error()
+  };
+}
+
+// node_modules/zod/v4/core/registries.js
+var $output = Symbol("ZodOutput");
+var $input = Symbol("ZodInput");
+var $ZodRegistry = class {
+  constructor() {
+    this._map = /* @__PURE__ */ new Map();
+    this._idmap = /* @__PURE__ */ new Map();
+  }
+  add(schema, ..._meta) {
+    const meta = _meta[0];
+    this._map.set(schema, meta);
+    if (meta && typeof meta === "object" && "id" in meta) {
+      if (this._idmap.has(meta.id)) {
+        throw new Error(`ID ${meta.id} already exists in the registry`);
+      }
+      this._idmap.set(meta.id, schema);
+    }
+    return this;
+  }
+  clear() {
+    this._map = /* @__PURE__ */ new Map();
+    this._idmap = /* @__PURE__ */ new Map();
+    return this;
+  }
+  remove(schema) {
+    const meta = this._map.get(schema);
+    if (meta && typeof meta === "object" && "id" in meta) {
+      this._idmap.delete(meta.id);
+    }
+    this._map.delete(schema);
+    return this;
+  }
+  get(schema) {
+    const p = schema._zod.parent;
+    if (p) {
+      const pm = { ...this.get(p) ?? {} };
+      delete pm.id;
+      return { ...pm, ...this._map.get(schema) };
+    }
+    return this._map.get(schema);
+  }
+  has(schema) {
+    return this._map.has(schema);
+  }
+};
+function registry() {
+  return new $ZodRegistry();
+}
+var globalRegistry = /* @__PURE__ */ registry();
+
+// node_modules/zod/v4/core/api.js
+function _string(Class2, params) {
+  return new Class2({
+    type: "string",
+    ...normalizeParams(params)
+  });
+}
+function _email(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "email",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _guid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "guid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _uuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _uuidv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v4",
+    ...normalizeParams(params)
+  });
+}
+function _uuidv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v6",
+    ...normalizeParams(params)
+  });
+}
+function _uuidv7(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "uuid",
+    check: "string_format",
+    abort: false,
+    version: "v7",
+    ...normalizeParams(params)
+  });
+}
+function _url(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "url",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _emoji2(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "emoji",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _nanoid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "nanoid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _cuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _cuid2(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cuid2",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _ulid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ulid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _xid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "xid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _ksuid(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ksuid",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _ipv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ipv4",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _ipv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "ipv6",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _cidrv4(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cidrv4",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _cidrv6(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "cidrv6",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _base64(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "base64",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _base64url(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "base64url",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _e164(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "e164",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _jwt(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "jwt",
+    check: "string_format",
+    abort: false,
+    ...normalizeParams(params)
+  });
+}
+function _isoDateTime(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "datetime",
+    check: "string_format",
+    offset: false,
+    local: false,
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+function _isoDate(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "date",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+function _isoTime(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "time",
+    check: "string_format",
+    precision: null,
+    ...normalizeParams(params)
+  });
+}
+function _isoDuration(Class2, params) {
+  return new Class2({
+    type: "string",
+    format: "duration",
+    check: "string_format",
+    ...normalizeParams(params)
+  });
+}
+function _number(Class2, params) {
+  return new Class2({
+    type: "number",
+    checks: [],
+    ...normalizeParams(params)
+  });
+}
+function _int(Class2, params) {
+  return new Class2({
+    type: "number",
+    check: "number_format",
+    abort: false,
+    format: "safeint",
+    ...normalizeParams(params)
+  });
+}
+function _boolean(Class2, params) {
+  return new Class2({
+    type: "boolean",
+    ...normalizeParams(params)
+  });
+}
+function _null2(Class2, params) {
+  return new Class2({
+    type: "null",
+    ...normalizeParams(params)
+  });
+}
+function _unknown(Class2) {
+  return new Class2({
+    type: "unknown"
+  });
+}
+function _never(Class2, params) {
+  return new Class2({
+    type: "never",
+    ...normalizeParams(params)
+  });
+}
+function _lt(value, params) {
+  return new $ZodCheckLessThan({
+    check: "less_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: false
+  });
+}
+function _lte(value, params) {
+  return new $ZodCheckLessThan({
+    check: "less_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: true
+  });
+}
+function _gt(value, params) {
+  return new $ZodCheckGreaterThan({
+    check: "greater_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: false
+  });
+}
+function _gte(value, params) {
+  return new $ZodCheckGreaterThan({
+    check: "greater_than",
+    ...normalizeParams(params),
+    value,
+    inclusive: true
+  });
+}
+function _multipleOf(value, params) {
+  return new $ZodCheckMultipleOf({
+    check: "multiple_of",
+    ...normalizeParams(params),
+    value
+  });
+}
+function _maxLength(maximum, params) {
+  const ch = new $ZodCheckMaxLength({
+    check: "max_length",
+    ...normalizeParams(params),
+    maximum
+  });
+  return ch;
+}
+function _minLength(minimum, params) {
+  return new $ZodCheckMinLength({
+    check: "min_length",
+    ...normalizeParams(params),
+    minimum
+  });
+}
+function _length(length, params) {
+  return new $ZodCheckLengthEquals({
+    check: "length_equals",
+    ...normalizeParams(params),
+    length
+  });
+}
+function _regex(pattern, params) {
+  return new $ZodCheckRegex({
+    check: "string_format",
+    format: "regex",
+    ...normalizeParams(params),
+    pattern
+  });
+}
+function _lowercase(params) {
+  return new $ZodCheckLowerCase({
+    check: "string_format",
+    format: "lowercase",
+    ...normalizeParams(params)
+  });
+}
+function _uppercase(params) {
+  return new $ZodCheckUpperCase({
+    check: "string_format",
+    format: "uppercase",
+    ...normalizeParams(params)
+  });
+}
+function _includes(includes, params) {
+  return new $ZodCheckIncludes({
+    check: "string_format",
+    format: "includes",
+    ...normalizeParams(params),
+    includes
+  });
+}
+function _startsWith(prefix2, params) {
+  return new $ZodCheckStartsWith({
+    check: "string_format",
+    format: "starts_with",
+    ...normalizeParams(params),
+    prefix: prefix2
+  });
+}
+function _endsWith(suffix, params) {
+  return new $ZodCheckEndsWith({
+    check: "string_format",
+    format: "ends_with",
+    ...normalizeParams(params),
+    suffix
+  });
+}
+function _overwrite(tx2) {
+  return new $ZodCheckOverwrite({
+    check: "overwrite",
+    tx: tx2
+  });
+}
+function _normalize(form) {
+  return _overwrite((input) => input.normalize(form));
+}
+function _trim() {
+  return _overwrite((input) => input.trim());
+}
+function _toLowerCase() {
+  return _overwrite((input) => input.toLowerCase());
+}
+function _toUpperCase() {
+  return _overwrite((input) => input.toUpperCase());
+}
+function _array(Class2, element, params) {
+  return new Class2({
+    type: "array",
+    element,
+    // get element() {
+    //   return element;
+    // },
+    ...normalizeParams(params)
+  });
+}
+function _custom(Class2, fn, _params) {
+  const norm = normalizeParams(_params);
+  norm.abort ?? (norm.abort = true);
+  const schema = new Class2({
+    type: "custom",
+    check: "custom",
+    fn,
+    ...norm
+  });
+  return schema;
+}
+function _refine(Class2, fn, _params) {
+  const schema = new Class2({
+    type: "custom",
+    check: "custom",
+    fn,
+    ...normalizeParams(_params)
+  });
+  return schema;
+}
+
+// node_modules/zod/v4/classic/iso.js
+var iso_exports = {};
+__export(iso_exports, {
+  ZodISODate: () => ZodISODate,
+  ZodISODateTime: () => ZodISODateTime,
+  ZodISODuration: () => ZodISODuration,
+  ZodISOTime: () => ZodISOTime,
+  date: () => date2,
+  datetime: () => datetime2,
+  duration: () => duration3,
+  time: () => time2
+});
+var ZodISODateTime = /* @__PURE__ */ $constructor("ZodISODateTime", (inst, def) => {
+  $ZodISODateTime.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function datetime2(params) {
+  return _isoDateTime(ZodISODateTime, params);
+}
+var ZodISODate = /* @__PURE__ */ $constructor("ZodISODate", (inst, def) => {
+  $ZodISODate.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function date2(params) {
+  return _isoDate(ZodISODate, params);
+}
+var ZodISOTime = /* @__PURE__ */ $constructor("ZodISOTime", (inst, def) => {
+  $ZodISOTime.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function time2(params) {
+  return _isoTime(ZodISOTime, params);
+}
+var ZodISODuration = /* @__PURE__ */ $constructor("ZodISODuration", (inst, def) => {
+  $ZodISODuration.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+function duration3(params) {
+  return _isoDuration(ZodISODuration, params);
+}
+
+// node_modules/zod/v4/classic/errors.js
+var initializer2 = (inst, issues) => {
+  $ZodError.init(inst, issues);
+  inst.name = "ZodError";
+  Object.defineProperties(inst, {
+    format: {
+      value: (mapper) => formatError(inst, mapper)
+      // enumerable: false,
+    },
+    flatten: {
+      value: (mapper) => flattenError(inst, mapper)
+      // enumerable: false,
+    },
+    addIssue: {
+      value: (issue2) => inst.issues.push(issue2)
+      // enumerable: false,
+    },
+    addIssues: {
+      value: (issues2) => inst.issues.push(...issues2)
+      // enumerable: false,
+    },
+    isEmpty: {
+      get() {
+        return inst.issues.length === 0;
+      }
+      // enumerable: false,
+    }
+  });
+};
+var ZodError2 = $constructor("ZodError", initializer2);
+var ZodRealError = $constructor("ZodError", initializer2, {
+  Parent: Error
 });
 
-// api/src/functions/evidence-upload.ts
-var import_functions17 = require("@azure/functions");
+// node_modules/zod/v4/classic/parse.js
+var parse3 = /* @__PURE__ */ _parse(ZodRealError);
+var parseAsync = /* @__PURE__ */ _parseAsync(ZodRealError);
+var safeParse2 = /* @__PURE__ */ _safeParse(ZodRealError);
+var safeParseAsync2 = /* @__PURE__ */ _safeParseAsync(ZodRealError);
+
+// node_modules/zod/v4/classic/schemas.js
+var ZodType2 = /* @__PURE__ */ $constructor("ZodType", (inst, def) => {
+  $ZodType.init(inst, def);
+  inst.def = def;
+  Object.defineProperty(inst, "_def", { value: def });
+  inst.check = (...checks) => {
+    return inst.clone(
+      {
+        ...def,
+        checks: [
+          ...def.checks ?? [],
+          ...checks.map((ch) => typeof ch === "function" ? { _zod: { check: ch, def: { check: "custom" }, onattach: [] } } : ch)
+        ]
+      }
+      // { parent: true }
+    );
+  };
+  inst.clone = (def2, params) => clone2(inst, def2, params);
+  inst.brand = () => inst;
+  inst.register = (reg, meta) => {
+    reg.add(inst, meta);
+    return inst;
+  };
+  inst.parse = (data, params) => parse3(inst, data, params, { callee: inst.parse });
+  inst.safeParse = (data, params) => safeParse2(inst, data, params);
+  inst.parseAsync = async (data, params) => parseAsync(inst, data, params, { callee: inst.parseAsync });
+  inst.safeParseAsync = async (data, params) => safeParseAsync2(inst, data, params);
+  inst.spa = inst.safeParseAsync;
+  inst.refine = (check2, params) => inst.check(refine(check2, params));
+  inst.superRefine = (refinement) => inst.check(superRefine(refinement));
+  inst.overwrite = (fn) => inst.check(_overwrite(fn));
+  inst.optional = () => optional(inst);
+  inst.nullable = () => nullable(inst);
+  inst.nullish = () => optional(nullable(inst));
+  inst.nonoptional = (params) => nonoptional(inst, params);
+  inst.array = () => array(inst);
+  inst.or = (arg) => union([inst, arg]);
+  inst.and = (arg) => intersection(inst, arg);
+  inst.transform = (tx2) => pipe(inst, transform(tx2));
+  inst.default = (def2) => _default(inst, def2);
+  inst.prefault = (def2) => prefault(inst, def2);
+  inst.catch = (params) => _catch(inst, params);
+  inst.pipe = (target) => pipe(inst, target);
+  inst.readonly = () => readonly(inst);
+  inst.describe = (description) => {
+    const cl = inst.clone();
+    globalRegistry.add(cl, { description });
+    return cl;
+  };
+  Object.defineProperty(inst, "description", {
+    get() {
+      return globalRegistry.get(inst)?.description;
+    },
+    configurable: true
+  });
+  inst.meta = (...args) => {
+    if (args.length === 0) {
+      return globalRegistry.get(inst);
+    }
+    const cl = inst.clone();
+    globalRegistry.add(cl, args[0]);
+    return cl;
+  };
+  inst.isOptional = () => inst.safeParse(void 0).success;
+  inst.isNullable = () => inst.safeParse(null).success;
+  return inst;
+});
+var _ZodString = /* @__PURE__ */ $constructor("_ZodString", (inst, def) => {
+  $ZodString.init(inst, def);
+  ZodType2.init(inst, def);
+  const bag = inst._zod.bag;
+  inst.format = bag.format ?? null;
+  inst.minLength = bag.minimum ?? null;
+  inst.maxLength = bag.maximum ?? null;
+  inst.regex = (...args) => inst.check(_regex(...args));
+  inst.includes = (...args) => inst.check(_includes(...args));
+  inst.startsWith = (...args) => inst.check(_startsWith(...args));
+  inst.endsWith = (...args) => inst.check(_endsWith(...args));
+  inst.min = (...args) => inst.check(_minLength(...args));
+  inst.max = (...args) => inst.check(_maxLength(...args));
+  inst.length = (...args) => inst.check(_length(...args));
+  inst.nonempty = (...args) => inst.check(_minLength(1, ...args));
+  inst.lowercase = (params) => inst.check(_lowercase(params));
+  inst.uppercase = (params) => inst.check(_uppercase(params));
+  inst.trim = () => inst.check(_trim());
+  inst.normalize = (...args) => inst.check(_normalize(...args));
+  inst.toLowerCase = () => inst.check(_toLowerCase());
+  inst.toUpperCase = () => inst.check(_toUpperCase());
+});
+var ZodString2 = /* @__PURE__ */ $constructor("ZodString", (inst, def) => {
+  $ZodString.init(inst, def);
+  _ZodString.init(inst, def);
+  inst.email = (params) => inst.check(_email(ZodEmail, params));
+  inst.url = (params) => inst.check(_url(ZodURL, params));
+  inst.jwt = (params) => inst.check(_jwt(ZodJWT, params));
+  inst.emoji = (params) => inst.check(_emoji2(ZodEmoji, params));
+  inst.guid = (params) => inst.check(_guid(ZodGUID, params));
+  inst.uuid = (params) => inst.check(_uuid(ZodUUID, params));
+  inst.uuidv4 = (params) => inst.check(_uuidv4(ZodUUID, params));
+  inst.uuidv6 = (params) => inst.check(_uuidv6(ZodUUID, params));
+  inst.uuidv7 = (params) => inst.check(_uuidv7(ZodUUID, params));
+  inst.nanoid = (params) => inst.check(_nanoid(ZodNanoID, params));
+  inst.guid = (params) => inst.check(_guid(ZodGUID, params));
+  inst.cuid = (params) => inst.check(_cuid(ZodCUID, params));
+  inst.cuid2 = (params) => inst.check(_cuid2(ZodCUID2, params));
+  inst.ulid = (params) => inst.check(_ulid(ZodULID, params));
+  inst.base64 = (params) => inst.check(_base64(ZodBase64, params));
+  inst.base64url = (params) => inst.check(_base64url(ZodBase64URL, params));
+  inst.xid = (params) => inst.check(_xid(ZodXID, params));
+  inst.ksuid = (params) => inst.check(_ksuid(ZodKSUID, params));
+  inst.ipv4 = (params) => inst.check(_ipv4(ZodIPv4, params));
+  inst.ipv6 = (params) => inst.check(_ipv6(ZodIPv6, params));
+  inst.cidrv4 = (params) => inst.check(_cidrv4(ZodCIDRv4, params));
+  inst.cidrv6 = (params) => inst.check(_cidrv6(ZodCIDRv6, params));
+  inst.e164 = (params) => inst.check(_e164(ZodE164, params));
+  inst.datetime = (params) => inst.check(datetime2(params));
+  inst.date = (params) => inst.check(date2(params));
+  inst.time = (params) => inst.check(time2(params));
+  inst.duration = (params) => inst.check(duration3(params));
+});
+function string2(params) {
+  return _string(ZodString2, params);
+}
+var ZodStringFormat = /* @__PURE__ */ $constructor("ZodStringFormat", (inst, def) => {
+  $ZodStringFormat.init(inst, def);
+  _ZodString.init(inst, def);
+});
+var ZodEmail = /* @__PURE__ */ $constructor("ZodEmail", (inst, def) => {
+  $ZodEmail.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodGUID = /* @__PURE__ */ $constructor("ZodGUID", (inst, def) => {
+  $ZodGUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodUUID = /* @__PURE__ */ $constructor("ZodUUID", (inst, def) => {
+  $ZodUUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodURL = /* @__PURE__ */ $constructor("ZodURL", (inst, def) => {
+  $ZodURL.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodEmoji = /* @__PURE__ */ $constructor("ZodEmoji", (inst, def) => {
+  $ZodEmoji.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodNanoID = /* @__PURE__ */ $constructor("ZodNanoID", (inst, def) => {
+  $ZodNanoID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodCUID = /* @__PURE__ */ $constructor("ZodCUID", (inst, def) => {
+  $ZodCUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodCUID2 = /* @__PURE__ */ $constructor("ZodCUID2", (inst, def) => {
+  $ZodCUID2.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodULID = /* @__PURE__ */ $constructor("ZodULID", (inst, def) => {
+  $ZodULID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodXID = /* @__PURE__ */ $constructor("ZodXID", (inst, def) => {
+  $ZodXID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodKSUID = /* @__PURE__ */ $constructor("ZodKSUID", (inst, def) => {
+  $ZodKSUID.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodIPv4 = /* @__PURE__ */ $constructor("ZodIPv4", (inst, def) => {
+  $ZodIPv4.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodIPv6 = /* @__PURE__ */ $constructor("ZodIPv6", (inst, def) => {
+  $ZodIPv6.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodCIDRv4 = /* @__PURE__ */ $constructor("ZodCIDRv4", (inst, def) => {
+  $ZodCIDRv4.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodCIDRv6 = /* @__PURE__ */ $constructor("ZodCIDRv6", (inst, def) => {
+  $ZodCIDRv6.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodBase64 = /* @__PURE__ */ $constructor("ZodBase64", (inst, def) => {
+  $ZodBase64.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodBase64URL = /* @__PURE__ */ $constructor("ZodBase64URL", (inst, def) => {
+  $ZodBase64URL.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodE164 = /* @__PURE__ */ $constructor("ZodE164", (inst, def) => {
+  $ZodE164.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodJWT = /* @__PURE__ */ $constructor("ZodJWT", (inst, def) => {
+  $ZodJWT.init(inst, def);
+  ZodStringFormat.init(inst, def);
+});
+var ZodNumber2 = /* @__PURE__ */ $constructor("ZodNumber", (inst, def) => {
+  $ZodNumber.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.gt = (value, params) => inst.check(_gt(value, params));
+  inst.gte = (value, params) => inst.check(_gte(value, params));
+  inst.min = (value, params) => inst.check(_gte(value, params));
+  inst.lt = (value, params) => inst.check(_lt(value, params));
+  inst.lte = (value, params) => inst.check(_lte(value, params));
+  inst.max = (value, params) => inst.check(_lte(value, params));
+  inst.int = (params) => inst.check(int(params));
+  inst.safe = (params) => inst.check(int(params));
+  inst.positive = (params) => inst.check(_gt(0, params));
+  inst.nonnegative = (params) => inst.check(_gte(0, params));
+  inst.negative = (params) => inst.check(_lt(0, params));
+  inst.nonpositive = (params) => inst.check(_lte(0, params));
+  inst.multipleOf = (value, params) => inst.check(_multipleOf(value, params));
+  inst.step = (value, params) => inst.check(_multipleOf(value, params));
+  inst.finite = () => inst;
+  const bag = inst._zod.bag;
+  inst.minValue = Math.max(bag.minimum ?? Number.NEGATIVE_INFINITY, bag.exclusiveMinimum ?? Number.NEGATIVE_INFINITY) ?? null;
+  inst.maxValue = Math.min(bag.maximum ?? Number.POSITIVE_INFINITY, bag.exclusiveMaximum ?? Number.POSITIVE_INFINITY) ?? null;
+  inst.isInt = (bag.format ?? "").includes("int") || Number.isSafeInteger(bag.multipleOf ?? 0.5);
+  inst.isFinite = true;
+  inst.format = bag.format ?? null;
+});
+function number2(params) {
+  return _number(ZodNumber2, params);
+}
+var ZodNumberFormat = /* @__PURE__ */ $constructor("ZodNumberFormat", (inst, def) => {
+  $ZodNumberFormat.init(inst, def);
+  ZodNumber2.init(inst, def);
+});
+function int(params) {
+  return _int(ZodNumberFormat, params);
+}
+var ZodBoolean2 = /* @__PURE__ */ $constructor("ZodBoolean", (inst, def) => {
+  $ZodBoolean.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function boolean2(params) {
+  return _boolean(ZodBoolean2, params);
+}
+var ZodNull2 = /* @__PURE__ */ $constructor("ZodNull", (inst, def) => {
+  $ZodNull.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function _null3(params) {
+  return _null2(ZodNull2, params);
+}
+var ZodUnknown2 = /* @__PURE__ */ $constructor("ZodUnknown", (inst, def) => {
+  $ZodUnknown.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function unknown() {
+  return _unknown(ZodUnknown2);
+}
+var ZodNever2 = /* @__PURE__ */ $constructor("ZodNever", (inst, def) => {
+  $ZodNever.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function never(params) {
+  return _never(ZodNever2, params);
+}
+var ZodArray2 = /* @__PURE__ */ $constructor("ZodArray", (inst, def) => {
+  $ZodArray.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.element = def.element;
+  inst.min = (minLength, params) => inst.check(_minLength(minLength, params));
+  inst.nonempty = (params) => inst.check(_minLength(1, params));
+  inst.max = (maxLength, params) => inst.check(_maxLength(maxLength, params));
+  inst.length = (len, params) => inst.check(_length(len, params));
+  inst.unwrap = () => inst.element;
+});
+function array(element, params) {
+  return _array(ZodArray2, element, params);
+}
+var ZodObject2 = /* @__PURE__ */ $constructor("ZodObject", (inst, def) => {
+  $ZodObject.init(inst, def);
+  ZodType2.init(inst, def);
+  util_exports.defineLazy(inst, "shape", () => def.shape);
+  inst.keyof = () => _enum(Object.keys(inst._zod.def.shape));
+  inst.catchall = (catchall) => inst.clone({ ...inst._zod.def, catchall });
+  inst.passthrough = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
+  inst.loose = () => inst.clone({ ...inst._zod.def, catchall: unknown() });
+  inst.strict = () => inst.clone({ ...inst._zod.def, catchall: never() });
+  inst.strip = () => inst.clone({ ...inst._zod.def, catchall: void 0 });
+  inst.extend = (incoming) => {
+    return util_exports.extend(inst, incoming);
+  };
+  inst.merge = (other) => util_exports.merge(inst, other);
+  inst.pick = (mask) => util_exports.pick(inst, mask);
+  inst.omit = (mask) => util_exports.omit(inst, mask);
+  inst.partial = (...args) => util_exports.partial(ZodOptional2, inst, args[0]);
+  inst.required = (...args) => util_exports.required(ZodNonOptional, inst, args[0]);
+});
+function object(shape, params) {
+  const def = {
+    type: "object",
+    get shape() {
+      util_exports.assignProp(this, "shape", { ...shape });
+      return this.shape;
+    },
+    ...util_exports.normalizeParams(params)
+  };
+  return new ZodObject2(def);
+}
+function looseObject(shape, params) {
+  return new ZodObject2({
+    type: "object",
+    get shape() {
+      util_exports.assignProp(this, "shape", { ...shape });
+      return this.shape;
+    },
+    catchall: unknown(),
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodUnion2 = /* @__PURE__ */ $constructor("ZodUnion", (inst, def) => {
+  $ZodUnion.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.options = def.options;
+});
+function union(options, params) {
+  return new ZodUnion2({
+    type: "union",
+    options,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodDiscriminatedUnion2 = /* @__PURE__ */ $constructor("ZodDiscriminatedUnion", (inst, def) => {
+  ZodUnion2.init(inst, def);
+  $ZodDiscriminatedUnion.init(inst, def);
+});
+function discriminatedUnion(discriminator, options, params) {
+  return new ZodDiscriminatedUnion2({
+    type: "union",
+    options,
+    discriminator,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodIntersection2 = /* @__PURE__ */ $constructor("ZodIntersection", (inst, def) => {
+  $ZodIntersection.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function intersection(left, right) {
+  return new ZodIntersection2({
+    type: "intersection",
+    left,
+    right
+  });
+}
+var ZodRecord2 = /* @__PURE__ */ $constructor("ZodRecord", (inst, def) => {
+  $ZodRecord.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.keyType = def.keyType;
+  inst.valueType = def.valueType;
+});
+function record(keyType, valueType, params) {
+  return new ZodRecord2({
+    type: "record",
+    keyType,
+    valueType,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodEnum2 = /* @__PURE__ */ $constructor("ZodEnum", (inst, def) => {
+  $ZodEnum.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.enum = def.entries;
+  inst.options = Object.values(def.entries);
+  const keys = new Set(Object.keys(def.entries));
+  inst.extract = (values, params) => {
+    const newEntries = {};
+    for (const value of values) {
+      if (keys.has(value)) {
+        newEntries[value] = def.entries[value];
+      } else
+        throw new Error(`Key ${value} not found in enum`);
+    }
+    return new ZodEnum2({
+      ...def,
+      checks: [],
+      ...util_exports.normalizeParams(params),
+      entries: newEntries
+    });
+  };
+  inst.exclude = (values, params) => {
+    const newEntries = { ...def.entries };
+    for (const value of values) {
+      if (keys.has(value)) {
+        delete newEntries[value];
+      } else
+        throw new Error(`Key ${value} not found in enum`);
+    }
+    return new ZodEnum2({
+      ...def,
+      checks: [],
+      ...util_exports.normalizeParams(params),
+      entries: newEntries
+    });
+  };
+});
+function _enum(values, params) {
+  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  return new ZodEnum2({
+    type: "enum",
+    entries,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodLiteral2 = /* @__PURE__ */ $constructor("ZodLiteral", (inst, def) => {
+  $ZodLiteral.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.values = new Set(def.values);
+  Object.defineProperty(inst, "value", {
+    get() {
+      if (def.values.length > 1) {
+        throw new Error("This schema contains multiple valid literal values. Use `.values` instead.");
+      }
+      return def.values[0];
+    }
+  });
+});
+function literal(value, params) {
+  return new ZodLiteral2({
+    type: "literal",
+    values: Array.isArray(value) ? value : [value],
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodTransform = /* @__PURE__ */ $constructor("ZodTransform", (inst, def) => {
+  $ZodTransform.init(inst, def);
+  ZodType2.init(inst, def);
+  inst._zod.parse = (payload, _ctx) => {
+    payload.addIssue = (issue2) => {
+      if (typeof issue2 === "string") {
+        payload.issues.push(util_exports.issue(issue2, payload.value, def));
+      } else {
+        const _issue = issue2;
+        if (_issue.fatal)
+          _issue.continue = false;
+        _issue.code ?? (_issue.code = "custom");
+        _issue.input ?? (_issue.input = payload.value);
+        _issue.inst ?? (_issue.inst = inst);
+        _issue.continue ?? (_issue.continue = true);
+        payload.issues.push(util_exports.issue(_issue));
+      }
+    };
+    const output = def.transform(payload.value, payload);
+    if (output instanceof Promise) {
+      return output.then((output2) => {
+        payload.value = output2;
+        return payload;
+      });
+    }
+    payload.value = output;
+    return payload;
+  };
+});
+function transform(fn) {
+  return new ZodTransform({
+    type: "transform",
+    transform: fn
+  });
+}
+var ZodOptional2 = /* @__PURE__ */ $constructor("ZodOptional", (inst, def) => {
+  $ZodOptional.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function optional(innerType) {
+  return new ZodOptional2({
+    type: "optional",
+    innerType
+  });
+}
+var ZodNullable2 = /* @__PURE__ */ $constructor("ZodNullable", (inst, def) => {
+  $ZodNullable.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function nullable(innerType) {
+  return new ZodNullable2({
+    type: "nullable",
+    innerType
+  });
+}
+var ZodDefault2 = /* @__PURE__ */ $constructor("ZodDefault", (inst, def) => {
+  $ZodDefault.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+  inst.removeDefault = inst.unwrap;
+});
+function _default(innerType, defaultValue) {
+  return new ZodDefault2({
+    type: "default",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue === "function" ? defaultValue() : defaultValue;
+    }
+  });
+}
+var ZodPrefault = /* @__PURE__ */ $constructor("ZodPrefault", (inst, def) => {
+  $ZodPrefault.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function prefault(innerType, defaultValue) {
+  return new ZodPrefault({
+    type: "prefault",
+    innerType,
+    get defaultValue() {
+      return typeof defaultValue === "function" ? defaultValue() : defaultValue;
+    }
+  });
+}
+var ZodNonOptional = /* @__PURE__ */ $constructor("ZodNonOptional", (inst, def) => {
+  $ZodNonOptional.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+});
+function nonoptional(innerType, params) {
+  return new ZodNonOptional({
+    type: "nonoptional",
+    innerType,
+    ...util_exports.normalizeParams(params)
+  });
+}
+var ZodCatch2 = /* @__PURE__ */ $constructor("ZodCatch", (inst, def) => {
+  $ZodCatch.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.unwrap = () => inst._zod.def.innerType;
+  inst.removeCatch = inst.unwrap;
+});
+function _catch(innerType, catchValue) {
+  return new ZodCatch2({
+    type: "catch",
+    innerType,
+    catchValue: typeof catchValue === "function" ? catchValue : () => catchValue
+  });
+}
+var ZodPipe = /* @__PURE__ */ $constructor("ZodPipe", (inst, def) => {
+  $ZodPipe.init(inst, def);
+  ZodType2.init(inst, def);
+  inst.in = def.in;
+  inst.out = def.out;
+});
+function pipe(in_, out) {
+  return new ZodPipe({
+    type: "pipe",
+    in: in_,
+    out
+    // ...util.normalizeParams(params),
+  });
+}
+var ZodReadonly2 = /* @__PURE__ */ $constructor("ZodReadonly", (inst, def) => {
+  $ZodReadonly.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function readonly(innerType) {
+  return new ZodReadonly2({
+    type: "readonly",
+    innerType
+  });
+}
+var ZodCustom = /* @__PURE__ */ $constructor("ZodCustom", (inst, def) => {
+  $ZodCustom.init(inst, def);
+  ZodType2.init(inst, def);
+});
+function check(fn) {
+  const ch = new $ZodCheck({
+    check: "custom"
+    // ...util.normalizeParams(params),
+  });
+  ch._zod.check = fn;
+  return ch;
+}
+function custom3(fn, _params) {
+  return _custom(ZodCustom, fn ?? (() => true), _params);
+}
+function refine(fn, _params = {}) {
+  return _refine(ZodCustom, fn, _params);
+}
+function superRefine(fn) {
+  const ch = check((payload) => {
+    payload.addIssue = (issue2) => {
+      if (typeof issue2 === "string") {
+        payload.issues.push(util_exports.issue(issue2, payload.value, ch._zod.def));
+      } else {
+        const _issue = issue2;
+        if (_issue.fatal)
+          _issue.continue = false;
+        _issue.code ?? (_issue.code = "custom");
+        _issue.input ?? (_issue.input = payload.value);
+        _issue.inst ?? (_issue.inst = ch);
+        _issue.continue ?? (_issue.continue = !ch._zod.def.abort);
+        payload.issues.push(util_exports.issue(_issue));
+      }
+    };
+    return fn(payload.value, payload);
+  });
+  return ch;
+}
+function preprocess(fn, schema) {
+  return pipe(transform(fn), schema);
+}
+
+// node_modules/zod/v4/classic/external.js
+config(en_default2());
+
+// node_modules/@modelcontextprotocol/sdk/dist/esm/types.js
+var RELATED_TASK_META_KEY = "io.modelcontextprotocol/related-task";
+var JSONRPC_VERSION = "2.0";
+var AssertObjectSchema = custom3((v) => v !== null && (typeof v === "object" || typeof v === "function"));
+var ProgressTokenSchema = union([string2(), number2().int()]);
+var CursorSchema = string2();
+var TaskCreationParamsSchema = looseObject({
+  /**
+   * Requested duration in milliseconds to retain task from creation.
+   */
+  ttl: number2().optional(),
+  /**
+   * Time in milliseconds to wait between task status requests.
+   */
+  pollInterval: number2().optional()
+});
+var TaskMetadataSchema = object({
+  ttl: number2().optional()
+});
+var RelatedTaskMetadataSchema = object({
+  taskId: string2()
+});
+var RequestMetaSchema = looseObject({
+  /**
+   * If specified, the caller is requesting out-of-band progress notifications for this request (as represented by notifications/progress). The value of this parameter is an opaque token that will be attached to any subsequent notifications. The receiver is not obligated to provide these notifications.
+   */
+  progressToken: ProgressTokenSchema.optional(),
+  /**
+   * If specified, this request is related to the provided task.
+   */
+  [RELATED_TASK_META_KEY]: RelatedTaskMetadataSchema.optional()
+});
+var BaseRequestParamsSchema = object({
+  /**
+   * See [General fields: `_meta`](/specification/draft/basic/index#meta) for notes on `_meta` usage.
+   */
+  _meta: RequestMetaSchema.optional()
+});
+var TaskAugmentedRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * If specified, the caller is requesting task-augmented execution for this request.
+   * The request will return a CreateTaskResult immediately, and the actual result can be
+   * retrieved later via tasks/result.
+   *
+   * Task augmentation is subject to capability negotiation - receivers MUST declare support
+   * for task augmentation of specific request types in their capabilities.
+   */
+  task: TaskMetadataSchema.optional()
+});
+var RequestSchema = object({
+  method: string2(),
+  params: BaseRequestParamsSchema.loose().optional()
+});
+var NotificationsParamsSchema = object({
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: RequestMetaSchema.optional()
+});
+var NotificationSchema = object({
+  method: string2(),
+  params: NotificationsParamsSchema.loose().optional()
+});
+var ResultSchema = looseObject({
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: RequestMetaSchema.optional()
+});
+var RequestIdSchema = union([string2(), number2().int()]);
+var JSONRPCRequestSchema = object({
+  jsonrpc: literal(JSONRPC_VERSION),
+  id: RequestIdSchema,
+  ...RequestSchema.shape
+}).strict();
+var JSONRPCNotificationSchema = object({
+  jsonrpc: literal(JSONRPC_VERSION),
+  ...NotificationSchema.shape
+}).strict();
+var JSONRPCResultResponseSchema = object({
+  jsonrpc: literal(JSONRPC_VERSION),
+  id: RequestIdSchema,
+  result: ResultSchema
+}).strict();
+var ErrorCode;
+(function(ErrorCode2) {
+  ErrorCode2[ErrorCode2["ConnectionClosed"] = -32e3] = "ConnectionClosed";
+  ErrorCode2[ErrorCode2["RequestTimeout"] = -32001] = "RequestTimeout";
+  ErrorCode2[ErrorCode2["ParseError"] = -32700] = "ParseError";
+  ErrorCode2[ErrorCode2["InvalidRequest"] = -32600] = "InvalidRequest";
+  ErrorCode2[ErrorCode2["MethodNotFound"] = -32601] = "MethodNotFound";
+  ErrorCode2[ErrorCode2["InvalidParams"] = -32602] = "InvalidParams";
+  ErrorCode2[ErrorCode2["InternalError"] = -32603] = "InternalError";
+  ErrorCode2[ErrorCode2["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
+})(ErrorCode || (ErrorCode = {}));
+var JSONRPCErrorResponseSchema = object({
+  jsonrpc: literal(JSONRPC_VERSION),
+  id: RequestIdSchema.optional(),
+  error: object({
+    /**
+     * The error type that occurred.
+     */
+    code: number2().int(),
+    /**
+     * A short description of the error. The message SHOULD be limited to a concise single sentence.
+     */
+    message: string2(),
+    /**
+     * Additional information about the error. The value of this member is defined by the sender (e.g. detailed error information, nested errors etc.).
+     */
+    data: unknown().optional()
+  })
+}).strict();
+var JSONRPCMessageSchema = union([
+  JSONRPCRequestSchema,
+  JSONRPCNotificationSchema,
+  JSONRPCResultResponseSchema,
+  JSONRPCErrorResponseSchema
+]);
+var JSONRPCResponseSchema = union([JSONRPCResultResponseSchema, JSONRPCErrorResponseSchema]);
+var EmptyResultSchema = ResultSchema.strict();
+var CancelledNotificationParamsSchema = NotificationsParamsSchema.extend({
+  /**
+   * The ID of the request to cancel.
+   *
+   * This MUST correspond to the ID of a request previously issued in the same direction.
+   */
+  requestId: RequestIdSchema.optional(),
+  /**
+   * An optional string describing the reason for the cancellation. This MAY be logged or presented to the user.
+   */
+  reason: string2().optional()
+});
+var CancelledNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/cancelled"),
+  params: CancelledNotificationParamsSchema
+});
+var IconSchema = object({
+  /**
+   * URL or data URI for the icon.
+   */
+  src: string2(),
+  /**
+   * Optional MIME type for the icon.
+   */
+  mimeType: string2().optional(),
+  /**
+   * Optional array of strings that specify sizes at which the icon can be used.
+   * Each string should be in WxH format (e.g., `"48x48"`, `"96x96"`) or `"any"` for scalable formats like SVG.
+   *
+   * If not provided, the client should assume that the icon can be used at any size.
+   */
+  sizes: array(string2()).optional(),
+  /**
+   * Optional specifier for the theme this icon is designed for. `light` indicates
+   * the icon is designed to be used with a light background, and `dark` indicates
+   * the icon is designed to be used with a dark background.
+   *
+   * If not provided, the client should assume the icon can be used with any theme.
+   */
+  theme: _enum(["light", "dark"]).optional()
+});
+var IconsSchema = object({
+  /**
+   * Optional set of sized icons that the client can display in a user interface.
+   *
+   * Clients that support rendering icons MUST support at least the following MIME types:
+   * - `image/png` - PNG images (safe, universal compatibility)
+   * - `image/jpeg` (and `image/jpg`) - JPEG images (safe, universal compatibility)
+   *
+   * Clients that support rendering icons SHOULD also support:
+   * - `image/svg+xml` - SVG images (scalable but requires security precautions)
+   * - `image/webp` - WebP images (modern, efficient format)
+   */
+  icons: array(IconSchema).optional()
+});
+var BaseMetadataSchema = object({
+  /** Intended for programmatic or logical use, but used as a display name in past specs or fallback */
+  name: string2(),
+  /**
+   * Intended for UI and end-user contexts — optimized to be human-readable and easily understood,
+   * even by those unfamiliar with domain-specific terminology.
+   *
+   * If not provided, the name should be used for display (except for Tool,
+   * where `annotations.title` should be given precedence over using `name`,
+   * if present).
+   */
+  title: string2().optional()
+});
+var ImplementationSchema = BaseMetadataSchema.extend({
+  ...BaseMetadataSchema.shape,
+  ...IconsSchema.shape,
+  version: string2(),
+  /**
+   * An optional URL of the website for this implementation.
+   */
+  websiteUrl: string2().optional(),
+  /**
+   * An optional human-readable description of what this implementation does.
+   *
+   * This can be used by clients or servers to provide context about their purpose
+   * and capabilities. For example, a server might describe the types of resources
+   * or tools it provides, while a client might describe its intended use case.
+   */
+  description: string2().optional()
+});
+var FormElicitationCapabilitySchema = intersection(object({
+  applyDefaults: boolean2().optional()
+}), record(string2(), unknown()));
+var ElicitationCapabilitySchema = preprocess((value) => {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (Object.keys(value).length === 0) {
+      return { form: {} };
+    }
+  }
+  return value;
+}, intersection(object({
+  form: FormElicitationCapabilitySchema.optional(),
+  url: AssertObjectSchema.optional()
+}), record(string2(), unknown()).optional()));
+var ClientTasksCapabilitySchema = looseObject({
+  /**
+   * Present if the client supports listing tasks.
+   */
+  list: AssertObjectSchema.optional(),
+  /**
+   * Present if the client supports cancelling tasks.
+   */
+  cancel: AssertObjectSchema.optional(),
+  /**
+   * Capabilities for task creation on specific request types.
+   */
+  requests: looseObject({
+    /**
+     * Task support for sampling requests.
+     */
+    sampling: looseObject({
+      createMessage: AssertObjectSchema.optional()
+    }).optional(),
+    /**
+     * Task support for elicitation requests.
+     */
+    elicitation: looseObject({
+      create: AssertObjectSchema.optional()
+    }).optional()
+  }).optional()
+});
+var ServerTasksCapabilitySchema = looseObject({
+  /**
+   * Present if the server supports listing tasks.
+   */
+  list: AssertObjectSchema.optional(),
+  /**
+   * Present if the server supports cancelling tasks.
+   */
+  cancel: AssertObjectSchema.optional(),
+  /**
+   * Capabilities for task creation on specific request types.
+   */
+  requests: looseObject({
+    /**
+     * Task support for tool requests.
+     */
+    tools: looseObject({
+      call: AssertObjectSchema.optional()
+    }).optional()
+  }).optional()
+});
+var ClientCapabilitiesSchema = object({
+  /**
+   * Experimental, non-standard capabilities that the client supports.
+   */
+  experimental: record(string2(), AssertObjectSchema).optional(),
+  /**
+   * Present if the client supports sampling from an LLM.
+   */
+  sampling: object({
+    /**
+     * Present if the client supports context inclusion via includeContext parameter.
+     * If not declared, servers SHOULD only use `includeContext: "none"` (or omit it).
+     */
+    context: AssertObjectSchema.optional(),
+    /**
+     * Present if the client supports tool use via tools and toolChoice parameters.
+     */
+    tools: AssertObjectSchema.optional()
+  }).optional(),
+  /**
+   * Present if the client supports eliciting user input.
+   */
+  elicitation: ElicitationCapabilitySchema.optional(),
+  /**
+   * Present if the client supports listing roots.
+   */
+  roots: object({
+    /**
+     * Whether the client supports issuing notifications for changes to the roots list.
+     */
+    listChanged: boolean2().optional()
+  }).optional(),
+  /**
+   * Present if the client supports task creation.
+   */
+  tasks: ClientTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the client supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
+});
+var InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * The latest version of the Model Context Protocol that the client supports. The client MAY decide to support older versions as well.
+   */
+  protocolVersion: string2(),
+  capabilities: ClientCapabilitiesSchema,
+  clientInfo: ImplementationSchema
+});
+var InitializeRequestSchema = RequestSchema.extend({
+  method: literal("initialize"),
+  params: InitializeRequestParamsSchema
+});
+var ServerCapabilitiesSchema = object({
+  /**
+   * Experimental, non-standard capabilities that the server supports.
+   */
+  experimental: record(string2(), AssertObjectSchema).optional(),
+  /**
+   * Present if the server supports sending log messages to the client.
+   */
+  logging: AssertObjectSchema.optional(),
+  /**
+   * Present if the server supports sending completions to the client.
+   */
+  completions: AssertObjectSchema.optional(),
+  /**
+   * Present if the server offers any prompt templates.
+   */
+  prompts: object({
+    /**
+     * Whether this server supports issuing notifications for changes to the prompt list.
+     */
+    listChanged: boolean2().optional()
+  }).optional(),
+  /**
+   * Present if the server offers any resources to read.
+   */
+  resources: object({
+    /**
+     * Whether this server supports clients subscribing to resource updates.
+     */
+    subscribe: boolean2().optional(),
+    /**
+     * Whether this server supports issuing notifications for changes to the resource list.
+     */
+    listChanged: boolean2().optional()
+  }).optional(),
+  /**
+   * Present if the server offers any tools to call.
+   */
+  tools: object({
+    /**
+     * Whether this server supports issuing notifications for changes to the tool list.
+     */
+    listChanged: boolean2().optional()
+  }).optional(),
+  /**
+   * Present if the server supports task creation.
+   */
+  tasks: ServerTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the server supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
+});
+var InitializeResultSchema = ResultSchema.extend({
+  /**
+   * The version of the Model Context Protocol that the server wants to use. This may not match the version that the client requested. If the client cannot support this version, it MUST disconnect.
+   */
+  protocolVersion: string2(),
+  capabilities: ServerCapabilitiesSchema,
+  serverInfo: ImplementationSchema,
+  /**
+   * Instructions describing how to use the server and its features.
+   *
+   * This can be used by clients to improve the LLM's understanding of available tools, resources, etc. It can be thought of like a "hint" to the model. For example, this information MAY be added to the system prompt.
+   */
+  instructions: string2().optional()
+});
+var InitializedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/initialized"),
+  params: NotificationsParamsSchema.optional()
+});
+var PingRequestSchema = RequestSchema.extend({
+  method: literal("ping"),
+  params: BaseRequestParamsSchema.optional()
+});
+var ProgressSchema = object({
+  /**
+   * The progress thus far. This should increase every time progress is made, even if the total is unknown.
+   */
+  progress: number2(),
+  /**
+   * Total number of items to process (or total progress required), if known.
+   */
+  total: optional(number2()),
+  /**
+   * An optional message describing the current progress.
+   */
+  message: optional(string2())
+});
+var ProgressNotificationParamsSchema = object({
+  ...NotificationsParamsSchema.shape,
+  ...ProgressSchema.shape,
+  /**
+   * The progress token which was given in the initial request, used to associate this notification with the request that is proceeding.
+   */
+  progressToken: ProgressTokenSchema
+});
+var ProgressNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/progress"),
+  params: ProgressNotificationParamsSchema
+});
+var PaginatedRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * An opaque token representing the current pagination position.
+   * If provided, the server should return results starting after this cursor.
+   */
+  cursor: CursorSchema.optional()
+});
+var PaginatedRequestSchema = RequestSchema.extend({
+  params: PaginatedRequestParamsSchema.optional()
+});
+var PaginatedResultSchema = ResultSchema.extend({
+  /**
+   * An opaque token representing the pagination position after the last returned result.
+   * If present, there may be more results available.
+   */
+  nextCursor: CursorSchema.optional()
+});
+var TaskStatusSchema = _enum(["working", "input_required", "completed", "failed", "cancelled"]);
+var TaskSchema = object({
+  taskId: string2(),
+  status: TaskStatusSchema,
+  /**
+   * Time in milliseconds to keep task results available after completion.
+   * If null, the task has unlimited lifetime until manually cleaned up.
+   */
+  ttl: union([number2(), _null3()]),
+  /**
+   * ISO 8601 timestamp when the task was created.
+   */
+  createdAt: string2(),
+  /**
+   * ISO 8601 timestamp when the task was last updated.
+   */
+  lastUpdatedAt: string2(),
+  pollInterval: optional(number2()),
+  /**
+   * Optional diagnostic message for failed tasks or other status information.
+   */
+  statusMessage: optional(string2())
+});
+var CreateTaskResultSchema = ResultSchema.extend({
+  task: TaskSchema
+});
+var TaskStatusNotificationParamsSchema = NotificationsParamsSchema.merge(TaskSchema);
+var TaskStatusNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/tasks/status"),
+  params: TaskStatusNotificationParamsSchema
+});
+var GetTaskRequestSchema = RequestSchema.extend({
+  method: literal("tasks/get"),
+  params: BaseRequestParamsSchema.extend({
+    taskId: string2()
+  })
+});
+var GetTaskResultSchema = ResultSchema.merge(TaskSchema);
+var GetTaskPayloadRequestSchema = RequestSchema.extend({
+  method: literal("tasks/result"),
+  params: BaseRequestParamsSchema.extend({
+    taskId: string2()
+  })
+});
+var GetTaskPayloadResultSchema = ResultSchema.loose();
+var ListTasksRequestSchema = PaginatedRequestSchema.extend({
+  method: literal("tasks/list")
+});
+var ListTasksResultSchema = PaginatedResultSchema.extend({
+  tasks: array(TaskSchema)
+});
+var CancelTaskRequestSchema = RequestSchema.extend({
+  method: literal("tasks/cancel"),
+  params: BaseRequestParamsSchema.extend({
+    taskId: string2()
+  })
+});
+var CancelTaskResultSchema = ResultSchema.merge(TaskSchema);
+var ResourceContentsSchema = object({
+  /**
+   * The URI of this resource.
+   */
+  uri: string2(),
+  /**
+   * The MIME type of this resource, if known.
+   */
+  mimeType: optional(string2()),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var TextResourceContentsSchema = ResourceContentsSchema.extend({
+  /**
+   * The text of the item. This must only be set if the item can actually be represented as text (not binary data).
+   */
+  text: string2()
+});
+var Base64Schema = string2().refine((val) => {
+  try {
+    atob(val);
+    return true;
+  } catch {
+    return false;
+  }
+}, { message: "Invalid Base64 string" });
+var BlobResourceContentsSchema = ResourceContentsSchema.extend({
+  /**
+   * A base64-encoded string representing the binary data of the item.
+   */
+  blob: Base64Schema
+});
+var RoleSchema = _enum(["user", "assistant"]);
+var AnnotationsSchema = object({
+  /**
+   * Intended audience(s) for the resource.
+   */
+  audience: array(RoleSchema).optional(),
+  /**
+   * Importance hint for the resource, from 0 (least) to 1 (most).
+   */
+  priority: number2().min(0).max(1).optional(),
+  /**
+   * ISO 8601 timestamp for the most recent modification.
+   */
+  lastModified: iso_exports.datetime({ offset: true }).optional()
+});
+var ResourceSchema = object({
+  ...BaseMetadataSchema.shape,
+  ...IconsSchema.shape,
+  /**
+   * The URI of this resource.
+   */
+  uri: string2(),
+  /**
+   * A description of what this resource represents.
+   *
+   * This can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a "hint" to the model.
+   */
+  description: optional(string2()),
+  /**
+   * The MIME type of this resource, if known.
+   */
+  mimeType: optional(string2()),
+  /**
+   * The size of the raw resource content, in bytes (i.e., before base64 encoding or any tokenization), if known.
+   *
+   * This can be used by Hosts to display file sizes and estimate context window usage.
+   */
+  size: optional(number2()),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: optional(looseObject({}))
+});
+var ResourceTemplateSchema = object({
+  ...BaseMetadataSchema.shape,
+  ...IconsSchema.shape,
+  /**
+   * A URI template (according to RFC 6570) that can be used to construct resource URIs.
+   */
+  uriTemplate: string2(),
+  /**
+   * A description of what this template is for.
+   *
+   * This can be used by clients to improve the LLM's understanding of available resources. It can be thought of like a "hint" to the model.
+   */
+  description: optional(string2()),
+  /**
+   * The MIME type for all resources that match this template. This should only be included if all resources matching this template have the same type.
+   */
+  mimeType: optional(string2()),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: optional(looseObject({}))
+});
+var ListResourcesRequestSchema = PaginatedRequestSchema.extend({
+  method: literal("resources/list")
+});
+var ListResourcesResultSchema = PaginatedResultSchema.extend({
+  resources: array(ResourceSchema)
+});
+var ListResourceTemplatesRequestSchema = PaginatedRequestSchema.extend({
+  method: literal("resources/templates/list")
+});
+var ListResourceTemplatesResultSchema = PaginatedResultSchema.extend({
+  resourceTemplates: array(ResourceTemplateSchema)
+});
+var ResourceRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * The URI of the resource to read. The URI can use any protocol; it is up to the server how to interpret it.
+   *
+   * @format uri
+   */
+  uri: string2()
+});
+var ReadResourceRequestParamsSchema = ResourceRequestParamsSchema;
+var ReadResourceRequestSchema = RequestSchema.extend({
+  method: literal("resources/read"),
+  params: ReadResourceRequestParamsSchema
+});
+var ReadResourceResultSchema = ResultSchema.extend({
+  contents: array(union([TextResourceContentsSchema, BlobResourceContentsSchema]))
+});
+var ResourceListChangedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/resources/list_changed"),
+  params: NotificationsParamsSchema.optional()
+});
+var SubscribeRequestParamsSchema = ResourceRequestParamsSchema;
+var SubscribeRequestSchema = RequestSchema.extend({
+  method: literal("resources/subscribe"),
+  params: SubscribeRequestParamsSchema
+});
+var UnsubscribeRequestParamsSchema = ResourceRequestParamsSchema;
+var UnsubscribeRequestSchema = RequestSchema.extend({
+  method: literal("resources/unsubscribe"),
+  params: UnsubscribeRequestParamsSchema
+});
+var ResourceUpdatedNotificationParamsSchema = NotificationsParamsSchema.extend({
+  /**
+   * The URI of the resource that has been updated. This might be a sub-resource of the one that the client actually subscribed to.
+   */
+  uri: string2()
+});
+var ResourceUpdatedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/resources/updated"),
+  params: ResourceUpdatedNotificationParamsSchema
+});
+var PromptArgumentSchema = object({
+  /**
+   * The name of the argument.
+   */
+  name: string2(),
+  /**
+   * A human-readable description of the argument.
+   */
+  description: optional(string2()),
+  /**
+   * Whether this argument must be provided.
+   */
+  required: optional(boolean2())
+});
+var PromptSchema = object({
+  ...BaseMetadataSchema.shape,
+  ...IconsSchema.shape,
+  /**
+   * An optional description of what this prompt provides
+   */
+  description: optional(string2()),
+  /**
+   * A list of arguments to use for templating the prompt.
+   */
+  arguments: optional(array(PromptArgumentSchema)),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: optional(looseObject({}))
+});
+var ListPromptsRequestSchema = PaginatedRequestSchema.extend({
+  method: literal("prompts/list")
+});
+var ListPromptsResultSchema = PaginatedResultSchema.extend({
+  prompts: array(PromptSchema)
+});
+var GetPromptRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * The name of the prompt or prompt template.
+   */
+  name: string2(),
+  /**
+   * Arguments to use for templating the prompt.
+   */
+  arguments: record(string2(), string2()).optional()
+});
+var GetPromptRequestSchema = RequestSchema.extend({
+  method: literal("prompts/get"),
+  params: GetPromptRequestParamsSchema
+});
+var TextContentSchema = object({
+  type: literal("text"),
+  /**
+   * The text content of the message.
+   */
+  text: string2(),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var ImageContentSchema = object({
+  type: literal("image"),
+  /**
+   * The base64-encoded image data.
+   */
+  data: Base64Schema,
+  /**
+   * The MIME type of the image. Different providers may support different image types.
+   */
+  mimeType: string2(),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var AudioContentSchema = object({
+  type: literal("audio"),
+  /**
+   * The base64-encoded audio data.
+   */
+  data: Base64Schema,
+  /**
+   * The MIME type of the audio. Different providers may support different audio types.
+   */
+  mimeType: string2(),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var ToolUseContentSchema = object({
+  type: literal("tool_use"),
+  /**
+   * The name of the tool to invoke.
+   * Must match a tool name from the request's tools array.
+   */
+  name: string2(),
+  /**
+   * Unique identifier for this tool call.
+   * Used to correlate with ToolResultContent in subsequent messages.
+   */
+  id: string2(),
+  /**
+   * Arguments to pass to the tool.
+   * Must conform to the tool's inputSchema.
+   */
+  input: record(string2(), unknown()),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var EmbeddedResourceSchema = object({
+  type: literal("resource"),
+  resource: union([TextResourceContentsSchema, BlobResourceContentsSchema]),
+  /**
+   * Optional annotations for the client.
+   */
+  annotations: AnnotationsSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var ResourceLinkSchema = ResourceSchema.extend({
+  type: literal("resource_link")
+});
+var ContentBlockSchema = union([
+  TextContentSchema,
+  ImageContentSchema,
+  AudioContentSchema,
+  ResourceLinkSchema,
+  EmbeddedResourceSchema
+]);
+var PromptMessageSchema = object({
+  role: RoleSchema,
+  content: ContentBlockSchema
+});
+var GetPromptResultSchema = ResultSchema.extend({
+  /**
+   * An optional description for the prompt.
+   */
+  description: string2().optional(),
+  messages: array(PromptMessageSchema)
+});
+var PromptListChangedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/prompts/list_changed"),
+  params: NotificationsParamsSchema.optional()
+});
+var ToolAnnotationsSchema = object({
+  /**
+   * A human-readable title for the tool.
+   */
+  title: string2().optional(),
+  /**
+   * If true, the tool does not modify its environment.
+   *
+   * Default: false
+   */
+  readOnlyHint: boolean2().optional(),
+  /**
+   * If true, the tool may perform destructive updates to its environment.
+   * If false, the tool performs only additive updates.
+   *
+   * (This property is meaningful only when `readOnlyHint == false`)
+   *
+   * Default: true
+   */
+  destructiveHint: boolean2().optional(),
+  /**
+   * If true, calling the tool repeatedly with the same arguments
+   * will have no additional effect on the its environment.
+   *
+   * (This property is meaningful only when `readOnlyHint == false`)
+   *
+   * Default: false
+   */
+  idempotentHint: boolean2().optional(),
+  /**
+   * If true, this tool may interact with an "open world" of external
+   * entities. If false, the tool's domain of interaction is closed.
+   * For example, the world of a web search tool is open, whereas that
+   * of a memory tool is not.
+   *
+   * Default: true
+   */
+  openWorldHint: boolean2().optional()
+});
+var ToolExecutionSchema = object({
+  /**
+   * Indicates the tool's preference for task-augmented execution.
+   * - "required": Clients MUST invoke the tool as a task
+   * - "optional": Clients MAY invoke the tool as a task or normal request
+   * - "forbidden": Clients MUST NOT attempt to invoke the tool as a task
+   *
+   * If not present, defaults to "forbidden".
+   */
+  taskSupport: _enum(["required", "optional", "forbidden"]).optional()
+});
+var ToolSchema = object({
+  ...BaseMetadataSchema.shape,
+  ...IconsSchema.shape,
+  /**
+   * A human-readable description of the tool.
+   */
+  description: string2().optional(),
+  /**
+   * A JSON Schema 2020-12 object defining the expected parameters for the tool.
+   * Must have type: 'object' at the root level per MCP spec.
+   */
+  inputSchema: object({
+    type: literal("object"),
+    properties: record(string2(), AssertObjectSchema).optional(),
+    required: array(string2()).optional()
+  }).catchall(unknown()),
+  /**
+   * An optional JSON Schema 2020-12 object defining the structure of the tool's output
+   * returned in the structuredContent field of a CallToolResult.
+   * Must have type: 'object' at the root level per MCP spec.
+   */
+  outputSchema: object({
+    type: literal("object"),
+    properties: record(string2(), AssertObjectSchema).optional(),
+    required: array(string2()).optional()
+  }).catchall(unknown()).optional(),
+  /**
+   * Optional additional tool information.
+   */
+  annotations: ToolAnnotationsSchema.optional(),
+  /**
+   * Execution-related properties for this tool.
+   */
+  execution: ToolExecutionSchema.optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var ListToolsRequestSchema = PaginatedRequestSchema.extend({
+  method: literal("tools/list")
+});
+var ListToolsResultSchema = PaginatedResultSchema.extend({
+  tools: array(ToolSchema)
+});
+var CallToolResultSchema = ResultSchema.extend({
+  /**
+   * A list of content objects that represent the result of the tool call.
+   *
+   * If the Tool does not define an outputSchema, this field MUST be present in the result.
+   * For backwards compatibility, this field is always present, but it may be empty.
+   */
+  content: array(ContentBlockSchema).default([]),
+  /**
+   * An object containing structured tool output.
+   *
+   * If the Tool defines an outputSchema, this field MUST be present in the result, and contain a JSON object that matches the schema.
+   */
+  structuredContent: record(string2(), unknown()).optional(),
+  /**
+   * Whether the tool call ended in an error.
+   *
+   * If not set, this is assumed to be false (the call was successful).
+   *
+   * Any errors that originate from the tool SHOULD be reported inside the result
+   * object, with `isError` set to true, _not_ as an MCP protocol-level error
+   * response. Otherwise, the LLM would not be able to see that an error occurred
+   * and self-correct.
+   *
+   * However, any errors in _finding_ the tool, an error indicating that the
+   * server does not support tool calls, or any other exceptional conditions,
+   * should be reported as an MCP error response.
+   */
+  isError: boolean2().optional()
+});
+var CompatibilityCallToolResultSchema = CallToolResultSchema.or(ResultSchema.extend({
+  toolResult: unknown()
+}));
+var CallToolRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
+  /**
+   * The name of the tool to call.
+   */
+  name: string2(),
+  /**
+   * Arguments to pass to the tool.
+   */
+  arguments: record(string2(), unknown()).optional()
+});
+var CallToolRequestSchema = RequestSchema.extend({
+  method: literal("tools/call"),
+  params: CallToolRequestParamsSchema
+});
+var ToolListChangedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/tools/list_changed"),
+  params: NotificationsParamsSchema.optional()
+});
+var ListChangedOptionsBaseSchema = object({
+  /**
+   * If true, the list will be refreshed automatically when a list changed notification is received.
+   * The callback will be called with the updated list.
+   *
+   * If false, the callback will be called with null items, allowing manual refresh.
+   *
+   * @default true
+   */
+  autoRefresh: boolean2().default(true),
+  /**
+   * Debounce time in milliseconds for list changed notification processing.
+   *
+   * Multiple notifications received within this timeframe will only trigger one refresh.
+   * Set to 0 to disable debouncing.
+   *
+   * @default 300
+   */
+  debounceMs: number2().int().nonnegative().default(300)
+});
+var LoggingLevelSchema = _enum(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
+var SetLevelRequestParamsSchema = BaseRequestParamsSchema.extend({
+  /**
+   * The level of logging that the client wants to receive from the server. The server should send all logs at this level and higher (i.e., more severe) to the client as notifications/logging/message.
+   */
+  level: LoggingLevelSchema
+});
+var SetLevelRequestSchema = RequestSchema.extend({
+  method: literal("logging/setLevel"),
+  params: SetLevelRequestParamsSchema
+});
+var LoggingMessageNotificationParamsSchema = NotificationsParamsSchema.extend({
+  /**
+   * The severity of this log message.
+   */
+  level: LoggingLevelSchema,
+  /**
+   * An optional name of the logger issuing this message.
+   */
+  logger: string2().optional(),
+  /**
+   * The data to be logged, such as a string message or an object. Any JSON serializable type is allowed here.
+   */
+  data: unknown()
+});
+var LoggingMessageNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/message"),
+  params: LoggingMessageNotificationParamsSchema
+});
+var ModelHintSchema = object({
+  /**
+   * A hint for a model name.
+   */
+  name: string2().optional()
+});
+var ModelPreferencesSchema = object({
+  /**
+   * Optional hints to use for model selection.
+   */
+  hints: array(ModelHintSchema).optional(),
+  /**
+   * How much to prioritize cost when selecting a model.
+   */
+  costPriority: number2().min(0).max(1).optional(),
+  /**
+   * How much to prioritize sampling speed (latency) when selecting a model.
+   */
+  speedPriority: number2().min(0).max(1).optional(),
+  /**
+   * How much to prioritize intelligence and capabilities when selecting a model.
+   */
+  intelligencePriority: number2().min(0).max(1).optional()
+});
+var ToolChoiceSchema = object({
+  /**
+   * Controls when tools are used:
+   * - "auto": Model decides whether to use tools (default)
+   * - "required": Model MUST use at least one tool before completing
+   * - "none": Model MUST NOT use any tools
+   */
+  mode: _enum(["auto", "required", "none"]).optional()
+});
+var ToolResultContentSchema = object({
+  type: literal("tool_result"),
+  toolUseId: string2().describe("The unique identifier for the corresponding tool call."),
+  content: array(ContentBlockSchema).default([]),
+  structuredContent: object({}).loose().optional(),
+  isError: boolean2().optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var SamplingContentSchema = discriminatedUnion("type", [TextContentSchema, ImageContentSchema, AudioContentSchema]);
+var SamplingMessageContentBlockSchema = discriminatedUnion("type", [
+  TextContentSchema,
+  ImageContentSchema,
+  AudioContentSchema,
+  ToolUseContentSchema,
+  ToolResultContentSchema
+]);
+var SamplingMessageSchema = object({
+  role: RoleSchema,
+  content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)]),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
+  messages: array(SamplingMessageSchema),
+  /**
+   * The server's preferences for which model to select. The client MAY modify or omit this request.
+   */
+  modelPreferences: ModelPreferencesSchema.optional(),
+  /**
+   * An optional system prompt the server wants to use for sampling. The client MAY modify or omit this prompt.
+   */
+  systemPrompt: string2().optional(),
+  /**
+   * A request to include context from one or more MCP servers (including the caller), to be attached to the prompt.
+   * The client MAY ignore this request.
+   *
+   * Default is "none". Values "thisServer" and "allServers" are soft-deprecated. Servers SHOULD only use these values if the client
+   * declares ClientCapabilities.sampling.context. These values may be removed in future spec releases.
+   */
+  includeContext: _enum(["none", "thisServer", "allServers"]).optional(),
+  temperature: number2().optional(),
+  /**
+   * The requested maximum number of tokens to sample (to prevent runaway completions).
+   *
+   * The client MAY choose to sample fewer tokens than the requested maximum.
+   */
+  maxTokens: number2().int(),
+  stopSequences: array(string2()).optional(),
+  /**
+   * Optional metadata to pass through to the LLM provider. The format of this metadata is provider-specific.
+   */
+  metadata: AssertObjectSchema.optional(),
+  /**
+   * Tools that the model may use during generation.
+   * The client MUST return an error if this field is provided but ClientCapabilities.sampling.tools is not declared.
+   */
+  tools: array(ToolSchema).optional(),
+  /**
+   * Controls how the model uses tools.
+   * The client MUST return an error if this field is provided but ClientCapabilities.sampling.tools is not declared.
+   * Default is `{ mode: "auto" }`.
+   */
+  toolChoice: ToolChoiceSchema.optional()
+});
+var CreateMessageRequestSchema = RequestSchema.extend({
+  method: literal("sampling/createMessage"),
+  params: CreateMessageRequestParamsSchema
+});
+var CreateMessageResultSchema = ResultSchema.extend({
+  /**
+   * The name of the model that generated the message.
+   */
+  model: string2(),
+  /**
+   * The reason why sampling stopped, if known.
+   *
+   * Standard values:
+   * - "endTurn": Natural end of the assistant's turn
+   * - "stopSequence": A stop sequence was encountered
+   * - "maxTokens": Maximum token limit was reached
+   *
+   * This field is an open string to allow for provider-specific stop reasons.
+   */
+  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens"]).or(string2())),
+  role: RoleSchema,
+  /**
+   * Response content. Single content block (text, image, or audio).
+   */
+  content: SamplingContentSchema
+});
+var CreateMessageResultWithToolsSchema = ResultSchema.extend({
+  /**
+   * The name of the model that generated the message.
+   */
+  model: string2(),
+  /**
+   * The reason why sampling stopped, if known.
+   *
+   * Standard values:
+   * - "endTurn": Natural end of the assistant's turn
+   * - "stopSequence": A stop sequence was encountered
+   * - "maxTokens": Maximum token limit was reached
+   * - "toolUse": The model wants to use one or more tools
+   *
+   * This field is an open string to allow for provider-specific stop reasons.
+   */
+  stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string2())),
+  role: RoleSchema,
+  /**
+   * Response content. May be a single block or array. May include ToolUseContent if stopReason is "toolUse".
+   */
+  content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)])
+});
+var BooleanSchemaSchema = object({
+  type: literal("boolean"),
+  title: string2().optional(),
+  description: string2().optional(),
+  default: boolean2().optional()
+});
+var StringSchemaSchema = object({
+  type: literal("string"),
+  title: string2().optional(),
+  description: string2().optional(),
+  minLength: number2().optional(),
+  maxLength: number2().optional(),
+  format: _enum(["email", "uri", "date", "date-time"]).optional(),
+  default: string2().optional()
+});
+var NumberSchemaSchema = object({
+  type: _enum(["number", "integer"]),
+  title: string2().optional(),
+  description: string2().optional(),
+  minimum: number2().optional(),
+  maximum: number2().optional(),
+  default: number2().optional()
+});
+var UntitledSingleSelectEnumSchemaSchema = object({
+  type: literal("string"),
+  title: string2().optional(),
+  description: string2().optional(),
+  enum: array(string2()),
+  default: string2().optional()
+});
+var TitledSingleSelectEnumSchemaSchema = object({
+  type: literal("string"),
+  title: string2().optional(),
+  description: string2().optional(),
+  oneOf: array(object({
+    const: string2(),
+    title: string2()
+  })),
+  default: string2().optional()
+});
+var LegacyTitledEnumSchemaSchema = object({
+  type: literal("string"),
+  title: string2().optional(),
+  description: string2().optional(),
+  enum: array(string2()),
+  enumNames: array(string2()).optional(),
+  default: string2().optional()
+});
+var SingleSelectEnumSchemaSchema = union([UntitledSingleSelectEnumSchemaSchema, TitledSingleSelectEnumSchemaSchema]);
+var UntitledMultiSelectEnumSchemaSchema = object({
+  type: literal("array"),
+  title: string2().optional(),
+  description: string2().optional(),
+  minItems: number2().optional(),
+  maxItems: number2().optional(),
+  items: object({
+    type: literal("string"),
+    enum: array(string2())
+  }),
+  default: array(string2()).optional()
+});
+var TitledMultiSelectEnumSchemaSchema = object({
+  type: literal("array"),
+  title: string2().optional(),
+  description: string2().optional(),
+  minItems: number2().optional(),
+  maxItems: number2().optional(),
+  items: object({
+    anyOf: array(object({
+      const: string2(),
+      title: string2()
+    }))
+  }),
+  default: array(string2()).optional()
+});
+var MultiSelectEnumSchemaSchema = union([UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema]);
+var EnumSchemaSchema = union([LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema]);
+var PrimitiveSchemaDefinitionSchema = union([EnumSchemaSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema]);
+var ElicitRequestFormParamsSchema = TaskAugmentedRequestParamsSchema.extend({
+  /**
+   * The elicitation mode.
+   *
+   * Optional for backward compatibility. Clients MUST treat missing mode as "form".
+   */
+  mode: literal("form").optional(),
+  /**
+   * The message to present to the user describing what information is being requested.
+   */
+  message: string2(),
+  /**
+   * A restricted subset of JSON Schema.
+   * Only top-level properties are allowed, without nesting.
+   */
+  requestedSchema: object({
+    type: literal("object"),
+    properties: record(string2(), PrimitiveSchemaDefinitionSchema),
+    required: array(string2()).optional()
+  })
+});
+var ElicitRequestURLParamsSchema = TaskAugmentedRequestParamsSchema.extend({
+  /**
+   * The elicitation mode.
+   */
+  mode: literal("url"),
+  /**
+   * The message to present to the user explaining why the interaction is needed.
+   */
+  message: string2(),
+  /**
+   * The ID of the elicitation, which must be unique within the context of the server.
+   * The client MUST treat this ID as an opaque value.
+   */
+  elicitationId: string2(),
+  /**
+   * The URL that the user should navigate to.
+   */
+  url: string2().url()
+});
+var ElicitRequestParamsSchema = union([ElicitRequestFormParamsSchema, ElicitRequestURLParamsSchema]);
+var ElicitRequestSchema = RequestSchema.extend({
+  method: literal("elicitation/create"),
+  params: ElicitRequestParamsSchema
+});
+var ElicitationCompleteNotificationParamsSchema = NotificationsParamsSchema.extend({
+  /**
+   * The ID of the elicitation that completed.
+   */
+  elicitationId: string2()
+});
+var ElicitationCompleteNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/elicitation/complete"),
+  params: ElicitationCompleteNotificationParamsSchema
+});
+var ElicitResultSchema = ResultSchema.extend({
+  /**
+   * The user action in response to the elicitation.
+   * - "accept": User submitted the form/confirmed the action
+   * - "decline": User explicitly decline the action
+   * - "cancel": User dismissed without making an explicit choice
+   */
+  action: _enum(["accept", "decline", "cancel"]),
+  /**
+   * The submitted form data, only present when action is "accept".
+   * Contains values matching the requested schema.
+   * Per MCP spec, content is "typically omitted" for decline/cancel actions.
+   * We normalize null to undefined for leniency while maintaining type compatibility.
+   */
+  content: preprocess((val) => val === null ? void 0 : val, record(string2(), union([string2(), number2(), boolean2(), array(string2())])).optional())
+});
+var ResourceTemplateReferenceSchema = object({
+  type: literal("ref/resource"),
+  /**
+   * The URI or URI template of the resource.
+   */
+  uri: string2()
+});
+var PromptReferenceSchema = object({
+  type: literal("ref/prompt"),
+  /**
+   * The name of the prompt or prompt template
+   */
+  name: string2()
+});
+var CompleteRequestParamsSchema = BaseRequestParamsSchema.extend({
+  ref: union([PromptReferenceSchema, ResourceTemplateReferenceSchema]),
+  /**
+   * The argument's information
+   */
+  argument: object({
+    /**
+     * The name of the argument
+     */
+    name: string2(),
+    /**
+     * The value of the argument to use for completion matching.
+     */
+    value: string2()
+  }),
+  context: object({
+    /**
+     * Previously-resolved variables in a URI template or prompt.
+     */
+    arguments: record(string2(), string2()).optional()
+  }).optional()
+});
+var CompleteRequestSchema = RequestSchema.extend({
+  method: literal("completion/complete"),
+  params: CompleteRequestParamsSchema
+});
+var CompleteResultSchema = ResultSchema.extend({
+  completion: looseObject({
+    /**
+     * An array of completion values. Must not exceed 100 items.
+     */
+    values: array(string2()).max(100),
+    /**
+     * The total number of completion options available. This can exceed the number of values actually sent in the response.
+     */
+    total: optional(number2().int()),
+    /**
+     * Indicates whether there are additional completion options beyond those provided in the current response, even if the exact total is unknown.
+     */
+    hasMore: optional(boolean2())
+  })
+});
+var RootSchema = object({
+  /**
+   * The URI identifying the root. This *must* start with file:// for now.
+   */
+  uri: string2().startsWith("file://"),
+  /**
+   * An optional name for the root.
+   */
+  name: string2().optional(),
+  /**
+   * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
+   * for notes on _meta usage.
+   */
+  _meta: record(string2(), unknown()).optional()
+});
+var ListRootsRequestSchema = RequestSchema.extend({
+  method: literal("roots/list"),
+  params: BaseRequestParamsSchema.optional()
+});
+var ListRootsResultSchema = ResultSchema.extend({
+  roots: array(RootSchema)
+});
+var RootsListChangedNotificationSchema = NotificationSchema.extend({
+  method: literal("notifications/roots/list_changed"),
+  params: NotificationsParamsSchema.optional()
+});
+var ClientRequestSchema = union([
+  PingRequestSchema,
+  InitializeRequestSchema,
+  CompleteRequestSchema,
+  SetLevelRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ReadResourceRequestSchema,
+  SubscribeRequestSchema,
+  UnsubscribeRequestSchema,
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+  GetTaskRequestSchema,
+  GetTaskPayloadRequestSchema,
+  ListTasksRequestSchema,
+  CancelTaskRequestSchema
+]);
+var ClientNotificationSchema = union([
+  CancelledNotificationSchema,
+  ProgressNotificationSchema,
+  InitializedNotificationSchema,
+  RootsListChangedNotificationSchema,
+  TaskStatusNotificationSchema
+]);
+var ClientResultSchema = union([
+  EmptyResultSchema,
+  CreateMessageResultSchema,
+  CreateMessageResultWithToolsSchema,
+  ElicitResultSchema,
+  ListRootsResultSchema,
+  GetTaskResultSchema,
+  ListTasksResultSchema,
+  CreateTaskResultSchema
+]);
+var ServerRequestSchema = union([
+  PingRequestSchema,
+  CreateMessageRequestSchema,
+  ElicitRequestSchema,
+  ListRootsRequestSchema,
+  GetTaskRequestSchema,
+  GetTaskPayloadRequestSchema,
+  ListTasksRequestSchema,
+  CancelTaskRequestSchema
+]);
+var ServerNotificationSchema = union([
+  CancelledNotificationSchema,
+  ProgressNotificationSchema,
+  LoggingMessageNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  ToolListChangedNotificationSchema,
+  PromptListChangedNotificationSchema,
+  TaskStatusNotificationSchema,
+  ElicitationCompleteNotificationSchema
+]);
+var ServerResultSchema = union([
+  EmptyResultSchema,
+  InitializeResultSchema,
+  CompleteResultSchema,
+  GetPromptResultSchema,
+  ListPromptsResultSchema,
+  ListResourcesResultSchema,
+  ListResourceTemplatesResultSchema,
+  ReadResourceResultSchema,
+  CallToolResultSchema,
+  ListToolsResultSchema,
+  GetTaskResultSchema,
+  ListTasksResultSchema,
+  CreateTaskResultSchema
+]);
+
+// api/src/lib/mcp-session.ts
 var import_node_crypto12 = require("node:crypto");
+var McpSessionLimitError = class extends Error {
+  constructor() {
+    super("The active MCP session limit for this principal has been reached.");
+    this.name = "McpSessionLimitError";
+  }
+};
+function sessionLifetimeMinutes() {
+  const configured = Number(process.env.MCP_SESSION_LIFETIME_MINUTES ?? 60);
+  return Number.isFinite(configured) ? Math.min(480, Math.max(5, Math.trunc(configured))) : 60;
+}
+function sessionInitTtlMinutes() {
+  const lifetime = sessionLifetimeMinutes();
+  const configured = Number(process.env.MCP_SESSION_INIT_TTL_MINUTES ?? 2);
+  const resolved = Number.isFinite(configured) ? Math.trunc(configured) : 2;
+  return Math.min(lifetime, Math.max(1, resolved));
+}
+function sessionCapPerPrincipal() {
+  const configured = Number(process.env.MCP_SESSION_CAP_PER_PRINCIPAL ?? 8);
+  return Number.isFinite(configured) ? Math.min(32, Math.max(1, Math.trunc(configured))) : 8;
+}
+async function createMcpSession(principalId, protocolVersion) {
+  const sessionId = (0, import_node_crypto12.randomUUID)();
+  const boundedPrincipalId = principalId.slice(0, 200);
+  const initTtlMinutes = sessionInitTtlMinutes();
+  await tx(async (q) => {
+    await q("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `mcp-http-session:${boundedPrincipalId}`
+    ]);
+    const sessions = await q(
+      `SELECT session_id::text, phase, expires_at <= now() AS expired
+         FROM mcp_http_session
+        WHERE principal_id = $1
+        ORDER BY expires_at ASC
+        FOR UPDATE`,
+      [boundedPrincipalId]
+    );
+    const reusable = sessions.find((session) => session.expired);
+    if (reusable) {
+      const recycled = await q(
+        `UPDATE mcp_http_session
+            SET session_id = $1::uuid, protocol_version = $3, phase = 'initializing',
+                initialized_at = NULL, last_seen_at = now(), created_at = now(),
+                expires_at = now() + ($4 * interval '1 minute')
+          WHERE session_id = $2::uuid AND principal_id = $5 AND expires_at <= now()
+          RETURNING session_id::text`,
+        [sessionId, reusable.session_id, protocolVersion, initTtlMinutes, boundedPrincipalId]
+      );
+      if (recycled.length === 1) return;
+    }
+    const liveCount = sessions.filter((session) => !session.expired).length;
+    if (liveCount >= sessionCapPerPrincipal()) {
+      const oldest = sessions[0];
+      if (oldest && (oldest.expired || oldest.phase === "initializing")) {
+        const evicted = await q(
+          `UPDATE mcp_http_session
+              SET session_id = $1::uuid, protocol_version = $3, phase = 'initializing',
+                  initialized_at = NULL, last_seen_at = now(), created_at = now(),
+                  expires_at = now() + ($4 * interval '1 minute')
+            WHERE session_id = $2::uuid AND principal_id = $5
+              AND (phase = 'initializing' OR expires_at <= now())
+            RETURNING session_id::text`,
+          [sessionId, oldest.session_id, protocolVersion, initTtlMinutes, boundedPrincipalId]
+        );
+        if (evicted.length === 1) return;
+      }
+      throw new McpSessionLimitError();
+    }
+    await q(
+      `INSERT INTO mcp_http_session
+         (session_id, principal_id, protocol_version, phase, expires_at)
+       VALUES ($1::uuid, $2, $3, 'initializing', now() + ($4 * interval '1 minute'))`,
+      [sessionId, boundedPrincipalId, protocolVersion, initTtlMinutes]
+    );
+  });
+  return sessionId;
+}
+async function markMcpSessionInitialized(sessionId, principalId, protocolVersion) {
+  const rows = await query(
+    `UPDATE mcp_http_session
+        SET phase = 'ready', initialized_at = now(), last_seen_at = now(),
+            expires_at = now() + ($4 * interval '1 minute')
+      WHERE session_id = $1::uuid AND principal_id = $2
+        AND protocol_version = $3 AND phase = 'initializing' AND expires_at > now()
+      RETURNING session_id::text`,
+    [sessionId, principalId.slice(0, 200), protocolVersion, sessionLifetimeMinutes()]
+  );
+  return rows.length === 1;
+}
+async function touchReadyMcpSession(sessionId, principalId, protocolVersion) {
+  const rows = await query(
+    `UPDATE mcp_http_session
+        SET last_seen_at = now(), expires_at = now() + ($4 * interval '1 minute')
+      WHERE session_id = $1::uuid AND principal_id = $2
+        AND protocol_version = $3 AND phase = 'ready' AND expires_at > now()
+      RETURNING session_id::text`,
+    [sessionId, principalId.slice(0, 200), protocolVersion, sessionLifetimeMinutes()]
+  );
+  return rows.length === 1;
+}
+
+// api/src/functions/mcp-image-ingestion.ts
+var import_node_crypto14 = require("node:crypto");
 
 // api/src/lib/upload-validate.ts
 var import_sharp = __toESM(require("sharp"), 1);
@@ -66520,6 +72813,22 @@ async function validateUploadContent(expected, bytes) {
     contentType: detected
   };
 }
+async function validatedImageDimensions(bytes) {
+  try {
+    const metadata2 = await (0, import_sharp.default)(bytes, {
+      failOn: "warning",
+      limitInputPixels: MAX_UPLOAD_IMAGE_PIXELS,
+      limitInputChannels: 4,
+      sequentialRead: true,
+      unlimited: false
+    }).metadata();
+    const width = metadata2.width ?? 0;
+    const height = metadata2.height ?? 0;
+    return width > 0 && height > 0 && width * height <= MAX_UPLOAD_IMAGE_PIXELS ? { width, height } : void 0;
+  } catch {
+    return void 0;
+  }
+}
 function validateUploadBatch(files) {
   if (files.length > MAX_UPLOAD_FILES) return `Choose no more than ${MAX_UPLOAD_FILES} files at once.`;
   const total = files.reduce((sum, file) => sum + (Number.isFinite(file.size) ? file.size : 0), 0);
@@ -66528,13 +72837,15 @@ function validateUploadBatch(files) {
 }
 
 // api/src/functions/evidence-upload.ts
+var import_functions13 = require("@azure/functions");
+var import_node_crypto13 = require("node:crypto");
 var IMAGE_KIND_CODE2 = 1e8;
 var INSTRUCTION_KIND_CODE = 100000002;
 var OTHER_KIND_CODE = 100000006;
 var IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 var SHA256_RE = /^[0-9a-f]{64}$/;
 var IMAGE_CHECK_PENDING = "Image check pending";
-var TERMINAL_STATUS_CODES = [
+var CLOSED_UPLOAD_STATUS_CODES = [
   statusToInt("eva_submitted"),
   statusToInt("box_synced"),
   statusToInt("removed"),
@@ -66544,25 +72855,27 @@ var SOURCE_LABEL = {
   add_evidence: "staff_add_evidence",
   manual_intake: "staff_manual_intake",
   assistant_confirmed: "staff_assistant_confirmed",
-  legacy_upload: "staff_legacy_upload"
+  legacy_upload: "staff_legacy_upload",
+  mcp_agent: "agent_image_ingest"
 };
 var SOURCE_SUMMARY = {
   add_evidence: "Add evidence",
   manual_intake: "New case",
   assistant_confirmed: "Assistant confirmation",
-  legacy_upload: "Staff upload"
+  legacy_upload: "Staff upload",
+  mcp_agent: "image ingest"
 };
 async function recordManualIntakeResult(input) {
   if (input.source !== "manual_intake") return;
   const recovered = input.completion === "completed" && input.added.length === input.selectedCount && input.added.some((item) => item.duplicate);
   const complete = input.rejected.length === 0 && input.added.length === input.selectedCount && input.completion !== "not_bound";
-  const summary = recovered ? `New case files confirmed after retry (${input.added.length} of ${input.selectedCount})` : complete ? `New case files confirmed (${input.added.length} of ${input.selectedCount})` : input.added.length > 0 ? `New case files need attention (${input.added.length} of ${input.selectedCount} confirmed)` : `New case files could not be added (0 of ${input.selectedCount} confirmed)`;
+  const summary2 = recovered ? `New case files confirmed after retry (${input.added.length} of ${input.selectedCount})` : complete ? `New case files confirmed (${input.added.length} of ${input.selectedCount})` : input.added.length > 0 ? `New case files need attention (${input.added.length} of ${input.selectedCount} confirmed)` : `New case files could not be added (0 of ${input.selectedCount} confirmed)`;
   await writeAudit({
     action: AUDIT_ACTION.evidence_upload_result,
     caseId: input.caseId,
     actor: input.actor,
     severity: complete ? "info" : "warning",
-    summary,
+    summary: summary2,
     after: {
       idempotencyKey: input.idempotencyKey,
       selectedCount: input.selectedCount,
@@ -66589,11 +72902,14 @@ var UploadRefusal = class extends Error {
     this.targetCaseId = targetCaseId;
   }
 };
-function sourceOf(value) {
-  return value === "add_evidence" || value === "manual_intake" || value === "assistant_confirmed" ? value : void 0;
+function sourceOf(value, allowMcpAgent) {
+  return value === "add_evidence" || value === "manual_intake" || value === "assistant_confirmed" ? value : allowMcpAgent && value === "mcp_agent" ? value : void 0;
+}
+function validUploadIdempotencyKey(value) {
+  return IDEMPOTENCY_RE.test(value);
 }
 function legacyIdempotencyKey(caseId, actor, manifest) {
-  return `legacy-${(0, import_node_crypto12.createHash)("sha256").update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), "utf8").digest("hex")}`;
+  return `legacy-${(0, import_node_crypto13.createHash)("sha256").update(JSON.stringify({ caseId: caseId.toLowerCase(), actor, manifest }), "utf8").digest("hex")}`;
 }
 function manifestHash(files) {
   const manifest = files.map((file) => ({
@@ -66604,12 +72920,12 @@ function manifestHash(files) {
     contentType: file.contentType,
     role: file.role
   }));
-  return (0, import_node_crypto12.createHash)("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
+  return (0, import_node_crypto13.createHash)("sha256").update(JSON.stringify(manifest), "utf8").digest("hex");
 }
 function itemIdentity(source, idempotencyKey, index) {
   return `staff:${source}:${idempotencyKey}:${index}`;
 }
-async function assertActiveCase(q, caseId) {
+async function assertActiveCase(q, caseId, source) {
   const locked = await lockCaseForMutation(q, caseId);
   if (locked.kind === "missing") throw new UploadRefusal(404, "This case is no longer available.");
   if (locked.kind === "retired") {
@@ -66623,35 +72939,77 @@ async function assertActiveCase(q, caseId) {
     "SELECT status_code FROM case_ WHERE id = $1",
     [locked.caseId]
   );
-  if (!rows[0] || TERMINAL_STATUS_CODES.includes(Number(rows[0].status_code))) {
+  const statusCode = Number(rows[0]?.status_code);
+  const closed = CLOSED_UPLOAD_STATUS_CODES.includes(statusCode) || source === "mcp_agent" && statusCode === statusToInt("error");
+  if (!rows[0] || closed) {
     throw new UploadRefusal(409, "This case is no longer open for evidence.");
   }
   return locked.caseId;
 }
+async function assertImageIngestRegistrationBinding(q, expectedCaseId, suppliedRegistration) {
+  const registration = canonicalizeVrm(suppliedRegistration);
+  if (!registration || registration !== suppliedRegistration) {
+    throw new UploadRefusal(409, "The registration no longer identifies one current case. Try the lookup again.");
+  }
+  await q("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `mcp-image-registration:${registration}`
+  ]);
+  const rows = await q(
+    `SELECT id, status_code, duplicate_keys
+       FROM case_
+      WHERE regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = $1
+      ORDER BY created_at, id`,
+    [registration]
+  );
+  const active = rows.filter((row) => {
+    const status = caseStatusCodec.toName(Number(row.status_code));
+    return Boolean(status) && !isTerminalStatus(status) && status !== "error" && !mergedIntoFrom(row.duplicate_keys);
+  });
+  if (active.length !== 1 || active[0].id.toLowerCase() !== expectedCaseId.toLowerCase()) {
+    throw new UploadRefusal(409, "The registration no longer identifies one current case. Try the lookup again.");
+  }
+  return registration;
+}
 async function bindBatch(input) {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const isImageAgent = input.source === "mcp_agent";
+    const registration = isImageAgent ? await assertImageIngestRegistrationBinding(q, input.caseId, input.registration ?? "") : input.registration;
+    const caseId = isImageAgent ? input.caseId : await assertActiveCase(q, input.caseId, input.source);
     await q(
       `INSERT INTO staff_evidence_upload
-         (idempotency_key, case_id, actor, source, manifest_hash)
-       VALUES ($1, $2, $3, $4, $5)
+         (idempotency_key, case_id, actor, source, registration, manifest_hash)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (idempotency_key) DO NOTHING`,
-      [input.idempotencyKey, caseId, input.actor, input.source, input.manifestHash]
+      [
+        input.idempotencyKey,
+        caseId,
+        input.actor,
+        input.source,
+        registration ?? null,
+        input.manifestHash
+      ]
     );
     const batches = await q(
-      `SELECT case_id, actor, source, manifest_hash
+      `SELECT case_id, actor, source, registration, manifest_hash
          FROM staff_evidence_upload
         WHERE idempotency_key = $1
         FOR UPDATE`,
       [input.idempotencyKey]
     );
     const batch = batches[0];
-    if (!batch || batch.case_id.toLowerCase() !== caseId || batch.actor !== input.actor || batch.source !== input.source || batch.manifest_hash !== input.manifestHash) {
+    if (!batch || batch.case_id.toLowerCase() !== caseId || batch.actor !== input.actor || batch.source !== input.source || (batch.registration ?? "") !== (registration ?? "") || batch.manifest_hash !== input.manifestHash) {
       throw new UploadRefusal(
         409,
         "This upload no longer matches the selected case or files. Choose them again."
       );
     }
+    await q(
+      `UPDATE staff_evidence_upload
+          SET attempt_count = attempt_count + 1,
+              last_attempt_at = now(), updated_at = now()
+        WHERE idempotency_key = $1`,
+      [input.idempotencyKey]
+    );
     for (const file of input.files) {
       const prefix2 = `staff-${input.idempotencyKey}-${file.index}-${file.sha256.slice(0, 16)}`;
       const blobPath = evidenceBlobPath(prefix2, file.name);
@@ -66735,7 +73093,7 @@ function assertExistingRole(existing, file) {
 }
 async function claimUploadItem(input) {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const items = await q(
       `SELECT id, state, evidence_id, blob_path
          FROM staff_evidence_upload_item
@@ -66772,7 +73130,7 @@ async function claimUploadItem(input) {
       );
       return { kind: "existing", id: existing.id };
     }
-    const claimToken = (0, import_node_crypto12.randomUUID)();
+    const claimToken = (0, import_node_crypto13.randomUUID)();
     const pathPrefix = [
       "staff",
       input.idempotencyKey,
@@ -66842,7 +73200,7 @@ async function scheduleItemCleanup(itemId, claimToken, detail) {
 }
 async function persistFile(input) {
   return tx(async (q) => {
-    const caseId = await assertActiveCase(q, input.caseId);
+    const caseId = await assertActiveCase(q, input.caseId, input.source);
     const owned = await q(
       `SELECT id, blob_path
          FROM staff_evidence_upload_item
@@ -66920,15 +73278,21 @@ async function persistFile(input) {
     await requestStatusRecompute(q, caseId);
     await writeAuditStrict(
       {
-        action: AUDIT_ACTION.evidence_added,
+        action: input.source === "mcp_agent" ? AUDIT_ACTION.agent_write : AUDIT_ACTION.evidence_added,
         caseId,
         actor: input.actor,
-        summary: `Staff added ${input.file.name} through ${SOURCE_SUMMARY[input.source]}`.slice(0, 400),
+        summary: `${input.source === "mcp_agent" ? "Image ingest added" : "Staff added"} ${input.file.name} through ${SOURCE_SUMMARY[input.source]}`.slice(0, 400),
         after: {
           evidenceId: row.id,
           fileName: input.file.name,
           source: input.source,
-          sha256: input.file.sha256
+          sha256: input.file.sha256,
+          ...input.source === "mcp_agent" ? {
+            autonomous: true,
+            registration: input.registration,
+            idempotencyKey: input.idempotencyKey,
+            outcome: "created"
+          } : {}
         }
       },
       q
@@ -66946,358 +73310,1884 @@ async function persistFile(input) {
     return { id: row.id, duplicate: false };
   });
 }
-import_functions17.app.http("uploadCaseEvidence", {
-  methods: ["POST"],
-  authLevel: "anonymous",
-  route: "cases/{id}/evidence/upload",
-  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => {
-    let form;
-    try {
-      form = await req.formData();
-    } catch {
-      return { status: 400, jsonBody: { error: "Choose the files again and try once more." } };
-    }
-    const suppliedIdempotencyKey = (req.headers?.get("idempotency-key") ?? "").trim();
-    const suppliedSourceValue = form.get("source");
-    const suppliedSource = sourceOf(suppliedSourceValue);
-    const legacyRequest = !suppliedIdempotencyKey && suppliedSourceValue == null;
-    if (!legacyRequest && !IDEMPOTENCY_RE.test(suppliedIdempotencyKey)) {
-      return { status: 400, jsonBody: { error: "This upload could not be safely retried. Choose the files again." } };
-    }
-    if (!legacyRequest && !suppliedSource) {
-      return { status: 400, jsonBody: { error: "Choose where these files are being added from." } };
-    }
-    const actor = actorFromClaims(claims) ?? "authenticated staff";
-    const source = suppliedSource ?? "legacy_upload";
-    const files = form.getAll("file").filter((value) => value instanceof File);
-    if (!files.length) return { status: 400, jsonBody: { error: "Choose at least one file." } };
-    const operationMarker = form.get("manualIntakeOperation");
-    const manualIntakeOperation = operationMarker === "true";
-    const rawInstructionIndexes = form.getAll("manualIntakeInstructionIndex");
-    const parsedInstructionIndex = rawInstructionIndexes.length === 1 ? Number(rawInstructionIndexes[0]) : void 0;
-    const instructionFileIndex = parsedInstructionIndex !== void 0 && Number.isInteger(parsedInstructionIndex) && parsedInstructionIndex >= 0 && parsedInstructionIndex < files.length ? parsedInstructionIndex : void 0;
-    const rawRoles = form.getAll("fileRole");
-    const suppliedRoles = rawRoles.filter(
-      (value) => value === "instruction" || value === "extra"
-    );
-    if (manualIntakeOperation && rawRoles.length !== files.length || suppliedRoles.length !== rawRoles.length || rawRoles.length > 0 && suppliedRoles.length !== files.length) {
-      await recordManualIntakeResult({
-        source,
-        caseId: req.params.id,
-        actor,
-        idempotencyKey: suppliedIdempotencyKey,
-        selectedCount: files.length,
-        added: [],
-        rejected: files.map((file, fileIndex) => ({
-          fileIndex,
-          fileName: file.name,
-          reason: "The file role could not be confirmed."
-        }))
-      });
-      return { status: 400, jsonBody: { error: "Choose the files again so their roles can be confirmed." } };
-    }
-    if (operationMarker != null && operationMarker !== "true" || manualIntakeOperation && suppliedSource !== "manual_intake" || manualIntakeOperation && rawInstructionIndexes.length > 1 || manualIntakeOperation && rawInstructionIndexes.length === 1 && instructionFileIndex === void 0 || manualIntakeOperation && suppliedRoles.filter((role) => role === "instruction").length !== (instructionFileIndex === void 0 ? 0 : 1) || manualIntakeOperation && instructionFileIndex !== void 0 && suppliedRoles[instructionFileIndex] !== "instruction") {
-      await recordManualIntakeResult({
-        source,
-        caseId: req.params.id,
-        actor,
-        idempotencyKey: suppliedIdempotencyKey,
-        selectedCount: files.length,
-        added: [],
-        rejected: files.map((file, fileIndex) => ({
-          fileIndex,
-          fileName: file.name,
-          reason: "The case retry could not be confirmed."
-        }))
-      });
-      return { status: 400, jsonBody: { error: "This case upload could not be safely resumed." } };
-    }
-    if (manualIntakeOperation) {
-      const bindingState = await tx((q) => manualIntakeEvidenceBindingState(q, {
-        caseId: req.params.id,
-        uploadIdempotencyKey: suppliedIdempotencyKey,
-        fileCount: files.length,
-        ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
-      }));
-      if (bindingState === "not_bound") {
-        return {
-          status: 409,
-          jsonBody: {
-            added: [],
-            rejected: files.map((file, fileIndex) => ({
-              fileIndex,
-              fileName: file.name,
-              reason: "This retry no longer matches the selected files."
-            })),
-            manualIntakeCompletion: "not_bound",
-            error: "This case upload could not be safely resumed."
-          }
-        };
-      }
-    }
-    const batchRefusal = validateUploadBatch(files);
-    if (batchRefusal) {
-      await recordManualIntakeResult({
-        source,
-        caseId: req.params.id,
-        actor,
-        idempotencyKey: suppliedIdempotencyKey,
-        selectedCount: files.length,
-        added: [],
-        rejected: files.map((file, fileIndex) => ({
-          fileIndex,
-          fileName: file.name,
-          reason: batchRefusal
-        }))
-      });
-      return { status: 400, jsonBody: { error: batchRefusal } };
-    }
-    const prepared = [];
-    const rejected = [];
-    for (const [index, file] of files.entries()) {
-      const metadata2 = classifyUpload(file.type, file.size, file.name);
-      if (!metadata2.ok) {
-        rejected.push({ fileIndex: index, fileName: file.name, reason: metadata2.reason });
-        continue;
-      }
-      const bytes = Buffer.from(await file.arrayBuffer());
-      const content = await validateUploadContent(metadata2, bytes);
-      if (!content.ok) {
-        rejected.push({ fileIndex: index, fileName: file.name, reason: content.reason });
-        continue;
-      }
-      const role = suppliedRoles[index] ?? "auto";
-      if (role === "instruction" && content.kind !== "document") {
-        rejected.push({
-          fileIndex: index,
-          fileName: file.name,
-          reason: "Choose a PDF for the instruction."
-        });
-        continue;
-      }
-      const sha256 = (0, import_node_crypto12.createHash)("sha256").update(bytes).digest("hex");
-      if (!SHA256_RE.test(sha256)) throw new Error("unreachable sha256 result");
-      prepared.push({
-        index,
-        name: (file.name.trim() || `file-${index + 1}`).slice(0, 400),
-        bytes,
-        sha256,
-        kind: content.kind,
-        contentType: content.contentType,
-        role
-      });
-    }
-    if (!prepared.length) {
-      await recordManualIntakeResult({
-        source,
-        caseId: req.params.id,
-        actor,
-        idempotencyKey: suppliedIdempotencyKey,
-        selectedCount: files.length,
-        added: [],
-        rejected
-      });
-      return { status: 400, jsonBody: { added: [], rejected } };
-    }
-    const batchManifestHash = manifestHash(prepared);
-    const idempotencyKey = suppliedIdempotencyKey || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
-    let caseId;
-    try {
-      caseId = await bindBatch({
-        caseId: req.params.id,
-        idempotencyKey,
-        actor,
-        source,
-        manifestHash: batchManifestHash,
-        files: prepared
-      });
-    } catch (error) {
-      if (error instanceof UploadRefusal) {
-        const refused = files.map((file, fileIndex) => ({
-          fileIndex,
-          fileName: file.name,
-          reason: error.message
-        }));
-        await recordManualIntakeResult({
-          source,
-          caseId: req.params.id,
-          actor,
-          idempotencyKey,
-          selectedCount: files.length,
+async function handleEvidenceUpload(req, ctx, claims, options = {}) {
+  let form;
+  try {
+    form = await req.formData();
+  } catch {
+    return { status: 400, jsonBody: { error: "Choose the files again and try once more." } };
+  }
+  const suppliedIdempotencyKey = (req.headers?.get("idempotency-key") ?? "").trim();
+  const suppliedSourceValue = form.get("source");
+  const suppliedSource = sourceOf(suppliedSourceValue, options.allowMcpAgentSource === true);
+  const legacyRequest = !suppliedIdempotencyKey && suppliedSourceValue == null;
+  if (!legacyRequest && !IDEMPOTENCY_RE.test(suppliedIdempotencyKey)) {
+    return { status: 400, jsonBody: { error: "This upload could not be safely retried. Choose the files again." } };
+  }
+  if (!legacyRequest && !suppliedSource) {
+    return { status: 400, jsonBody: { error: "Choose where these files are being added from." } };
+  }
+  const actor = actorFromClaims(claims) ?? "authenticated staff";
+  const source = suppliedSource ?? "legacy_upload";
+  const files = form.getAll("file").filter((value) => value instanceof File);
+  if (!files.length) return { status: 400, jsonBody: { error: "Choose at least one file." } };
+  const operationMarker = form.get("manualIntakeOperation");
+  const manualIntakeOperation = operationMarker === "true";
+  const rawInstructionIndexes = form.getAll("manualIntakeInstructionIndex");
+  const parsedInstructionIndex = rawInstructionIndexes.length === 1 ? Number(rawInstructionIndexes[0]) : void 0;
+  const instructionFileIndex = parsedInstructionIndex !== void 0 && Number.isInteger(parsedInstructionIndex) && parsedInstructionIndex >= 0 && parsedInstructionIndex < files.length ? parsedInstructionIndex : void 0;
+  const rawRoles = form.getAll("fileRole");
+  const suppliedRoles = rawRoles.filter(
+    (value) => value === "instruction" || value === "extra"
+  );
+  if (manualIntakeOperation && rawRoles.length !== files.length || suppliedRoles.length !== rawRoles.length || rawRoles.length > 0 && suppliedRoles.length !== files.length) {
+    await recordManualIntakeResult({
+      source,
+      caseId: req.params.id,
+      actor,
+      idempotencyKey: suppliedIdempotencyKey,
+      selectedCount: files.length,
+      added: [],
+      rejected: files.map((file, fileIndex) => ({
+        fileIndex,
+        fileName: file.name,
+        reason: "The file role could not be confirmed."
+      }))
+    });
+    return { status: 400, jsonBody: { error: "Choose the files again so their roles can be confirmed." } };
+  }
+  if (operationMarker != null && operationMarker !== "true" || manualIntakeOperation && suppliedSource !== "manual_intake" || manualIntakeOperation && rawInstructionIndexes.length > 1 || manualIntakeOperation && rawInstructionIndexes.length === 1 && instructionFileIndex === void 0 || manualIntakeOperation && suppliedRoles.filter((role) => role === "instruction").length !== (instructionFileIndex === void 0 ? 0 : 1) || manualIntakeOperation && instructionFileIndex !== void 0 && suppliedRoles[instructionFileIndex] !== "instruction") {
+    await recordManualIntakeResult({
+      source,
+      caseId: req.params.id,
+      actor,
+      idempotencyKey: suppliedIdempotencyKey,
+      selectedCount: files.length,
+      added: [],
+      rejected: files.map((file, fileIndex) => ({
+        fileIndex,
+        fileName: file.name,
+        reason: "The case retry could not be confirmed."
+      }))
+    });
+    return { status: 400, jsonBody: { error: "This case upload could not be safely resumed." } };
+  }
+  if (manualIntakeOperation) {
+    const bindingState = await tx((q) => manualIntakeEvidenceBindingState(q, {
+      caseId: req.params.id,
+      uploadIdempotencyKey: suppliedIdempotencyKey,
+      fileCount: files.length,
+      ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+    }));
+    if (bindingState === "not_bound") {
+      return {
+        status: 409,
+        jsonBody: {
           added: [],
-          rejected: refused
-        });
-        return {
-          status: error.status,
-          jsonBody: {
-            added: [],
-            rejected: refused,
-            ...error.targetCaseId ? { targetCaseId: error.targetCaseId } : {}
-          }
-        };
-      }
-      throw error;
-    }
-    const added = [];
-    let created = 0;
-    for (const file of prepared) {
-      let uploadClaim;
-      try {
-        const claim = await claimUploadItem({ caseId, source, idempotencyKey, file });
-        if (claim.kind === "existing") {
-          added.push({
-            fileIndex: file.index,
+          rejected: files.map((file, fileIndex) => ({
+            fileIndex,
             fileName: file.name,
-            evidenceId: claim.id,
-            duplicate: true
-          });
-          continue;
+            reason: "This retry no longer matches the selected files."
+          })),
+          manualIntakeCompletion: "not_bound",
+          error: "This case upload could not be safely resumed."
         }
-        uploadClaim = claim;
-        const { blobPath, size } = await uploadEvidenceBytes(
-          claim.pathPrefix,
-          file.name,
-          file.bytes,
-          file.contentType
-        );
-        if (blobPath !== claim.blobPath) throw new Error("reserved blob path changed");
-        const persisted = await persistFile({
-          caseId,
-          source,
-          idempotencyKey,
-          actor,
-          file,
-          itemId: claim.itemId,
-          claimToken: claim.claimToken,
-          blobPath,
-          size
-        });
-        if (!persisted.duplicate) created++;
+      };
+    }
+  }
+  const batchRefusal = validateUploadBatch(files);
+  if (batchRefusal) {
+    await recordManualIntakeResult({
+      source,
+      caseId: req.params.id,
+      actor,
+      idempotencyKey: suppliedIdempotencyKey,
+      selectedCount: files.length,
+      added: [],
+      rejected: files.map((file, fileIndex) => ({
+        fileIndex,
+        fileName: file.name,
+        reason: batchRefusal
+      }))
+    });
+    return { status: 400, jsonBody: { error: batchRefusal } };
+  }
+  const prepared = [];
+  const rejected = [];
+  for (const [index, file] of files.entries()) {
+    const metadata2 = classifyUpload(file.type, file.size, file.name);
+    if (!metadata2.ok) {
+      rejected.push({ fileIndex: index, fileName: file.name, reason: metadata2.reason });
+      continue;
+    }
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const content = await validateUploadContent(metadata2, bytes);
+    if (!content.ok) {
+      rejected.push({ fileIndex: index, fileName: file.name, reason: content.reason });
+      continue;
+    }
+    const role = suppliedRoles[index] ?? "auto";
+    if (role === "instruction" && content.kind !== "document") {
+      rejected.push({
+        fileIndex: index,
+        fileName: file.name,
+        reason: "Choose a PDF for the instruction."
+      });
+      continue;
+    }
+    const sha256 = (0, import_node_crypto13.createHash)("sha256").update(bytes).digest("hex");
+    if (!SHA256_RE.test(sha256)) throw new Error("unreachable sha256 result");
+    prepared.push({
+      index,
+      name: (file.name.trim() || `file-${index + 1}`).slice(0, 400),
+      bytes,
+      sha256,
+      kind: content.kind,
+      contentType: content.contentType,
+      role
+    });
+  }
+  if (!prepared.length) {
+    await recordManualIntakeResult({
+      source,
+      caseId: req.params.id,
+      actor,
+      idempotencyKey: suppliedIdempotencyKey,
+      selectedCount: files.length,
+      added: [],
+      rejected
+    });
+    return { status: 400, jsonBody: { added: [], rejected } };
+  }
+  const batchManifestHash = manifestHash(prepared);
+  const idempotencyKey = suppliedIdempotencyKey || legacyIdempotencyKey(req.params.id, actor, batchManifestHash);
+  let caseId;
+  try {
+    caseId = await bindBatch({
+      caseId: req.params.id,
+      idempotencyKey,
+      actor,
+      source,
+      registration: source === "mcp_agent" ? String(form.get("registration") ?? "").trim() : void 0,
+      manifestHash: batchManifestHash,
+      files: prepared
+    });
+  } catch (error2) {
+    if (error2 instanceof UploadRefusal) {
+      const refused = files.map((file, fileIndex) => ({
+        fileIndex,
+        fileName: file.name,
+        reason: error2.message
+      }));
+      await recordManualIntakeResult({
+        source,
+        caseId: req.params.id,
+        actor,
+        idempotencyKey,
+        selectedCount: files.length,
+        added: [],
+        rejected: refused
+      });
+      return {
+        status: error2.status,
+        jsonBody: {
+          added: [],
+          rejected: refused,
+          ...error2.targetCaseId ? { targetCaseId: error2.targetCaseId } : {}
+        }
+      };
+    }
+    throw error2;
+  }
+  const added = [];
+  let created = 0;
+  for (const file of prepared) {
+    let uploadClaim;
+    try {
+      const claim = await claimUploadItem({ caseId, source, idempotencyKey, file });
+      if (claim.kind === "existing") {
         added.push({
           fileIndex: file.index,
           fileName: file.name,
-          evidenceId: persisted.id,
-          duplicate: persisted.duplicate
+          evidenceId: claim.id,
+          duplicate: true
         });
-      } catch (error) {
-        if (uploadClaim) {
-          try {
-            await scheduleItemCleanup(
-              uploadClaim.itemId,
-              uploadClaim.claimToken,
-              error instanceof Error ? error.message : String(error)
-            );
-          } catch (cleanupError) {
-            ctx.error(
-              `[evidence-upload] cleanup scheduling ${file.name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
-            );
-          }
-        }
-        const refusal = error instanceof UploadRefusal ? error : void 0;
-        ctx.error(`[evidence-upload] ${file.name}: ${error instanceof Error ? error.message : String(error)}`);
-        rejected.push({
-          fileIndex: file.index,
-          fileName: file.name,
-          reason: refusal?.message ?? "That file was not added. Try it again."
-        });
-        if (refusal?.targetCaseId) {
-          await recordManualIntakeResult({
-            source,
-            caseId,
-            actor,
-            idempotencyKey,
-            selectedCount: files.length,
-            added,
-            rejected
-          });
-          return {
-            status: 409,
-            jsonBody: { added, rejected, targetCaseId: refusal.targetCaseId }
-          };
+        continue;
+      }
+      uploadClaim = claim;
+      const { blobPath, size } = await uploadEvidenceBytes(
+        claim.pathPrefix,
+        file.name,
+        file.bytes,
+        file.contentType
+      );
+      if (blobPath !== claim.blobPath) throw new Error("reserved blob path changed");
+      const persisted = await persistFile({
+        caseId,
+        source,
+        idempotencyKey,
+        actor,
+        registration: source === "mcp_agent" ? String(form.get("registration") ?? "").trim() : void 0,
+        file,
+        itemId: claim.itemId,
+        claimToken: claim.claimToken,
+        blobPath,
+        size
+      });
+      if (!persisted.duplicate) created++;
+      added.push({
+        fileIndex: file.index,
+        fileName: file.name,
+        evidenceId: persisted.id,
+        duplicate: persisted.duplicate
+      });
+    } catch (error2) {
+      if (uploadClaim) {
+        try {
+          await scheduleItemCleanup(
+            uploadClaim.itemId,
+            uploadClaim.claimToken,
+            error2 instanceof Error ? error2.message : String(error2)
+          );
+        } catch (cleanupError) {
+          ctx.error(
+            `[evidence-upload] cleanup scheduling ${file.name}: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+          );
         }
       }
+      const refusal = error2 instanceof UploadRefusal ? error2 : void 0;
+      ctx.error(`[evidence-upload] ${file.name}: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      rejected.push({
+        fileIndex: file.index,
+        fileName: file.name,
+        reason: refusal?.message ?? "That file was not added. Try it again."
+      });
+      if (refusal?.targetCaseId) {
+        await recordManualIntakeResult({
+          source,
+          caseId,
+          actor,
+          idempotencyKey,
+          selectedCount: files.length,
+          added,
+          rejected
+        });
+        return {
+          status: 409,
+          jsonBody: { added, rejected, targetCaseId: refusal.targetCaseId }
+        };
+      }
     }
-    const confirmedIndexes = new Set(added.map((item) => item.fileIndex));
-    const batchComplete = rejected.length === 0 && added.length === files.length && confirmedIndexes.size === files.length;
-    let manualIntakeCompletion;
-    if (batchComplete) {
-      await tx(async (q) => {
-        await q(
-          `UPDATE staff_evidence_upload
+  }
+  const confirmedIndexes = new Set(added.map((item) => item.fileIndex));
+  const batchComplete = rejected.length === 0 && added.length === files.length && confirmedIndexes.size === files.length;
+  let manualIntakeCompletion;
+  if (batchComplete) {
+    await tx(async (q) => {
+      await q(
+        `UPDATE staff_evidence_upload
               SET completed_at = COALESCE(completed_at, now()), updated_at = now()
             WHERE idempotency_key = $1 AND case_id = $2`,
-          [idempotencyKey, caseId]
-        );
-        if (source === "manual_intake" && manualIntakeOperation) {
-          manualIntakeCompletion = await completeManualIntakeEvidence(q, {
-            caseId,
-            uploadIdempotencyKey: idempotencyKey,
-            fileCount: files.length,
-            ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
-          });
-        }
-        if (manualIntakeCompletion === "completed") {
-          await requestStatusRecompute(q, caseId);
-        }
-        if (manualIntakeCompletion === "already_complete" && await claimManualIntakeRecoveryAudit(q, {
+        [idempotencyKey, caseId]
+      );
+      if (source === "manual_intake" && manualIntakeOperation) {
+        manualIntakeCompletion = await completeManualIntakeEvidence(q, {
           caseId,
           uploadIdempotencyKey: idempotencyKey,
           fileCount: files.length,
           ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
-        })) {
-          await writeAuditStrict({
-            action: AUDIT_ACTION.evidence_upload_result,
-            caseId,
-            actor,
-            summary: `New case files confirmed after response loss (${added.length} of ${files.length})`,
-            after: {
-              idempotencyKey,
-              selectedCount: files.length,
-              completion: "already_complete",
-              recovered: true,
-              added,
-              rejected
-            }
-          }, q);
-        }
-      });
-    }
-    if (manualIntakeCompletion !== "already_complete") {
-      await recordManualIntakeResult({
-        source,
+        });
+      }
+      if (manualIntakeCompletion === "completed") {
+        await requestStatusRecompute(q, caseId);
+      }
+      if (manualIntakeCompletion === "already_complete" && await claimManualIntakeRecoveryAudit(q, {
         caseId,
-        actor,
-        idempotencyKey,
-        selectedCount: files.length,
-        added,
-        rejected,
-        ...manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}
-      });
-    }
-    if (manualIntakeCompletion === "not_bound") {
-      return {
-        status: 409,
-        jsonBody: {
-          added,
-          rejected,
-          manualIntakeCompletion,
-          error: "The files were added, but this case still needs the retry to be confirmed."
-        }
-      };
-    }
+        uploadIdempotencyKey: idempotencyKey,
+        fileCount: files.length,
+        ...instructionFileIndex !== void 0 ? { instructionFileIndex } : {}
+      })) {
+        await writeAuditStrict({
+          action: AUDIT_ACTION.evidence_upload_result,
+          caseId,
+          actor,
+          summary: `New case files confirmed after response loss (${added.length} of ${files.length})`,
+          after: {
+            idempotencyKey,
+            selectedCount: files.length,
+            completion: "already_complete",
+            recovered: true,
+            added,
+            rejected
+          }
+        }, q);
+      }
+    });
+  }
+  if (manualIntakeCompletion !== "already_complete") {
+    await recordManualIntakeResult({
+      source,
+      caseId,
+      actor,
+      idempotencyKey,
+      selectedCount: files.length,
+      added,
+      rejected,
+      ...manualIntakeCompletion ? { completion: manualIntakeCompletion } : {}
+    });
+  }
+  if (manualIntakeCompletion === "not_bound") {
     return {
-      status: rejected.length ? added.length ? 207 : 400 : created > 0 ? 201 : 200,
+      status: 409,
       jsonBody: {
         added,
         rejected,
-        ...manualIntakeCompletion ? { manualIntakeCompletion } : {}
+        manualIntakeCompletion,
+        error: "The files were added, but this case still needs the retry to be confirmed."
+      }
+    };
+  }
+  return {
+    status: rejected.length ? added.length ? 207 : 400 : created > 0 ? 201 : 200,
+    jsonBody: {
+      added,
+      rejected,
+      ...manualIntakeCompletion ? { manualIntakeCompletion } : {}
+    }
+  };
+}
+import_functions13.app.http("uploadCaseEvidence", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/evidence/upload",
+  handler: withRole("CollisionSpike.User", async (req, ctx, claims) => handleEvidenceUpload(req, ctx, claims))
+});
+
+// api/src/functions/mcp-image-ingestion.ts
+var MCP_IMAGE_INGEST_TEST_ROOT_ID = "392761581105";
+var BASE64_MAX_CHARS = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4;
+var MCP_IMAGE_INGEST_MAX_TOTAL_BYTES = 30 * 1024 * 1024;
+var MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES = Math.ceil(MCP_IMAGE_INGEST_MAX_TOTAL_BYTES / 3) * 4 + 256 * 1024;
+var IMAGE_INGEST_TOOLS = [
+  {
+    name: "lookup_open_case_by_registration",
+    description: "Canonicalise a UK registration and return only whether exactly one current case can receive images. Never guesses and never changes data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        registration: { type: "string", minLength: 1, maxLength: 32 }
+      },
+      required: ["registration"],
+      additionalProperties: false
+    }
+  },
+  {
+    name: "upload_case_images",
+    description: "Attach a bounded image batch to the one current case resolved from the supplied registration. Returns per-file durable and processing states; it never accepts a case id or folder id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        registration: { type: "string", minLength: 1, maxLength: 32 },
+        idempotencyKey: {
+          type: "string",
+          minLength: 16,
+          maxLength: 128,
+          pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"
+        },
+        files: {
+          type: "array",
+          minItems: 1,
+          maxItems: MAX_UPLOAD_FILES,
+          items: {
+            type: "object",
+            properties: {
+              fileName: { type: "string", minLength: 1, maxLength: 400 },
+              contentType: {
+                type: "string",
+                enum: ["image/jpeg", "image/png", "image/webp"]
+              },
+              dataBase64: { type: "string", minLength: 4, maxLength: BASE64_MAX_CHARS }
+            },
+            required: ["fileName", "contentType", "dataBase64"],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ["registration", "idempotencyKey", "files"],
+      additionalProperties: false
+    }
+  }
+];
+function mcpImageIngestConfigured() {
+  return gates.mcpImageIngest() && gates.boxApi() && Boolean(process.env.BOX_FN_URL && process.env.BOX_FN_KEY) && gates.boxFolderRootId() === MCP_IMAGE_INGEST_TEST_ROOT_ID && gates.mcpImageIngestBoxRootId() === MCP_IMAGE_INGEST_TEST_ROOT_ID;
+}
+var productionDependencies = {
+  listCandidates: async (registration) => query(
+    `SELECT id, case_po, status_code, on_hold, duplicate_keys, box_folder_id
+         FROM case_
+        WHERE regexp_replace(upper(vrm), '[^A-Z0-9]', '', 'g') = $1
+        ORDER BY created_at, id`,
+    [registration]
+  ),
+  verifyArchiveTarget: async (folderId) => {
+    const attestation = await verifyBoxWriteScope(folderId);
+    return {
+      writable: attestation.writable === true,
+      rootId: typeof attestation.rootId === "string" ? attestation.rootId : ""
+    };
+  },
+  upload: (request, context3, claims) => handleEvidenceUpload(request, context3, claims, { allowMcpAgentSource: true }),
+  readPipelineState: async (caseId, evidenceIds) => {
+    const evidence = evidenceIds.length ? await query(
+      `SELECT e.id, e.file_name, e.image_role_code, e.registration_visible, e.excluded,
+                  e.box_file_id, e.box_classify_dead_lettered_at,
+                  o.requested_generation, o.completed_generation, o.last_error
+             FROM evidence e
+             LEFT JOIN archive_mirror_outbox o ON o.evidence_id = e.id
+            WHERE e.case_id = $1 AND e.id = ANY($2::uuid[])`,
+      [caseId, evidenceIds]
+    ) : [];
+    const cases = await query(
+      `SELECT status_code, on_hold, status_recompute_requested_generation,
+              status_recompute_completed_generation
+         FROM case_ WHERE id = $1`,
+      [caseId]
+    );
+    const row = cases[0];
+    const currentStatus = caseStatusCodec.toName(Number(row?.status_code)) ?? "unknown";
+    const pendingReadiness = Number(row?.status_recompute_completed_generation ?? 0) < Number(row?.status_recompute_requested_generation ?? 0);
+    return {
+      files: evidence.map((item) => {
+        const classification = item.box_classify_dead_lettered_at ? "manual_review" : Number(item.image_role_code) === 100000003 && item.registration_visible == null ? "pending" : "complete";
+        const requested = Number(item.requested_generation ?? 0);
+        const completed = Number(item.completed_generation ?? 0);
+        const archive = item.box_file_id ? "complete" : classification === "pending" ? "waiting_for_image_check" : item.excluded ? "not_required" : requested > completed && item.last_error ? "retry_pending" : "pending";
+        return {
+          evidenceId: item.id,
+          fileName: item.file_name,
+          classification,
+          archive
+        };
+      }),
+      readiness: {
+        state: pendingReadiness ? "pending" : "current",
+        currentStatus,
+        queue: queueLabel2(currentStatus, row?.on_hold === true)
+      }
+    };
+  }
+};
+function queueLabel2(status, onHold) {
+  if (onHold) return "Held";
+  const queue = statusToQueue(status);
+  return queue === "not-ready" ? "Not ready" : queue === "review" ? "Review" : "Closed";
+}
+function directRegistration(value) {
+  const raw = typeof value === "string" ? value.trim() : "";
+  const canonical = canonicalizeVrm(raw);
+  if (!canonical || canonical.length > 16) return "";
+  return extractVrm(`registration ${canonical}`) === canonical ? canonical : "";
+}
+async function resolveImageIngestCase(supplied, deps = productionDependencies) {
+  const registration = directRegistration(supplied);
+  if (!registration) {
+    return {
+      ok: false,
+      code: "invalid_registration",
+      registration: null,
+      message: "The supplied value is not a supported UK registration."
+    };
+  }
+  const rows = await deps.listCandidates(registration);
+  const active = rows.filter((row2) => {
+    const status2 = caseStatusCodec.toName(Number(row2.status_code));
+    return Boolean(status2) && status2 !== "error" && !isTerminalStatus(status2) && !mergedIntoFrom(row2.duplicate_keys);
+  });
+  if (active.length > 1) {
+    return {
+      ok: false,
+      code: "ambiguous_match",
+      registration,
+      message: "More than one current case matches this registration. No case was selected."
+    };
+  }
+  if (!active.length) {
+    return rows.length ? {
+      ok: false,
+      code: "ineligible_case",
+      registration,
+      message: "The matching case is closed, removed or has been merged."
+    } : {
+      ok: false,
+      code: "no_match",
+      registration,
+      message: "No current case matches this registration."
+    };
+  }
+  const row = active[0];
+  if (!row.box_folder_id?.trim()) {
+    return {
+      ok: false,
+      code: "archive_target_unavailable",
+      registration,
+      message: "The matching case has no approved Archive target yet."
+    };
+  }
+  try {
+    const scope = await deps.verifyArchiveTarget(row.box_folder_id.trim());
+    if (!scope.writable || scope.rootId !== MCP_IMAGE_INGEST_TEST_ROOT_ID) {
+      throw new Error("write scope did not attest the dedicated test root");
+    }
+  } catch {
+    return {
+      ok: false,
+      code: "archive_target_unavailable",
+      registration,
+      message: "The matching case does not have an approved Archive target."
+    };
+  }
+  const status = caseStatusCodec.toName(Number(row.status_code)) ?? "unknown";
+  return {
+    ok: true,
+    code: "exact_match",
+    registration,
+    caseId: row.id,
+    match: { casePo: row.case_po, status, queue: queueLabel2(status, row.on_hold) }
+  };
+}
+function normalizeFileName(value, index) {
+  const raw = typeof value === "string" ? value : "";
+  const base = raw.split(/[\\/]/u).pop() ?? "";
+  const clean = base.normalize("NFC").replace(/[\u0000-\u001f\u007f\u061c\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]/gu, "_").trim();
+  return (clean || `image-${index + 1}.jpg`).slice(0, 200);
+}
+function strictBase64(value) {
+  if (typeof value !== "string" || value.length < 4 || value.length > BASE64_MAX_CHARS) return void 0;
+  if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    return void 0;
+  }
+  const bytes = Buffer.from(value, "base64");
+  return bytes.toString("base64") === value ? bytes : void 0;
+}
+function strictBase64DecodedLength(value) {
+  if (typeof value !== "string" || value.length < 4 || value.length > BASE64_MAX_CHARS) return void 0;
+  if (value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) {
+    return void 0;
+  }
+  const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
+  return value.length / 4 * 3 - padding;
+}
+function preflightBase64Batch(files, maxBytes = MCP_IMAGE_INGEST_MAX_TOTAL_BYTES) {
+  let decodedBytes = 0;
+  for (const file of files) {
+    const size = strictBase64DecodedLength(file?.dataBase64);
+    if (size === void 0) continue;
+    decodedBytes += size;
+    if (decodedBytes > maxBytes) {
+      return { ok: false, decodedBytes };
+    }
+  }
+  return { ok: true, decodedBytes };
+}
+function imageIngestRequestsPerMinute() {
+  const configured = Number(process.env.MCP_IMAGE_INGEST_REQUESTS_PER_MINUTE ?? 60);
+  return Number.isFinite(configured) ? Math.min(120, Math.max(1, Math.trunc(configured))) : 60;
+}
+async function consumeImageIngestRateLimit(clientId) {
+  const rows = await query(
+    `INSERT INTO mcp_image_ingest_rate_limit
+       (principal_id, window_started_at, request_count)
+     VALUES ($1, date_trunc('minute', now()), 1)
+     ON CONFLICT (principal_id) DO UPDATE
+       SET window_started_at = CASE
+             WHEN mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+               THEN date_trunc('minute', now())
+             ELSE mcp_image_ingest_rate_limit.window_started_at
+           END,
+           request_count = CASE
+             WHEN mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+               THEN 1
+             ELSE mcp_image_ingest_rate_limit.request_count + 1
+           END,
+           updated_at = now()
+     WHERE mcp_image_ingest_rate_limit.window_started_at < date_trunc('minute', now())
+        OR mcp_image_ingest_rate_limit.request_count < $2
+     RETURNING request_count`,
+    [clientId.slice(0, 200), imageIngestRequestsPerMinute()]
+  );
+  return rows.length === 1;
+}
+function claimsClientId(claims) {
+  const record2 = claims;
+  for (const key of ["azp", "appid", "oid", "sub"]) {
+    if (typeof record2[key] === "string" && record2[key]) return String(record2[key]);
+  }
+  return "unknown-agent";
+}
+function hasOnlyKeys(value, allowed) {
+  const allow = new Set(allowed);
+  return Object.keys(value).every((key) => allow.has(key));
+}
+function createImageIngestExecutor(deps = productionDependencies) {
+  return async (name, args, session) => {
+    if (name === "lookup_open_case_by_registration") {
+      if (!hasOnlyKeys(args, ["registration"])) {
+        return { ok: false, code: "invalid_arguments", message: "Only registration is accepted." };
+      }
+      const resolved2 = await resolveImageIngestCase(args.registration, deps);
+      if (!resolved2.ok) return resolved2;
+      const { caseId: _caseId, ...publicResult } = resolved2;
+      return publicResult;
+    }
+    if (name !== "upload_case_images") {
+      return { ok: false, code: "unknown_tool", message: "That tool is not available." };
+    }
+    if (!mcpImageIngestConfigured()) {
+      return { ok: false, code: "ingest_disabled", message: "Image ingestion is not enabled." };
+    }
+    if (!hasOnlyKeys(args, ["registration", "idempotencyKey", "files"])) {
+      return {
+        ok: false,
+        code: "invalid_arguments",
+        message: "Only registration, idempotencyKey and files are accepted."
+      };
+    }
+    const idempotencyKey = typeof args.idempotencyKey === "string" ? args.idempotencyKey.trim() : "";
+    if (!validUploadIdempotencyKey(idempotencyKey)) {
+      return { ok: false, code: "invalid_idempotency_key", message: "Use one stable 16\u2013128 character idempotency key." };
+    }
+    const suppliedFiles = Array.isArray(args.files) ? args.files : [];
+    if (!suppliedFiles.length || suppliedFiles.length > MAX_UPLOAD_FILES) {
+      return { ok: false, code: "invalid_batch", message: `Supply between 1 and ${MAX_UPLOAD_FILES} images.` };
+    }
+    const preflight = preflightBase64Batch(suppliedFiles);
+    if (!preflight.ok) {
+      return {
+        ok: false,
+        code: "invalid_batch",
+        message: "Those images are too large to send together; split them into smaller batches."
+      };
+    }
+    const resolved = await resolveImageIngestCase(args.registration, deps);
+    if (!resolved.ok) return resolved;
+    const accepted = [];
+    const earlyRejected = [];
+    const decodedSizes = [];
+    for (const [fileIndex, supplied] of suppliedFiles.entries()) {
+      if (!supplied || typeof supplied !== "object" || Array.isArray(supplied) || !hasOnlyKeys(supplied, ["fileName", "contentType", "dataBase64"])) {
+        earlyRejected.push({
+          fileIndex,
+          fileName: `image-${fileIndex + 1}`,
+          code: "invalid_file",
+          reason: "Each file accepts only fileName, contentType and dataBase64."
+        });
+        continue;
+      }
+      const name2 = normalizeFileName(supplied?.fileName, fileIndex);
+      const bytes = strictBase64(supplied?.dataBase64);
+      if (!bytes) {
+        earlyRejected.push({ fileIndex, fileName: name2, code: "invalid_base64", reason: "The image bytes are not valid base64." });
+        continue;
+      }
+      decodedSizes.push({ size: bytes.length });
+      const contentType2 = typeof supplied?.contentType === "string" ? supplied.contentType : "";
+      const metadata2 = classifyUpload(contentType2, bytes.length, name2);
+      if (!metadata2.ok || metadata2.kind !== "image") {
+        earlyRejected.push({
+          fileIndex,
+          fileName: name2,
+          code: "unsupported_image",
+          reason: metadata2.ok ? "Only JPG, PNG and WebP images are accepted." : metadata2.reason
+        });
+        continue;
+      }
+      accepted.push({
+        originalIndex: fileIndex,
+        name: name2,
+        type: metadata2.contentType,
+        bytes,
+        sha256: (0, import_node_crypto14.createHash)("sha256").update(bytes).digest("hex")
+      });
+    }
+    const batchRefusal = validateUploadBatch(decodedSizes);
+    if (batchRefusal) {
+      return { ok: false, code: "invalid_batch", message: batchRefusal, files: earlyRejected };
+    }
+    if (!accepted.length) {
+      return { ok: false, code: "batch_rejected", batchStatus: "rejected", files: earlyRejected };
+    }
+    const form = new FormData();
+    form.append("source", "mcp_agent");
+    form.append("registration", resolved.registration);
+    for (const image of accepted) {
+      form.append("file", new File([Uint8Array.from(image.bytes)], image.name, { type: image.type }));
+    }
+    const request = {
+      params: { id: resolved.caseId },
+      headers: new Headers({ "idempotency-key": idempotencyKey }),
+      formData: async () => form
+    };
+    let response;
+    try {
+      response = await deps.upload(request, session.context, session.claims);
+    } catch (error2) {
+      session.context.error(`[mcp-image-ingest] canonical upload failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      return {
+        ok: false,
+        code: "write_state_unconfirmed",
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...accepted.map((item) => ({
+            fileIndex: item.originalIndex,
+            fileName: item.name,
+            sha256: item.sha256,
+            outcome: "retry_required",
+            durable: "unknown"
+          })),
+          ...earlyRejected.map((item) => ({ ...item, outcome: "rejected", durable: false }))
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: "Retry the same batch with the same idempotency key. The server will not duplicate a completed write."
+      };
+    }
+    const body2 = response.jsonBody ?? {};
+    if (Number(response.status ?? 500) >= 500 || !Array.isArray(body2.added) && !Array.isArray(body2.rejected)) {
+      session.context.error(`[mcp-image-ingest] canonical upload returned an unconfirmed response (${response.status ?? 500})`);
+      return {
+        ok: false,
+        code: "write_state_unconfirmed",
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...accepted.map((item) => ({
+            fileIndex: item.originalIndex,
+            fileName: item.name,
+            sha256: item.sha256,
+            outcome: "retry_required",
+            durable: "unknown"
+          })),
+          ...earlyRejected.map((item) => ({ ...item, outcome: "rejected", durable: false }))
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: "Retry the same batch with the same idempotency key. The server will not duplicate a completed write."
+      };
+    }
+    const added = (body2.added ?? []).map((item) => {
+      const source = accepted[item.fileIndex];
+      return {
+        fileIndex: source?.originalIndex ?? item.fileIndex,
+        fileName: source?.name ?? item.fileName,
+        evidenceId: item.evidenceId,
+        duplicate: item.duplicate,
+        sha256: source?.sha256
+      };
+    });
+    const rejected = [
+      ...earlyRejected,
+      ...(body2.rejected ?? []).map((item) => {
+        const source = accepted[item.fileIndex];
+        return {
+          fileIndex: source?.originalIndex ?? item.fileIndex,
+          fileName: source?.name ?? item.fileName,
+          code: Number(response.status ?? 500) === 409 ? "case_changed" : "rejected",
+          reason: item.reason
+        };
+      })
+    ].sort((a, b) => a.fileIndex - b.fileIndex);
+    const evidenceIds = added.map((item) => item.evidenceId);
+    let pipeline;
+    try {
+      pipeline = await deps.readPipelineState(resolved.caseId, evidenceIds);
+    } catch (error2) {
+      session.context.error(`[mcp-image-ingest] durable readback failed: ${error2 instanceof Error ? error2.message : String(error2)}`);
+      return {
+        ok: false,
+        code: "incomplete_readback",
+        registration: resolved.registration,
+        match: resolved.match,
+        files: [
+          ...added.map((item) => ({
+            fileIndex: item.fileIndex,
+            fileName: item.fileName,
+            sha256: item.sha256,
+            outcome: item.duplicate ? "already_attached" : "accepted",
+            durable: true,
+            classification: "unknown",
+            archive: "unknown"
+          })),
+          ...rejected.map((item) => ({ ...item, outcome: "rejected", durable: false }))
+        ].sort((a, b) => a.fileIndex - b.fileIndex),
+        note: "The evidence write completed, but processing state could not be read. Check again before resending."
+      };
+    }
+    const states = new Map(pipeline.files.map((file) => [file.evidenceId, file]));
+    const files = [
+      ...added.map((item) => ({
+        fileIndex: item.fileIndex,
+        fileName: item.fileName,
+        sha256: item.sha256,
+        outcome: item.duplicate ? "already_attached" : "accepted",
+        durable: states.has(item.evidenceId),
+        classification: states.get(item.evidenceId)?.classification ?? "unknown",
+        archive: states.get(item.evidenceId)?.archive ?? "unknown"
+      })),
+      ...rejected.map((item) => ({ ...item, outcome: "rejected", durable: false }))
+    ].sort((a, b) => a.fileIndex - b.fileIndex);
+    const durableReadback = added.every((item) => states.has(item.evidenceId));
+    const processingComplete = durableReadback && pipeline.readiness.state === "current" && pipeline.files.every((item) => item.classification === "complete" && (item.archive === "complete" || item.archive === "not_required"));
+    const requiresReview = pipeline.files.some((item) => item.classification === "manual_review");
+    const batchStatus = !added.length ? "rejected" : rejected.length ? "partial" : requiresReview ? "accepted_requires_review" : processingComplete ? "complete" : durableReadback ? "accepted_pending_processing" : "incomplete_readback";
+    session.context.log(JSON.stringify({
+      evt: "mcp_image_ingest",
+      clientId: claimsClientId(session.claims),
+      actor: actorFromClaims(session.claims),
+      registration: resolved.registration,
+      idempotencyKey,
+      batchStatus,
+      files: files.map((file) => ({
+        fileIndex: file.fileIndex,
+        sha256: "sha256" in file ? file.sha256 : void 0,
+        outcome: file.outcome
+      }))
+    }));
+    return {
+      ok: batchStatus === "complete",
+      code: batchStatus,
+      registration: resolved.registration,
+      match: resolved.match,
+      files,
+      readiness: pipeline.readiness,
+      note: batchStatus === "accepted_pending_processing" ? "The durable evidence rows exist. Image checks, Archive work or readiness recomputation are still pending." : batchStatus === "accepted_requires_review" ? "The durable evidence rows exist, but at least one image requires staff review." : void 0
+    };
+  };
+}
+var executeImageIngestTool = createImageIngestExecutor();
+
+// api/src/functions/mcp.ts
+var MCP_PROTOCOL_VERSION = "2025-06-18";
+var SUPPORTED_PROTOCOL_VERSIONS = /* @__PURE__ */ new Set([MCP_PROTOCOL_VERSION, "2025-03-26"]);
+function readonlyMaxHttpBodyBytes() {
+  const configured = Number(process.env.MCP_READONLY_MAX_HTTP_BODY_BYTES ?? 1024 * 1024);
+  const resolved = Number.isFinite(configured) ? Math.trunc(configured) : 1024 * 1024;
+  return Math.min(8 * 1024 * 1024, Math.max(16 * 1024, resolved));
+}
+function plainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function validRequestId(value) {
+  return typeof value === "string" || typeof value === "number" && Number.isFinite(value) && Number.isInteger(value);
+}
+function validateMcpMessage(value) {
+  if (!plainObject(value)) return { ok: false, id: null, message: "Invalid JSON-RPC request." };
+  const hasId = Object.prototype.hasOwnProperty.call(value, "id");
+  const genericEnvelope = hasId ? JSONRPCRequestSchema.safeParse(value) : JSONRPCNotificationSchema.safeParse(value);
+  if (!genericEnvelope.success) {
+    return {
+      ok: false,
+      id: hasId && validRequestId(value.id) ? value.id : null,
+      message: "Invalid JSON-RPC request or response envelope."
+    };
+  }
+  if (typeof value.method !== "string" || !value.method) {
+    return { ok: false, id: null, message: "Invalid JSON-RPC request." };
+  }
+  const params = value.params;
+  const notification = !hasId;
+  if (notification && !value.method.startsWith("notifications/")) {
+    return { ok: false, id: null, message: "Requests require an id." };
+  }
+  if (!notification && value.method.startsWith("notifications/")) {
+    return { ok: false, id: value.id, message: "Notifications must not include an id." };
+  }
+  if (value.method === "initialize") {
+    if (notification || !InitializeRequestSchema.safeParse(value).success) {
+      return { ok: false, id: hasId ? value.id : null, message: "Invalid initialize request.", code: -32602 };
+    }
+  }
+  if (value.method === "notifications/initialized") {
+    if (!notification || !InitializedNotificationSchema.safeParse(value).success) {
+      return { ok: false, id: hasId ? value.id : null, message: "Invalid initialized notification." };
+    }
+  }
+  if (value.method === "notifications/cancelled") {
+    if (!notification || !CancelledNotificationSchema.safeParse(value).success) {
+      return { ok: false, id: null, message: "Invalid cancelled notification.", code: -32602 };
+    }
+  }
+  if (value.method === "tools/call") {
+    if (!CallToolRequestSchema.safeParse(value).success) {
+      return { ok: false, id: value.id, message: "Tool arguments must be an object.", code: -32602 };
+    }
+  }
+  if (value.method === "tools/list" && !ListToolsRequestSchema.safeParse(value).success) {
+    return { ok: false, id: value.id, message: "Invalid tools/list request.", code: -32602 };
+  }
+  if (value.method === "ping" && !PingRequestSchema.safeParse(value).success) {
+    return { ok: false, id: value.id, message: "Invalid ping request.", code: -32602 };
+  }
+  return {
+    ok: true,
+    message: {
+      jsonrpc: "2.0",
+      ...hasId ? { id: value.id } : {},
+      method: value.method,
+      ...params ? { params } : {}
+    },
+    notification
+  };
+}
+function rpcResult(id, result) {
+  return { jsonrpc: "2.0", id: id ?? null, result };
+}
+function rpcError(id, code, message2) {
+  return { jsonrpc: "2.0", id: id ?? null, error: { code, message: message2 } };
+}
+function readonlyToolDefinitions() {
+  return agentCapabilities().map((c) => ({
+    name: c.name,
+    description: c.description,
+    inputSchema: c.parameters
+  }));
+}
+async function handleMcpMessage(msg, exec, toolDefinitions = readonlyToolDefinitions()) {
+  const validation = validateMcpMessage(msg);
+  if (!validation.ok) return rpcError(validation.id, validation.code ?? -32600, validation.message);
+  const { id, method, params } = validation.message;
+  const isNotification = validation.notification;
+  if (isNotification && method !== "notifications/initialized" && method !== "notifications/cancelled") {
+    return null;
+  }
+  switch (method) {
+    case "initialize": {
+      const clientVer = params?.protocolVersion;
+      const negotiatedVersion = typeof clientVer === "string" && SUPPORTED_PROTOCOL_VERSIONS.has(clientVer) ? clientVer : MCP_PROTOCOL_VERSION;
+      const imageIngestSurface = toolDefinitions.some((tool) => tool.name === "upload_case_images");
+      return rpcResult(id, {
+        protocolVersion: negotiatedVersion,
+        capabilities: { tools: { listChanged: false } },
+        serverInfo: {
+          name: imageIngestSurface ? "collisionspike-image-ingest" : "collisionspike-readonly",
+          version: "0.2.0"
+        },
+        instructions: imageIngestSurface ? "Registration-bound image ingestion only. The server selects one eligible case; no case or Archive folder id is accepted." : "Read-only Collision Engineers case-intake tools. Every tool is a lookup \u2014 nothing here can create, change, or delete anything."
+      });
+    }
+    case "notifications/initialized":
+    case "notifications/cancelled":
+      return null;
+    case "ping":
+      return rpcResult(id, {});
+    case "tools/list": {
+      return rpcResult(id, { tools: toolDefinitions });
+    }
+    case "tools/call": {
+      const name = String(params?.name ?? "");
+      const suppliedArgs = params?.arguments ?? {};
+      if (!suppliedArgs || typeof suppliedArgs !== "object" || Array.isArray(suppliedArgs)) {
+        return rpcError(id, -32602, "Tool arguments must be an object.");
+      }
+      const args = suppliedArgs;
+      const allowed = toolDefinitions.some((tool) => tool.name === name);
+      const registryRead = capabilityByName(name);
+      const safeRegistryRead = Boolean(
+        registryRead && registryRead.kind === "read" && !registryRead.humanOnly && !registryRead.destructive
+      );
+      const dedicatedImageTool = IMAGE_INGEST_TOOLS.some((tool) => tool.name === name);
+      if (!allowed || !safeRegistryRead && !dedicatedImageTool) {
+        return rpcResult(id, {
+          content: [{ type: "text", text: `Tool "${name}" is not available.` }],
+          isError: true
+        });
+      }
+      try {
+        const result = await exec(name, args);
+        const structuredContent = result && typeof result === "object" ? result : { value: result };
+        const isError3 = structuredContent.ok === false;
+        return rpcResult(id, {
+          content: [{ type: "text", text: JSON.stringify(result) }],
+          structuredContent,
+          ...isError3 ? { isError: true } : {}
+        });
+      } catch {
+        return rpcResult(id, {
+          content: [{ type: "text", text: "The tool could not complete. Retry with the same inputs." }],
+          isError: true
+        });
+      }
+    }
+    default:
+      if (isNotification) return null;
+      return rpcError(id, -32601, `method not found: ${method ?? "(none)"}`);
+  }
+}
+function acceptsStreamableHttp(req) {
+  const accept3 = (req.headers.get("accept") ?? "").toLowerCase();
+  return accept3.includes("application/json") && accept3.includes("text/event-stream");
+}
+function originAllowed(req) {
+  const origin = req.headers.get("origin");
+  if (!origin) return true;
+  const allowed = new Set(
+    (process.env.MCP_ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean)
+  );
+  return allowed.has(origin);
+}
+function protocolHeaderValid(req, body2) {
+  const method = body2 && typeof body2 === "object" && !Array.isArray(body2) ? body2.method : void 0;
+  if (method === "initialize") return true;
+  const supplied = req.headers.get("mcp-protocol-version") ?? "2025-03-26";
+  return SUPPORTED_PROTOCOL_VERSIONS.has(supplied);
+}
+function protocolVersionFromHeader(req) {
+  return req.headers.get("mcp-protocol-version") ?? "2025-03-26";
+}
+function principalKey(claims, principal) {
+  const keys = principal === "readonly_staff" ? ["oid", "sub"] : ["azp", "appid"];
+  for (const key of keys) {
+    if (typeof claims[key] === "string" && claims[key]) return String(claims[key]);
+  }
+  return void 0;
+}
+function responseHeaders(sessionId, protocolVersion = MCP_PROTOCOL_VERSION) {
+  return {
+    "MCP-Protocol-Version": protocolVersion,
+    ...sessionId ? { "Mcp-Session-Id": sessionId } : {}
+  };
+}
+async function readRequestJson(req, maxBytes) {
+  if (maxBytes !== void 0) {
+    const suppliedLength = Number(req.headers.get("content-length") ?? 0);
+    if (Number.isFinite(suppliedLength) && suppliedLength > maxBytes) {
+      return { ok: false, reason: "too_large" };
+    }
+    if (!req.body) return { ok: false, reason: "unbounded" };
+  }
+  if (maxBytes !== void 0 && req.body) {
+    const reader = req.body.getReader();
+    const chunks = [];
+    let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+        total += bytes.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel("request body too large").catch(() => void 0);
+          return { ok: false, reason: "too_large" };
+        }
+        chunks.push(bytes);
+      }
+      return { ok: true, value: JSON.parse(Buffer.concat(chunks, total).toString("utf8")) };
+    } catch {
+      return { ok: false, reason: "parse" };
+    } finally {
+      reader.releaseLock();
+    }
+  }
+  try {
+    return { ok: true, value: await req.json() };
+  } catch {
+    return { ok: false, reason: "parse" };
+  }
+}
+import_functions14.app.http("mcpServer", {
+  methods: ["GET", "POST"],
+  authLevel: "anonymous",
+  route: "mcp",
+  handler: async (req, ctx) => {
+    try {
+      if (!originAllowed(req)) return { status: 403, jsonBody: { error: "forbidden origin" } };
+      const claims = await authenticate(req);
+      const principal = mcpPrincipalKind(claims);
+      if (!principal) return { status: 403, jsonBody: { error: "forbidden" } };
+      const principalId = principalKey(claims, principal);
+      if (!principalId) return { status: 403, jsonBody: { error: "forbidden" } };
+      if (!gates.mcpServer()) {
+        return { status: 404, jsonBody: rpcError(null, -32e3, "MCP server is not enabled") };
+      }
+      if (principal === "image_ingest_agent" && !mcpImageIngestConfigured()) {
+        return { status: 404, jsonBody: rpcError(null, -32e3, "Image ingestion is not enabled") };
+      }
+      if (req.method === "GET") {
+        return { status: 405, headers: { ...responseHeaders(), Allow: "POST" } };
+      }
+      await assertStaffRlsContext();
+      if (!(req.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
+        return { status: 415, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "Content-Type must be application/json") };
+      }
+      if (!acceptsStreamableHttp(req)) {
+        return { status: 406, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "Accept must include application/json and text/event-stream") };
+      }
+      if (principal === "image_ingest_agent") {
+        if (!await consumeImageIngestRateLimit(principalId)) {
+          return {
+            status: 429,
+            headers: { ...responseHeaders(), "Retry-After": "60" },
+            jsonBody: rpcError(null, -32e3, "Too many requests")
+          };
+        }
+      }
+      const bodyRead = await readRequestJson(
+        req,
+        principal === "image_ingest_agent" ? MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES : readonlyMaxHttpBodyBytes()
+      );
+      if (!bodyRead.ok) {
+        const status = bodyRead.reason === "too_large" ? 413 : bodyRead.reason === "unbounded" ? 411 : 400;
+        const message2 = bodyRead.reason === "too_large" ? "Request body is too large" : bodyRead.reason === "unbounded" ? "A bounded request body stream is required" : "parse error";
+        return {
+          status,
+          headers: responseHeaders(),
+          jsonBody: rpcError(null, bodyRead.reason === "parse" ? -32700 : -32600, message2)
+        };
+      }
+      const body2 = bodyRead.value;
+      if (Array.isArray(body2)) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "JSON-RPC batches are not supported") };
+      }
+      const validated = validateMcpMessage(body2);
+      if (!validated.ok) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.id, validated.code ?? -32600, validated.message) };
+      }
+      if (!protocolHeaderValid(req, body2)) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(null, -32600, "Unsupported MCP-Protocol-Version") };
+      }
+      const tools = principal === "image_ingest_agent" ? IMAGE_INGEST_TOOLS : readonlyToolDefinitions();
+      const exec = principal === "image_ingest_agent" ? (name, args) => executeImageIngestTool(name, args, { claims, context: ctx }) : (name, args) => execTool(name, args);
+      const suppliedSessionId = req.headers.get("mcp-session-id") ?? "";
+      if (validated.message.method === "initialize") {
+        if (suppliedSessionId) {
+          return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, "Initialize must be the first session interaction") };
+        }
+        const result2 = await handleMcpMessage(validated.message, exec, tools);
+        const requestedVersion = String(validated.message.params?.protocolVersion ?? "");
+        const negotiatedVersion = SUPPORTED_PROTOCOL_VERSIONS.has(requestedVersion) ? requestedVersion : MCP_PROTOCOL_VERSION;
+        let sessionId;
+        try {
+          sessionId = await createMcpSession(principalId, negotiatedVersion);
+        } catch (error2) {
+          if (error2 instanceof McpSessionLimitError) {
+            return {
+              status: 429,
+              headers: { ...responseHeaders(), "Retry-After": "60" },
+              jsonBody: rpcError(validated.message.id, -32e3, error2.message)
+            };
+          }
+          throw error2;
+        }
+        return { status: 200, headers: responseHeaders(sessionId, negotiatedVersion), jsonBody: result2 };
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(suppliedSessionId)) {
+        return { status: 400, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32600, "A valid initialized MCP session is required") };
+      }
+      const protocolVersion = protocolVersionFromHeader(req);
+      const sessionReady = validated.message.method === "notifications/initialized" ? await markMcpSessionInitialized(suppliedSessionId, principalId, protocolVersion) : await touchReadyMcpSession(suppliedSessionId, principalId, protocolVersion);
+      if (!sessionReady) {
+        return { status: 404, headers: responseHeaders(), jsonBody: rpcError(validated.message.id, -32001, "MCP session was not found or has expired") };
+      }
+      const result = await handleMcpMessage(validated.message, exec, tools);
+      return result ? { status: 200, headers: responseHeaders(suppliedSessionId, protocolVersion), jsonBody: result } : { status: 202, headers: responseHeaders(suppliedSessionId, protocolVersion) };
+    } catch (error2) {
+      return toErrorResponse(error2, ctx);
+    }
+  }
+});
+
+// api/src/functions/evidence.ts
+var import_functions15 = require("@azure/functions");
+import_functions15.app.http("evidenceContent", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "evidence/{id}/content",
+  handler: withRole("CollisionSpike.User", async (req, ctx) => {
+    const id = req.params.id;
+    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
+    try {
+      const rows = await query(
+        "SELECT id, storage_path, content_type, file_name, box_file_id FROM evidence WHERE id = $1",
+        [id]
+      );
+      const row = rows[0];
+      if (!row) return { status: 404, jsonBody: { error: "not found" } };
+      const resolved = await resolveBytesForRow(row);
+      if (!resolved) return { status: 404, jsonBody: { error: "no inline content" } };
+      return {
+        status: 200,
+        headers: {
+          "Content-Type": resolved.contentType,
+          // Private (per-staff, RLS-scoped) but cacheable for the session — previews repeat.
+          "Cache-Control": "private, max-age=300",
+          "Content-Disposition": `inline; filename="${(resolved.fileName ?? "evidence").replace(/[^A-Za-z0-9._-]+/g, "_")}"`
+        },
+        body: resolved.bytes
+      };
+    } catch (e) {
+      ctx.warn(`[evidence/content] ${e instanceof Error ? e.message : String(e)}`);
+      return { status: 404, jsonBody: { error: "unavailable" } };
+    }
+  })
+});
+import_functions15.app.http("patchEvidence", {
+  methods: ["PATCH"],
+  authLevel: "anonymous",
+  route: "evidence/{id}",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const id = req.params.id;
+    if (!id) return { status: 400, jsonBody: { error: "evidence id required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const supplied = (key) => Object.prototype.hasOwnProperty.call(body2, key);
+    const supported = [
+      "imageRole",
+      "registrationVisible",
+      "acceptedForEva",
+      "excluded",
+      "reflectionDismissed"
+    ];
+    if (!supported.some(supplied)) {
+      return { status: 400, jsonBody: { error: "at least one review field is required" } };
+    }
+    if (supplied("imageRole") && typeof body2.imageRole !== "string") {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    const roleCode = supplied("imageRole") ? imageRoleCodec.toInt(body2.imageRole) : void 0;
+    if (supplied("imageRole") && roleCode == null) {
+      return { status: 400, jsonBody: { error: "imageRole is not recognised" } };
+    }
+    for (const key of ["registrationVisible", "acceptedForEva", "excluded", "reflectionDismissed"]) {
+      if (supplied(key) && typeof body2[key] !== "boolean") {
+        return { status: 400, jsonBody: { error: `${key} must be boolean` } };
+      }
+    }
+    if (supplied("exclusionReason") && !supplied("excluded")) {
+      return { status: 400, jsonBody: { error: "exclusionReason requires excluded" } };
+    }
+    if (supplied("exclusionReason") && body2.exclusionReason !== null && typeof body2.exclusionReason !== "string") {
+      return { status: 400, jsonBody: { error: "exclusionReason must be text or null" } };
+    }
+    if (typeof body2.exclusionReason === "string" && body2.exclusionReason.trim().length > 400) {
+      return { status: 400, jsonBody: { error: "exclusionReason must be 400 characters or fewer" } };
+    }
+    const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+    const owner = await query(
+      "SELECT case_id FROM evidence WHERE id = $1 AND kind_code = $2",
+      [id, imageKind]
+    );
+    if (!owner[0]) return { status: 404, jsonBody: { error: "not found" } };
+    const mutation = await tx(async (q) => {
+      const caseLock = await lockCaseForMutation(q, owner[0].case_id);
+      if (caseLock.kind === "missing") return { kind: "missing" };
+      if (caseLock.kind === "retired") {
+        return { kind: "retired", mergedInto: caseLock.mergedInto };
+      }
+      const currentRows = await q(
+        "SELECT * FROM evidence WHERE id = $1 AND case_id = $2 AND kind_code = $3 FOR UPDATE",
+        [id, caseLock.caseId, imageKind]
+      );
+      const current = currentRows[0];
+      if (!current) return { kind: "moved" };
+      let nextRole = current.image_role_code;
+      let nextRoleSource = current.image_role_source;
+      let nextRegistration = current.registration_visible;
+      let nextRegistrationSource = current.registration_visible_source;
+      let nextAccepted = current.accepted_for_eva;
+      let nextAcceptedSource = current.accepted_for_eva_source;
+      let nextExcluded = current.excluded === true;
+      let nextReason = current.exclusion_reason ?? null;
+      let nextExclusionSource = current.exclusion_decision_source;
+      let nextReflectionDismissed = current.reflection_dismissed === true;
+      if (roleCode != null) {
+        nextRole = roleCode;
+        nextRoleSource = "staff";
+      }
+      if (typeof body2.registrationVisible === "boolean") {
+        nextRegistration = body2.registrationVisible;
+        nextRegistrationSource = "staff";
+      }
+      if (typeof body2.acceptedForEva === "boolean") {
+        nextAccepted = body2.acceptedForEva;
+        nextAcceptedSource = "staff";
+      }
+      const usableRole = body2.imageRole === "overview" || body2.imageRole === "damage_closeup" || body2.imageRole === "additional";
+      if (usableRole && body2.acceptedForEva === true && current.person_reflection !== true && (nextExclusionSource == null || nextExclusionSource === "classifier")) {
+        nextExcluded = false;
+        nextReason = null;
+        nextExclusionSource = "staff";
+      }
+      if (typeof body2.excluded === "boolean") {
+        nextExcluded = body2.excluded;
+        nextReason = body2.excluded ? (typeof body2.exclusionReason === "string" ? body2.exclusionReason.trim() : "") || "Excluded by reviewer" : null;
+        nextExclusionSource = "staff";
+      }
+      if (typeof body2.reflectionDismissed === "boolean") {
+        nextReflectionDismissed = body2.reflectionDismissed;
+      }
+      const readinessChanged = nextRole !== current.image_role_code || nextRegistration !== current.registration_visible || nextAccepted !== current.accepted_for_eva || nextExcluded !== current.excluded;
+      const changed = readinessChanged || nextReason !== current.exclusion_reason || nextRoleSource !== current.image_role_source || nextRegistrationSource !== current.registration_visible_source || nextAcceptedSource !== current.accepted_for_eva_source || nextExclusionSource !== current.exclusion_decision_source || nextReflectionDismissed !== current.reflection_dismissed;
+      const exclusionWouldStart = current.excluded !== true && nextExcluded === true;
+      const claimExpiresAt = current.archive_mirror_claim_expires_at ? new Date(String(current.archive_mirror_claim_expires_at)).getTime() : 0;
+      if (exclusionWouldStart && current.archive_mirror_claim_token && Number.isFinite(claimExpiresAt) && claimExpiresAt > Date.now()) {
+        return { kind: "archive_busy" };
+      }
+      if (!changed) {
+        return {
+          kind: "updated",
+          value: { current, updated: current, readinessChanged: false, changed: false }
+        };
+      }
+      const rows = await q(
+        `UPDATE evidence
+            SET image_role_code = $2,
+                image_role_source = $3,
+                registration_visible = $4,
+                registration_visible_source = $5,
+                accepted_for_eva = $6,
+                accepted_for_eva_source = $7,
+                excluded = $8,
+                exclusion_reason = $9,
+                exclusion_decision_source = $10,
+                reflection_dismissed = $11,
+                archive_mirror_decision_generation =
+                  archive_mirror_decision_generation +
+                  CASE WHEN excluded IS DISTINCT FROM $8 THEN 1 ELSE 0 END,
+                updated_at = now()
+          WHERE id = $1 AND kind_code = $12
+            AND (
+              NOT $13
+              OR archive_mirror_claim_token IS NULL
+              OR archive_mirror_claim_expires_at <= now()
+            )
+          RETURNING *`,
+        [
+          id,
+          nextRole,
+          nextRoleSource,
+          nextRegistration,
+          nextRegistrationSource,
+          nextAccepted,
+          nextAcceptedSource,
+          nextExcluded,
+          nextReason,
+          nextExclusionSource,
+          nextReflectionDismissed,
+          imageKind,
+          exclusionWouldStart
+        ]
+      );
+      if (!rows[0]) return { kind: "moved" };
+      const becameArchiveEligible = current.excluded === true && nextExcluded === false && typeof current.storage_path === "string" && current.storage_path.trim().length > 0 && (typeof current.box_file_id !== "string" || current.box_file_id.trim().length === 0);
+      if (becameArchiveEligible) {
+        await requestArchiveMirrorIfEligible(q, rows[0]);
+      }
+      if (readinessChanged) await requestStatusRecompute(q, String(current.case_id));
+      return {
+        kind: "updated",
+        value: { current, updated: rows[0], readinessChanged, changed: true }
+      };
+    });
+    if (mutation.kind === "missing") return { status: 404, jsonBody: { error: "not found" } };
+    if (mutation.kind === "archive_busy") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This photo is being added to the Archive. Try excluding it again shortly.",
+          code: "archive_in_progress"
+        }
+      };
+    }
+    if (mutation.kind === "retired" || mutation.kind === "moved") {
+      return {
+        status: 409,
+        jsonBody: {
+          error: "This case changed while the photo was being saved. Refresh and try again.",
+          ...mutation.kind === "retired" ? { targetCaseId: mutation.mergedInto } : {}
+        }
+      };
+    }
+    const result = mutation.value;
+    if (!result.changed) return { status: 200, jsonBody: rowToEvidence(result.updated) };
+    const actor = actorFromClaims(claims);
+    await writeAudit({
+      action: AUDIT_ACTION.attachment_classified,
+      ...result.updated.case_id ? { caseId: result.updated.case_id } : {},
+      summary: `Photo review updated for ${result.updated.file_name ?? id}`,
+      before: {
+        imageRole: result.current.image_role_code,
+        registrationVisible: result.current.registration_visible,
+        acceptedForEva: result.current.accepted_for_eva,
+        excluded: result.current.excluded,
+        reflectionDismissed: result.current.reflection_dismissed
+      },
+      after: {
+        evidenceId: id,
+        imageRole: result.updated.image_role_code,
+        registrationVisible: result.updated.registration_visible,
+        acceptedForEva: result.updated.accepted_for_eva,
+        excluded: result.updated.excluded,
+        reflectionDismissed: result.updated.reflection_dismissed
+      },
+      ...actor ? { actor } : {}
+    });
+    return { status: 200, jsonBody: rowToEvidence(result.updated) };
+  })
+});
+
+// api/src/functions/archive-mirror-outbox.ts
+var import_functions16 = require("@azure/functions");
+var ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
+async function withServiceAuth2(req, ctx, fn) {
+  try {
+    await authenticate(req);
+    return await fn();
+  } catch (e) {
+    return toErrorResponse(e, ctx);
+  }
+}
+function isMirrorEligible(row) {
+  const boxFileId = typeof row.box_file_id === "string" ? row.box_file_id.trim() : "";
+  return row.excluded === false && typeof row.storage_path === "string" && row.storage_path.trim().length > 0 && !boxFileId;
+}
+import_functions16.app.http("internalArchiveMirrorOutboxPending", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/pending",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const rawLimit = Number(req.query.get("limit") ?? "100");
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 500 ? rawLimit : 100;
+    const rows = await query(
+      `SELECT
+           o.evidence_id AS "evidenceId",
+           e.case_id AS "caseId",
+           o.requested_generation AS generation,
+           (e.excluded = false
+             AND NULLIF(btrim(e.storage_path), '') IS NOT NULL
+             AND NULLIF(btrim(e.box_file_id), '') IS NULL) AS "mirrorEligible"
+         FROM archive_mirror_outbox o
+         JOIN evidence e ON e.id = o.evidence_id
+        WHERE o.requested_generation > o.completed_generation
+          AND o.dead_lettered_at IS NULL
+          AND o.next_attempt_at <= now()
+        ORDER BY o.next_attempt_at, o.requested_at, o.evidence_id
+        LIMIT $1`,
+      [limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((row) => ({
+          evidenceId: row.evidenceId,
+          caseId: row.caseId,
+          generation: Number(row.generation),
+          mirrorEligible: row.mirrorEligible
+        }))
+      }
+    };
+  })
+});
+import_functions16.app.http("internalArchiveMirrorOutboxComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/{id}/complete",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const evidenceId = req.params.id?.trim();
+    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    let result;
+    for (let attempt = 0; attempt < 4 && !result; attempt++) {
+      const owner = await query(
+        "SELECT case_id FROM evidence WHERE id = $1",
+        [evidenceId]
+      );
+      if (!owner[0]) {
+        result = { completed: true, pending: false, missing: true };
+        break;
+      }
+      const resolved = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
+        const evidence = await q(
+          `SELECT case_id, excluded, storage_path, box_file_id
+               FROM evidence
+              WHERE id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        const evidenceRow = evidence[0];
+        if (!evidenceRow) return { kind: "retry" };
+        const evidenceCaseId = evidenceRow.case_id.trim().toLowerCase();
+        if (evidenceCaseId !== lockedCase.caseId) {
+          return { kind: "retry" };
+        }
+        const rows = await q(
+          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
+               FROM archive_mirror_outbox
+              WHERE evidence_id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        const outbox = rows[0];
+        if (!outbox) {
+          return { kind: "done", value: { completed: true, pending: false, missing: true } };
+        }
+        const requested = Number(outbox.requested_generation);
+        const completed = Number(outbox.completed_generation);
+        if (lockedCase.kind !== "active") {
+          return completed >= requested ? { kind: "done", value: { completed: true, pending: false } } : { kind: "retry" };
+        }
+        if (generation <= completed) {
+          return {
+            kind: "done",
+            value: { completed: true, pending: requested > completed }
+          };
+        }
+        const mirrorState = {
+          ...outbox,
+          excluded: evidenceRow.excluded,
+          storage_path: evidenceRow.storage_path,
+          box_file_id: evidenceRow.box_file_id
+        };
+        if (isMirrorEligible(mirrorState)) {
+          return {
+            kind: "done",
+            value: { completed: false, pending: true }
+          };
+        }
+        const acknowledged = Math.min(generation, requested);
+        await q(
+          `UPDATE archive_mirror_outbox
+                SET completed_generation = $2,
+                    completed_at = CASE WHEN $2 >= requested_generation THEN now() ELSE completed_at END,
+                    attempt_count = 0,
+                    next_attempt_at = now(),
+                    last_attempt_at = now(),
+                    last_error = NULL,
+                    dead_lettered_at = NULL,
+                    dead_letter_reason = NULL,
+                    updated_at = now()
+              WHERE evidence_id = $1`,
+          [evidenceId, acknowledged]
+        );
+        return {
+          kind: "done",
+          value: {
+            completed: true,
+            // A newer staff reversal raced this exact acknowledgement; leave it pending.
+            pending: acknowledged < requested
+          }
+        };
+      });
+      if (resolved.kind === "done") result = resolved.value;
+    }
+    if (!result) {
+      return {
+        status: 409,
+        jsonBody: { error: "evidence moved while completion was being checked", code: "evidence_moved" }
+      };
+    }
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions16.app.http("internalArchiveMirrorOutboxDefer", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/archive-mirror-outbox/{id}/defer",
+  handler: (req, ctx) => withServiceAuth2(req, ctx, async () => {
+    const evidenceId = req.params.id?.trim();
+    if (!evidenceId) return { status: 400, jsonBody: { error: "evidenceId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "archive pass incomplete" : "archive pass incomplete";
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const owner = await query(
+        "SELECT case_id FROM evidence WHERE id = $1",
+        [evidenceId]
+      );
+      if (!owner[0]) {
+        return { status: 200, jsonBody: { deferred: false, pending: false, missing: true } };
+      }
+      const deferred = await tx(async (q) => {
+        const lockedCase = await lockCaseForMutation(q, owner[0].case_id);
+        const evidence = await q(
+          `SELECT e.case_id,
+                    EXISTS (
+                      SELECT 1
+                        FROM staff_evidence_upload_item item
+                        JOIN staff_evidence_upload batch
+                          ON batch.idempotency_key = item.idempotency_key
+                         AND batch.case_id = item.case_id
+                       WHERE item.evidence_id = e.id
+                         AND item.case_id = e.case_id
+                         AND batch.source = 'manual_intake'
+                    ) AS manual_intake
+               FROM evidence e
+              WHERE e.id = $1
+              FOR UPDATE OF e`,
+          [evidenceId]
+        );
+        if (!evidence[0] || evidence[0].case_id.trim().toLowerCase() !== lockedCase.caseId) {
+          return { kind: "retry" };
+        }
+        const outbox = await q(
+          `SELECT requested_generation, completed_generation, attempt_count, dead_lettered_at
+               FROM archive_mirror_outbox
+              WHERE evidence_id = $1
+              FOR UPDATE`,
+          [evidenceId]
+        );
+        if (!outbox[0]) {
+          return { kind: "done", value: { deferred: false, pending: false, missing: true } };
+        }
+        const requested = Number(outbox[0].requested_generation);
+        const completed = Number(outbox[0].completed_generation);
+        if (outbox[0].dead_lettered_at != null) {
+          return {
+            kind: "done",
+            value: { deferred: false, pending: false, deadLettered: true }
+          };
+        }
+        if (completed >= requested) {
+          return { kind: "done", value: { deferred: false, pending: false } };
+        }
+        if (lockedCase.kind !== "active" || requested !== generation) {
+          return { kind: "done", value: { deferred: false, pending: true } };
+        }
+        const rows = await q(
+          `UPDATE archive_mirror_outbox
+                SET attempt_count = attempt_count + 1,
+                    last_attempt_at = now(),
+                    last_error = $3::text,
+                    dead_lettered_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now() ELSE NULL END,
+                    dead_letter_reason = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN $3::text ELSE NULL END,
+                    next_attempt_at = CASE
+                      WHEN $5 AND attempt_count + 1 >= $4 THEN now()
+                      ELSE now() + make_interval(
+                        secs => LEAST(3600, (30 * power(2, LEAST(attempt_count, 6)))::integer)
+                      )
+                    END,
+                    updated_at = now()
+              WHERE evidence_id = $1
+                AND requested_generation = $2
+                AND completed_generation < requested_generation
+            RETURNING next_attempt_at, dead_lettered_at`,
+          [
+            evidenceId,
+            generation,
+            reason,
+            ARCHIVE_MIRROR_MAX_ATTEMPTS,
+            evidence[0].manual_intake === true
+          ]
+        );
+        if (rows[0]?.dead_lettered_at != null) {
+          await requestStatusRecompute(q, lockedCase.caseId);
+        }
+        return {
+          kind: "done",
+          value: {
+            deferred: rows.length > 0,
+            pending: rows[0]?.dead_lettered_at == null,
+            deadLettered: rows[0]?.dead_lettered_at != null,
+            ...rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}
+          }
+        };
+      });
+      if (deferred.kind === "done") return { status: 200, jsonBody: deferred.value };
+    }
+    return {
+      status: 409,
+      jsonBody: { error: "evidence moved while retry was being deferred", code: "evidence_moved" }
+    };
+  })
+});
+
+// api/src/functions/provider-archive-outbox.ts
+var import_functions17 = require("@azure/functions");
+import_functions17.app.http("internalProviderArchiveOutboxPending", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "internal/provider-archive-outbox/pending",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const rawLimit = Number(req.query.get("limit") ?? "100");
+    const limit = Number.isSafeInteger(rawLimit) && rawLimit >= 1 && rawLimit <= 500 ? rawLimit : 100;
+    const rows = await query(
+      `SELECT id AS "caseId",
+              provider_archive_requested_generation AS generation,
+              true AS "archiveRequired"
+         FROM case_
+        WHERE provider_archive_requested_generation > provider_archive_completed_generation
+          AND provider_archive_next_attempt_at <= now()
+        ORDER BY provider_archive_next_attempt_at, provider_archive_requested_at, id
+        LIMIT $1`,
+      [limit]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        rows: rows.map((row) => ({
+          caseId: row.caseId,
+          generation: Number(row.generation),
+          archiveRequired: row.archiveRequired
+        }))
+      }
+    };
+  })
+});
+import_functions17.app.http("internalProviderArchiveOutboxComplete", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/provider-archive-outbox/{id}/complete",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim().toLowerCase();
+    if (!isUuid(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const result = await tx(async (q) => {
+      const locked = await lockCaseForMutation(q, caseId);
+      if (locked.kind === "missing") {
+        return { completed: true, pending: false, missing: true };
+      }
+      if (locked.kind === "retired") {
+        await q(
+          `UPDATE case_
+              SET provider_archive_completed_generation = provider_archive_requested_generation,
+                  provider_archive_completed_at = now(),
+                  provider_archive_last_error = 'superseded by merge target',
+                  updated_at = now()
+            WHERE id = $1
+              AND provider_archive_completed_generation < provider_archive_requested_generation`,
+          [caseId]
+        );
+        return { completed: true, pending: false, retired: true };
+      }
+      const rows = await q(
+        `SELECT provider_archive_requested_generation,
+                provider_archive_completed_generation,
+                box_folder_id,
+                on_hold_reason
+           FROM case_
+          WHERE id = $1
+          FOR UPDATE`,
+        [caseId]
+      );
+      const row = rows[0];
+      if (!row) return { completed: true, pending: false, missing: true };
+      const requested = Number(row.provider_archive_requested_generation);
+      const completed = Number(row.provider_archive_completed_generation);
+      if (generation <= completed) {
+        return { completed: true, pending: requested > completed };
+      }
+      const folderId = String(row.box_folder_id ?? "").trim();
+      const reason = String(row.on_hold_reason ?? "").trim();
+      const verified = Boolean(folderId) && reason !== "provider_unresolved" && reason !== "provider_archive_pending";
+      if (!verified) return { completed: false, pending: true };
+      const acknowledged = Math.min(generation, requested);
+      await q(
+        `UPDATE case_
+            SET provider_archive_completed_generation = GREATEST(
+                  provider_archive_completed_generation,
+                  $2::bigint
+                ),
+                provider_archive_completed_at = CASE
+                  WHEN $2::bigint >= provider_archive_requested_generation THEN now()
+                  ELSE provider_archive_completed_at
+                END,
+                provider_archive_attempt_count = 0,
+                provider_archive_next_attempt_at = now(),
+                provider_archive_last_attempt_at = now(),
+                provider_archive_last_error = NULL,
+                updated_at = now()
+          WHERE id = $1`,
+        [caseId, acknowledged]
+      );
+      return { completed: true, pending: acknowledged < requested };
+    });
+    return { status: 200, jsonBody: result };
+  })
+});
+import_functions17.app.http("internalProviderArchiveOutboxDefer", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/provider-archive-outbox/{id}/defer",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => {
+    const caseId = (req.params.id ?? "").trim().toLowerCase();
+    if (!isUuid(caseId)) return { status: 400, jsonBody: { error: "valid caseId required" } };
+    const body2 = await req.json().catch(() => ({}));
+    const generation = Number(body2.generation);
+    if (!Number.isSafeInteger(generation) || generation < 1) {
+      return { status: 400, jsonBody: { error: "generation must be a positive integer" } };
+    }
+    const reason = typeof body2.reason === "string" ? body2.reason.trim().slice(0, 200) || "Archive folder ensure incomplete" : "Archive folder ensure incomplete";
+    const rows = await query(
+      `UPDATE case_
+          SET provider_archive_attempt_count = provider_archive_attempt_count + 1,
+              provider_archive_last_attempt_at = now(),
+              provider_archive_last_error = $3,
+              provider_archive_next_attempt_at = now() + make_interval(
+                secs => LEAST(
+                  3600,
+                  (30 * power(2, LEAST(provider_archive_attempt_count, 6)))::integer
+                )
+              ),
+              updated_at = now()
+        WHERE id = $1
+          AND provider_archive_requested_generation = $2
+          AND provider_archive_completed_generation < provider_archive_requested_generation
+      RETURNING provider_archive_next_attempt_at AS next_attempt_at`,
+      [caseId, generation, reason]
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        deferred: rows.length > 0,
+        pending: rows.length > 0,
+        ...rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}
       }
     };
   })
 });
 
-// api/src/functions/ai-suggestions.ts
+// api/src/functions/box-file-request-outbox.ts
 var import_functions18 = require("@azure/functions");
+async function drainBoxFileRequestOutbox() {
+  if (!gates.boxApi() || !gates.boxFileRequest()) return { processed: 0, completed: 0 };
+  const caseIds = await pendingBoxFileRequestCaseIds();
+  let completed = 0;
+  for (const caseId of caseIds) {
+    const result = await processBoxFileRequestIntent(caseId);
+    if (result.kind === "ok") completed++;
+  }
+  return { processed: caseIds.length, completed };
+}
+import_functions18.app.timer("box-file-request-outbox-drain", {
+  schedule: "30 * * * * *",
+  handler: async () => {
+    try {
+      await drainBoxFileRequestOutbox();
+    } catch (error2) {
+      console.error("[box-file-request] timer drain failed", error2);
+    }
+  }
+});
+import_functions18.app.http("internalBoxFileRequestOutboxDrain", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "internal/box-file-request-outbox/drain",
+  handler: (req, ctx) => withServiceAuth(req, ctx, async () => ({
+    status: 200,
+    jsonBody: await drainBoxFileRequestOutbox()
+  }))
+});
+
+// api/src/functions/ai-suggestions.ts
+var import_functions19 = require("@azure/functions");
 
 // api/src/lib/aoai-suggestions.ts
 var CASE_ASSESSMENT_SUGGESTION_TYPES = {
@@ -67653,16 +75543,16 @@ async function drainEvidenceBackfillRequests(inboundEmailId, limit = 50) {
         [row.id, generation, row.case_id]
       );
       published++;
-    } catch (error) {
+    } catch (error2) {
       failed++;
       console.error(
-        `[ai-suggestions] evidence-backfill publish failed for inbound ${row.id}: ${error instanceof Error ? error.message : String(error)}`
+        `[ai-suggestions] evidence-backfill publish failed for inbound ${row.id}: ${error2 instanceof Error ? error2.message : String(error2)}`
       );
     }
   }
   return { published, failed };
 }
-import_functions18.app.http("caseAiSuggestions", {
+import_functions19.app.http("caseAiSuggestions", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions",
@@ -67683,7 +75573,7 @@ import_functions18.app.http("caseAiSuggestions", {
     }
   })
 });
-import_functions18.app.http("reviewAiSuggestion", {
+import_functions19.app.http("reviewAiSuggestion", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "ai-suggestions/{id}/review",
@@ -68176,7 +76066,7 @@ function coerceJsonValue(v) {
     return v;
   }
 }
-import_functions18.app.http("generateAiSuggestions", {
+import_functions19.app.http("generateAiSuggestions", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/ai-suggestions/generate",
@@ -68308,8 +76198,8 @@ async function callModelForSuggestions(input) {
 }
 
 // api/src/functions/evidence-backfill-drain.ts
-var import_functions19 = require("@azure/functions");
-import_functions19.app.http("internalEvidenceBackfillRequestDrain", {
+var import_functions20 = require("@azure/functions");
+import_functions20.app.http("internalEvidenceBackfillRequestDrain", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "internal/evidence-backfill-requests/drain",
@@ -68321,7 +76211,7 @@ import_functions19.app.http("internalEvidenceBackfillRequestDrain", {
 });
 
 // api/src/functions/image-analysis.ts
-var import_functions20 = require("@azure/functions");
+var import_functions21 = require("@azure/functions");
 
 // api/src/lib/image-analysis.ts
 var IMAGE_ANALYSIS_SUGGESTION_TYPES = {
@@ -68808,7 +76698,7 @@ function rasterFilename(fileName, contentType2) {
   const base = name.replace(/\.[^.]*$/, "") || "image";
   return `${base}${ext}`;
 }
-import_functions20.app.http("generateImageAnalysis", {
+import_functions21.app.http("generateImageAnalysis", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "cases/{id}/image-analysis/generate",
@@ -68935,18 +76825,18 @@ async function persistDraft(caseId, d) {
 }
 
 // api/src/functions/provider-keys.ts
-var import_functions21 = require("@azure/functions");
+var import_functions22 = require("@azure/functions");
 
 // api/src/lib/api-key-auth.ts
-var import_node_crypto13 = require("node:crypto");
+var import_node_crypto15 = require("node:crypto");
 var API_KEY_PREFIX = "cspk_";
 var SECRET_RANDOM_CHARS = 32;
 var KEY_PREFIX_LEN = 12;
 function hashApiKey(secret) {
-  return (0, import_node_crypto13.createHash)("sha256").update(secret, "utf8").digest("hex");
+  return (0, import_node_crypto15.createHash)("sha256").update(secret, "utf8").digest("hex");
 }
 function generateApiKey() {
-  const random = (0, import_node_crypto13.randomBytes)(24).toString("base64url");
+  const random = (0, import_node_crypto15.randomBytes)(24).toString("base64url");
   const plaintext = `${API_KEY_PREFIX}${random}`;
   return {
     plaintext,
@@ -68970,7 +76860,7 @@ async function verifyApiKey(presented) {
   for (const row of rows) {
     if (row.revoked_at) continue;
     const stored = Buffer.from(String(row.key_hash), "hex");
-    if (stored.length === presentedHash.length && (0, import_node_crypto13.timingSafeEqual)(stored, presentedHash)) {
+    if (stored.length === presentedHash.length && (0, import_node_crypto15.timingSafeEqual)(stored, presentedHash)) {
       matched = row;
       break;
     }
@@ -69017,7 +76907,7 @@ function rowToApiKey(r) {
     lastUsedAt: iso(r.last_used_at)
   };
 }
-import_functions21.app.http("createProviderApiKey", {
+import_functions22.app.http("createProviderApiKey", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -69052,7 +76942,7 @@ import_functions21.app.http("createProviderApiKey", {
     return { status: 201, jsonBody: result };
   })
 });
-import_functions21.app.http("listProviderApiKeys", {
+import_functions22.app.http("listProviderApiKeys", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys",
@@ -69069,7 +76959,7 @@ import_functions21.app.http("listProviderApiKeys", {
     return { status: 200, jsonBody: rows.map(rowToApiKey) };
   })
 });
-import_functions21.app.http("revokeProviderApiKey", {
+import_functions22.app.http("revokeProviderApiKey", {
   methods: ["DELETE"],
   authLevel: "anonymous",
   route: "providers/{id}/api-keys/{keyId}",
@@ -69101,8 +76991,8 @@ import_functions21.app.http("revokeProviderApiKey", {
 });
 
 // api/src/functions/provider-intake.ts
-var import_functions22 = require("@azure/functions");
-var import_node_crypto14 = require("node:crypto");
+var import_functions23 = require("@azure/functions");
+var import_node_crypto16 = require("node:crypto");
 
 // api/src/lib/provider-intake-validate.ts
 var DMY = /^\d{2}\/\d{2}\/\d{4}$/;
@@ -69264,7 +77154,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
   try {
     const bytes = Buffer.from(att.base64Data, "base64");
     if (bytes.length === 0) return false;
-    const sha256 = (0, import_node_crypto14.createHash)("sha256").update(bytes).digest("hex");
+    const sha256 = (0, import_node_crypto16.createHash)("sha256").update(bytes).digest("hex");
     const { blobPath, size } = await uploadEvidenceBytes(caseId, att.filename, bytes, att.contentType);
     const kindCode = evidenceKindCodec.toInt(kind) ?? (kind === "image" ? 1e8 : 100000002);
     return await tx(async (q) => {
@@ -69325,7 +77215,7 @@ async function persistEvidence(ctx, caseId, kind, att, sequenceIndex) {
     return false;
   }
 }
-import_functions22.app.http("providerIntakeCase", {
+import_functions23.app.http("providerIntakeCase", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "provider-intake/cases",
@@ -69474,10 +77364,10 @@ import_functions22.app.http("providerIntakeCase", {
 });
 
 // api/src/functions/vehicle-data.ts
-var import_functions23 = require("@azure/functions");
+var import_functions24 = require("@azure/functions");
 
 // api/src/lib/vehicle-data-persistence.ts
-var import_node_crypto15 = require("node:crypto");
+var import_node_crypto17 = require("node:crypto");
 
 // api/src/lib/enrichment-map.ts
 function combineMakeModel(make, model) {
@@ -69498,7 +77388,7 @@ function stableJson2(value) {
   return JSON.stringify(value) ?? "null";
 }
 function vehicleDataDigest(value) {
-  return (0, import_node_crypto15.createHash)("sha256").update(stableJson2(value)).digest("hex");
+  return (0, import_node_crypto17.createHash)("sha256").update(stableJson2(value)).digest("hex");
 }
 var LOOKUP_MESSAGES = {
   found: "Vehicle details could not be completed from the available history.",
@@ -69597,17 +77487,17 @@ async function loadVehicleDataReplay(caseId, idempotencyKey, requestSha256) {
     }
   };
 }
-async function insertProfile(q, kind, version2, digest, profile) {
-  if (!version2 || !digest) return;
+async function insertProfile(q, kind, version3, digest, profile) {
+  if (!version3 || !digest) return;
   await q(
     `INSERT INTO mileage_model_profile (profile_kind, version, dataset_digest, profile)
      VALUES ($1, $2, $3, $4::jsonb)
      ON CONFLICT (profile_kind, version) DO NOTHING`,
-    [kind, version2, digest, JSON.stringify(profile)]
+    [kind, version3, digest, JSON.stringify(profile)]
   );
   const existing = await q(
     "SELECT profile_kind, dataset_digest, profile FROM mileage_model_profile WHERE profile_kind = $1 AND version = $2",
-    [kind, version2]
+    [kind, version3]
   );
   if (!existing[0] || existing[0].profile_kind !== kind || existing[0].dataset_digest !== digest || vehicleDataDigest(existing[0].profile) !== vehicleDataDigest(profile)) {
     throw new Error("mileage model profile version conflicts with persisted provenance");
@@ -69618,10 +77508,13 @@ async function insertFieldSource(q, caseId, runId, fieldName, value, sourceLabel
     `INSERT INTO field_level_provenance
        (name, case_id, field_name, value, source_type_code, source_label,
         source_reference, review_state_code)
-     SELECT $1, $2, $3, $4, 100000005, $5, $6, 100000000
+     SELECT $1::varchar(200), $2::uuid, $3::varchar(100), $4::text,
+            100000005, $5::varchar(400), $6::varchar(400), 100000000
       WHERE NOT EXISTS (
         SELECT 1 FROM field_level_provenance
-         WHERE case_id = $2 AND field_name = $3 AND source_reference = $6
+         WHERE case_id = $2::uuid
+           AND field_name = $3::varchar(100)
+           AND source_reference = $6::varchar(400)
       )`,
     [`${caseId}:${fieldName}:${runId}`.slice(0, 200), caseId, fieldName, value, sourceLabel, runId]
   );
@@ -69871,25 +77764,25 @@ function withVehicleLookupAuth(handler) {
       const claims = await authenticate(req);
       if (!allowedPrincipal(claims)) return { status: 403, jsonBody: { error: "forbidden" } };
       return await handler(req, ctx);
-    } catch (error) {
-      return toErrorResponse(error, ctx);
+    } catch (error2) {
+      return toErrorResponse(error2, ctx);
     }
   };
 }
 function isoDate(value) {
   if (typeof value !== "string") return void 0;
   const v = value.trim();
-  const iso2 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const iso3 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   const dmy = v.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const year2 = Number(iso2?.[1] ?? dmy?.[3]);
-  const month = Number(iso2?.[2] ?? dmy?.[2]);
-  const day2 = Number(iso2?.[3] ?? dmy?.[1]);
+  const year2 = Number(iso3?.[1] ?? dmy?.[3]);
+  const month = Number(iso3?.[2] ?? dmy?.[2]);
+  const day2 = Number(iso3?.[3] ?? dmy?.[1]);
   if (!year2 || !month || !day2) return void 0;
   const parsed = new Date(Date.UTC(year2, month - 1, day2));
   if (parsed.getUTCFullYear() !== year2 || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day2) return void 0;
   return `${String(year2).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day2).padStart(2, "0")}`;
 }
-import_functions23.app.http("vehicleDataLookup", {
+import_functions24.app.http("vehicleDataLookup", {
   methods: ["POST"],
   authLevel: "anonymous",
   route: "vehicle-data/lookup",
@@ -69935,8 +77828,8 @@ import_functions23.app.http("vehicleDataLookup", {
       let replay;
       try {
         replay = await loadVehicleDataReplay(caseId, idempotencyKey, requestSha256);
-      } catch (error) {
-        throw new HttpError(409, error instanceof Error ? error.message : "vehicle lookup retry conflict");
+      } catch (error2) {
+        throw new HttpError(409, error2 instanceof Error ? error2.message : "vehicle lookup retry conflict");
       }
       if (replay) {
         await recomputeStatus(caseId);
@@ -69952,8 +77845,8 @@ import_functions23.app.http("vehicleDataLookup", {
         ...targetDate ? { targetDate } : {},
         ...idempotencyKey ? { idempotencyKey } : {}
       });
-    } catch (error) {
-      ctx.error(error);
+    } catch (error2) {
+      ctx.error(error2);
       throw new HttpError(503, "Vehicle details are temporarily unavailable.");
     }
     if (!caseId) return { status: 200, jsonBody: result };
@@ -69973,4 +77866,1777 @@ import_functions23.app.http("vehicleDataLookup", {
     ctx.log(JSON.stringify({ evt: "vehicleDataLookup", caseId, runId: result.lookup.run_id, applied: persisted.applied }));
     return { status: 200, jsonBody: { ...result, persisted } };
   })
+});
+
+// api/src/functions/capture.ts
+var import_functions25 = require("@azure/functions");
+var import_node_crypto19 = require("node:crypto");
+
+// api/src/lib/capture-auth.ts
+var import_node_crypto18 = require("node:crypto");
+var ISSUER2 = "collisionspike";
+var AUDIENCE = "collisioncapture";
+var ACCESS_SECONDS = 15 * 60;
+var CAPTURE_RESUME_COOKIE_NAME = "__Host-collisioncapture-resume";
+var SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
+function signingKey() {
+  const configured = process.env.CAPTURE_ACCESS_TOKEN_SECRET ?? "";
+  if (configured.length < 32) throw new Error("CAPTURE_ACCESS_TOKEN_SECRET must be at least 32 characters");
+  return new TextEncoder().encode(configured);
+}
+function newBootstrapSecret() {
+  return (0, import_node_crypto18.randomBytes)(32).toString("base64url");
+}
+function newResumeSecret() {
+  return (0, import_node_crypto18.randomBytes)(32).toString("base64url");
+}
+function captureSecretHash(secret) {
+  return (0, import_node_crypto18.createHash)("sha256").update(secret, "utf8").digest("hex");
+}
+function captureResumeSecretFromRequest(req) {
+  const raw = req.headers.get("cookie") ?? "";
+  const matches = raw.split(";").map((part) => part.trim()).filter((part) => part.startsWith(`${CAPTURE_RESUME_COOKIE_NAME}=`)).map((part) => part.slice(CAPTURE_RESUME_COOKIE_NAME.length + 1));
+  return matches.length === 1 && SECRET_RE.test(matches[0] ?? "") ? matches[0] : void 0;
+}
+function captureResumeCookie(secret, sessionExpiresAt, now = /* @__PURE__ */ new Date()) {
+  if (!SECRET_RE.test(secret)) throw new Error("capture resume secret is invalid");
+  const expires = new Date(sessionExpiresAt);
+  const maxAge = Math.max(0, Math.floor((expires.getTime() - now.getTime()) / 1e3));
+  if (!Number.isFinite(expires.getTime())) throw new Error("capture session expiry is invalid");
+  return [
+    `${CAPTURE_RESUME_COOKIE_NAME}=${secret}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+    "Path=/",
+    `Max-Age=${maxAge}`,
+    `Expires=${expires.toUTCString()}`
+  ].join("; ");
+}
+function clearCaptureResumeCookie() {
+  return [
+    `${CAPTURE_RESUME_COOKIE_NAME}=`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+    "Path=/",
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT"
+  ].join("; ");
+}
+async function mintCaptureAccessToken(sessionId, generation, now = /* @__PURE__ */ new Date()) {
+  const issuedAt = Math.floor(now.getTime() / 1e3);
+  const expiresAt = issuedAt + ACCESS_SECONDS;
+  const token = await new SignJWT({ generation, kind: "capture" }).setProtectedHeader({ alg: "HS256", typ: "JWT" }).setIssuer(ISSUER2).setAudience(AUDIENCE).setSubject(sessionId).setIssuedAt(issuedAt).setExpirationTime(expiresAt).sign(signingKey());
+  return { token, expiresAt: new Date(expiresAt * 1e3).toISOString() };
+}
+async function verifyCaptureAccessToken(req, now = /* @__PURE__ */ new Date()) {
+  const header = req.headers.get("authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) throw new Error("missing");
+  try {
+    const { payload } = await jwtVerify(token, signingKey(), {
+      issuer: ISSUER2,
+      audience: AUDIENCE,
+      currentDate: now
+    });
+    if (payload.kind !== "capture" || typeof payload.sub !== "string" || typeof payload.generation !== "number" || !Number.isInteger(payload.generation)) throw new Error("invalid");
+    return payload;
+  } catch (error2) {
+    if (error2 instanceof errors_exports.JOSEError) throw new Error("invalid");
+    throw error2;
+  }
+}
+
+// api/src/lib/capture-plans.ts
+var overview = {
+  id: "overview",
+  role: "overview",
+  evidenceRole: "overview",
+  label: "Vehicle overview",
+  prompt: "Take the whole vehicle with the registration clear.",
+  required: true,
+  sequence: 10,
+  guidanceProfile: { framing: "whole_vehicle", registrationExpected: true }
+};
+var damageCloseup = {
+  id: "damage-closeup",
+  role: "damage_closeup",
+  evidenceRole: "damage_closeup",
+  label: "Main damage close-up",
+  prompt: "Fill the frame with the main damaged area.",
+  required: true,
+  sequence: 20,
+  guidanceProfile: { framing: "damage_closeup" }
+};
+var optionalShots = [
+  ["damage-context", "damage_context", "Damage from further back", "Step back so the panel and damage position are clear."],
+  ["front-left", "front_left", "Front left corner", "Capture the front left corner from waist height."],
+  ["front-right", "front_right", "Front right corner", "Capture the front right corner from waist height."],
+  ["rear-left", "rear_left", "Rear left corner", "Capture the rear left corner from waist height."],
+  ["rear-right", "rear_right", "Rear right corner", "Capture the rear right corner from waist height."],
+  ["vin", "vin", "VIN", "Take the VIN plate or windscreen VIN if it is easy to reach."],
+  ["odometer", "odometer", "Odometer", "Take the dashboard mileage with the numbers readable."],
+  ["additional", "additional", "Anything else", "Add any other useful damage, interior, or context photo."]
+].map(([id, role, label, prompt], index) => ({
+  id,
+  role,
+  evidenceRole: "additional",
+  label,
+  prompt,
+  required: false,
+  sequence: 30 + index * 10,
+  guidanceProfile: { framing: role }
+}));
+var PLANS = {
+  "essential-v1": {
+    id: "essential-v1",
+    label: "Essential vehicle photos",
+    guidanceMode: "advisory",
+    rulesVersion: "deterministic-quality-v1",
+    shots: [overview, damageCloseup]
+  },
+  "standard-exterior-v1": {
+    id: "standard-exterior-v1",
+    label: "Standard exterior photo set",
+    guidanceMode: "advisory",
+    rulesVersion: "deterministic-quality-v1",
+    shots: [overview, damageCloseup, ...optionalShots]
+  }
+};
+function captureShotPlan(value) {
+  const id = typeof value === "string" ? value : "essential-v1";
+  return id === "essential-v1" || id === "standard-exterior-v1" ? PLANS[id] : void 0;
+}
+function captureExpiryHours(value) {
+  const hours = value == null ? 72 : Number(value);
+  return hours === 24 || hours === 72 || hours === 168 ? hours : void 0;
+}
+function configuredCaptureGuidanceMode(value = process.env.CAPTURE_GUIDANCE_MODE) {
+  const mode = (value ?? "advisory").trim().toLowerCase();
+  return mode === "off" || mode === "shadow" || mode === "advisory" || mode === "enforced" ? mode : void 0;
+}
+
+// api/src/lib/case-mutation-target.ts
+var MAX_MERGE_LINEAGE_HOPS2 = 16;
+var MAX_LOCK_RETRIES2 = 4;
+var CASE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+async function probeCaseMutationTarget(q, requestedCaseId) {
+  const lineage = [];
+  const seen = /* @__PURE__ */ new Set();
+  let cursor = requestedCaseId;
+  for (let hop = 0; hop <= MAX_MERGE_LINEAGE_HOPS2; hop++) {
+    const caseId = cursor.trim().toLowerCase();
+    if (!caseId || !CASE_ID_RE.test(caseId)) {
+      return { kind: "unresolved", reason: "invalid_lineage" };
+    }
+    if (seen.has(caseId)) {
+      return { kind: "unresolved", reason: "cycle_or_too_deep" };
+    }
+    seen.add(caseId);
+    const rows = await q(
+      "SELECT id, duplicate_keys, status_code FROM case_ WHERE id = $1",
+      [caseId]
+    );
+    const row = rows[0];
+    if (!row) return { kind: "unresolved", reason: "missing" };
+    const canonical = row.id.trim().toLowerCase();
+    lineage.push(canonical);
+    const mergedInto = mergedIntoFrom(row.duplicate_keys)?.trim().toLowerCase();
+    if (!mergedInto) {
+      return {
+        kind: "resolved",
+        target: { caseId: canonical, statusCode: Number(row.status_code), lineage }
+      };
+    }
+    cursor = mergedInto;
+  }
+  return { kind: "unresolved", reason: "cycle_or_too_deep" };
+}
+function sameLineage(left, right) {
+  return left.length === right.length && left.every((id, index) => id === right[index]);
+}
+async function withResolvedCaseMutationTarget(requestedCaseId, work) {
+  for (let attempt = 0; attempt < MAX_LOCK_RETRIES2; attempt++) {
+    const probe = await probeCaseMutationTarget(query, requestedCaseId);
+    if (probe.kind === "unresolved") return probe;
+    const outcome = await tx(async (q) => {
+      await acquireCaseMutationLocks(q, probe.target.lineage);
+      const orderedIds = orderedCaseMutationIds(probe.target.lineage);
+      const locked = await q(
+        "SELECT id FROM case_ WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE",
+        [orderedIds]
+      );
+      if (locked.length !== orderedIds.length) {
+        return { kind: "unresolved", reason: "missing" };
+      }
+      const checked = await probeCaseMutationTarget(q, requestedCaseId);
+      if (checked.kind === "unresolved") return checked;
+      if (!sameLineage(checked.target.lineage, probe.target.lineage)) {
+        return { kind: "retry" };
+      }
+      return {
+        kind: "resolved",
+        targetCaseId: checked.target.caseId,
+        value: await work(q, checked.target)
+      };
+    });
+    if (outcome.kind === "retry") continue;
+    return outcome;
+  }
+  return { kind: "unresolved", reason: "changing" };
+}
+
+// api/src/functions/capture.ts
+var SHA256_RE2 = /^[0-9a-f]{64}$/;
+var BOOTSTRAP_SECRET_RE = /^[A-Za-z0-9_-]{43}$/;
+var IDEMPOTENCY_RE2 = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
+var PUBLIC_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
+var VALIDATION_LEASE_SECONDS = 5 * 60;
+var MAX_RESUME_TOKENS_PER_SESSION = 8;
+var MAX_UPLOAD_RESERVATIONS_PER_SHOT = 8;
+var MAX_UPLOAD_RESERVATIONS_PER_SESSION = 60;
+var MAX_CLIENT_OBSERVATION_BYTES = 1024;
+var MAX_STABLE_FRAMES = 120;
+var CLIENT_CAPTURE_ROUTES = ["guided", "os_fallback"];
+var CLIENT_CAPTURE_DISPOSITIONS = ["ready", "take_anyway", "unassessed"];
+var CLIENT_CAPTURE_ISSUES = [
+  "too-dark",
+  "too-bright",
+  "camera-moving",
+  "not-sharp",
+  "low-contrast"
+];
+var TERMINAL_STATUS_CODES = [
+  statusToInt("eva_submitted"),
+  statusToInt("box_synced"),
+  statusToInt("removed"),
+  statusToInt("done")
+];
+var CaptureProblem = class extends Error {
+  constructor(status, code, message2) {
+    super(message2);
+    this.status = status;
+    this.code = code;
+  }
+};
+function isRecord(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOnlyKeys2(value, allowed) {
+  return Object.keys(value).every((key) => allowed.includes(key));
+}
+function normalizedClientCaptureObservation(raw, expectedRulesVersion) {
+  let serialized;
+  try {
+    serialized = JSON.stringify(raw);
+  } catch {
+    throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+  }
+  if (!serialized || Buffer.byteLength(serialized, "utf8") > MAX_CLIENT_OBSERVATION_BYTES || !isRecord(raw)) {
+    throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+  }
+  if (!hasOnlyKeys2(raw, ["route", "disposition", "issue", "signals", "stableFrames", "rulesVersion"])) {
+    throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+  }
+  if (typeof raw.route !== "string" || !CLIENT_CAPTURE_ROUTES.includes(raw.route) || typeof raw.disposition !== "string" || !CLIENT_CAPTURE_DISPOSITIONS.includes(raw.disposition) || typeof raw.stableFrames !== "number" || !Number.isInteger(raw.stableFrames) || raw.stableFrames < 0 || raw.stableFrames > MAX_STABLE_FRAMES || typeof raw.rulesVersion !== "string" || raw.rulesVersion.length < 1 || raw.rulesVersion.length > 64 || raw.rulesVersion !== expectedRulesVersion) {
+    throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+  }
+  let issue2;
+  if (raw.issue !== void 0) {
+    if (typeof raw.issue !== "string" || !CLIENT_CAPTURE_ISSUES.includes(raw.issue)) {
+      throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+    }
+    issue2 = raw.issue;
+  }
+  let signals;
+  if (raw.signals !== void 0) {
+    if (!isRecord(raw.signals) || !hasOnlyKeys2(raw.signals, ["brightness", "contrast", "sharpness", "motion"])) {
+      throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+    }
+    const values = [
+      raw.signals.brightness,
+      raw.signals.contrast,
+      raw.signals.sharpness,
+      raw.signals.motion
+    ];
+    if (values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1)) {
+      throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+    }
+    signals = {
+      brightness: raw.signals.brightness,
+      contrast: raw.signals.contrast,
+      sharpness: raw.signals.sharpness,
+      motion: raw.signals.motion
+    };
+  }
+  if (raw.disposition === "unassessed" && (issue2 !== void 0 || signals !== void 0 || raw.stableFrames !== 0) || raw.disposition === "ready" && (issue2 !== void 0 || signals === void 0) || raw.route === "guided" && raw.disposition === "ready" && raw.stableFrames < 1 || issue2 !== void 0 && signals === void 0) {
+    throw new CaptureProblem(400, "capture_validation", "The photo guidance details are invalid.");
+  }
+  return {
+    route: raw.route,
+    disposition: raw.disposition,
+    ...issue2 === void 0 ? {} : { issue: issue2 },
+    ...signals === void 0 ? {} : { signals },
+    stableFrames: raw.stableFrames,
+    rulesVersion: raw.rulesVersion
+  };
+}
+function storedClientObservationFingerprint(raw, rulesVersion) {
+  try {
+    const value = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return JSON.stringify(normalizedClientCaptureObservation(value, rulesVersion));
+  } catch {
+    return void 0;
+  }
+}
+function boundedContentType(value) {
+  if (typeof value !== "string") return void 0;
+  const normalized = value.toLowerCase().split(";")[0]?.trim() ?? "";
+  return normalized ? normalized.slice(0, 200) : void 0;
+}
+function serverStructuralObservation(input) {
+  return JSON.stringify({
+    version: "structural-v1",
+    result: input.result,
+    propertiesMatch: input.propertiesMatch,
+    ...boundedContentType(input.contentType) ? { contentType: boundedContentType(input.contentType) } : {},
+    ...typeof input.sizeBytes === "number" && Number.isFinite(input.sizeBytes) ? { sizeBytes: Math.max(0, Math.min(input.sizeBytes, MAX_UPLOAD_BYTES)) } : {},
+    ...input.hashMatches === void 0 ? {} : { hashMatches: input.hashMatches },
+    ...input.magicBytesValid === void 0 ? {} : { magicBytesValid: input.magicBytesValid },
+    ...input.decodable === void 0 ? {} : { decodable: input.decodable },
+    ...input.width === void 0 ? {} : { width: input.width },
+    ...input.height === void 0 ? {} : { height: input.height }
+  });
+}
+function enabled2(name) {
+  return (process.env[name] ?? "").trim().toLowerCase() === "true";
+}
+function iso2(value) {
+  return (value instanceof Date ? value : new Date(value)).toISOString();
+}
+function publicStatus(row) {
+  return row.status === "open" && new Date(row.expires_at).getTime() <= Date.now() ? "expired" : row.status;
+}
+function noStore(response) {
+  return { ...response, headers: { ...response.headers ?? {}, "Cache-Control": "no-store" } };
+}
+function problem(status, error2, message2) {
+  return noStore({ status, jsonBody: { error: error2, message: message2 } });
+}
+function logStorageFailure(ctx, category, error2) {
+  const storageError = error2;
+  const status = typeof storageError?.statusCode === "number" && Number.isInteger(storageError.statusCode) && storageError.statusCode >= 100 && storageError.statusCode <= 599 ? storageError.statusCode : void 0;
+  const code = typeof storageError?.code === "string" && /^[A-Za-z0-9_.-]{1,80}$/.test(storageError.code) ? storageError.code : void 0;
+  const detail = [status == null ? void 0 : `status=${status}`, code ? `code=${code}` : void 0].filter(Boolean).join(" ");
+  ctx.error(`${category}${detail ? ` ${detail}` : ""}`);
+}
+function staffCaptureFeature() {
+  return enabled2("CAPTURE_SESSIONS_ENABLED") ? void 0 : problem(404, "capture_missing", "Capture is not available.");
+}
+async function storeCaptureResumeToken(q, sessionId, tokenGeneration, expiresAt) {
+  const secret = newResumeSecret();
+  const tokenHash = captureSecretHash(secret);
+  const slots = await q(
+    `SELECT token_hash
+       FROM capture_session_resume_token
+      WHERE session_id = $1
+      ORDER BY created_at DESC, token_hash DESC
+      LIMIT $2
+      FOR UPDATE`,
+    [sessionId, MAX_RESUME_TOKENS_PER_SESSION]
+  );
+  if (slots.length >= MAX_RESUME_TOKENS_PER_SESSION) {
+    const oldest = slots[slots.length - 1];
+    if (!oldest) throw new Error("capture resume token slot disappeared");
+    const replaced = await q(
+      `UPDATE capture_session_resume_token
+          SET token_hash = $3, token_generation = $4, expires_at = $5,
+              created_at = now(), last_used_at = NULL
+        WHERE session_id = $1 AND token_hash = $2
+        RETURNING token_hash`,
+      [sessionId, oldest.token_hash, tokenHash, tokenGeneration, expiresAt]
+    );
+    if (!replaced[0]) throw new Error("capture resume token slot could not be replaced");
+  } else {
+    await q(
+      `INSERT INTO capture_session_resume_token
+         (token_hash, session_id, token_generation, expires_at)
+       VALUES ($1,$2,$3,$4)`,
+      [tokenHash, sessionId, tokenGeneration, expiresAt]
+    );
+  }
+  return secret;
+}
+function publicCaptureFeature() {
+  return enabled2("PUBLIC_CAPTURE_ENABLED") ? void 0 : problem(404, "capture_missing", "Capture is not available.");
+}
+function summary(row) {
+  const submittedAt = row.submitted_at ? iso2(row.submitted_at) : void 0;
+  return {
+    sessionId: row.id,
+    status: publicStatus(row),
+    shotPlanId: row.shot_plan_id,
+    shotPlanLabel: row.shot_plan_label,
+    guidanceMode: row.guidance_mode,
+    expiresAt: iso2(row.expires_at),
+    createdAt: iso2(row.created_at),
+    ...submittedAt ? { submittedAt } : {},
+    requiredTotal: Number(row.required_total),
+    requiredCompleted: Number(row.required_completed)
+  };
+}
+var SUMMARY_SELECT = `
+  SELECT s.*,
+         COUNT(sh.shot_id) FILTER (WHERE sh.required) AS required_total,
+         COUNT(sh.shot_id) FILTER (
+           WHERE sh.required AND EXISTS (
+             SELECT 1 FROM capture_asset a
+              WHERE a.session_id = s.id AND a.shot_id = sh.shot_id
+                AND a.selected = true
+                AND a.state IN ('accepted','pending_review','materialised')
+           )
+         ) AS required_completed
+    FROM capture_session s
+    LEFT JOIN capture_session_shot sh ON sh.session_id = s.id`;
+async function summaryById(sessionId, q = query) {
+  const rows = await q(
+    `${SUMMARY_SELECT} WHERE s.id = $1 GROUP BY s.id`,
+    [sessionId]
+  );
+  return rows[0];
+}
+async function releaseValidationAttempt(assetId, validationAttempt, validationCode) {
+  await query(
+    `UPDATE capture_asset
+        SET state = 'upload_pending', validation_code = $3,
+            validation_attempt = NULL, validation_lease_expires_at = NULL,
+            updated_at = now()
+      WHERE id = $1 AND state = 'validating' AND validation_attempt = $2`,
+    [assetId, validationAttempt, validationCode]
+  );
+}
+async function lockCaptureSessionInTransaction(q, sessionId, expectedCaseId, reason) {
+  const locked = await q(
+    `UPDATE capture_session
+        SET status = 'locked', locked_at = COALESCE(locked_at, now()),
+            token_generation = token_generation + 1, updated_at = now()
+      WHERE id = $1 AND case_id = $2 AND status = 'open'
+      RETURNING case_id`,
+    [sessionId, expectedCaseId]
+  );
+  if (!locked[0]) return false;
+  await q("DELETE FROM capture_session_resume_token WHERE session_id = $1", [sessionId]);
+  await writeAuditStrict({
+    action: AUDIT_ACTION.capture_session_locked,
+    caseId: locked[0].case_id,
+    actor: "System",
+    summary: "Guided capture session locked for staff review",
+    after: { sessionId, reason }
+  }, q);
+  return true;
+}
+async function lockCaptureSessionForStaffResolution(sessionId, reason) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const owner = await staffSessionOwner(sessionId);
+    if (!owner || owner.status !== "open") return;
+    const outcome = await tx(async (q) => {
+      const lockedCase = await lockCaseForMutation(q, owner.caseId);
+      if (lockedCase.kind === "missing") return "gone";
+      return await lockCaptureSessionInTransaction(q, sessionId, owner.caseId, reason) ? "locked" : "retry";
+    });
+    if (outcome !== "retry") return;
+  }
+  throw new CaptureProblem(503, "capture_retryable", "This capture session is changing. Try again.");
+}
+async function retargetOpenCaptureSession(q, sessionId, currentCaseId, targetCaseId, lineage) {
+  if (currentCaseId === targetCaseId) return false;
+  const retargeted = await q(
+    `UPDATE capture_session
+        SET case_id = $2, updated_at = now()
+      WHERE id = $1 AND case_id = $3 AND status = 'open'
+      RETURNING id`,
+    [sessionId, targetCaseId, currentCaseId]
+  );
+  if (!retargeted[0]) {
+    throw new CaptureProblem(409, "capture_retryable", "This capture session changed. Try again.");
+  }
+  await writeAuditStrict({
+    action: AUDIT_ACTION.capture_session_retargeted,
+    caseId: targetCaseId,
+    actor: "System",
+    summary: "Guided capture session moved to merged case survivor",
+    before: { caseId: currentCaseId },
+    after: { sessionId, caseId: targetCaseId, lineage }
+  }, q);
+  return true;
+}
+function captureUrl(secret) {
+  const configured = (process.env.CAPTURE_PUBLIC_BASE_URL ?? "").trim();
+  let base;
+  try {
+    base = new URL(configured);
+  } catch {
+    throw new CaptureProblem(503, "capture_retryable", "Capture links are not configured.");
+  }
+  if (base.protocol !== "https:" || base.username !== "" || base.password !== "" || base.search !== "" || base.hash !== "") {
+    throw new CaptureProblem(503, "capture_retryable", "Capture links are not configured.");
+  }
+  return `${base.toString().replace(/\/$/u, "")}/#capture=${secret}`;
+}
+async function staffSessionOwner(sessionId) {
+  const rows = await query(
+    "SELECT case_id, status FROM capture_session WHERE id = $1",
+    [sessionId]
+  );
+  return rows[0] ? { caseId: rows[0].case_id, status: rows[0].status } : void 0;
+}
+async function activePublicSession(req, expectedSessionId) {
+  let claims;
+  try {
+    claims = await verifyCaptureAccessToken(req);
+  } catch {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  if (claims.sub !== expectedSessionId) {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  const rows = await query(
+    `SELECT id, case_id, status, shot_plan_id, shot_plan_label, guidance_mode,
+            rules_version, model_version, token_generation, expires_at, created_at,
+            submitted_at, submit_idempotency_key, revoked_at
+       FROM capture_session WHERE id = $1`,
+    [expectedSessionId]
+  );
+  const row = rows[0];
+  if (!row || Number(row.token_generation) !== claims.generation) {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  const status = publicStatus(row);
+  if (status === "expired") throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+  if (status === "revoked") throw new CaptureProblem(410, "capture_revoked", "This capture link has been withdrawn.");
+  if (status === "locked") throw new CaptureProblem(423, "capture_locked", "This capture link is locked.");
+  return row;
+}
+async function submitPublicSession(req, expectedSessionId) {
+  let claims;
+  try {
+    claims = await verifyCaptureAccessToken(req);
+  } catch {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  if (claims.sub !== expectedSessionId) {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  const rows = await query(
+    `SELECT id, case_id, status, shot_plan_id, shot_plan_label, guidance_mode,
+            rules_version, model_version, token_generation, expires_at, created_at,
+            submitted_at, submit_idempotency_key, revoked_at
+       FROM capture_session WHERE id = $1`,
+    [expectedSessionId]
+  );
+  const row = rows[0];
+  if (!row) throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  const generation = Number(row.token_generation);
+  const currentGeneration = generation === claims.generation;
+  const completedReplay = row.status === "complete" && generation === claims.generation + 1;
+  if (!currentGeneration && !completedReplay) {
+    throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+  }
+  if (completedReplay) return row;
+  const status = publicStatus(row);
+  if (status === "expired") throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+  if (status === "revoked") throw new CaptureProblem(410, "capture_revoked", "This capture link has been withdrawn.");
+  if (status === "locked") throw new CaptureProblem(423, "capture_locked", "This capture link is locked.");
+  return row;
+}
+async function publicHandler(_req, ctx, handler) {
+  const off = publicCaptureFeature();
+  if (off) return off;
+  try {
+    return noStore(await handler());
+  } catch (error2) {
+    if (error2 instanceof CaptureProblem) return problem(error2.status, error2.code, error2.message);
+    ctx.error(error2);
+    return problem(500, "capture_unknown", "Capture could not be completed.");
+  }
+}
+import_functions25.app.http("createCaptureSession", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "cases/{id}/capture-sessions",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const off = staffCaptureFeature();
+    if (off) return off;
+    const caseId = req.params.id ?? "";
+    const body2 = await req.json().catch(() => ({}));
+    const plan = captureShotPlan(body2.shotPlanId);
+    const expiryHours = captureExpiryHours(body2.expiresInHours);
+    const guidanceMode = configuredCaptureGuidanceMode();
+    if (!plan) return problem(400, "capture_unsupported", "Choose a supported photo plan.");
+    if (!expiryHours) return problem(400, "capture_validation", "Choose a 24, 72 or 168 hour expiry.");
+    if (!guidanceMode) return problem(503, "capture_retryable", "Capture guidance is not configured safely.");
+    const secret = newBootstrapSecret();
+    const bootstrapHash = captureSecretHash(secret);
+    const actor = actorFromClaims(claims) ?? "staff";
+    try {
+      const url2 = captureUrl(secret);
+      const sessionId = await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, caseId);
+        if (locked.kind === "missing") throw new CaptureProblem(404, "capture_missing", "This case is not available.");
+        if (locked.kind === "retired") throw new CaptureProblem(409, "capture_conflict", "Open the current case and try again.");
+        const cases = await q("SELECT status_code FROM case_ WHERE id = $1", [locked.caseId]);
+        if (!cases[0] || TERMINAL_STATUS_CODES.includes(Number(cases[0].status_code))) {
+          throw new CaptureProblem(409, "capture_conflict", "This case is no longer open for photos.");
+        }
+        const rows = await q(
+          `INSERT INTO capture_session
+             (case_id, shot_plan_id, shot_plan_label, guidance_mode, rules_version,
+              model_version, bootstrap_token_hash, expires_at, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,now() + ($8::text || ' hours')::interval,$9)
+           RETURNING id`,
+          [
+            locked.caseId,
+            plan.id,
+            plan.label,
+            guidanceMode,
+            plan.rulesVersion,
+            plan.modelVersion ?? null,
+            bootstrapHash,
+            expiryHours,
+            actor
+          ]
+        );
+        const id = rows[0]?.id;
+        if (!id) throw new Error("capture session insert did not return an id");
+        for (const shot of plan.shots) {
+          await q(
+            `INSERT INTO capture_session_shot
+               (session_id, shot_id, role, evidence_role, label, prompt, required,
+                sequence, guidance_profile)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)`,
+            [
+              id,
+              shot.id,
+              shot.role,
+              shot.evidenceRole,
+              shot.label,
+              shot.prompt,
+              shot.required,
+              shot.sequence,
+              JSON.stringify(shot.guidanceProfile)
+            ]
+          );
+        }
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_session_created,
+          caseId: locked.caseId,
+          actor,
+          summary: "Guided capture session created",
+          after: { sessionId: id, shotPlanId: plan.id, expiresInHours: expiryHours }
+        }, q);
+        return id;
+      });
+      const row = await summaryById(sessionId);
+      if (!row) throw new Error("capture session disappeared");
+      return noStore({ status: 201, jsonBody: { session: summary(row), captureUrl: url2 } });
+    } catch (error2) {
+      if (error2 instanceof CaptureProblem) return problem(error2.status, error2.code, error2.message);
+      throw error2;
+    }
+  })
+});
+import_functions25.app.http("listCaptureSessions", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "cases/{id}/capture-sessions",
+  handler: withRole("CollisionSpike.User", async (req) => {
+    const off = staffCaptureFeature();
+    if (off) return off;
+    const rows = await query(
+      `${SUMMARY_SELECT} WHERE s.case_id = $1 GROUP BY s.id ORDER BY s.created_at DESC`,
+      [req.params.id ?? ""]
+    );
+    return noStore({ status: 200, jsonBody: { sessions: rows.map(summary) } });
+  })
+});
+import_functions25.app.http("rotateCaptureSession", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "capture-sessions/{id}/rotate",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const off = staffCaptureFeature();
+    if (off) return off;
+    const sessionId = req.params.id ?? "";
+    const secret = newBootstrapSecret();
+    const actor = actorFromClaims(claims) ?? "staff";
+    try {
+      const url2 = captureUrl(secret);
+      const owner = await staffSessionOwner(sessionId);
+      if (!owner) return problem(404, "capture_missing", "Capture session not found.");
+      await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, owner.caseId);
+        if (locked.kind !== "active") throw new CaptureProblem(409, "capture_conflict", "This case is no longer available.");
+        const rows = await q(
+          `UPDATE capture_session
+              SET bootstrap_token_hash = $2, token_generation = token_generation + 1,
+                  updated_at = now()
+            WHERE id = $1 AND case_id = $3 AND status = 'open' AND expires_at > now()
+            RETURNING id`,
+          [sessionId, captureSecretHash(secret), locked.caseId]
+        );
+        if (!rows[0]) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+        await q("DELETE FROM capture_session_resume_token WHERE session_id = $1", [sessionId]);
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_session_rotated,
+          caseId: locked.caseId,
+          actor,
+          summary: "Guided capture link rotated",
+          after: { sessionId }
+        }, q);
+      });
+      const row = await summaryById(sessionId);
+      if (!row) throw new Error("capture session disappeared");
+      return noStore({ status: 200, jsonBody: { session: summary(row), captureUrl: url2 } });
+    } catch (error2) {
+      if (error2 instanceof CaptureProblem) return problem(error2.status, error2.code, error2.message);
+      throw error2;
+    }
+  })
+});
+import_functions25.app.http("revokeCaptureSession", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "capture-sessions/{id}/revoke",
+  handler: withRole("CollisionSpike.User", async (req, _ctx, claims) => {
+    const off = staffCaptureFeature();
+    if (off) return off;
+    const sessionId = req.params.id ?? "";
+    const owner = await staffSessionOwner(sessionId);
+    if (!owner) return problem(404, "capture_missing", "Capture session not found.");
+    const actor = actorFromClaims(claims) ?? "staff";
+    try {
+      await tx(async (q) => {
+        const locked = await lockCaseForMutation(q, owner.caseId);
+        if (locked.kind !== "active") throw new CaptureProblem(409, "capture_conflict", "This case is no longer available.");
+        const rows = await q(
+          `UPDATE capture_session
+              SET status = 'revoked', revoked_at = COALESCE(revoked_at, now()),
+                  token_generation = token_generation + CASE WHEN status = 'open' THEN 1 ELSE 0 END,
+                  updated_at = now()
+            WHERE id = $1 AND case_id = $2 AND status IN ('open','revoked')
+            RETURNING id`,
+          [sessionId, locked.caseId]
+        );
+        if (!rows[0]) throw new CaptureProblem(409, "capture_conflict", "This capture session cannot be withdrawn.");
+        await q("DELETE FROM capture_session_resume_token WHERE session_id = $1", [sessionId]);
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_session_revoked,
+          caseId: locked.caseId,
+          actor,
+          summary: "Guided capture session revoked",
+          after: { sessionId }
+        }, q);
+      });
+      const row = await summaryById(sessionId);
+      if (!row) throw new Error("capture session disappeared");
+      return noStore({ status: 200, jsonBody: summary(row) });
+    } catch (error2) {
+      if (error2 instanceof CaptureProblem) return problem(error2.status, error2.code, error2.message);
+      throw error2;
+    }
+  })
+});
+import_functions25.app.http("exchangeCaptureSecret", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "public/capture/exchange",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const body2 = await req.json().catch(() => ({}));
+    if (typeof body2.bootstrapSecret !== "string" || !BOOTSTRAP_SECRET_RE.test(body2.bootstrapSecret)) {
+      throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+    }
+    const bootstrapSecret = body2.bootstrapSecret;
+    const issued = await tx(async (q) => {
+      const rows = await q(
+        `SELECT id, case_id, status, shot_plan_id, shot_plan_label, guidance_mode,
+                rules_version, model_version, token_generation, expires_at, created_at,
+                submitted_at, submit_idempotency_key, revoked_at
+           FROM capture_session
+          WHERE bootstrap_token_hash = $1
+          FOR UPDATE`,
+        [captureSecretHash(bootstrapSecret)]
+      );
+      const row = rows[0];
+      if (!row) throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+      const status = publicStatus(row);
+      if (status === "expired") throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+      if (status === "revoked") throw new CaptureProblem(410, "capture_revoked", "This capture link has been withdrawn.");
+      if (status === "locked") throw new CaptureProblem(423, "capture_locked", "This capture link is locked.");
+      if (status === "complete") throw new CaptureProblem(409, "capture_conflict", "These photos have already been submitted.");
+      const resumeSecret = await storeCaptureResumeToken(
+        q,
+        row.id,
+        Number(row.token_generation),
+        row.expires_at
+      );
+      await q("UPDATE capture_session SET last_exchanged_at = now() WHERE id = $1", [row.id]);
+      return { row, resumeSecret };
+    });
+    const access2 = await mintCaptureAccessToken(
+      issued.row.id,
+      Number(issued.row.token_generation)
+    );
+    return {
+      status: 200,
+      headers: {
+        "Set-Cookie": captureResumeCookie(issued.resumeSecret, issued.row.expires_at)
+      },
+      jsonBody: {
+        sessionId: issued.row.id,
+        accessToken: access2.token,
+        accessTokenExpiresAt: access2.expiresAt
+      }
+    };
+  })
+});
+import_functions25.app.http("renewCaptureAccess", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "public/capture/renew",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const resumeSecret = captureResumeSecretFromRequest(req);
+    if (!resumeSecret) {
+      throw new CaptureProblem(401, "capture_unauthorized", "This capture session cannot be resumed.");
+    }
+    const tokenHash = captureSecretHash(resumeSecret);
+    const renewed = await tx(async (q) => {
+      const owners = await q(
+        "SELECT session_id FROM capture_session_resume_token WHERE token_hash = $1",
+        [tokenHash]
+      );
+      const owner = owners[0];
+      if (!owner) {
+        throw new CaptureProblem(401, "capture_unauthorized", "This capture session cannot be resumed.");
+      }
+      const sessions = await q(
+        `SELECT id, status, expires_at, token_generation
+           FROM capture_session
+          WHERE id = $1
+          FOR UPDATE`,
+        [owner.session_id]
+      );
+      const session = sessions[0];
+      if (!session) {
+        throw new CaptureProblem(401, "capture_unauthorized", "This capture session cannot be resumed.");
+      }
+      const tokens = await q(
+        `SELECT token_generation, expires_at
+           FROM capture_session_resume_token
+          WHERE token_hash = $1 AND session_id = $2
+          FOR UPDATE`,
+        [tokenHash, session.id]
+      );
+      const token = tokens[0];
+      if (!token) {
+        throw new CaptureProblem(401, "capture_unauthorized", "This capture session cannot be resumed.");
+      }
+      const status = publicStatus(session);
+      if (status === "expired") throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+      if (status === "revoked") throw new CaptureProblem(410, "capture_revoked", "This capture link has been withdrawn.");
+      if (status === "locked") throw new CaptureProblem(423, "capture_locked", "This capture link is locked.");
+      if (status === "complete") throw new CaptureProblem(409, "capture_conflict", "These photos have already been submitted.");
+      if (Number(token.token_generation) !== Number(session.token_generation)) {
+        throw new CaptureProblem(401, "capture_unauthorized", "This capture session cannot be resumed.");
+      }
+      if (new Date(token.expires_at).getTime() <= Date.now()) {
+        throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+      }
+      await q(
+        "UPDATE capture_session_resume_token SET last_used_at = now() WHERE token_hash = $1",
+        [tokenHash]
+      );
+      await q("UPDATE capture_session SET last_exchanged_at = now() WHERE id = $1", [session.id]);
+      return session;
+    });
+    const access2 = await mintCaptureAccessToken(
+      renewed.id,
+      Number(renewed.token_generation)
+    );
+    return {
+      status: 200,
+      jsonBody: {
+        sessionId: renewed.id,
+        accessToken: access2.token,
+        accessTokenExpiresAt: access2.expiresAt
+      }
+    };
+  })
+});
+import_functions25.app.http("captureManifest", {
+  methods: ["GET"],
+  authLevel: "anonymous",
+  route: "public/capture/sessions/{id}",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const sessionId = req.params.id ?? "";
+    const session = await activePublicSession(req, sessionId);
+    const cases = await query(
+      "SELECT case_ref, case_po, vrm, eva_vehicle_model FROM case_ WHERE id = $1",
+      [session.case_id]
+    );
+    if (!cases[0]) throw new CaptureProblem(410, "capture_missing", "This capture session is no longer available.");
+    const shots = await query(
+      `SELECT shot_id, role, evidence_role, label, prompt, required, sequence
+         FROM capture_session_shot WHERE session_id = $1 ORDER BY sequence`,
+      [sessionId]
+    );
+    const assets = await query(
+      `SELECT DISTINCT ON (shot_id) shot_id, id, state
+         FROM capture_asset
+        WHERE session_id = $1
+        ORDER BY shot_id, selected DESC, created_at DESC, id DESC`,
+      [sessionId]
+    );
+    const byShot = new Map(assets.map((asset) => [asset.shot_id, asset]));
+    const progress = shots.map((shot) => {
+      const asset = byShot.get(shot.shot_id);
+      let status = "retryable";
+      if (asset?.state === "accepted") status = "accepted";
+      if (asset?.state === "pending_review" || asset?.state === "materialised") status = "pending_review";
+      if (asset?.state === "rejected") status = "rejected";
+      if (asset?.state === "validating") status = "validating";
+      return asset ? {
+        shotId: shot.shot_id,
+        status,
+        assetId: asset.id,
+        ...status === "rejected" ? { rejectionReason: "This photo was not accepted. Take it again." } : {}
+      } : { shotId: shot.shot_id, status: "empty" };
+    });
+    return {
+      status: 200,
+      jsonBody: {
+        contractVersion: "1",
+        sessionId,
+        status: publicStatus(session),
+        caseReference: cases[0].case_po ?? cases[0].case_ref ?? void 0,
+        registration: cases[0].vrm ?? void 0,
+        vehicleLabel: cases[0].eva_vehicle_model ?? void 0,
+        expiresAt: iso2(session.expires_at),
+        maxFileBytes: MAX_UPLOAD_BYTES,
+        acceptedMimeTypes: PUBLIC_MIME_TYPES,
+        guidanceMode: session.guidance_mode,
+        rulesVersion: session.rules_version,
+        ...session.model_version ? { modelVersion: session.model_version } : {},
+        shots: shots.map((shot) => ({
+          id: shot.shot_id,
+          role: shot.role,
+          evidenceRole: shot.evidence_role,
+          label: shot.label,
+          prompt: shot.prompt,
+          required: shot.required,
+          sequence: shot.sequence
+        })),
+        progress
+      }
+    };
+  })
+});
+import_functions25.app.http("createCaptureUpload", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "public/capture/sessions/{id}/uploads",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const sessionId = req.params.id ?? "";
+    const session = await activePublicSession(req, sessionId);
+    if (session.status !== "open") throw new CaptureProblem(409, "capture_conflict", "This capture is already complete.");
+    const idempotencyKey = (req.headers.get("idempotency-key") ?? "").trim();
+    if (!IDEMPOTENCY_RE2.test(idempotencyKey)) {
+      throw new CaptureProblem(400, "capture_validation", "This upload cannot be safely retried.");
+    }
+    const body2 = await req.json().catch(() => ({}));
+    if (typeof body2.shotId !== "string" || body2.shotId.length < 1 || body2.shotId.length > 80 || typeof body2.fileName !== "string" || body2.fileName.length < 1 || body2.fileName.length > 255 || typeof body2.contentType !== "string" || typeof body2.sizeBytes !== "number" || !Number.isInteger(body2.sizeBytes) || body2.sizeBytes < 1 || typeof body2.sha256 !== "string" || !SHA256_RE2.test(body2.sha256)) throw new CaptureProblem(400, "capture_validation", "Check the selected photo and try again.");
+    if (body2.sizeBytes > MAX_UPLOAD_BYTES) {
+      throw new CaptureProblem(413, "capture_validation", "This photo is too large. Choose a smaller photo.");
+    }
+    const clientObservation = normalizedClientCaptureObservation(
+      body2.clientObservation,
+      session.rules_version
+    );
+    const clientObservationJson = JSON.stringify(clientObservation);
+    const check2 = classifyUpload(body2.contentType, body2.sizeBytes, body2.fileName);
+    if (!check2.ok || check2.kind !== "image" || !PUBLIC_MIME_TYPES.includes(check2.contentType)) {
+      throw new CaptureProblem(415, "capture_unsupported", "Use a JPG, PNG or WebP photo.");
+    }
+    if (!enabled2("CAPTURE_DIRECT_UPLOAD_ENABLED")) {
+      throw new CaptureProblem(503, "capture_retryable", "Photo uploads are not available yet.");
+    }
+    const candidateId = (0, import_node_crypto19.randomUUID)();
+    const blobPath = captureStagingBlobPath(sessionId, candidateId);
+    const reservation = await tx(async (q) => {
+      const sessions = await q(
+        `SELECT case_id, status, token_generation, expires_at, rules_version, guidance_mode
+           FROM capture_session WHERE id = $1 FOR UPDATE`,
+        [sessionId]
+      );
+      if (sessions[0]?.status !== "open" || new Date(sessions[0].expires_at).getTime() <= Date.now() || Number(sessions[0].token_generation) !== Number(session.token_generation) || sessions[0].rules_version !== clientObservation.rulesVersion || sessions[0].guidance_mode !== session.guidance_mode) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+      const shots = await q(
+        "SELECT shot_id FROM capture_session_shot WHERE session_id = $1 AND shot_id = $2",
+        [sessionId, body2.shotId]
+      );
+      if (!shots[0]) throw new CaptureProblem(400, "capture_unsupported", "That requested photo is not in this session.");
+      const existingRows = await q(
+        `SELECT id, shot_id, state, file_name, declared_content_type, declared_size_bytes,
+                declared_sha256, blob_path, client_quality
+           FROM capture_asset WHERE session_id = $1 AND idempotency_key = $2 FOR UPDATE`,
+        [sessionId, idempotencyKey]
+      );
+      const existing = existingRows[0];
+      if (existing) {
+        if (existing.shot_id !== body2.shotId || existing.file_name !== body2.fileName || existing.declared_content_type !== check2.contentType || Number(existing.declared_size_bytes) !== body2.sizeBytes || existing.declared_sha256 !== body2.sha256 || storedClientObservationFingerprint(existing.client_quality, session.rules_version) !== clientObservationJson) throw new CaptureProblem(409, "capture_conflict", "This retry does not match the original photo.");
+        if (existing.state !== "upload_pending") {
+          throw new CaptureProblem(409, "capture_conflict", "This upload has already been completed.");
+        }
+        return { kind: "reserved", asset: existing };
+      }
+      const counts = await q(
+        `SELECT COUNT(*) FILTER (WHERE shot_id = $2)::int AS shot_attempts,
+                COUNT(*)::int AS session_attempts
+           FROM capture_asset
+          WHERE session_id = $1`,
+        [sessionId, body2.shotId]
+      );
+      const shotAttempts = Number(counts[0]?.shot_attempts);
+      const sessionAttempts = Number(counts[0]?.session_attempts);
+      if (!Number.isSafeInteger(shotAttempts) || shotAttempts < 0 || !Number.isSafeInteger(sessionAttempts) || sessionAttempts < 0) throw new Error("capture asset reservation count is invalid");
+      if (shotAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SHOT || sessionAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SESSION) {
+        const scope = shotAttempts >= MAX_UPLOAD_RESERVATIONS_PER_SHOT ? "shot" : "session";
+        const locked = await q(
+          `UPDATE capture_session
+              SET status = 'locked', locked_at = COALESCE(locked_at, now()),
+                  token_generation = token_generation + 1, updated_at = now()
+            WHERE id = $1 AND status = 'open'
+            RETURNING case_id`,
+          [sessionId]
+        );
+        if (!locked[0]) {
+          throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+        }
+        await q("DELETE FROM capture_session_resume_token WHERE session_id = $1", [sessionId]);
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_session_locked,
+          caseId: locked[0].case_id,
+          actor: "System",
+          summary: "Guided capture session locked after too many photo attempts",
+          after: {
+            sessionId,
+            reason: "upload_reservation_limit",
+            scope,
+            shotAttempts,
+            sessionAttempts,
+            perShotLimit: MAX_UPLOAD_RESERVATIONS_PER_SHOT,
+            sessionLimit: MAX_UPLOAD_RESERVATIONS_PER_SESSION
+          }
+        }, q);
+        return { kind: "locked" };
+      }
+      const inserted = await q(
+        `INSERT INTO capture_asset
+           (id, session_id, shot_id, idempotency_key, file_name, declared_content_type,
+             declared_size_bytes, declared_sha256, blob_path, upload_expires_at, client_quality)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now() + interval '5 minutes',$10::jsonb)
+         RETURNING id, shot_id, state, file_name, declared_content_type, declared_size_bytes,
+                   declared_sha256, blob_path, client_quality`,
+        [
+          candidateId,
+          sessionId,
+          body2.shotId,
+          idempotencyKey,
+          body2.fileName,
+          check2.contentType,
+          body2.sizeBytes,
+          body2.sha256,
+          blobPath,
+          clientObservationJson
+        ]
+      );
+      const asset2 = inserted[0];
+      if (!asset2) throw new Error("capture asset reservation was not created");
+      return { kind: "reserved", asset: asset2 };
+    });
+    if (reservation.kind === "locked") {
+      throw new CaptureProblem(
+        423,
+        "capture_locked",
+        "This photo request has reached its attempt limit. Contact Collision Engineers."
+      );
+    }
+    const asset = reservation.asset;
+    let sas;
+    try {
+      sas = await createCaptureUploadSas(asset.blob_path, asset.declared_content_type);
+    } catch (error2) {
+      logStorageFailure(ctx, "[capture-upload-intent] sas_unavailable", error2);
+      throw new CaptureProblem(503, "capture_retryable", "Photo uploads are temporarily unavailable.");
+    }
+    await tx(async (q) => {
+      const confirmed = await q(
+        `SELECT s.status AS session_status, s.token_generation, s.expires_at,
+                a.state AS asset_state
+           FROM capture_session s
+           JOIN capture_asset a ON a.session_id = s.id
+          WHERE s.id = $1 AND a.id = $2
+          FOR UPDATE OF s, a`,
+        [sessionId, asset.id]
+      );
+      if (confirmed[0]?.session_status !== "open" || new Date(confirmed[0].expires_at).getTime() <= Date.now() || Number(confirmed[0].token_generation) !== Number(session.token_generation) || confirmed[0].asset_state !== "upload_pending") {
+        throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+      }
+      const stamped = await q(
+        `UPDATE capture_asset
+            SET upload_expires_at = $2, updated_at = now()
+          WHERE id = $1 AND state = 'upload_pending'
+          RETURNING id`,
+        [asset.id, sas.expiresAt]
+      );
+      if (!stamped[0]) {
+        throw new CaptureProblem(409, "capture_conflict", "This upload is no longer available.");
+      }
+    });
+    return {
+      status: 201,
+      jsonBody: {
+        uploadId: asset.id,
+        assetId: asset.id,
+        method: "direct",
+        uploadUrl: sas.uploadUrl,
+        headers: sas.headers,
+        expiresAt: sas.expiresAt
+      }
+    };
+  })
+});
+import_functions25.app.http("completeCaptureUpload", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "public/capture/sessions/{id}/uploads/{assetId}/complete",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const sessionId = req.params.id ?? "";
+    const assetId = req.params.assetId ?? "";
+    const session = await activePublicSession(req, sessionId);
+    if (session.status !== "open") throw new CaptureProblem(409, "capture_conflict", "This capture is already complete.");
+    const body2 = await req.json().catch(() => ({}));
+    if (typeof body2.sizeBytes !== "number" || !Number.isInteger(body2.sizeBytes) || body2.sizeBytes < 1 || body2.sizeBytes > MAX_UPLOAD_BYTES || typeof body2.sha256 !== "string" || !SHA256_RE2.test(body2.sha256)) {
+      throw new CaptureProblem(400, "capture_validation", "The uploaded photo details are invalid.");
+    }
+    const validationAttempt = (0, import_node_crypto19.randomUUID)();
+    const claimed = await tx(async (q) => {
+      const rows = await q(
+        `SELECT a.id, a.shot_id, a.state, a.blob_path, a.file_name, a.declared_content_type,
+                a.declared_size_bytes, a.declared_sha256, a.validation_lease_expires_at,
+                s.status AS session_status,
+                s.expires_at AS session_expires_at, s.token_generation AS session_token_generation
+           FROM capture_asset a
+           JOIN capture_session s ON s.id = a.session_id
+          WHERE a.id = $1 AND a.session_id = $2
+          FOR UPDATE OF s, a`,
+        [assetId, sessionId]
+      );
+      const row = rows[0];
+      if (!row) throw new CaptureProblem(404, "capture_missing", "This upload was not found.");
+      if (row.session_status !== "open" || new Date(row.session_expires_at).getTime() <= Date.now() || Number(row.session_token_generation) !== Number(session.token_generation)) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+      if (Number(row.declared_size_bytes) !== body2.sizeBytes || row.declared_sha256 !== body2.sha256) {
+        throw new CaptureProblem(409, "capture_conflict", "The uploaded photo does not match the upload request.");
+      }
+      if (row.state === "accepted" || row.state === "pending_review" || row.state === "materialised") {
+        return { ...row, already: true };
+      }
+      if (row.state === "validating" && row.validation_lease_expires_at && new Date(row.validation_lease_expires_at).getTime() > Date.now()) {
+        throw new CaptureProblem(409, "capture_retryable", "This photo is still being checked.");
+      }
+      if (row.state !== "upload_pending" && row.state !== "validating") {
+        throw new CaptureProblem(422, "capture_validation", "This photo was not accepted.");
+      }
+      await q(
+        `UPDATE capture_asset
+            SET state = 'validating', validation_attempt = $2,
+                validation_lease_expires_at = now() + make_interval(secs => $3),
+                validation_code = NULL, updated_at = now()
+          WHERE id = $1`,
+        [assetId, validationAttempt, VALIDATION_LEASE_SECONDS]
+      );
+      return { ...row, already: false, validationAttempt };
+    });
+    if (claimed.already) {
+      return { status: 200, jsonBody: { assetId, shotId: claimed.shot_id, status: claimed.state === "materialised" ? "pending_review" : claimed.state } };
+    }
+    let properties;
+    try {
+      properties = await getCaptureBlobProperties(claimed.blob_path);
+    } catch (error2) {
+      await releaseValidationAttempt(assetId, validationAttempt, "blob_read_retryable");
+      logStorageFailure(ctx, "[capture-complete] staging_head_failed", error2);
+      throw new CaptureProblem(503, "capture_retryable", "This photo could not be checked yet. Try again.");
+    }
+    if (!properties || properties.contentLength !== Number(claimed.declared_size_bytes) || properties.contentLength < 1 || properties.contentLength > MAX_UPLOAD_BYTES || properties.contentType.toLowerCase().split(";")[0].trim() !== claimed.declared_content_type) {
+      const serverQuality2 = serverStructuralObservation({
+        result: "blob_properties_mismatch",
+        contentType: properties?.contentType,
+        sizeBytes: properties?.contentLength,
+        propertiesMatch: false
+      });
+      await query(
+        `UPDATE capture_asset
+            SET state = 'rejected', selected = false, validation_code = 'blob_properties_mismatch',
+                server_size_bytes = $2, validation_attempt = NULL,
+                validation_lease_expires_at = NULL, server_quality = $4::jsonb, updated_at = now()
+          WHERE id = $1 AND state = 'validating' AND validation_attempt = $3`,
+        [assetId, properties?.contentLength ?? null, validationAttempt, serverQuality2]
+      );
+      throw new CaptureProblem(422, "capture_validation", "This photo does not match the upload request. Take it again.");
+    }
+    let inspected;
+    try {
+      const bytes2 = await downloadCaptureBlobBytes(claimed.blob_path, MAX_UPLOAD_BYTES);
+      const serverHash2 = (0, import_node_crypto19.createHash)("sha256").update(bytes2).digest("hex");
+      const expected = classifyUpload(
+        claimed.declared_content_type,
+        Number(claimed.declared_size_bytes),
+        claimed.file_name
+      );
+      const content2 = bytes2 && expected.ok ? await validateUploadContent(expected, bytes2) : { ok: false, reason: "missing" };
+      const dimensions2 = bytes2 && content2.ok ? await validatedImageDimensions(bytes2) : void 0;
+      inspected = { bytes: bytes2, serverHash: serverHash2, content: content2, dimensions: dimensions2 };
+    } catch (error2) {
+      await releaseValidationAttempt(assetId, validationAttempt, "blob_read_retryable");
+      logStorageFailure(ctx, "[capture-complete] staging_read_failed", error2);
+      throw new CaptureProblem(503, "capture_retryable", "This photo could not be checked yet. Try again.");
+    }
+    const { bytes, serverHash, content, dimensions } = inspected;
+    if (bytes.length !== Number(claimed.declared_size_bytes) || bytes.length > MAX_UPLOAD_BYTES || serverHash !== claimed.declared_sha256 || !content.ok || content.kind !== "image" || !dimensions) {
+      const serverQuality2 = serverStructuralObservation({
+        result: "structural_validation_failed",
+        contentType: content.ok ? content.contentType : claimed.declared_content_type,
+        sizeBytes: bytes.length,
+        propertiesMatch: true,
+        hashMatches: serverHash === claimed.declared_sha256,
+        magicBytesValid: content.ok && content.kind === "image",
+        decodable: dimensions !== void 0,
+        ...dimensions ? { width: dimensions.width, height: dimensions.height } : {}
+      });
+      await query(
+        `UPDATE capture_asset
+            SET state = 'rejected', selected = false, validation_code = 'structural_validation_failed',
+                server_size_bytes = $2, server_sha256 = NULLIF($3,''),
+                validation_attempt = NULL, validation_lease_expires_at = NULL,
+                server_quality = $5::jsonb, updated_at = now()
+          WHERE id = $1 AND state = 'validating' AND validation_attempt = $4`,
+        [assetId, bytes.length, serverHash, validationAttempt, serverQuality2]
+      );
+      throw new CaptureProblem(422, "capture_validation", "This photo could not be read safely. Take it again.");
+    }
+    const serverQuality = serverStructuralObservation({
+      result: "passed",
+      contentType: content.contentType,
+      sizeBytes: bytes.length,
+      propertiesMatch: true,
+      hashMatches: true,
+      magicBytesValid: true,
+      decodable: true,
+      width: dimensions.width,
+      height: dimensions.height
+    });
+    let validatedBlobPath;
+    try {
+      validatedBlobPath = await promoteCaptureBlob(
+        sessionId,
+        assetId,
+        serverHash,
+        bytes,
+        content.contentType
+      );
+    } catch (error2) {
+      await releaseValidationAttempt(assetId, validationAttempt, "promotion_retryable");
+      logStorageFailure(ctx, "[capture-complete] promotion_failed", error2);
+      throw new CaptureProblem(503, "capture_retryable", "This photo could not be secured yet. Try again.");
+    }
+    try {
+      const resolution = await withResolvedCaseMutationTarget(session.case_id, async (q, target) => {
+        const rows = await q(
+          `SELECT s.case_id, s.status, s.expires_at, s.token_generation,
+                  a.state AS asset_state, a.validation_attempt
+             FROM capture_asset a JOIN capture_session s ON s.id = a.session_id
+            WHERE a.id = $1 AND a.session_id = $2 FOR UPDATE OF s, a`,
+          [assetId, sessionId]
+        );
+        if (!rows[0]) throw new CaptureProblem(404, "capture_missing", "This upload was not found.");
+        const currentCaseId = rows[0].case_id.trim().toLowerCase();
+        if (!target.lineage.includes(currentCaseId)) {
+          throw new CaptureProblem(409, "capture_conflict", "This capture session changed while the photo was checked.");
+        }
+        if (rows[0].asset_state !== "validating" || rows[0].validation_attempt !== validationAttempt) {
+          throw new CaptureProblem(409, "capture_retryable", "This photo check was safely retried. Try again.");
+        }
+        if (rows[0].status !== "open" || new Date(rows[0].expires_at).getTime() <= Date.now() || Number(rows[0].token_generation) !== Number(session.token_generation)) {
+          throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+        }
+        if (TERMINAL_STATUS_CODES.includes(target.statusCode)) {
+          await lockCaptureSessionInTransaction(q, sessionId, currentCaseId, "terminal_survivor");
+          return { kind: "locked" };
+        }
+        await retargetOpenCaptureSession(
+          q,
+          sessionId,
+          currentCaseId,
+          target.caseId,
+          target.lineage
+        );
+        await q(
+          `UPDATE capture_asset
+              SET selected = false,
+                  state = CASE WHEN state IN ('accepted','pending_review') THEN 'superseded' ELSE state END,
+                  updated_at = now()
+            WHERE session_id = $1 AND shot_id = $2 AND id <> $3 AND selected = true`,
+          [sessionId, claimed.shot_id, assetId]
+        );
+        const persisted = await q(
+          `UPDATE capture_asset
+            SET state = 'pending_review', selected = true, server_content_type = $2,
+                server_size_bytes = $3, server_sha256 = $4, width = $5, height = $6,
+                validation_code = NULL, blob_path = $7, validation_attempt = NULL,
+                validation_lease_expires_at = NULL, server_quality = $9::jsonb, updated_at = now()
+          WHERE id = $1 AND state = 'validating' AND validation_attempt = $8
+          RETURNING id`,
+          [
+            assetId,
+            content.contentType,
+            bytes.length,
+            serverHash,
+            dimensions.width,
+            dimensions.height,
+            validatedBlobPath,
+            validationAttempt,
+            serverQuality
+          ]
+        );
+        if (!persisted[0]) {
+          throw new CaptureProblem(409, "capture_retryable", "This photo check was safely retried. Try again.");
+        }
+        await writeAuditStrict({
+          action: AUDIT_ACTION.capture_asset_validated,
+          caseId: target.caseId,
+          actor: "System",
+          summary: "Guided capture photo validated",
+          after: { sessionId, assetId, shotId: claimed.shot_id, status: "pending_review" }
+        }, q);
+        return { kind: "accepted" };
+      });
+      if (resolution.kind === "unresolved") {
+        if (resolution.reason === "changing") {
+          throw new CaptureProblem(503, "capture_retryable", "This case is changing. Try again.");
+        }
+        await lockCaptureSessionForStaffResolution(sessionId, resolution.reason);
+        throw new CaptureProblem(423, "capture_locked", "This capture link is locked for staff review.");
+      }
+      if (resolution.value.kind === "locked") {
+        throw new CaptureProblem(423, "capture_locked", "This capture link is locked for staff review.");
+      }
+    } catch (error2) {
+      await releaseValidationAttempt(assetId, validationAttempt, "persistence_retryable");
+      throw error2;
+    }
+    try {
+      await deleteCaptureStagingBlob(claimed.blob_path);
+      await query(
+        `UPDATE capture_asset
+            SET staging_deleted_at = COALESCE(staging_deleted_at, now()), updated_at = now()
+          WHERE id = $1`,
+        [assetId]
+      );
+    } catch {
+      ctx.warn("[capture-complete] staging cleanup deferred");
+    }
+    return { status: 200, jsonBody: { assetId, shotId: claimed.shot_id, status: "pending_review" } };
+  })
+});
+import_functions25.app.http("submitCaptureSession", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "public/capture/sessions/{id}/submit",
+  handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const sessionId = req.params.id ?? "";
+    const session = await submitPublicSession(req, sessionId);
+    const idempotencyKey = (req.headers.get("idempotency-key") ?? "").trim();
+    if (!IDEMPOTENCY_RE2.test(idempotencyKey)) {
+      throw new CaptureProblem(400, "capture_validation", "This submission cannot be safely retried.");
+    }
+    if (session.status === "complete") {
+      if (session.submit_idempotency_key !== idempotencyKey) {
+        throw new CaptureProblem(409, "capture_conflict", "This capture was already submitted by another request.");
+      }
+      if (!session.submitted_at) throw new Error("complete capture session has no submitted_at");
+      return {
+        status: 200,
+        headers: { "Set-Cookie": clearCaptureResumeCookie() },
+        jsonBody: { status: "complete", completedAt: iso2(session.submitted_at) }
+      };
+    }
+    const resolution = await withResolvedCaseMutationTarget(session.case_id, async (q, target) => {
+      const sessions = await q(
+        `SELECT case_id, status, submit_idempotency_key, submitted_at,
+                token_generation, expires_at
+           FROM capture_session WHERE id = $1 FOR UPDATE`,
+        [sessionId]
+      );
+      const current = sessions[0];
+      if (!current) throw new CaptureProblem(410, "capture_missing", "This capture session is no longer available.");
+      if (current.status === "complete") {
+        if (current.submit_idempotency_key !== idempotencyKey) {
+          throw new CaptureProblem(409, "capture_conflict", "This capture was already submitted by another request.");
+        }
+        if (!current.submitted_at) throw new Error("complete capture session has no submitted_at");
+        return { kind: "complete", completedAt: iso2(current.submitted_at) };
+      }
+      if (current.status !== "open") throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+      if (Number(current.token_generation) !== Number(session.token_generation)) {
+        throw new CaptureProblem(401, "capture_unauthorized", "This capture link is not authorized.");
+      }
+      if (new Date(current.expires_at).getTime() <= Date.now()) {
+        throw new CaptureProblem(410, "capture_expired", "This capture link has expired.");
+      }
+      const currentCaseId = current.case_id.trim().toLowerCase();
+      if (!target.lineage.includes(currentCaseId)) {
+        throw new CaptureProblem(409, "capture_conflict", "This capture session changed. Refresh and try again.");
+      }
+      if (TERMINAL_STATUS_CODES.includes(target.statusCode)) {
+        await lockCaptureSessionInTransaction(q, sessionId, currentCaseId, "terminal_survivor");
+        return { kind: "locked" };
+      }
+      const reparentedFrom = currentCaseId !== target.caseId ? currentCaseId : void 0;
+      await retargetOpenCaptureSession(
+        q,
+        sessionId,
+        currentCaseId,
+        target.caseId,
+        target.lineage
+      );
+      const incomplete = await q(
+        `SELECT sh.shot_id
+           FROM capture_session_shot sh
+          WHERE sh.session_id = $1 AND sh.required = true
+            AND NOT EXISTS (
+              SELECT 1 FROM capture_asset a
+               WHERE a.session_id = sh.session_id AND a.shot_id = sh.shot_id
+                 AND a.selected = true AND a.state IN ('accepted','pending_review','materialised')
+            )
+          ORDER BY sh.sequence`,
+        [sessionId]
+      );
+      if (incomplete.length) {
+        return { kind: "incomplete" };
+      }
+      const assets = await q(
+        `SELECT a.id, a.shot_id, sh.evidence_role, sh.sequence, a.file_name,
+                a.server_content_type, a.server_size_bytes, a.server_sha256,
+                a.blob_path, a.evidence_id
+           FROM capture_asset a
+           JOIN capture_session_shot sh
+             ON sh.session_id = a.session_id AND sh.shot_id = a.shot_id
+          WHERE a.session_id = $1 AND a.selected = true
+            AND a.state IN ('accepted','pending_review','materialised')
+          ORDER BY sh.sequence, a.created_at, a.id
+          FOR UPDATE OF a`,
+        [sessionId]
+      );
+      const imageKind = evidenceKindCodec.toInt("image") ?? 1e8;
+      for (const asset of assets) {
+        if (asset.evidence_id) continue;
+        const twins = asset.server_sha256 ? await q(
+          `SELECT id FROM evidence
+                WHERE case_id = $1 AND sha256 = $2
+                ORDER BY created_at, id
+                LIMIT 1
+                FOR UPDATE`,
+          [target.caseId, asset.server_sha256]
+        ) : [];
+        if (twins[0]) {
+          await q(
+            `UPDATE capture_asset
+                SET evidence_id = $2, materialised_at = now(), state = 'materialised', updated_at = now()
+              WHERE id = $1`,
+            [asset.id, twins[0].id]
+          );
+          continue;
+        }
+        const imageRole = imageRoleCodec.toInt(asset.evidence_role) ?? 100000003;
+        const inserted = await q(
+          `INSERT INTO evidence
+             (file_name, case_id, kind_code, image_role_code, image_role_source,
+              accepted_for_eva, accepted_for_eva_source, excluded, exclusion_reason,
+              exclusion_decision_source, sequence_index, sha256, content_type, size_bytes,
+              storage_path, source_message_id, source_label)
+           VALUES ($1,$2,$3,$4,'capture',false,'capture',true,
+                   'Guided capture review pending','capture',$5,$6,$7,$8,$9,$10,
+                   'public_guided_capture')
+           RETURNING id, case_id, excluded, storage_path, box_file_id`,
+          [
+            asset.file_name,
+            target.caseId,
+            imageKind,
+            imageRole,
+            asset.sequence,
+            asset.server_sha256,
+            asset.server_content_type,
+            asset.server_size_bytes,
+            asset.blob_path,
+            `public-capture:${asset.id}`
+          ]
+        );
+        const evidence = inserted[0];
+        if (!evidence) throw new Error("capture evidence insert did not return a row");
+        await requestArchiveMirror(q, evidence);
+        await q(
+          `UPDATE capture_asset
+              SET evidence_id = $2, materialised_at = now(), state = 'materialised', updated_at = now()
+            WHERE id = $1`,
+          [asset.id, evidence.id]
+        );
+      }
+      await requestStatusRecompute(q, target.caseId);
+      const completed = await q(
+        `UPDATE capture_session
+            SET status = 'complete', submitted_at = now(), submit_idempotency_key = $2,
+                token_generation = token_generation + 1, updated_at = now()
+          WHERE id = $1 AND status = 'open'
+          RETURNING submitted_at`,
+        [sessionId, idempotencyKey]
+      );
+      if (!completed[0]) throw new CaptureProblem(409, "capture_conflict", "This capture session is no longer open.");
+      await q("DELETE FROM capture_session_resume_token WHERE session_id = $1", [sessionId]);
+      await writeAuditStrict({
+        action: AUDIT_ACTION.capture_session_completed,
+        caseId: target.caseId,
+        actor: "System",
+        summary: "Guided capture photos submitted",
+        after: {
+          sessionId,
+          assetCount: assets.length,
+          ...reparentedFrom ? { reparentedFrom, lineage: target.lineage } : {}
+        }
+      }, q);
+      return { kind: "complete", completedAt: iso2(completed[0].submitted_at) };
+    });
+    if (resolution.kind === "unresolved") {
+      if (resolution.reason === "changing") {
+        throw new CaptureProblem(503, "capture_retryable", "This case is changing. Try again.");
+      }
+      await lockCaptureSessionForStaffResolution(sessionId, resolution.reason);
+      throw new CaptureProblem(423, "capture_locked", "This capture link is locked for staff review.");
+    }
+    if (resolution.value.kind === "locked") {
+      throw new CaptureProblem(423, "capture_locked", "This capture link is locked for staff review.");
+    }
+    if (resolution.value.kind === "incomplete") {
+      throw new CaptureProblem(409, "capture_conflict", "Take every required photo before submitting.");
+    }
+    return {
+      status: 200,
+      headers: { "Set-Cookie": clearCaptureResumeCookie() },
+      jsonBody: { status: "complete", completedAt: resolution.value.completedAt }
+    };
+  })
+});
+
+// api/src/functions/capture-cleanup.ts
+var import_functions26 = require("@azure/functions");
+var CLEANUP_BATCH_SIZE = 100;
+function enabled3(name) {
+  return (process.env[name] ?? "").trim().toLowerCase() === "true";
+}
+function configuredCaptureRetentionDays(value = process.env.CAPTURE_RETENTION_DAYS) {
+  const days = value == null || value.trim() === "" ? 30 : Number(value);
+  return Number.isInteger(days) && days >= 1 && days <= 3650 ? days : void 0;
+}
+async function deleteCaptureCandidate(candidate, retentionDays) {
+  const resolved = await withResolvedCaseMutationTarget(candidate.case_id, async (q, target) => {
+    const rows = await q(
+      `SELECT a.id, a.session_id, s.case_id, a.blob_path, a.declared_sha256,
+              a.evidence_id, NULL::text AS evidence_storage_path,
+              a.cleanup_attempt_count, a.state, a.materialised_at,
+              a.staging_deleted_at
+         FROM capture_asset a
+         JOIN capture_session s ON s.id = a.session_id
+        WHERE a.id = $1
+          AND s.status IN ('expired','revoked','complete','locked')
+          AND COALESCE(s.expired_at, s.revoked_at, s.submitted_at, s.locked_at, s.expires_at)
+                <= now() - make_interval(days => $2)
+          AND a.blob_deleted_at IS NULL
+          AND (a.cleanup_next_attempt_at IS NULL OR a.cleanup_next_attempt_at <= now())
+          AND (a.blob_path LIKE 'capture/%' OR a.blob_path LIKE 'capture-validated/%')
+        FOR UPDATE OF a, s`,
+      [candidate.id, retentionDays]
+    );
+    const current = rows[0];
+    if (!current || !target.lineage.includes(current.case_id.trim().toLowerCase())) return false;
+    let evidenceStoragePath = null;
+    if (current.evidence_id) {
+      const evidence = await q(
+        "SELECT storage_path FROM evidence WHERE id = $1 FOR UPDATE",
+        [current.evidence_id]
+      );
+      evidenceStoragePath = evidence[0]?.storage_path ?? null;
+    }
+    const unmaterialised = current.evidence_id === null && current.materialised_at === null && current.state !== "materialised";
+    const linkedOrphan = current.evidence_id !== null && (current.staging_deleted_at === null || evidenceStoragePath !== null && evidenceStoragePath !== current.blob_path);
+    if (!unmaterialised && !linkedOrphan) return false;
+    const derivedValidatedPath = captureValidatedBlobPath(
+      current.session_id,
+      current.id,
+      current.declared_sha256
+    );
+    const derivedStagingPath = captureStagingBlobPath(current.session_id, current.id);
+    const possiblePaths = current.evidence_id && !evidenceStoragePath ? [derivedStagingPath] : [derivedStagingPath, current.blob_path, derivedValidatedPath];
+    const paths = [...new Set(possiblePaths)].filter((path) => isCaptureManagedBlobPath(path)).filter((path) => path !== evidenceStoragePath);
+    if (paths.length === 0) return false;
+    for (const path of paths) await deleteCaptureManagedBlob(path);
+    const stamped = await q(
+      `UPDATE capture_asset
+          SET blob_deleted_at = now(), cleanup_code = 'retention',
+              staging_deleted_at = COALESCE(staging_deleted_at, now()),
+              cleanup_attempt_count = 0, cleanup_next_attempt_at = NULL,
+              cleanup_last_error_category = NULL, updated_at = now()
+        WHERE id = $1 AND blob_deleted_at IS NULL
+        RETURNING id`,
+      [current.id]
+    );
+    return Boolean(stamped[0]);
+  });
+  if (resolved.kind === "unresolved") {
+    throw new Error(`capture cleanup case resolution failed: ${resolved.reason}`);
+  }
+  return resolved.value;
+}
+async function runCaptureCleanup(ctx) {
+  const disabled = {
+    enabled: false,
+    expiredSessions: 0,
+    resumeTokensDeleted: 0,
+    candidates: 0,
+    deleted: 0,
+    failed: 0
+  };
+  if (!enabled3("CAPTURE_CLEANUP_ENABLED")) return disabled;
+  const retentionDays = configuredCaptureRetentionDays();
+  if (!retentionDays) {
+    throw new Error("CAPTURE_RETENTION_DAYS must be an integer between 1 and 3650");
+  }
+  const expired = await query(
+    `WITH expired_candidates AS (
+       SELECT id
+         FROM capture_session
+        WHERE status = 'open' AND expires_at <= now()
+        ORDER BY id
+        FOR UPDATE SKIP LOCKED
+        LIMIT $1
+     )
+     UPDATE capture_session s
+        SET status = 'expired', expired_at = COALESCE(s.expired_at, now()),
+            token_generation = s.token_generation + 1, updated_at = now()
+       FROM expired_candidates candidate
+      WHERE s.id = candidate.id
+      RETURNING s.id`,
+    [CLEANUP_BATCH_SIZE]
+  );
+  const candidates = await query(
+    `SELECT a.id, a.session_id, s.case_id, a.blob_path, a.declared_sha256, a.evidence_id,
+            e.storage_path AS evidence_storage_path, a.cleanup_attempt_count
+       FROM capture_asset a
+       JOIN capture_session s ON s.id = a.session_id
+       LEFT JOIN evidence e ON e.id = a.evidence_id
+      WHERE s.status IN ('expired','revoked','complete','locked')
+        AND COALESCE(s.expired_at, s.revoked_at, s.submitted_at, s.locked_at, s.expires_at)
+              <= now() - make_interval(days => $1)
+        AND a.blob_deleted_at IS NULL
+        AND (a.cleanup_next_attempt_at IS NULL OR a.cleanup_next_attempt_at <= now())
+        AND (a.blob_path LIKE 'capture/%' OR a.blob_path LIKE 'capture-validated/%')
+        AND (
+          (a.evidence_id IS NULL AND a.materialised_at IS NULL AND a.state <> 'materialised')
+          OR (
+            a.evidence_id IS NOT NULL
+            AND (
+              a.staging_deleted_at IS NULL
+              OR (e.storage_path IS NOT NULL AND e.storage_path <> a.blob_path)
+            )
+          )
+        )
+      ORDER BY a.updated_at, a.id
+      LIMIT $2`,
+    [retentionDays, CLEANUP_BATCH_SIZE]
+  );
+  let deleted = 0;
+  let failed = 0;
+  for (const candidate of candidates) {
+    try {
+      if (await deleteCaptureCandidate(candidate, retentionDays)) deleted++;
+    } catch {
+      failed++;
+      const currentAttempts = Number(candidate.cleanup_attempt_count) || 0;
+      const nextAttempts = currentAttempts + 1;
+      const backoffSeconds = Math.min(
+        86400,
+        60 * 2 ** Math.min(Math.max(currentAttempts, 0), 10)
+      );
+      try {
+        await query(
+          `UPDATE capture_asset
+              SET cleanup_attempt_count = $2,
+                  cleanup_next_attempt_at = now() + make_interval(secs => $3),
+                  cleanup_last_error_category = 'blob_delete_failed',
+                  updated_at = now()
+            WHERE id = $1 AND blob_deleted_at IS NULL`,
+          [candidate.id, nextAttempts, backoffSeconds]
+        );
+      } catch {
+        ctx.warn("[capture-cleanup] retry state update failed");
+      }
+      ctx.warn("[capture-cleanup] object delete failed");
+    }
+  }
+  const expiredResumeTokens = await query(
+    `WITH expired_resume_tokens AS (
+       SELECT r.token_hash
+         FROM capture_session_resume_token r
+         JOIN capture_session s ON s.id = r.session_id
+        WHERE r.expires_at <= now()
+           OR s.status <> 'open'
+           OR s.expires_at <= now()
+        ORDER BY r.token_hash
+        FOR UPDATE OF r SKIP LOCKED
+        LIMIT $1
+     )
+     DELETE FROM capture_session_resume_token r
+      USING expired_resume_tokens expired
+      WHERE r.token_hash = expired.token_hash
+      RETURNING r.token_hash`,
+    [CLEANUP_BATCH_SIZE]
+  ) ?? [];
+  const result = {
+    enabled: true,
+    expiredSessions: expired.length,
+    resumeTokensDeleted: expiredResumeTokens.length,
+    candidates: candidates.length,
+    deleted,
+    failed
+  };
+  ctx.log("[capture-cleanup] completed", result);
+  return result;
+}
+import_functions26.app.timer("capture-retention-cleanup", {
+  schedule: "0 17 3 * * *",
+  handler: async (_timer, ctx) => {
+    try {
+      await runCaptureCleanup(ctx);
+    } catch {
+      ctx.error("[capture-cleanup] timer failed");
+    }
+  }
 });
