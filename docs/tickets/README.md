@@ -327,6 +327,8 @@ node scripts/check-skills-sync.mjs
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
 | [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 | platform | PLAN-004 |
 | [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 | platform | PLAN-004 |
+| [TKT-207](./backlog/TKT-207-bulk-case-registration-lock-budget/TKT-207-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 | platform | PLAN-004 |
+| [TKT-208](./backlog/TKT-208-mcp-box-root-single-source/TKT-208-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 | integration | PLAN-004 |
 
 ### blocked
 
