@@ -63,7 +63,9 @@ The focused tests prove:
 
 ## Honest gaps
 
-- `2026-07-12-tkt165-staff-evidence-upload.sql` has not been applied live.
+- The TKT-165 upload schema is present live. The new
+  `2026-07-15-tkt165-evidence-added-audit.sql` corrective delta is committed but not yet applied;
+  live code-table parity still fails only for missing `100000049 / evidence_added`.
 - API, orchestration and SPA changes have not been deployed.
 - No file, case, Blob object or Box folder was changed during this implementation pass.
 - TKT-166's New case document/manual upload lifecycle remains pending and is not certified by this
@@ -155,9 +157,9 @@ FAILED
 
 ### Pending / gaps
 
-- **Blocking live defect:** seed audit action `100000049` (`evidence_added`) through an idempotent,
-  deployable live delta before the API is used again. The canonical bootstrap schema does not update
-  an existing live database.
+- **Blocking live defect:** apply the committed idempotent audit-action delta for `100000049`
+  (`evidence_added`) before the API is used again. The canonical bootstrap schema does not update an
+  existing live database.
 - Then prove live JPG/PDF upload, returned evidence identities, post-navigation rendering, database
   evidence and exact audit, retained Blob, Archive mirror under test root, classification/readiness,
   replay/double-click deduplication, partial failure/retry, stale/merged/auth refusals and accessibility

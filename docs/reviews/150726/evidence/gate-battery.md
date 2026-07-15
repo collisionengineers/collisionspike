@@ -13,9 +13,9 @@ dependency install. That run's gate counts were 3,085 tracked paths, 189 routes,
 7 JSON schemas, 64 Postgres tables, 22 numeric code tables, 881 owned source files, 1,121 Markdown files,
 211 tickets, 6 plans, 3,268 baseline files and 3,083 non-recursive final files with zero unexplained.
 The forbidden-reference check scanned 2,467 tracked files with no match. Component results and the release
-decision are recorded in the final review. The subsequent Linux-package regression guard adds one tracked
-test file; its focused replacement checks cover 3,086 paths, 2,468 policy-scanned files and 40 repository-
-check tests while replacement GitHub CI remains the release authority.
+decision are recorded in the final review. The subsequent Linux-package regression guard and TKT-165
+corrective migration add two tracked files; focused replacement checks cover 3,087 paths, 2,469 policy-
+scanned files and 40 repository-check tests while replacement GitHub CI remains the release authority.
 
 ## Structural / doc / reconciliation gates (no build required)
 

@@ -7,12 +7,12 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4017
+    "entries": 4018
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3084,
+    "finalFiles": 3085,
     "finalDirectories": 933,
     "dispositions": {
       "delete": 1297,
@@ -73175,6 +73175,20 @@
       "ticket": "TKT-209"
     },
     {
+      "path": "database/migrations/2026-07-15-tkt165-evidence-added-audit.sql",
+      "kind": "file",
+      "size": 522,
+      "sha256": "d70ead4cffb09cd0564886500cf2767dbbdb8161e9401617c4de5eb00ba0d4e4",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
       "path": "database/migrations/README.md",
       "kind": "file",
       "size": 925,
@@ -74423,8 +74437,8 @@
     {
       "path": "docs/reviews/150726/evidence/gate-battery.md",
       "kind": "file",
-      "size": 5357,
-      "sha256": "f10e5c56da1f404ed9f82ef94c7b35de034a515a9f2cd21348c16f748aff7ccb",
+      "size": 5381,
+      "sha256": "9ef99f6934dea6cea4fbd4846e3cace92cda97a21942933a7388c8f4b31d8609",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -74437,8 +74451,8 @@
     {
       "path": "docs/reviews/150726/final-review.md",
       "kind": "file",
-      "size": 7657,
-      "sha256": "fc428eb861a1be2d8d342d42f3bb3428eddd3e12b20d9e412f9f648c7a93757b",
+      "size": 7978,
+      "sha256": "ba7910c962998a00ca86cf48b1573c106f8253bdff73e803a73b4f5490e6b78c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -86169,8 +86183,8 @@
     {
       "path": "docs/tickets/now/TKT-165-add-evidence-upload/changes.md",
       "kind": "file",
-      "size": 5665,
-      "sha256": "4dfebfd46133f61e199d481066e8534afe448daf695acc38b41dae31588e8f1b",
+      "size": 5914,
+      "sha256": "d6423335ea408ce0e46b2426e5c21533381a2ed83b339f765503e1fe135fa09c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -86211,8 +86225,8 @@
     {
       "path": "docs/tickets/now/TKT-165-add-evidence-upload/verification.md",
       "kind": "file",
-      "size": 13467,
-      "sha256": "45ef0cdf1da01e2c900f1c768c4dd292df8608b86e7c5d581bf62e74d174100c",
+      "size": 13618,
+      "sha256": "a2c9be51030cddfa7f1a62590012a58057ef4917029b1b9d4c90aea75a4ef167",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",

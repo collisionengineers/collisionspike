@@ -53,6 +53,9 @@ ticket-status move, live database delta, deployment and independent verification
   `database/baseline/900_constraints.sql` — target/actor/source/manifest binding plus one
   durable owner row per file/Blob path, cleanup leases/backoff, forced RLS for both upload tables and
   non-delete app grants.
+- `database/migrations/2026-07-15-tkt165-evidence-added-audit.sql` — replay-safe live delta for the
+  canonical `100000049 / evidence_added` audit mapping. A conflicting persisted meaning fails the
+  transaction instead of being renamed silently.
 - `docs/operations/deployment.md` — additive delta → API → orchestration → SPA is the binding rollout order for
   this contract. The API bundle externalises Sharp and its production package installs and verifies
   the Linux x64 glibc Sharp/libvips binaries explicitly.

@@ -46,7 +46,10 @@ conflict was resolved against runtime contracts and the later feature work alrea
   only as an irreversible SHA-256 reference. The strict whole-tree scan reports no matches.
 - The first Linux CI build found that the Windows-authored npm lockfile omitted Lightning CSS's Linux native
   package. The exact 1.32.0 Linux x64 GNU package is now a root optional dependency beside the existing
-  cross-platform native-package pins; replacement GitHub checks remain a release gate.
+  cross-platform native-package pins; the replacement push and pull-request runs passed.
+- Pre-deployment live parity found the canonical `100000049 / evidence_added` audit action absent from the
+  development database, matching TKT-165's recorded failed upload. A fail-closed, replay-safe corrective
+  migration is now part of the reviewed release; it must pass CI and apply before application publication.
 
 ## Safety decision
 
@@ -83,7 +86,7 @@ conflict was resolved against runtime contracts and the later feature work alrea
 ## Remaining release gates
 
 1. ~~Generate and verify the final staged repository inventory and committed reconciliation ledger.~~
-   Complete: 3,086 tracked files, 3,268 baseline files, 3,084 non-recursive final files, zero unexplained.
+   Complete: 3,087 tracked files, 3,268 baseline files, 3,085 non-recursive final files, zero unexplained.
 2. ~~Complete the final clean aggregate with zero failures.~~ Complete: 34 passed, 0 failed after a clean
    dependency install. The run includes all component suites, deployable bundle smoke loads and governance
    gates.
