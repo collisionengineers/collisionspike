@@ -44,6 +44,9 @@ conflict was resolved against runtime contracts and the later feature work alrea
 - The committed reconciliation ledger initially reproduced prohibited vocabulary from deleted historical
   path names. Generation now validates the exact Git-tree strings internally, then writes any policy match
   only as an irreversible SHA-256 reference. The strict whole-tree scan reports no matches.
+- The first Linux CI build found that the Windows-authored npm lockfile omitted Lightning CSS's Linux native
+  package. The exact 1.32.0 Linux x64 GNU package is now a root optional dependency beside the existing
+  cross-platform native-package pins; replacement GitHub checks remain a release gate.
 
 ## Safety decision
 
@@ -60,6 +63,8 @@ conflict was resolved against runtime contracts and the later feature work alrea
 ## Verification record
 
 - Final clean aggregate: `node verify-all.mjs` passed 34/34 gates on the staged reconciled tree.
+- Linux-package delta: clean install, all four builds, 2,605 TypeScript tests, both deployment bundles and
+  40 repository-check tests passed after adding the exact native-package pin and lockfile guard.
 - Production build: passed for domain, Data API, orchestration and web.
 - TypeScript tests: domain 559, Data API 993, orchestration 508, web 545 — all passed.
 - Python: Archive 274, EVA Sentry 43, location assistance 75, OCR 38, parser 384 with 9 intentional skips,
@@ -78,7 +83,7 @@ conflict was resolved against runtime contracts and the later feature work alrea
 ## Remaining release gates
 
 1. ~~Generate and verify the final staged repository inventory and committed reconciliation ledger.~~
-   Complete: 3,085 tracked files, 3,268 baseline files, 3,083 non-recursive final files, zero unexplained.
+   Complete: 3,086 tracked files, 3,268 baseline files, 3,084 non-recursive final files, zero unexplained.
 2. ~~Complete the final clean aggregate with zero failures.~~ Complete: 34 passed, 0 failed after a clean
    dependency install. The run includes all component suites, deployable bundle smoke loads and governance
    gates.

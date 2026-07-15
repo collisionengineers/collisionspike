@@ -7,12 +7,12 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4016
+    "entries": 4017
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3083,
+    "finalFiles": 3084,
     "finalDirectories": 933,
     "dispositions": {
       "delete": 1297,
@@ -74423,8 +74423,8 @@
     {
       "path": "docs/reviews/150726/evidence/gate-battery.md",
       "kind": "file",
-      "size": 5102,
-      "sha256": "073f2779b1171dc6af5d0da8a9c20eab9f68c3d269229f8df7aca55d7cc4d536",
+      "size": 5357,
+      "sha256": "f10e5c56da1f404ed9f82ef94c7b35de034a515a9f2cd21348c16f748aff7ccb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -74437,8 +74437,8 @@
     {
       "path": "docs/reviews/150726/final-review.md",
       "kind": "file",
-      "size": 7153,
-      "sha256": "e1d4c7f1e6371bc0633fd5abe2f6e4ddff1b38e3f9602a50e893790233842813",
+      "size": 7657,
+      "sha256": "fc428eb861a1be2d8d342d42f3bb3428eddd3e12b20d9e412f9f648c7a93757b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -89529,8 +89529,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
       "kind": "file",
-      "size": 2101,
-      "sha256": "badc3d77f5f30cc0d2bff092ab0f49dcefd18c5dc9fe27ea6946ff402f5f9b37",
+      "size": 2174,
+      "sha256": "9ec23defafcce891ccecb002aeefc323ad6e02dcd0440bbd8c887470899fbdd4",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -89557,8 +89557,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/verification.md",
       "kind": "file",
-      "size": 3044,
-      "sha256": "ebc92b5a7358de6e214a8db5746b3e237160ea56996c232c6edd229e547ca8ee",
+      "size": 3257,
+      "sha256": "c1382b6ab8e34e4bb0a5e79549f5ab27b1c08e5d202753ac24c6f0e8de5cb1ce",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -89711,8 +89711,8 @@
     {
       "path": "package-lock.json",
       "kind": "file",
-      "size": 207351,
-      "sha256": "4f985d52dcf72df940352dfb9d165610751bff61e23a6d056d9311eaaccab94c",
+      "size": 208012,
+      "sha256": "75dc6a0f2eea72080c3a4d9dd67af267a44ae1368015adf58a88536b7a5ac824",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active",
@@ -89725,8 +89725,8 @@
     {
       "path": "package.json",
       "kind": "file",
-      "size": 3628,
-      "sha256": "c9c39ef95fb92935226f0d907d570d9a79a67efc71a6902460d658dba475db7d",
+      "size": 3672,
+      "sha256": "2311c15a40f41514d6b52fbc25ac539b5131b761c0985b84ce806fb435eda240",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active",
@@ -91351,6 +91351,20 @@
       "kind": "file",
       "size": 2146,
       "sha256": "489f9f8a44c1423b2b2cd97f56161b151bf317b5700ee970fde555485a0a0b13",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/checks/linux-native-lock.test.mjs",
+      "kind": "file",
+      "size": 1034,
+      "sha256": "6c5b689e1281737df6a548646e2ee1ebe2b07bfe77499b4b7702fc6ae4c8296b",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",

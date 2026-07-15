@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 933,
-    "files": 3085,
-    "entries": 4018
+    "files": 3086,
+    "entries": 4019
   },
-  "totalFileBytes": 508561418,
+  "totalFileBytes": 508564913,
   "entries": [
     {
       "path": ".",
@@ -13792,7 +13792,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1255796,
+      "size": 1256110,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13810,8 +13810,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 3882288,
-      "sha256": "a94adda42b05251b0d3201e0fa0bf265748aabaad5e44b5aed92cf4d384fa735",
+      "size": 3882685,
+      "sha256": "2533693d3997b543eb0778a01f3fa71cfab6ac81042d40afd14bba5815c4ba64",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14053,8 +14053,8 @@
     {
       "path": "docs/reviews/150726/evidence/gate-battery.md",
       "mediaType": "text/markdown",
-      "size": 5102,
-      "sha256": "073f2779b1171dc6af5d0da8a9c20eab9f68c3d269229f8df7aca55d7cc4d536",
+      "size": 5357,
+      "sha256": "f10e5c56da1f404ed9f82ef94c7b35de034a515a9f2cd21348c16f748aff7ccb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14062,8 +14062,8 @@
     {
       "path": "docs/reviews/150726/final-review.md",
       "mediaType": "text/markdown",
-      "size": 7153,
-      "sha256": "e1d4c7f1e6371bc0633fd5abe2f6e4ddff1b38e3f9602a50e893790233842813",
+      "size": 7657,
+      "sha256": "fc428eb861a1be2d8d342d42f3bb3428eddd3e12b20d9e412f9f648c7a93757b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -23764,8 +23764,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
       "mediaType": "text/markdown",
-      "size": 2101,
-      "sha256": "badc3d77f5f30cc0d2bff092ab0f49dcefd18c5dc9fe27ea6946ff402f5f9b37",
+      "size": 2174,
+      "sha256": "9ec23defafcce891ccecb002aeefc323ad6e02dcd0440bbd8c887470899fbdd4",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23782,8 +23782,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/verification.md",
       "mediaType": "text/markdown",
-      "size": 3044,
-      "sha256": "ebc92b5a7358de6e214a8db5746b3e237160ea56996c232c6edd229e547ca8ee",
+      "size": 3257,
+      "sha256": "c1382b6ab8e34e4bb0a5e79549f5ab27b1c08e5d202753ac24c6f0e8de5cb1ce",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23881,8 +23881,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 207351,
-      "sha256": "4f985d52dcf72df940352dfb9d165610751bff61e23a6d056d9311eaaccab94c",
+      "size": 208012,
+      "sha256": "75dc6a0f2eea72080c3a4d9dd67af267a44ae1368015adf58a88536b7a5ac824",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23890,8 +23890,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 3628,
-      "sha256": "c9c39ef95fb92935226f0d907d570d9a79a67efc71a6902460d658dba475db7d",
+      "size": 3672,
+      "sha256": "2311c15a40f41514d6b52fbc25ac539b5131b761c0985b84ce806fb435eda240",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -24936,6 +24936,15 @@
       "mediaType": "text/javascript",
       "size": 2146,
       "sha256": "489f9f8a44c1423b2b2cd97f56161b151bf317b5700ee970fde555485a0a0b13",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/linux-native-lock.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 1034,
+      "sha256": "6c5b689e1281737df6a548646e2ee1ebe2b07bfe77499b4b7702fc6ae4c8296b",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
