@@ -1,6 +1,82 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
+import type { HttpRequest, InvocationContext } from '@azure/functions';
 import { handleMcpMessage } from './mcp.js';
 import { IMAGE_INGEST_TOOLS } from './mcp-image-ingestion.js';
+
+// --- HTTP-route harness (M2) --------------------------------------------------------------------
+// The oversized-body defect lives in the `mcpServer` HTTP handler, so we drive the registered route
+// directly. The route is isolated the same way the mcp-route-auth harness isolates it (the real
+// mcp-image-ingestion module transitively loads the withRole-guarded Functions tree), EXCEPT that
+// @cs/domain stays REAL so the JSON-RPC handler tests below keep exercising the real capability
+// registry. The IMAGE_INGEST_TOOLS stub keeps the same two tool names those handler tests assert.
+interface Registration {
+  handler: (request: HttpRequest, context: InvocationContext) => Promise<{
+    status?: number;
+    jsonBody?: unknown;
+    headers?: Record<string, string>;
+  }>;
+}
+const registrations = vi.hoisted(() => new Map<string, Registration>());
+const auth = vi.hoisted(() => ({
+  principal: undefined as 'readonly_staff' | 'image_ingest_agent' | undefined,
+  claims: {} as Record<string, unknown>,
+}));
+const SESSION_ID = '11111111-1111-4111-8111-111111111111';
+vi.mock('@azure/functions', () => ({
+  app: { http: (name: string, options: Registration) => registrations.set(name, options) },
+}));
+vi.mock('../lib/auth.js', () => ({
+  authenticate: vi.fn(async () => auth.claims),
+  mcpPrincipalKind: vi.fn(() => auth.principal),
+  toErrorResponse: vi.fn(() => ({ status: 500, jsonBody: { error: 'internal' } })),
+}));
+vi.mock('@cs/domain/gates', () => ({ gates: { mcpServer: () => true } }));
+vi.mock('./assistant.js', () => ({ execTool: vi.fn(async () => ({ matches: [] })) }));
+vi.mock('../lib/db.js', () => ({ assertStaffRlsContext: vi.fn(async () => undefined) }));
+vi.mock('../lib/mcp-session.js', () => ({
+  McpSessionLimitError: class McpSessionLimitError extends Error {},
+  createMcpSession: vi.fn(async () => SESSION_ID),
+  markMcpSessionInitialized: vi.fn(async () => true),
+  touchReadyMcpSession: vi.fn(async () => true),
+}));
+vi.mock('./mcp-image-ingestion.js', () => ({
+  IMAGE_INGEST_TOOLS: [
+    { name: 'lookup_open_case_by_registration', description: 'lookup', inputSchema: { type: 'object' } },
+    { name: 'upload_case_images', description: 'upload', inputSchema: { type: 'object' } },
+  ],
+  mcpImageIngestConfigured: () => true,
+  MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES: 42_000_000,
+  consumeImageIngestRateLimit: vi.fn(async () => true),
+  executeImageIngestTool: vi.fn(async () => ({ ok: false, code: 'no_match' })),
+}));
+
+const route = registrations.get('mcpServer')!.handler;
+const routeCtx = { error: vi.fn(), log: vi.fn(), warn: vi.fn() } as unknown as InvocationContext;
+
+function routeRequest(
+  headers: Record<string, string>,
+  opts: { streamBytes?: Uint8Array } = {},
+): HttpRequest {
+  const payload = opts.streamBytes
+    ?? Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }), 'utf8');
+  return {
+    method: 'POST',
+    headers: new Headers({
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      'MCP-Protocol-Version': '2025-06-18',
+      'Mcp-Session-Id': '11111111-1111-4111-8111-111111111111',
+      ...headers,
+    }),
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(payload);
+        controller.close();
+      },
+    }),
+    json: async () => ({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+  } as unknown as HttpRequest;
+}
 
 const okExec = vi.fn(async (_name: string, _args: Record<string, unknown>) => ({ matches: [] }));
 
@@ -166,5 +242,33 @@ describe('MCP JSON-RPC handler (TKT-110)', () => {
     }, vi.fn(async () => { throw new Error('secret backend detail'); })))!;
     expect(JSON.stringify(failure)).not.toContain('secret backend detail');
     expect(failure.result).toMatchObject({ isError: true });
+  });
+});
+
+describe('MCP route readonly_staff body bounding (TKT-154 M2)', () => {
+  beforeEach(() => {
+    auth.principal = 'readonly_staff';
+    // Delegated staff bind their session to the human object id, not the shared client.
+    auth.claims = { oid: 'staff-object-id', roles: ['CollisionSpike.User'], scp: 'access_as_user' };
+  });
+  afterEach(() => {
+    delete process.env.MCP_READONLY_MAX_HTTP_BODY_BYTES;
+  });
+
+  it('rejects an oversized readonly_staff body (Content-Length over cap) with 413, not an unbounded buffer', async () => {
+    process.env.MCP_READONLY_MAX_HTTP_BODY_BYTES = '65536';
+    const res = await route(routeRequest({ 'Content-Length': '65537' }), routeCtx);
+    expect(res.status).toBe(413);
+  });
+
+  it('byte-counts the readonly_staff stream and aborts an oversized body with no Content-Length (413)', async () => {
+    // Proves the staff path now uses the same byte-counted reader as the agent lane rather than
+    // falling through to an unbounded `await req.json()`.
+    process.env.MCP_READONLY_MAX_HTTP_BODY_BYTES = '16384';
+    const res = await route(
+      routeRequest({ 'Content-Length': '' }, { streamBytes: new Uint8Array(16_385) }),
+      routeCtx,
+    );
+    expect(res.status).toBe(413);
   });
 });

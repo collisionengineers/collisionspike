@@ -86,7 +86,7 @@ describe('staff evidence upload schema', () => {
 
   it('adds the MCP source, registration and retry audit fields without a new byte store', () => {
     const canonical = schema('195_staff_evidence_upload.sql');
-    const delta = schema('deltas/2026-07-12-tkt154-mcp-image-ingestion.sql');
+    const delta = schema('deltas/2026-07-13-tkt154-mcp-image-ingestion.sql');
     for (const sql of [canonical, delta]) {
       expect(sql).toContain("'mcp_agent'");
       expect(sql).toContain("'agent_image_ingest'");

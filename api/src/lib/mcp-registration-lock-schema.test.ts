@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const base = readFileSync(`${root}migration/assets/schema/900_constraints.sql`, 'utf8');
 const delta = readFileSync(
-  `${root}migration/assets/schema/deltas/2026-07-12-tkt154-mcp-image-ingestion.sql`,
+  `${root}migration/assets/schema/deltas/2026-07-13-tkt154-mcp-image-ingestion.sql`,
   'utf8',
 );
 

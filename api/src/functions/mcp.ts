@@ -51,6 +51,18 @@ import {
 export const MCP_PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_PROTOCOL_VERSIONS = new Set([MCP_PROTOCOL_VERSION, '2025-03-26']);
 
+/**
+ * Bound the read-only (`readonly_staff`) request body too. Staff JSON-RPC messages are tiny, so an
+ * authenticated-but-oversized POST is either a bug or abuse — buffering it unbounded is an
+ * OOM / worker-restart risk on the shared Data API. The image-ingest lane keeps its own (larger)
+ * Base64-sized cap. Env `MCP_READONLY_MAX_HTTP_BODY_BYTES` (default 1 MiB), clamped to [16 KiB, 8 MiB].
+ */
+function readonlyMaxHttpBodyBytes(): number {
+  const configured = Number(process.env.MCP_READONLY_MAX_HTTP_BODY_BYTES ?? 1024 * 1024);
+  const resolved = Number.isFinite(configured) ? Math.trunc(configured) : 1024 * 1024;
+  return Math.min(8 * 1024 * 1024, Math.max(16 * 1024, resolved));
+}
+
 interface RpcMessage {
   jsonrpc?: string;
   id?: unknown;
@@ -395,7 +407,9 @@ app.http('mcpServer', {
       }
       const bodyRead = await readRequestJson(
         req,
-        principal === 'image_ingest_agent' ? MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES : undefined,
+        principal === 'image_ingest_agent'
+          ? MCP_IMAGE_INGEST_MAX_HTTP_BODY_BYTES
+          : readonlyMaxHttpBodyBytes(),
       );
       if (!bodyRead.ok) {
         const status = bodyRead.reason === 'too_large' ? 413 : bodyRead.reason === 'unbounded' ? 411 : 400;
