@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { comparePaths, repositoryDirectoriesForFiles } from "../checks/repository-files.mjs";
+import {
+  gitOutput,
+  mediaTypeFor,
+  readGitBlobMetadata,
+} from "./generate-repository-inventory.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const BASELINE_OBJECT = "70a3bb57:.plan-006-baseline/repository-inventory.json";
+// This commit was main immediately before PLAN-006 began. Unlike a commit that exists only on the
+// implementation branch, it remains in main's ancestry after merge, squash, or rebase and does not
+// depend on the feature branch continuing to exist. CI fetches full history so this immutable object is
+// available without retaining the path-level reset ledger in the checked-out tree.
+export const PRE_RESET_COMMIT = "81ae8fdf68b4fd29648d76dc77c379cd98764dbe";
 const CURRENT_INVENTORY = "docs/governance/repository-inventory.json";
 const DEFAULT_OUTPUT = ".artifacts/audit/repository-reconciliation.json";
 
@@ -24,6 +33,138 @@ const PREFIX_MOVES = [
   ["docs/runbooks/", "docs/operations/"],
   ["project-demo/", "docs/design/product-demo/"],
 ];
+
+function baselineCategoryFor(repositoryPath, kind = "file") {
+  const value = repositoryPath.toLowerCase();
+  if (kind === "directory") return "directory";
+  if (value.includes("/evidence/") || value.startsWith("test-cases-and-data/")) return "evidence";
+  if (value.startsWith("project-demo/")) return "demo-evidence";
+  if (value.startsWith("docs/tickets/")) return "ticket";
+  if (value.startsWith("docs/workingspace/")) return "working-document";
+  if (value.startsWith("docs/")) return "documentation";
+  if (value.startsWith("contracts/") || value.includes("/contracts/")) return "contract";
+  if (value.includes("/tests/") || /(?:^|\/)test[^/]*\.[^/]+$/.test(value)) return "test";
+  if (value.includes("/fixtures/") || value.includes("/fixture/")) return "fixture";
+  if (value.includes("/vendor/") || value.includes("/vendor_")) return "vendored-source";
+  if (value.startsWith("scripts/") || value.startsWith(".github/")) return "automation";
+  if (value.startsWith("infra/") || value.includes("/infra/")) return "infrastructure";
+  if (value.endsWith("package-lock.json")
+    || /(?:^|\/)(?:package|tsconfig|vite\.config|vitest\.config)[^/]*\.json$/.test(value)) return "configuration";
+  if (value.match(/\.(?:md|txt)$/)) return "documentation";
+  if (value.match(/\.(?:png|jpe?g|gif|svg|webp|ico|woff2?)$/)) return "asset";
+  return "source";
+}
+
+function baselineOwnerFor(repositoryPath) {
+  const value = repositoryPath.toLowerCase();
+  if (value === ".") return "repository-governance";
+  if (value.startsWith(".agents/") || value.startsWith(".claude/")
+    || value === "agents.md" || value === "claude.md") return "agent-governance";
+  if (value.startsWith("docs/workingspace/")) return "user-workspace";
+  if (value.startsWith("docs/tickets/")) return "ticket-system";
+  if (value.startsWith("docs/")) return "documentation";
+  if (value.startsWith("scripts/") || value.startsWith(".github/")) return "engineering-automation";
+  if (value.startsWith("api/")) return "data-api";
+  if (value.startsWith("orchestration/")) return "orchestration";
+  if (value.startsWith("mockup-app/")) return "web-app";
+  if (value.startsWith("packages/domain/")) return "domain-model";
+  if (value.startsWith("contracts/")) return "contracts";
+  if (value.startsWith("functions/parser/")) return "document-parsing";
+  if (value.startsWith("functions/enrichment/")) return "vehicle-enrichment";
+  if (value.startsWith("functions/evasentry/")) return "eva-integration";
+  if (value.startsWith("functions/evavalidation/")) return "eva-validation";
+  if (value.startsWith("functions/location-suggest/")) return "location-suggestions";
+  if (value.startsWith("functions/box-webhook/")) return "archive-integration";
+  if (value.startsWith("ocr/")) return "image-analysis";
+  if (value.startsWith("test-cases-and-data/")) return "quality-and-evaluation";
+  if (value.startsWith("project-demo/")) return "product-demo";
+  if (value.startsWith("migration/") || value.startsWith("database/")) return "data-platform";
+  return "repository";
+}
+
+function baselineLifecycleFor(repositoryPath, kind = "file") {
+  const value = repositoryPath.toLowerCase();
+  if (kind === "directory") {
+    if (value.startsWith("docs/workingspace")) return "working";
+    if (value.startsWith("deploy")) return "generated";
+    return "structural";
+  }
+  if (value.startsWith("docs/workingspace/")) return "working";
+  if (value.includes("/evidence/") || value.startsWith("test-cases-and-data/")
+    || value.startsWith("project-demo/")) return "evidence";
+  if (value.includes("/vendor/") || value.includes("/vendor_")) return "vendored";
+  if (value.startsWith("deploy/") || value.match(/(?:^|\/)(?:dist|build|coverage)\//)
+    || value.includes(".generated.")) return "generated";
+  return "active";
+}
+
+function commitTreeEntries(root, commit) {
+  try {
+    gitOutput(root, ["cat-file", "-e", `${commit}^{commit}`]);
+  } catch (error) {
+    throw new Error(
+      `Locked pre-reset commit ${commit} is unavailable. Fetch repository history before reconciliation `
+      + "(GitHub Actions checkout must use fetch-depth: 0).",
+      { cause: error },
+    );
+  }
+
+  const output = gitOutput(root, ["ls-tree", "-r", "-z", "--full-tree", commit]);
+  return output.toString("utf8").split("\0").filter(Boolean).map((record) => {
+    const tab = record.indexOf("\t");
+    const match = record.slice(0, tab).match(/^(\d+) (\S+) ([0-9a-f]+)$/);
+    if (tab < 0 || !match) throw new Error(`Could not parse Git tree record: ${record}`);
+    const [, mode, objectType, objectId] = match;
+    const repositoryPath = normalized(record.slice(tab + 1));
+    if (objectType !== "blob") throw new Error(`Unsupported Git tree object ${objectType}: ${repositoryPath}`);
+    if (!mode.match(/^(?:100644|100755|120000)$/)) {
+      throw new Error(`Unsupported Git tree mode ${mode}: ${repositoryPath}`);
+    }
+    return { path: repositoryPath, mode, objectId };
+  }).sort((left, right) => comparePaths(left.path, right.path));
+}
+
+function inventoryEntry(repositoryPath, mode, metadata = { size: 0, sha256: null }) {
+  const kind = mode === "040000" ? "directory" : "file";
+  return {
+    path: repositoryPath,
+    mediaType: mode === "120000" ? "inode/symlink" : mediaTypeFor(repositoryPath, kind),
+    size: metadata.size,
+    sha256: metadata.sha256,
+    category: baselineCategoryFor(repositoryPath, kind),
+    owner: baselineOwnerFor(repositoryPath),
+    lifecycle: baselineLifecycleFor(repositoryPath, kind),
+  };
+}
+
+export async function collectPreResetInventory({ root = ROOT, commit = PRE_RESET_COMMIT } = {}) {
+  const treeEntries = commitTreeEntries(root, commit);
+  const metadata = await readGitBlobMetadata(root, treeEntries.map((entry) => entry.objectId));
+  const files = treeEntries.map((entry) => inventoryEntry(entry.path, entry.mode, metadata.get(entry.objectId)));
+  const directories = repositoryDirectoriesForFiles(files.map((entry) => entry.path))
+    .map((repositoryPath) => inventoryEntry(repositoryPath, "040000"));
+  const entries = [...directories, ...files];
+
+  return {
+    schemaVersion: 2,
+    scope: `Git tree at locked pre-reset commit ${commit}`,
+    pathStyle: "repository-relative POSIX",
+    ordering: "path ascending with directories before files",
+    hashAlgorithm: "sha256",
+    hashPolicy: {
+      directories: "null because directories have no repository byte stream",
+      tracked: "size and sha256 use committed Git blob bytes, independent of checkout filters and line endings",
+    },
+    classificationPolicy: "Deterministic path-based ownership and lifecycle metadata for the pre-reset layout",
+    counts: {
+      directories: directories.length,
+      files: files.length,
+      entries: entries.length,
+    },
+    totalFileBytes: files.reduce((total, entry) => total + entry.size, 0),
+    entries,
+  };
+}
 
 function normalized(value) {
   return value.replaceAll("\\", "/").replace(/^\.\//, "");
@@ -68,6 +209,13 @@ function byHash(entries) {
   return index;
 }
 
+function isImmutableWorkingMove(before, after) {
+  return before.path.startsWith("docs/workingspace/")
+    && after.path === `workingspace/${before.path.slice("docs/workingspace/".length)}`
+    && before.lifecycle === "working"
+    && after.lifecycle === "working";
+}
+
 function baselineDisposition(entry, finalByPath, finalByHash) {
   const same = finalByPath.get(entry.path);
   if (same) {
@@ -81,10 +229,15 @@ function baselineDisposition(entry, finalByPath, finalByHash) {
   const mapped = mappedPath(entry.path);
   if (mapped && finalByPath.has(mapped)) {
     const final = finalByPath.get(mapped);
+    const immutableWorkingMove = isImmutableWorkingMove(entry, final);
     return {
-      disposition: entry.sha256 === final.sha256 ? "move" : "rewrite",
+      disposition: entry.sha256 === final.sha256 || immutableWorkingMove ? "move" : "rewrite",
       finalPath: mapped,
-      reason: entry.sha256 === final.sha256 ? "Bytes moved into the locked repository layout." : "Content was moved and rewritten into the current authority.",
+      reason: immutableWorkingMove
+        ? "The committed source blob maps to the separately locked physical working file; the working-byte gate proves preservation."
+        : entry.sha256 === final.sha256
+          ? "Bytes moved into the locked repository layout."
+          : "Content was moved and rewritten into the current authority.",
     };
   }
 
@@ -122,7 +275,10 @@ function finalOrigin(entry, baselineByPath, baselineByHash) {
     if (entry.path.startsWith(after)) return [`${before}${entry.path.slice(after.length)}`];
     return [];
   }).filter((candidate) => baselineByPath.has(candidate));
-  if (reverse.length) return { origin: reverse, state: "rewritten" };
+  if (reverse.length) {
+    const immutableWorkingMove = reverse.some((candidate) => isImmutableWorkingMove(baselineByPath.get(candidate), entry));
+    return { origin: reverse, state: immutableWorkingMove ? "moved" : "rewritten" };
+  }
 
   return {
     origin: ["PLAN-006"],
@@ -164,7 +320,11 @@ export function buildReconciliation(baselineDocument, finalDocument) {
 
   const document = {
     schemaVersion: 1,
-    baseline: { gitObject: BASELINE_OBJECT, entries: baseline.length },
+    baseline: {
+      gitCommit: PRE_RESET_COMMIT,
+      byteSource: "committed Git tree and blob bytes",
+      entries: baseline.length,
+    },
     final: { inventory: CURRENT_INVENTORY, entries: final.length },
     summary: {
       baselineFiles: baseline.filter((entry) => entry.kind === "file").length,
@@ -194,21 +354,13 @@ export function validateReconciliation(document) {
   return issues;
 }
 
-function loadBaseline() {
-  return JSON.parse(execFileSync("git", ["show", BASELINE_OBJECT], {
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-  }));
-}
-
-function main() {
+async function main() {
   const ephemeral = process.argv.includes("--ephemeral") || !process.env.CI;
   const outputArgument = process.argv.indexOf("--output");
   const output = normalized(outputArgument >= 0 ? process.argv[outputArgument + 1] : DEFAULT_OUTPUT);
   if (outputArgument >= 0 && !process.argv[outputArgument + 1]) throw new Error("--output requires a path");
   const final = JSON.parse(readFileSync(path.join(ROOT, CURRENT_INVENTORY), "utf8"));
-  const document = buildReconciliation(loadBaseline(), final);
+  const document = buildReconciliation(await collectPreResetInventory(), final);
   const issues = validateReconciliation(document);
   if (issues.length) {
     console.error(`Repository reconciliation failed with ${issues.length} issue(s):`);
@@ -227,4 +379,4 @@ function main() {
   if (ephemeral) unlinkSync(destination);
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

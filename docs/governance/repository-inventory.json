@@ -17,7 +17,7 @@
     "files": 2889,
     "entries": 3792
   },
-  "totalFileBytes": 495938373,
+  "totalFileBytes": 495952916,
   "entries": [
     {
       "path": ".",
@@ -10192,8 +10192,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 4011,
-      "sha256": "5ed9b5503ce8ebdab10c1503ce229ec9265e0fbf83fa70fd64a64190154103ba",
+      "size": 4248,
+      "sha256": "31c67f1b4efb64cfb1aec4985a405d77dab6b92e0594558ac0bf19b06858acc2",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -13279,7 +13279,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1181618,
+      "size": 1181619,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13288,8 +13288,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 3214,
-      "sha256": "4e40c3f30e8c2f6de846d9453f870d3f4cb647a0135ee0958e21ebb76be35246",
+      "size": 3392,
+      "sha256": "12862810b1a85a46477dcf384cd1eb89899b6980c87b0857475418ce987a6a08",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -22738,8 +22738,8 @@
     {
       "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/verification.md",
       "mediaType": "text/markdown",
-      "size": 2137,
-      "sha256": "5ee9909dd65b96c375e3ca8348c0ef5df12600091eb85e8f1f2933b95fe10291",
+      "size": 2266,
+      "sha256": "57906c3e50da99dc20500a98d40571cf1c1ee2efd164a59162a25e47036dc6a3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22972,8 +22972,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
       "mediaType": "text/markdown",
-      "size": 1696,
-      "sha256": "26f7a049defb5272d039bf2d2cbdca2f8056568a3204d9db7bff77aefe699979",
+      "size": 2020,
+      "sha256": "23be74ad656d1017713c49efef20959fa92f0f858b47f565e9b1b25a40003289",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22990,8 +22990,8 @@
     {
       "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/verification.md",
       "mediaType": "text/markdown",
-      "size": 2619,
-      "sha256": "a0aa61f5ac3e5c51cb5ae6e055eeb58b5bb41727d2997daf9a5dd2ee6e25487e",
+      "size": 3044,
+      "sha256": "ebc92b5a7358de6e214a8db5746b3e237160ea56996c232c6edd229e547ca8ee",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23089,8 +23089,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 145489,
-      "sha256": "a2ab0843a16f53b70d52920be0ef13e248fa5c881b001778d2a0a9a3185f96b4",
+      "size": 146052,
+      "sha256": "9cebe94560c1535974823388bb4689d6081d6093d6e639304d2b7a0b4742f48d",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -23098,8 +23098,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 2946,
-      "sha256": "448f81a16d2eab9c3045116e93f4efbd5f13a2da8545967c9a5c9f78c2e9b98d",
+      "size": 2994,
+      "sha256": "73425422fe5b0d5ebaea523bc398bb8d68e2c5962eecebf4154a48859321f22b",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -24412,8 +24412,8 @@
     {
       "path": "scripts/maintenance/generate-repository-inventory.mjs",
       "mediaType": "text/javascript",
-      "size": 20686,
-      "sha256": "61f4241f86c2db8c51d98e047bf7a0d5a9a39edf595d0e6f1e67159a1dc3aa70",
+      "size": 20763,
+      "sha256": "31bb8630b825525dc3ee70b0bdbe620010bf3436fc2db38c82653a39d6cbd7e0",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24439,8 +24439,8 @@
     {
       "path": "scripts/maintenance/reconcile-repository-reset.mjs",
       "mediaType": "text/javascript",
-      "size": 9264,
-      "sha256": "eb42c2bcdfc695b94afe486c2f3e04b5dbb68e30e2285877a4729de8e35a888a",
+      "size": 17253,
+      "sha256": "cf7897b68c8bd40e2ceda4b01c42367a67071e6d6cf70bb0c54befdcd26ae787",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -24448,8 +24448,8 @@
     {
       "path": "scripts/maintenance/reconcile-repository-reset.test.mjs",
       "mediaType": "text/javascript",
-      "size": 1223,
-      "sha256": "28dd6fc3ac36527d3c0884c4a9478bd9e8410d5e5bd3f316c4d9b1c237d04964",
+      "size": 5795,
+      "sha256": "dc88012dde170620430edf946ccab12217a8fc044ea164cbb7a926479792a695",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"

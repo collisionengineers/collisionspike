@@ -18,8 +18,9 @@ TESTED (offline)
 - Inventory, evidence catalog, immutable workingspace, tracked-output, ticket, documentation and
   generated-adapter checks pass.
 - Strict, broad, extracted-binary and reviewed-image purge gates pass.
-- Twenty-nine repository-check tests pass, including the output-free build regression and two
-  cross-platform inventory regressions. Seven runtime-contract cases independently induce method,
+- Thirty-three repository-check tests pass, including the output-free build regression, cross-platform
+  inventory coverage, deterministic committed-tree reconstruction, a real shallow-clone failure, and the
+  immutable working-folder hash-basis move. Seven runtime-contract cases independently induce method,
   route, function-auth, application-policy, DTO, schema, resource-name, PostgreSQL-column and numeric-code
   drift and prove the gate rejects it.
 - TKT-215's audit remains a separate read-only record; the normal gate requires no live access.
@@ -29,6 +30,9 @@ TESTED (offline)
 ## Pending / gaps
 - Independent TKT-207/content-class sampling has not yet occurred. This remains a tested verdict rather
   than final plan close-out. Remote CI status is read from the PR checks rather than frozen in this file.
+- The clean install reports three moderate and one high dependency advisories, currently through the
+  development server/toolchain and the orchestration dependency chain. Remediation requires reviewed
+  major-version changes; PLAN-006 does not apply `npm audit fix --force` or disguise that separate risk.
 
 ## How to re-verify
 Run node verify-all.mjs twice from clean checkouts; it performs npm ci, builds, tests, packages and

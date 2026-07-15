@@ -49,7 +49,9 @@ requested, use physical checkout bytes. The four immutable `workingspace` files 
 exception: their separately locked physical sizes and hashes preserve the user-owned byte contract.
 `npm run check:reconciliation` maps every immutable pre-reset
 tracked row to its final keep, move, rewrite, or deletion disposition and proves every final row has an
-origin and ticket owner. `npm run inventory:checkout` separately enumerates every physical checkout
+origin and ticket owner. It reconstructs that baseline from the locked pre-reset main commit's Git tree,
+so the proof survives any merge strategy without retaining the removed-path ledger at final HEAD.
+`npm run inventory:checkout` separately enumerates every physical checkout
 item, including ignored dependencies, generated output, empty directories, symlinks, and repository
 metadata. The two large path-level ledgers are ephemeral locally and uploaded by CI under
 `repository-audit-ledgers`; they are not retained at final HEAD because the reconciliation necessarily

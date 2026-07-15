@@ -24,8 +24,11 @@ purge, runtime contracts, docs, tickets, database mappings and generated adapter
 snapshot covers routes, DTOs, schemas, authentication identifiers, registered resources, PostgreSQL
 baseline structure and numeric mappings. Missing check scripts or retained Python suites are failures.
 CI remains split into TypeScript, Python and hygiene jobs but invokes the same versioned check scripts.
-The first Linux CI execution exposed two host-portability defects: npm had omitted Rollup's Linux binary
-from the Windows-authored lockfile, and the inventory hashed checkout line endings instead of Git blobs.
-The follow-up pins the Linux package as an optional dependency and inventories stage-0 Git blob bytes,
-with regression coverage for a CRLF checkout whose index contains LF bytes. The four user-owned
-`workingspace` files deliberately retain their separate physical-byte locks.
+Linux CI exposed four host/checkout portability defects in two passes: npm had omitted Rollup's and
+Rolldown's Linux native packages from the Windows-authored lockfile; the inventory hashed checkout line
+endings instead of Git blobs; and reconciliation named a feature-branch commit unavailable to a shallow
+checkout. The follow-ups pin both exact Linux packages as optional dependencies, inventory stage-0 Git
+blob bytes, and reconstruct the reset baseline from the permanent pre-reset main commit. Regression
+coverage includes a CRLF checkout whose index contains LF bytes and a real depth-one clone that must fail
+with an actionable full-history instruction. Hygiene CI fetches history for the baseline proof. The four
+user-owned `workingspace` files deliberately retain their separate physical-byte locks.

@@ -108,14 +108,14 @@ function parseOptions(argv) {
   return options;
 }
 
-function mediaTypeFor(repositoryPath, kind = "file") {
+export function mediaTypeFor(repositoryPath, kind = "file") {
   if (kind === "directory") return "inode/directory";
   const basename = path.posix.basename(repositoryPath);
   if (TEXT_BASENAMES.has(basename)) return "text/plain";
   return MEDIA_TYPES.get(path.posix.extname(repositoryPath).toLowerCase()) ?? "application/octet-stream";
 }
 
-function categoryFor(repositoryPath, kind = "file") {
+export function categoryFor(repositoryPath, kind = "file") {
   const value = repositoryPath.toLowerCase();
   if (kind === "directory") return "directory";
   if (value.startsWith("tests/fixtures/evidence/")) return "evidence";
@@ -134,7 +134,7 @@ function categoryFor(repositoryPath, kind = "file") {
   return "source";
 }
 
-function ownerFor(repositoryPath) {
+export function ownerFor(repositoryPath) {
   const value = repositoryPath.toLowerCase();
   if (value === ".") return "repository-governance";
   if (value.startsWith(".agents/") || value.startsWith(".claude/") || value === "agents.md" || value === "claude.md") return "agent-governance";
@@ -159,7 +159,7 @@ function ownerFor(repositoryPath) {
   return "repository";
 }
 
-function lifecycleFor(repositoryPath, kind = "file") {
+export function lifecycleFor(repositoryPath, kind = "file") {
   const value = repositoryPath.toLowerCase();
   if (kind === "directory") {
     if (value.startsWith("workingspace")) return "working";
@@ -190,10 +190,11 @@ function resolveWithinRoot(root, repositoryPath) {
   return absolute;
 }
 
-function gitOutput(root, args) {
+export function gitOutput(root, args) {
   return execFileSync("git", ["-C", root, ...args], {
     encoding: "buffer",
     maxBuffer: 64 * 1024 * 1024,
+    stdio: ["ignore", "pipe", "pipe"],
   });
 }
 
@@ -228,7 +229,7 @@ function untrackedPaths(root) {
     .sort(comparePaths);
 }
 
-async function readIndexBlobMetadata(root, objectIds) {
+export async function readGitBlobMetadata(root, objectIds) {
   const uniqueObjectIds = [...new Set(objectIds)];
   if (uniqueObjectIds.length === 0) return new Map();
 
@@ -376,7 +377,7 @@ export async function collectFileEntries({
     }
   }
 
-  const blobMetadata = await readIndexBlobMetadata(
+  const blobMetadata = await readGitBlobMetadata(
     root,
     indexed.filter((entry) => !immutablePaths.has(entry.path)).map((entry) => entry.objectId),
   );

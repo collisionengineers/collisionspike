@@ -69,6 +69,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Reconciliation rebuilds its immutable baseline from the permanent pre-reset commit.
+          # Full history keeps that commit available after merge, squash, rebase, or branch deletion.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
