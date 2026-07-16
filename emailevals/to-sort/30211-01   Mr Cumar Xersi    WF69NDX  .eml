@@ -1,0 +1,1495 @@
+Received: from LO0P123MB5919.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:241::7)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Tue, 14 Jul 2026
+ 08:51:45 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=i5zYVR3zFDzRGXjXoZQsLRxW+iX6p888dU19UTJ5h7M6J0p+4T+8jxbMqjTgSYgipWhyVR9C0c/88P5bUuOU7INXdKtZ2nl8MIj1cb8yGmmKGQKOnriikDygXIjxEGndDcc78UR2oYpitKZ4C4SKxXQOvgqEx4kYm8aVx4CLzxNFDKoAkgN0Dp3/ef5jIE4bhnOxXknuntdIgNqYPf/0wiNANEV8r8vGSIIkmqn8JrNEm3cHI4QEraOHURZtjmJyYDRPcXjz8noDCdHAHgWWvrKmcrLkW6755j6lnUypMUty8v64WX5oRlSgetjIC3UNFnzu7Xy5QyLp8HN82j9Sug==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=v5uaeAWJsSy7uENQDKxsMxP0lmbUDbxNs1dlHZK3oQM=;
+ b=rv/N9jOC9wDVIGE0Ar2wYomUwdURsh3hlLyOpgl2Bo1Ut9lZdOIz0Nqm81HaVJg3fHxXmpa75HWE6mXoCUJH1PC2TnMBDFgWmprN4n2VP8j7o7PWdXw27SWa3NAMI1zpm/aWLuMV5X4erZ5jadV4aR5FMQCmHhvl3Mt+ONw4UyugsZy66Z9k6uRb1KGIgNU4NgO4r20NT5NnrPFOM37cyY7CPsig68bCARGeyY6BsQuLQI30/496KR1fRKagsyME8izLCVYgzUK6zoJ/7Vl8yQfFSR/sQ93qyqSxtHwI5ZxwhiN/kZW5CPmXxr3aI2CP5rLXcgZf0nPBQN7l3Guahw==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c201::6) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=fairwaylegal.co.uk; dmarc=pass (p=none sp=none pct=100)
+ action=none header.from=fairwaylegal.co.uk; dkim=pass (signature was
+ verified) header.d=fairwaylegal.co.uk; arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=fairwaylegal.co.uk]
+ dkim=[1,1,header.d=fairwaylegal.co.uk]
+ dmarc=[1,1,header.from=fairwaylegal.co.uk])
+Received: from LO4P123CA0289.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:196::6)
+ by LO0P123MB5919.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:241::7) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.202.20; Tue, 14 Jul
+ 2026 08:51:43 +0000
+Received: from LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:196:cafe::8f) by LO4P123CA0289.outlook.office365.com
+ (2603:10a6:600:196::6) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.202.20 via Frontend Transport; Tue,
+ 14 Jul 2026 08:51:43 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c201::6)
+ smtp.mailfrom=fairwaylegal.co.uk; dkim=pass (signature was verified)
+ header.d=fairwaylegal.co.uk;dmarc=pass action=none
+ header.from=fairwaylegal.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of fairwaylegal.co.uk
+ designates 2a01:111:f403:c201::6 as permitted sender)
+ receiver=protection.outlook.com; client-ip=2a01:111:f403:c201::6;
+ helo=AM0PR02CU008.outbound.protection.outlook.com; pr=C
+Received: from AM0PR02CU008.outbound.protection.outlook.com
+ (2a01:111:f403:c201::6) by LN2PEPF000100CD.mail.protection.outlook.com
+ (2603:10a6:608:1::7) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Tue, 14
+ Jul 2026 08:51:43 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=SUP86L+VAbKeveXIXgbkMDZusjl72ivP+iArQWYuVc1zJA5OqNJQn54zl5eSqQeEfCKqm22giZdL2/fZKS7jApF8Hu7qrhIMhn9tTMABRW4dNgV/ZMMZCRnbu6+mmkN3dx94DJSxmcQMLAI8goT4uNnPJSXJaVJ0yskricbagAiRzCbKnERq5kE+TpGVAy6gOPAxfuYpZZmMFqvj2BiCu5yoCH+WJso1pmVSosJ+QOgAG+zvlQlCY9/Yg/70ZMZ6+CeXQIVdmAp87qFXkZyDwOcTgoYLh8WeYGP2RpNm+Qsn+6HxSDnSL2NhzKecvNoMnnCU/kMKlB2Ko2IVsecKTg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=v5uaeAWJsSy7uENQDKxsMxP0lmbUDbxNs1dlHZK3oQM=;
+ b=LOgeWmDbzzERB3rE5sRp/bg41rBSkEwheN6481XuQs0wakrXpThKdln9tvd+xCDEDdUcHEycG3EQXZXHVViNsuVnXs5D10SlyXR1tVOVcV8CSequjXqJbATl8i513Y7lW/YGH/ugnHd/1pz2ScictjJfs5HblTbXfDiyaWdXaTcFoGCiSD3ok/BYkYPhhhhHWdfdYIYqR8Go21jVeudUQVLHNn6eHGnZjQJq7hfC7ksgY/Sx50YmlZKUTZbOP7r6JyH1otmlRFXrOFULnTd6fQyRH6w9hRd07CNnz5uxhfsOOXFRu1+dJXG2RQEoy+acvISvJro3MEh4UK2VJwSgeA==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=fairwaylegal.co.uk; dmarc=pass action=none
+ header.from=fairwaylegal.co.uk; dkim=pass header.d=fairwaylegal.co.uk;
+ arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=fairwaylegal.co.uk;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=v5uaeAWJsSy7uENQDKxsMxP0lmbUDbxNs1dlHZK3oQM=;
+ b=IIyknsYNVzKREA0YUBKPBQThnpFvvE2q7gDdo3j5W7ZTUIaS+Si55LrNLoupKOl2sUJSzaCN7zo6u799os5Uf6SpKGxeSD2cgJOhql+aoVq4gSPLOzwT3GDXwlhYddwlCHyh/HinBqtbvV+tIuSGgHXBeYNwFsEHpABGHzn473A=
+Received: from AM6PR02MB4135.eurprd02.prod.outlook.com (2603:10a6:20b:4a::23)
+ by AM0PR02MB5955.eurprd02.prod.outlook.com (2603:10a6:208:18b::20) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.10; Tue, 14 Jul
+ 2026 08:51:41 +0000
+Received: from AM6PR02MB4135.eurprd02.prod.outlook.com
+ ([fe80::1a05:7a4e:9828:4003]) by AM6PR02MB4135.eurprd02.prod.outlook.com
+ ([fe80::1a05:7a4e:9828:4003%6]) with mapi id 15.21.0202.014; Tue, 14 Jul 2026
+ 08:51:41 +0000
+From: Info <info@fairwaylegal.co.uk>
+To: "Six Ways Marketing Ltd (info@sixwaysclaims.co.uk)"
+	<info@sixwaysclaims.co.uk>
+CC: "engineers@collisionengineers.co.uk" <engineers@collisionengineers.co.uk>
+Subject: 30211-01   Mr Cumar Xersi    WF69NDX  
+Thread-Topic: 30211-01   Mr Cumar Xersi    WF69NDX  
+Thread-Index: Ad0KzYjep1PDIV06SyypSrAC39AVkQExJjqwAMVgSfAAMZZ7AA==
+Date: Tue, 14 Jul 2026 08:51:41 +0000
+Message-ID: <AM6PR02MB4135B1DD9D4057918CF25EAB8CF92@AM6PR02MB4135.eurprd02.prod.outlook.com>
+References: <PAVPR02MB930774D239F85893294B33E48AF52@PAVPR02MB9307.eurprd02.prod.outlook.com>
+ <AM6PR02MB413589B5B87834FB68395DAD8CF42@AM6PR02MB4135.eurprd02.prod.outlook.com>
+ <AM6PR02MB41357F20FA85EAF747038B608CFE2@AM6PR02MB4135.eurprd02.prod.outlook.com>
+ <AM6PR02MB41354B3B7EBC99F8E191ED948CFA2@AM6PR02MB4135.eurprd02.prod.outlook.com>
+In-Reply-To: <AM6PR02MB41354B3B7EBC99F8E191ED948CFA2@AM6PR02MB4135.eurprd02.prod.outlook.com>
+Accept-Language: en-US
+Content-Language: en-US
+X-MS-Has-Attach: yes
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=fairwaylegal.co.uk;
+x-ms-exchange-messagesentrepresentingtype: 1
+x-ms-traffictypediagnostic: AM6PR02MB4135:EE_|AM0PR02MB5955:EE_|LN2PEPF000100CD:EE_|LO0P123MB5919:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: b6b778b5-a417-4caf-a3cc-08dee185211e
+x-ms-exchange-sharedmailbox-routingagent-processed: True
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|366016|6049299003|23010399003|1800799024|376014|18002099003|22082099003|38070700021|56012099006|3023799007|8096899003|4143699003|6133799003|13003099007|4013099003|4053099003;
+X-Microsoft-Antispam-Message-Info-Original: zt8Aj6OPyopq/InzlYkX5ZnCLkez0W40248jrF2DAh/rNLHz4nuKhgvqQTSXHh8UlU67wEx0RxtrmLG2q7NldJr8g/WzZObAB/RWHbK5MpIpGCQhT8OMcMxXnMiqUsIJ37mqDDv+u/YOwm/Qkxo5PKjT2sHmE4oCCtpZs14qX2G7uZV4NpqqJC30MQjVIhLbDy7InxLxt9js/fz5Q54KvbR8bBNJ/9oVRV18pHzlztS0K9zX3iO0TJDUd8k6fWVosPKb5S3PD7syTV1pJBk8SyyBEq2ipAvFw2helevz6heUZIo7MEJpRcFAM3cwcv7d6J6PrWLTrF01D6L6+KDEFoObqbW/8ketS3b3VExVKM06yW1E/FN06UpNNXX3yJs4A6P37ktqdcsFjBlvFbHYlkF+fmgmqp/bbdh01KXPiuxfgUMP+RxVPiBwjXdglB9yEMMvo/NMdwlr2arr1jEUK9w2YXVXuEA0ZR3/v7xYPcD9eTlKZ1RnLzf7+fpW1rMNjyfIduLOM4IH+Qec6BZClUoAdOJox5WSVZWfnZD9BMPbwEdj2uGemKJGmeNzB8TCQAOwmkQaXLZaTEwXEe/6+UOL6rNeqXmT8gOV9J0F6FREi3Cq4pLLzeGfLhk9x1pwODJ5hD14ysxIIsutPGjlkStEHJgSLURRM6pCfbTssJs=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:AM6PR02MB4135.eurprd02.prod.outlook.com;PTR:;CAT:NONE;SFS:(13230040)(366016)(6049299003)(23010399003)(1800799024)(376014)(18002099003)(22082099003)(38070700021)(56012099006)(3023799007)(8096899003)(4143699003)(6133799003)(13003099007)(4013099003)(4053099003);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: =?us-ascii?Q?UFfYYqzOtSPT4GZsoCZ7qOodrOCW73MxRwpQbQFzjFaBQ6aIfDBdsijhy8iI?=
+ =?us-ascii?Q?3MporBkZNJ5YavY9gbHxX+1qVcEtv9d34rDNyZBLUK/jruzpXr5xle9J7uSj?=
+ =?us-ascii?Q?HOxWyoRyBpL4F3bpZAssrhL/m49jI4JU75ErqUrz/2oelRUSLapeV0d3XGFi?=
+ =?us-ascii?Q?s2b7gLbozvqTGDK4u4lWz8+o/PZV79YTuuZRzKli/M6xDOU4L5BIWfr0QWIm?=
+ =?us-ascii?Q?NYLEtM0NDc54AI4z+Sd9ufdz9dIMuDHA6J2uDWxfSpYoe5N7zBnVPXYhCKF/?=
+ =?us-ascii?Q?4hsl3tGLOBy2ITrCw4U+LKaywjgDfoHHRUYbHg1JduO64npFED8WdoJiG4zT?=
+ =?us-ascii?Q?dBvqqd/roY/Vj+tDkr34VLsjsC8Gxis1YIdMCCub8Br5M6h9V7xaXjDO87PN?=
+ =?us-ascii?Q?YYn1/zm7WSB42jGsYFIIQSMJuydxmZP2CiYkE+xJBlLCpn/AQGqpuUx6qfIx?=
+ =?us-ascii?Q?n5pEJjA8zc9PuSsEEChcAeDBEsoGLGc2BQtDlAbpc4l2A9jDxzdouSO8Uytl?=
+ =?us-ascii?Q?VXuvvIF52geozix2xijs5YPmleZoE4pP4z7cFUp9x2fTz5PAfwc1G62ARqZ6?=
+ =?us-ascii?Q?EEk3fiwKZNwmkTGvdPlImtGTLxp1bpPzqP2Hbs9ubxvSRj7DhQ1j+oebfHre?=
+ =?us-ascii?Q?soR2qPHv3/sgZgg5PRUm2RkcIhNgqXDdr9PcaEidfkSmlHB+vs7JtVHDcNqM?=
+ =?us-ascii?Q?i4cPzT5nHOdU1KUblj4bhcUhrCwT2KLH9s0EMHES+5OSVOi5K3mkygoI7S1L?=
+ =?us-ascii?Q?y4p+QOp4cC878kfzvbZNnf37Q6fRoyeuAcyCQiP6OgHbsPWjmT5ysrkGAh6I?=
+ =?us-ascii?Q?XnT1JjYSMK4zsY67dHGZYu9M11dej26tAPdR1SPmiFVu5IQnvuhUEz1hVWUP?=
+ =?us-ascii?Q?F3moDPdCndVCrsEunZOyyreeSIJfqKhtmaa+kqczt/p09rmdo04rL+Uu9BFQ?=
+ =?us-ascii?Q?qc1d8Yct/tDZOdK+EDw2DvZQu64b2hUd8sZUtK/oQ92lX+KO5afmO/AO9CUH?=
+ =?us-ascii?Q?FJpz7fBXQt7ZEytB4KBIk/V+VBu7Q0inKp2C1mHw2CbcHfAW2UScQv41fd08?=
+ =?us-ascii?Q?lDzuc0uZvLBplF+PdBmdqoQzDEfDl7jsIZHdjXjuTkowjw9nZjbuhpJCMwpd?=
+ =?us-ascii?Q?a9DOlrECjPHJcUsvfhq+P/vruD6+q2DlOTciCzpJk5bRpt8JkLSwyuu0t6JT?=
+ =?us-ascii?Q?cqTA4r+ZpSVARw1UNc8SuMV6h89knMduvieEZCCxwD2/aB8cXw4QLqpTjB0P?=
+ =?us-ascii?Q?rmgIlKb3nDLp89J/Y8z3GmfFD/ntM6b+r9LlXgFghybdL018rDMcNJgXyhud?=
+ =?us-ascii?Q?mIKyN9cPqgKk7IO2A0DWqMyv/TvX01iS8p/9v461gCgPMHk9YyGsJnALtvXq?=
+ =?us-ascii?Q?euEssJUKknCpmoCZ4dH0wcoBCjksxsS/jdR6oDewbpc6FyH+oYKXxXtI2lDX?=
+ =?us-ascii?Q?crHGR6JzSL6OcKKtc+fS2pGSUiPm9MB8X5UD40EFmI82eHEN2taVgNXBmbZu?=
+ =?us-ascii?Q?nIaJ27fuI1McUuxtJWXOZ11mknhTorRLoyVcKnWok/zZQwOsu39qI/MgPpk2?=
+ =?us-ascii?Q?JX8nFd/7GzoWuQ5p5tkBhelrc2AYP+UHn3CkXIvkHNxxvwP0mKUdEGA07E1/?=
+ =?us-ascii?Q?k5FkuQIWC48vMvEq3ZG6UUBf7O6PXJ9bP8hB2sy29s9e00ehKt62H3c4aOHR?=
+ =?us-ascii?Q?HxIYnik1M7zVczFWScSG9zNrBo8/TZooiAIKxz2yOWRlzcM+UfeWfJj80T7S?=
+ =?us-ascii?Q?1O8apPx/sw=3D=3D?=
+Content-Type: multipart/related;
+	boundary="_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_";
+	type="multipart/alternative"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: AM0PR02MB5955
+Return-Path: info@fairwaylegal.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 14 Jul 2026 08:51:43.5745
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: b6b778b5-a417-4caf-a3cc-08dee185211e
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 1606daed-d40c-443c-d35e-08dee1852000
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|35042699022|12012899012|2092899012|6049299003|6113799003|6073799003|7149299003|13003099007|4013099003|4053099003|16102099003|18002099003|22082099003|57112099003|19002099009|8096899003|6133799003|4143699003|5063699009|3023799007;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c201::6;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:AM0PR02CU008.outbound.protection.outlook.com;PTR:mail-westeuropeazlp170130006.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(35042699022)(12012899012)(2092899012)(6049299003)(6113799003)(6073799003)(7149299003)(13003099007)(4013099003)(4053099003)(16102099003)(18002099003)(22082099003)(57112099003)(19002099009)(8096899003)(6133799003)(4143699003)(5063699009)(3023799007);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 14 Jul 2026 08:51:43.5133
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: b6b778b5-a417-4caf-a3cc-08dee185211e
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P123MB5919
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:02.3594722
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0223.005
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?Windows-1252?Q?ixlqyfL9LThxXbw+Ke4WeMqlOEenPIqyEV39LJPnk+EtLhnhbF6ChRxD?=
+ =?Windows-1252?Q?ut5ewm6RsfVv5WitgSmTQE60XmklyelcygJK3kPs+CyD7HkLF5KrgZBV?=
+ =?Windows-1252?Q?BH8SLiX8sgWvg2pSwMFYv/t2QVc3IV8zjw7gTWcrP6QBSBLJB8qZJs8R?=
+ =?Windows-1252?Q?rxDSc3UWfE6s3iSrZs3OxYKatbuwgQ1BlOi8aibw5P+mxgBUpr4ulPuJ?=
+ =?Windows-1252?Q?faAe1te8L1eYEbHyC27vfLYxG5XwbPYRy9iYvbzjF2+jPcukpIVuFR3B?=
+ =?Windows-1252?Q?9GvjxV5FDrWH1kJplkznXC9aHWOXDH1/f6EryWkJrwZp7TbcVw7VwLd3?=
+ =?Windows-1252?Q?aWR0IdLrLEWwo1juC0oKlpwtPvYbsbo01/JrhQAS4Dn6e6MsY96hTCbZ?=
+ =?Windows-1252?Q?s/wd8xnNk8FOB+a1Zvf/AJ+yaHY48/ANYfykDHuSeyaV9xInMR8+l6wo?=
+ =?Windows-1252?Q?CJ57Ai7FtD/QOzdpEJY5/D3LSgP5HjL3b6LSdbRVX9q//GOhHv3tkmHD?=
+ =?Windows-1252?Q?/SLWo8epRt1Qj3mMXICyB85ex/o8YBesgeRwWWodofEQNpCeRBuAxnMA?=
+ =?Windows-1252?Q?qNa0101uphq0Emdoa+5dAqse2M5mNNWU5L9qJHyNyUoMnMDFxjCh4aop?=
+ =?Windows-1252?Q?6a0VPaKfaGMHcxnuNTXBWCqqP/HC6tHLbOd6TTdatJQTvGoOuC3UFS7D?=
+ =?Windows-1252?Q?FKERkcrsPu4eQbeS9wd7fL4XaFiZuSLB5opnxC8KdHyslpQMblsTyOIV?=
+ =?Windows-1252?Q?KSO1sfawtvXW1tFRVYsiZxS4x3RKcuO9j49gasN31xYw9NNRz7Xz6Nw0?=
+ =?Windows-1252?Q?JDgZFYkApenPHl9gHG4oUYKZnHB168irbhP6r+1/3hPTYo78xhcknox1?=
+ =?Windows-1252?Q?2qiYjaz3BHNviIsdSLH1rCu1ua9sKhEWRhQLC/r/wo6P6l1DrvL+UoSG?=
+ =?Windows-1252?Q?hR5nMvqzZXg8dKfdXxDeBT3AJxTUOFId5LFfYo4qKdrWtNMmBFJiRVjD?=
+ =?Windows-1252?Q?che517ixxoZSU9K+Qfk63EEcnFGGV3mkmg+Z+BDdTtf+UHbW14pt/1Ux?=
+ =?Windows-1252?Q?tWkFJ5nsUdmt1LAdUMpaF/o9HhYelvS1KIT4OJHtSd+EcU/EBrOXBngg?=
+ =?Windows-1252?Q?bmXXlygwHU4MSZIsXqE6uygqAvQyoR+9ZpYVCPAFDuHj3hED8Xxt0frZ?=
+ =?Windows-1252?Q?w1CAANOxH8REHbkm1F8nk3xgQjCsMLuuaVvfSZF6xZJdPVtscTnqzApE?=
+ =?Windows-1252?Q?/eHXWG1h7MyXr0frhUS10EbRddpF0nx0g1Nn2iHesKWjsyRYDvuDmMXU?=
+ =?Windows-1252?Q?YwPFAjQpbamyComto7yCLPE/woCc5KlYeH2RDqNdPdQcKI3MkrCysczE?=
+ =?Windows-1252?Q?EOhnTv3Ymakrs3I4wvWgsG+bl4ss3XvKY2pcgnaZZhcqPkOPzBcoN8Hk?=
+ =?Windows-1252?Q?L62zgCZzzXzXj5+5xrS00pWiikX6jLi9lRslFMLk3U4cdSS68EgaZO8/?=
+ =?Windows-1252?Q?KYRBbju+P0MUf9geD5u4oYLeSGGGSwkZK9DVTslvExgiRqUHY4tdHTi3?=
+ =?Windows-1252?Q?qBLWnnOZBr/t2qC6XSCwRUrkjh//fh4e6Y6HaRjQsOYJYgrrsLhr3dxO?=
+ =?Windows-1252?Q?wzmClhYsx2/t+Pnsbz+sYdk5Ii+Xsk5CU/DISerFymA9Ow65nWp+XuOe?=
+ =?Windows-1252?Q?4FS3eSXTYiZAU8NeuhY77RsVrginoaUpyQMAvcE0Y1U7yW2yrMIJr7C7?=
+ =?Windows-1252?Q?8XLmbr+AtZZmYVdw+2CUk+K4fDd4zomi13WjlnMXFCrB7iU0/tetGU+R?=
+ =?Windows-1252?Q?MgUtv/zy2RvG6ifSWmocA3t+YIadQDNOL6eBL4bOm2JH37xO901kfA4l?=
+ =?Windows-1252?Q?qBsqGyGt9Y1xNOEEEs2u7AaFmC0CKoB1GnbZlZ04LR+Vpnqr5Zmb6nh1?=
+ =?Windows-1252?Q?PJpVO6d4sWvZZRzKL+82rZ2bWh4OvyMZahNyCS7t/4A/uK01d9VCIeb2?=
+ =?Windows-1252?Q?G9Z+23WJvvD4kcHsfyZ8DA/UQXiKPI+by0mqLDVF3JKQdF0rZe4vXvZa?=
+ =?Windows-1252?Q?9FrpXvl/2FwrIwcA5wbKWhjFHLKE1TGyOTTc3HUiKWCpq8NeyprDtW0G?=
+ =?Windows-1252?Q?wFjxf9LAVVCmHYUu1wSHN07/VSXM72x/zxxg5ab3GD/ar57XbanFm6+D?=
+ =?Windows-1252?Q?TFKLcSRYtyNOyHnjb2rsxSwIpFhDUHVlQUTQfiimotkOAddmcdOaGDYd?=
+ =?Windows-1252?Q?sW3knMtixlussMXcS23suYWmac72xInYGXlRihoHD6wkJEtJr8QD3z70?=
+ =?Windows-1252?Q?fniLr7YyTcMyVvf9tKtGAUy5swuvyH/baC/qe3KyCpPnIB0yDPGFYTbB?=
+ =?Windows-1252?Q?z+6EoomuZcvxuZl+Goj11dO4lSI/1f9SyeMwiEsaWy1JdRDMPDtmiweV?=
+ =?Windows-1252?Q?I9oWfQ3gOILtXAM8StzfmJRAXIRxJg4nJydEvuq9P0lyU3g48+IMPZpV?=
+ =?Windows-1252?Q?TCUtD/349cROATRD71bgSjP1Eqt1338MgX+QxK8uWxp0neOMv+3Z/ey0?=
+ =?Windows-1252?Q?JoHUW9jBGs0Drgn7?=
+MIME-Version: 1.0
+
+--_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: multipart/alternative;
+	boundary="_000_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_"
+
+--_000_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+Please send vehicle damage images to the engineers so they can compile the =
+report.
+
+Thanks
+
+
+Should you have any query relating to the attached please kindly respond to=
+ Info@fairwaylegal.co.uk<mailto:Info@fairwaylegal.co.uk>
+
+Kind Regards,
+Emily Doyle
+[Description: cid:image001.png@01CFFE99.1B78B2A0]
+Fairway Legal Expenses Ltd
+13 Bury & Rochdale Old Road BuryBL9-7TY
+Tel:0161<tel:0161> 765 3390 :  0845 260 3000
+Fax: 0161 797 7990
+Company number 5143223
+Authorised and regulated by the FCA.
+www.fairwaylegal.co.uk<http://www.fairwaylegal.co.uk/>
+[http://apps.abi.org.uk/tphire/Images/page_main/main_logo_16.gif]
+Unless otherwise specified, this email and its contents should be treated a=
+s 'Confidential'
+This email and any files sent with it are intended only for the named recip=
+ient. If
+you are not the named recipient please telephone/email
+the sender immediately. You should not disclose the content or
+take/retain/distribute any copies.
+
+From: Info
+Sent: 13 July 2026 10:12
+To: 'Six Ways Marketing Ltd (info@sixwaysclaims.co.uk)' <info@sixwaysclaims=
+.co.uk>
+Cc: 'engineers@collisionengineers.co.uk' <engineers@collisionengineers.co.u=
+k>
+Subject: 30211-01 Mr Cumar Xersi WF69NDX
+
+Hi,
+
+Please send vehicle damage images to the engineers so they can compile the =
+report.
+
+Thanks
+
+
+Should you have any query relating to the attached please kindly respond to=
+ Info@fairwaylegal.co.uk<mailto:Info@fairwaylegal.co.uk>
+
+Kind Regards,
+Emily Doyle
+[Description: cid:image001.png@01CFFE99.1B78B2A0]
+Fairway Legal Expenses Ltd
+13 Bury & Rochdale Old Road BuryBL9-7TY
+Tel:0161<tel:0161> 765 3390 :  0845 260 3000
+Fax: 0161 797 7990
+Company number 5143223
+Authorised and regulated by the FCA.
+www.fairwaylegal.co.uk<http://www.fairwaylegal.co.uk/>
+[cid:image002.png@01DD1376.5E97AC90]
+Unless otherwise specified, this email and its contents should be treated a=
+s 'Confidential'
+This email and any files sent with it are intended only for the named recip=
+ient. If
+you are not the named recipient please telephone/email
+the sender immediately. You should not disclose the content or
+take/retain/distribute any copies.
+
+From: Info
+Sent: 09 July 2026 12:00
+To: 'Six Ways Marketing Ltd (info@sixwaysclaims.co.uk<mailto:info@sixwayscl=
+aims.co.uk>)' <info@sixwaysclaims.co.uk<mailto:info@sixwaysclaims.co.uk>>
+Cc: 'engineers@collisionengineers.co.uk' <engineers@collisionengineers.co.u=
+k<mailto:engineers@collisionengineers.co.uk>>
+Subject: 30211-01 Mr Cumar Xersi WF69NDX
+
+Hi,
+
+Please send vehicle damage images to the engineers so they can compile the =
+report.
+
+Thanks
+
+
+Should you have any query relating to the attached please kindly respond to=
+ Info@fairwaylegal.co.uk<mailto:Info@fairwaylegal.co.uk>
+
+Kind Regards,
+Emily Doyle
+[Description: cid:image001.png@01CFFE99.1B78B2A0]
+Fairway Legal Expenses Ltd
+13 Bury & Rochdale Old Road BuryBL9-7TY
+Tel:0161<tel:0161> 765 3390 :  0845 260 3000
+Fax: 0161 797 7990
+Company number 5143223
+Authorised and regulated by the FCA.
+www.fairwaylegal.co.uk<http://www.fairwaylegal.co.uk/>
+[cid:image002.png@01DD1376.5E97AC90]
+Unless otherwise specified, this email and its contents should be treated a=
+s 'Confidential'
+This email and any files sent with it are intended only for the named recip=
+ient. If
+you are not the named recipient please telephone/email
+the sender immediately. You should not disclose the content or
+take/retain/distribute any copies.
+
+From: Info
+Sent: 03 July 2026 10:23
+To: Six Ways Marketing Ltd (info@sixwaysclaims.co.uk<mailto:info@sixwayscla=
+ims.co.uk>) <info@sixwaysclaims.co.uk<mailto:info@sixwaysclaims.co.uk>>
+Cc: 'engineers@collisionengineers.co.uk' <engineers@collisionengineers.co.u=
+k<mailto:engineers@collisionengineers.co.uk>>
+Subject: 30211-01 Mr Cumar Xersi WF69NDX
+
+Hi,
+
+Please send vehicle damage images to the engineers so they can compile the =
+report.
+
+Thanks
+
+
+Should you have any query relating to the attached please kindly respond to=
+ Info@fairwaylegal.co.uk<mailto:Info@fairwaylegal.co.uk>
+
+Kind Regards,
+Emily Doyle
+[Description: cid:image001.png@01CFFE99.1B78B2A0]
+Fairway Legal Expenses Ltd
+13 Bury & Rochdale Old Road BuryBL9-7TY
+Tel:0161<tel:0161> 765 3390 :  0845 260 3000
+Fax: 0161 797 7990
+Company number 5143223
+Authorised and regulated by the FCA.
+www.fairwaylegal.co.uk<http://www.fairwaylegal.co.uk/>
+[http://apps.abi.org.uk/tphire/Images/page_main/main_logo_16.gif]
+Unless otherwise specified, this email and its contents should be treated a=
+s 'Confidential'
+This email and any files sent with it are intended only for the named recip=
+ient. If
+you are not the named recipient please telephone/email
+the sender immediately. You should not disclose the content or
+take/retain/distribute any copies.
+
+From: Info
+Sent: 02 July 2026 17:55
+To: engineers@collisionengineers.co.uk<mailto:engineers@collisionengineers.=
+co.uk>
+Subject: Our Ref: 30211-01 ; Name: Mr Cumar Xersi ; Vehicle Registration Nu=
+mber: WF69NDX
+
+New INSTRUCTIONS:
+
+Date: 02 July 2026
+Our Ref: 30211-01
+
+Our Insured: Name: Mr Cumar Xersi
+Address: 20 Ramney Drive   Enfield Middlesex EN3 6DU
+Contact number: ,,  07903855615
+National Number :
+
+
+Clients Own:
+
+
+Accident Date: 21 June 2026  Time: 17:45
+
+Vehicle Registration Number: WF69NDX
+Make/Model: Mercedes-Benz E 220 AMG LINE ED PREM D A E 220 D AMG LINE EDITI=
+O           Damage:
+
+Accident Location: Kensington Road
+
+Circumstance: Client Was On Right Hand Lane. Tp Was On Left Lane, Trying To=
+ Merge Into Client's Lane And Hit Passenger Side Of Clients Car.
+
+
+Third Party Name
+Third Party Reg: BV24 XHA Seat IBIZA Red
+
+Third Party Insurance: PROTECTOR INSURANCE
+Third Party Ref: 1053799
+
+
+Inspection Location:
+
+Somstar Recovery & Storage  Land Of Rea Street & Moseley Street  Birmingham=
+  B5 6JX 07462530375
+
+
+Kind Regards
+Sofia
+
+[cid:image003.jpg@01DD1376.5E97AC90]
+Fairway Legal Expenses LTD
+13 Bury & Rochdale Old Road
+Bury
+Lancashire
+BL9 7TY
+Tel: 0161 765 3390
+Company number 5143223
+Authorised and regulated by the FCA.
+www.fairwaylegal.co.uk<http://www.fairwaylegal.co.uk/>
+[cid:image002.png@01DD1376.5E97AC90]
+Proud Supporter of Savayra Foundation UK
+ "Empowering Women Changing Lives"
+ www.savayrafoundation.org<http://www.savayrafoundation.org/>
+
+
+
+
+Disclaimer
+The information contained in this communication from the sender is confiden=
+tial. It is intended solely for use by the recipient and others authorized =
+to receive it. If you are not the recipient, you are hereby notified that a=
+ny disclosure, copying, distribution or taking action in relation of the co=
+ntents of this information is strictly prohibited and may be unlawful.
+
+This email has been scanned for viruses and malware, and may have been auto=
+matically archived by Mimecast, a leader in email security and cyber resili=
+ence. Mimecast integrates email defenses with brand protection, security aw=
+areness training, web security, compliance and other essential capabilities=
+. Mimecast helps protect large and small organizations from malicious activ=
+ity, human error and technology failure; and to lead the movement toward bu=
+ilding a more resilient world. To find out more, visit our website.
+
+
+
+--_000_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<!--[if !mso]><style>v\:* {behavior:url(#default#VML);}
+o\:* {behavior:url(#default#VML);}
+w\:* {behavior:url(#default#VML);}
+.shape {behavior:url(#default#VML);}
+</style><![endif]--><style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+@font-face
+	{font-family:Verdana;
+	panose-1:2 11 6 4 3 5 4 4 2 4;}
+@font-face
+	{font-family:Aptos;}
+@font-face
+	{font-family:Roboto;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:12.0pt;
+	font-family:"Aptos",sans-serif;
+	mso-ligatures:standardcontextual;}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	color:#467886;
+	text-decoration:underline;}
+span.EmailStyle20
+	{mso-style-type:personal-reply;
+	font-family:"Aptos",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-size:10.0pt;
+	mso-ligatures:none;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-GB" link=3D"#467886" vlink=3D"#96607D" style=3D"word-wrap:=
+break-word">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal">Hi,<span style=3D"font-size:11.0pt;mso-fareast-langu=
+age:EN-US"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Please send vehicle damage images to the engineers s=
+o they can compile the report.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Thanks<o:p></o:p></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Should you have any query relating to the attached =
+please kindly respond to<span style=3D"color:#1F4E79">
+<a href=3D"mailto:Info@fairwaylegal.co.uk"><span style=3D"color:#1F4E79">In=
+fo@fairwaylegal.co.uk</span></a></span></span><span style=3D"font-size:10.0=
+pt;font-family:&quot;Calibri&quot;,sans-serif;color:#1F4E79;mso-ligatures:n=
+one"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F4E79"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Kind Regards,<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;font-family:&quot;Calibri&quot;,sa=
+ns-serif">Emily Doyle<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;mso-ligatures:none"><img border=3D=
+"0" width=3D"134" height=3D"94" style=3D"width:1.3958in;height:.9791in" id=
+=3D"Picture_x0020_434154962" src=3D"cid:image001.png@01DD1376.5E97AC90" alt=
+=3D"Description: cid:image001.png@01CFFE99.1B78B2A0"></span><span style=3D"=
+font-size:10.0pt"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt">Fairway Legal Expenses Ltd<br>
+13 Bury &amp; Rochdale Old Road BuryBL9-7TY<br>
+<a href=3D"tel:0161"><span style=3D"color:#0563C1">Tel:0161</span></a> 765 =
+3390 :&nbsp; 0845 260 3000<br>
+Fax: 0161 797 7990<br>
+Company number 5143223 <br>
+Authorised and regulated by the FCA.<br>
+<a href=3D"http://www.fairwaylegal.co.uk/"><span style=3D"color:#0563C1">ww=
+w.fairwaylegal.co.uk</span></a><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+<img border=3D"0" width=3D"33" height=3D"33" style=3D"width:.3437in;height:=
+.3437in" id=3D"_x0000_i1033" src=3D"cid:image002.png@01DD1376.5E97AC90" alt=
+=3D"http://apps.abi.org.uk/tphire/Images/page_main/main_logo_16.gif"></span=
+><span lang=3D"EN-US" style=3D"font-size:10.0pt">&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt">Unless otherwise sp=
+ecified, this email and its contents should be treated as &#8216;Confidenti=
+al&#8217;<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt"><span style=3D"font-s=
+ize:10.0pt">This email and any files sent with it are intended only for the=
+ named recipient. If
+<br>
+you are not the named recipient please telephone/email<br>
+the sender immediately. You should not disclose the content or <br>
+take/retain/distribute any copies.<o:p></o:p></span></p>
+</div>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:11.0pt;fo=
+nt-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none">From:</span></=
+b><span lang=3D"EN-US" style=3D"font-size:11.0pt;font-family:&quot;Calibri&=
+quot;,sans-serif;mso-ligatures:none"> Info
+<br>
+<b>Sent:</b> 13 July 2026 10:12<br>
+<b>To:</b> 'Six Ways Marketing Ltd (info@sixwaysclaims.co.uk)' &lt;info@six=
+waysclaims.co.uk&gt;<br>
+<b>Cc:</b> 'engineers@collisionengineers.co.uk' &lt;engineers@collisionengi=
+neers.co.uk&gt;<br>
+<b>Subject:</b> 30211-01 Mr Cumar Xersi WF69NDX <o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Hi,<span style=3D"font-size:11.0pt;mso-fareast-langu=
+age:EN-US"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Please send vehicle damage images to the engineers s=
+o they can compile the report.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Thanks<o:p></o:p></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Should you have any query relating to the attached =
+please kindly respond to<span style=3D"color:#1F4E79">
+<a href=3D"mailto:Info@fairwaylegal.co.uk"><span style=3D"color:#1F4E79">In=
+fo@fairwaylegal.co.uk</span></a></span></span><span style=3D"font-size:10.0=
+pt;font-family:&quot;Calibri&quot;,sans-serif;color:#1F4E79;mso-ligatures:n=
+one"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F4E79"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Kind Regards,<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;font-family:&quot;Calibri&quot;,sa=
+ns-serif">Emily Doyle<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;mso-ligatures:none"><img border=3D=
+"0" width=3D"134" height=3D"94" style=3D"width:1.3958in;height:.9791in" id=
+=3D"Picture_x0020_530790065" src=3D"cid:image001.png@01DD1376.5E97AC90" alt=
+=3D"Description: cid:image001.png@01CFFE99.1B78B2A0"></span><span style=3D"=
+font-size:10.0pt"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt">Fairway Legal Expenses Ltd<br>
+13 Bury &amp; Rochdale Old Road BuryBL9-7TY<br>
+<a href=3D"tel:0161"><span style=3D"color:#0563C1">Tel:0161</span></a> 765 =
+3390 :&nbsp; 0845 260 3000<br>
+Fax: 0161 797 7990<br>
+Company number 5143223 <br>
+Authorised and regulated by the FCA.<br>
+<a href=3D"http://www.fairwaylegal.co.uk/"><span style=3D"color:#0563C1">ww=
+w.fairwaylegal.co.uk</span></a><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+<img border=3D"0" width=3D"33" height=3D"33" style=3D"width:.3437in;height:=
+.3437in" id=3D"_x0000_i1031" src=3D"cid:image002.png@01DD1376.5E97AC90"></s=
+pan><span lang=3D"EN-US" style=3D"font-size:10.0pt">&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt">Unless otherwise sp=
+ecified, this email and its contents should be treated as &#8216;Confidenti=
+al&#8217;<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt"><span style=3D"font-s=
+ize:10.0pt">This email and any files sent with it are intended only for the=
+ named recipient. If
+<br>
+you are not the named recipient please telephone/email<br>
+the sender immediately. You should not disclose the content or <br>
+take/retain/distribute any copies.<o:p></o:p></span></p>
+</div>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:11.0pt;fo=
+nt-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none">From:</span></=
+b><span lang=3D"EN-US" style=3D"font-size:11.0pt;font-family:&quot;Calibri&=
+quot;,sans-serif;mso-ligatures:none"> Info
+<br>
+<b>Sent:</b> 09 July 2026 12:00<br>
+<b>To:</b> 'Six Ways Marketing Ltd (<a href=3D"mailto:info@sixwaysclaims.co=
+.uk">info@sixwaysclaims.co.uk</a>)' &lt;<a href=3D"mailto:info@sixwaysclaim=
+s.co.uk">info@sixwaysclaims.co.uk</a>&gt;<br>
+<b>Cc:</b> 'engineers@collisionengineers.co.uk' &lt;<a href=3D"mailto:engin=
+eers@collisionengineers.co.uk">engineers@collisionengineers.co.uk</a>&gt;<b=
+r>
+<b>Subject:</b> 30211-01 Mr Cumar Xersi WF69NDX <o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Hi,<span style=3D"font-size:11.0pt;mso-fareast-langu=
+age:EN-US"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Please send vehicle damage images to the engineers s=
+o they can compile the report.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Thanks<o:p></o:p></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Should you have any query relating to the attached =
+please kindly respond to<span style=3D"color:#1F4E79">
+<a href=3D"mailto:Info@fairwaylegal.co.uk"><span style=3D"color:#1F4E79">In=
+fo@fairwaylegal.co.uk</span></a></span></span><span style=3D"font-size:10.0=
+pt;font-family:&quot;Calibri&quot;,sans-serif;color:#1F4E79;mso-ligatures:n=
+one"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F4E79"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Kind Regards,<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;font-family:&quot;Calibri&quot;,sa=
+ns-serif">Emily Doyle<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;mso-ligatures:none"><img border=3D=
+"0" width=3D"134" height=3D"94" style=3D"width:1.3958in;height:.9791in" id=
+=3D"Picture_x0020_549316316" src=3D"cid:image001.png@01DD1376.5E97AC90" alt=
+=3D"Description: cid:image001.png@01CFFE99.1B78B2A0"></span><span style=3D"=
+font-size:10.0pt"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt">Fairway Legal Expenses Ltd<br>
+13 Bury &amp; Rochdale Old Road BuryBL9-7TY<br>
+<a href=3D"tel:0161"><span style=3D"color:#0563C1">Tel:0161</span></a> 765 =
+3390 :&nbsp; 0845 260 3000<br>
+Fax: 0161 797 7990<br>
+Company number 5143223 <br>
+Authorised and regulated by the FCA.<br>
+<a href=3D"http://www.fairwaylegal.co.uk/"><span style=3D"color:#0563C1">ww=
+w.fairwaylegal.co.uk</span></a><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+<img border=3D"0" width=3D"33" height=3D"33" style=3D"width:.3437in;height:=
+.3437in" id=3D"_x0000_i1029" src=3D"cid:image002.png@01DD1376.5E97AC90"></s=
+pan><span lang=3D"EN-US" style=3D"font-size:10.0pt">&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt">Unless otherwise sp=
+ecified, this email and its contents should be treated as &#8216;Confidenti=
+al&#8217;<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt"><span style=3D"font-s=
+ize:10.0pt">This email and any files sent with it are intended only for the=
+ named recipient. If
+<br>
+you are not the named recipient please telephone/email<br>
+the sender immediately. You should not disclose the content or <br>
+take/retain/distribute any copies.<o:p></o:p></span></p>
+</div>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:11.0pt;fo=
+nt-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none">From:</span></=
+b><span lang=3D"EN-US" style=3D"font-size:11.0pt;font-family:&quot;Calibri&=
+quot;,sans-serif;mso-ligatures:none"> Info
+<br>
+<b>Sent:</b> 03 July 2026 10:23<br>
+<b>To:</b> Six Ways Marketing Ltd (<a href=3D"mailto:info@sixwaysclaims.co.=
+uk">info@sixwaysclaims.co.uk</a>) &lt;<a href=3D"mailto:info@sixwaysclaims.=
+co.uk">info@sixwaysclaims.co.uk</a>&gt;<br>
+<b>Cc:</b> 'engineers@collisionengineers.co.uk' &lt;<a href=3D"mailto:engin=
+eers@collisionengineers.co.uk">engineers@collisionengineers.co.uk</a>&gt;<b=
+r>
+<b>Subject:</b> 30211-01 Mr Cumar Xersi WF69NDX <o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Hi,<span style=3D"font-size:11.0pt;mso-fareast-langu=
+age:EN-US"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Please send vehicle damage images to the engineers s=
+o they can compile the report.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Thanks<o:p></o:p></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Should you have any query relating to the attached =
+please kindly respond to<span style=3D"color:#1F4E79">
+<a href=3D"mailto:Info@fairwaylegal.co.uk"><span style=3D"color:#1F4E79">In=
+fo@fairwaylegal.co.uk</span></a></span></span><span style=3D"font-size:10.0=
+pt;font-family:&quot;Calibri&quot;,sans-serif;color:#1F4E79;mso-ligatures:n=
+one"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F4E79"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif">Kind Regards,<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;font-family:&quot;Calibri&quot;,sa=
+ns-serif">Emily Doyle<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt;mso-ligatures:none"><img border=3D=
+"0" width=3D"134" height=3D"94" style=3D"width:1.3958in;height:.9791in" id=
+=3D"Picture_x0020_861366051" src=3D"cid:image001.png@01DD1376.5E97AC90" alt=
+=3D"Description: cid:image001.png@01CFFE99.1B78B2A0"></span><span style=3D"=
+font-size:10.0pt"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:10.0pt">Fairway Legal Expenses Ltd<br>
+13 Bury &amp; Rochdale Old Road BuryBL9-7TY<br>
+<a href=3D"tel:0161"><span style=3D"color:#0563C1">Tel:0161</span></a> 765 =
+3390 :&nbsp; 0845 260 3000<br>
+Fax: 0161 797 7990<br>
+Company number 5143223 <br>
+Authorised and regulated by the FCA.<br>
+<a href=3D"http://www.fairwaylegal.co.uk/"><span style=3D"color:#0563C1">ww=
+w.fairwaylegal.co.uk</span></a><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+<img border=3D"0" width=3D"33" height=3D"33" style=3D"width:.3437in;height:=
+.3437in" id=3D"Picture_x0020_3" src=3D"cid:image002.png@01DD1376.5E97AC90" =
+alt=3D"http://apps.abi.org.uk/tphire/Images/page_main/main_logo_16.gif"></s=
+pan><span lang=3D"EN-US" style=3D"font-size:10.0pt">&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt">Unless otherwise sp=
+ecified, this email and its contents should be treated as &#8216;Confidenti=
+al&#8217;<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt"><span style=3D"font-s=
+ize:10.0pt">This email and any files sent with it are intended only for the=
+ named recipient. If
+<br>
+you are not the named recipient please telephone/email<br>
+the sender immediately. You should not disclose the content or <br>
+take/retain/distribute any copies.<o:p></o:p></span></p>
+</div>
+<p class=3D"MsoNormal"><span style=3D"font-size:11.0pt;mso-fareast-language=
+:EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:11.0pt;fo=
+nt-family:&quot;Calibri&quot;,sans-serif;mso-ligatures:none">From:</span></=
+b><span lang=3D"EN-US" style=3D"font-size:11.0pt;font-family:&quot;Calibri&=
+quot;,sans-serif;mso-ligatures:none"> Info
+<br>
+<b>Sent:</b> 02 July 2026 17:55<br>
+<b>To:</b> <a href=3D"mailto:engineers@collisionengineers.co.uk">engineers@=
+collisionengineers.co.uk</a><br>
+<b>Subject:</b> Our Ref: 30211-01 ; Name: Mr Cumar Xersi ; Vehicle Registra=
+tion Number: WF69NDX
+<o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><b><u><span lang=3D"EN-US">New INSTRUCTIONS:<o:p></o=
+:p></span></u></b></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Date: </span></b><span lang=
+=3D"EN-US">02 July 2026<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Our Ref:</span></b><span lan=
+g=3D"EN-US"> 30211-01<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></b>=
+</p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Our Insured: Name: </span></=
+b><span lang=3D"EN-US">Mr Cumar Xersi&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&=
+nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Address: </span></b><span la=
+ng=3D"EN-US">20 Ramney Drive&nbsp;&nbsp; Enfield Middlesex EN3 6DU<o:p></o:=
+p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Contact number: </span></b><=
+span lang=3D"EN-US">,,&nbsp; 07903855615<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US">National Number : </span><o:p><=
+/o:p></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Clients Own</span></b><span =
+lang=3D"EN-US">:
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Accident Date: </span></b><s=
+pan lang=3D"EN-US">21 June 2026<b>&nbsp; Time:
+</b></span>17:45<o:p></o:p></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></b>=
+</p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Vehicle Registration Number:=
+ </span></b><span lang=3D"EN-US">WF69NDX&nbsp;
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US">Make/Model: </span></b><span=
+ lang=3D"EN-US">Mercedes-Benz E 220 AMG LINE ED PREM D A E 220 D AMG LINE E=
+DITIO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+<b>Damage:</b> <o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><b>Accident Location: </b>Kensington Road<o:p></o:p>=
+</p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><b>Circumstance: </b>Client Was On Right Hand Lane. =
+Tp Was On Left Lane, Trying To Merge Into Client's Lane And Hit Passenger S=
+ide Of Clients Car.<o:p></o:p></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></b>=
+</p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><b>Third Party Name</b> <o:p></o:p></p>
+<p class=3D"MsoNormal"><b>Third Party Reg:</b> BV24 XHA Seat IBIZA Red<o:p>=
+</o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><b>Third Party Insurance</b>: PROTECTOR INSURANCE <o=
+:p></o:p></p>
+<p class=3D"MsoNormal"><b>Third Party Ref: </b>1053799<o:p></o:p></p>
+<p class=3D"MsoNormal"><b><o:p>&nbsp;</o:p></b></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal"><b>Inspection Location: <o:p></o:p></b></p>
+<p class=3D"MsoNormal"><b><o:p>&nbsp;</o:p></b></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US">Somstar Recovery &amp; Storage&=
+nbsp; Land Of Rea Street &amp; Moseley Street&nbsp; Birmingham&nbsp; B5 6JX=
+ 07462530375<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US"><o:p>&nbsp;</o:p></span></p>
+<div>
+<div>
+<p class=3D"MsoNormal"><span style=3D"color:black;mso-ligatures:none">Kind =
+Regards </span>
+<span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"color:black;mso-ligatures:none">Sofia=
+ </span><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span=
+></p>
+<p class=3D"MsoNormal"><span style=3D"mso-ligatures:none">&nbsp;</span><spa=
+n lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Calibri&quot;,sans-=
+serif;mso-ligatures:none"><img border=3D"0" width=3D"133" height=3D"93" sty=
+le=3D"width:1.3854in;height:.9687in" id=3D"Picture_x0020_2" src=3D"cid:imag=
+e003.jpg@01DD1376.5E97AC90"></span><span lang=3D"EN-US" style=3D"mso-ligatu=
+res:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">Fairway Legal Expenses LTD&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span>=
+</p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">13 Bury &amp; Rochdale Old Road</s=
+pan><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p=
+>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">Bury
+</span><span style=3D"font-family:&quot;Calibri&quot;,sans-serif;mso-ligatu=
+res:none">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;</span><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o=
+:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">Lancashire
+</span><span style=3D"font-family:&quot;Calibri&quot;,sans-serif;mso-ligatu=
+res:none">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;</span><span lang=3D"EN-US" style=3D"mso-ligatures:none"=
+><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">BL9 7TY
+</span><span style=3D"font-family:&quot;Calibri&quot;,sans-serif;mso-ligatu=
+res:none">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span lang=3D"EN-US=
+" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none">Tel: 0161 765 3390<br>
+Company number 5143223 <br>
+Authorised and regulated by the FCA.</span><span lang=3D"EN-US" style=3D"ms=
+o-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"mso-ligatures:none"><a=
+ href=3D"http://www.fairwaylegal.co.uk/"><span style=3D"font-family:&quot;C=
+alibri&quot;,sans-serif;color:#0563C1">www.fairwaylegal.co.uk</span></a><o:=
+p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"font-family:&quot;Cali=
+bri&quot;,sans-serif;mso-ligatures:none"><img border=3D"0" width=3D"34" hei=
+ght=3D"34" style=3D"width:.3541in;height:.3541in" id=3D"Picture_x0020_1" sr=
+c=3D"cid:image002.png@01DD1376.5E97AC90"></span><span lang=3D"EN-US" style=
+=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"font-size:10.0pt;ms=
+o-ligatures:none">Proud Supporter of Savayra Foundation UK</span></b><span =
+lang=3D"EN-US" style=3D"font-size:10.0pt;mso-ligatures:none"> &nbsp;</span>=
+<span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+&nbsp;</span><b><span lang=3D"EN-US" style=3D"font-size:10.0pt;mso-ligature=
+s:none">&#8220;Empowering Women Changing Lives&#8221;</span></b><span style=
+=3D"font-size:10.0pt;mso-ligatures:none">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp; &nbsp;</span><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:=
+p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+&nbsp;</span><span lang=3D"EN-US" style=3D"mso-ligatures:none"><a href=3D"h=
+ttp://www.savayrafoundation.org/"><span lang=3D"EN-GB" style=3D"font-size:1=
+0.0pt;color:#0563C1">www.</span><span style=3D"font-size:10.5pt;font-family=
+:Roboto;color:#0563C1;background:white">savayrafoundation.org</span></a><o:=
+p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.0pt;mso-ligatures:none">=
+&nbsp;&nbsp;&nbsp; &nbsp;</span><span lang=3D"EN-US" style=3D"mso-ligatures=
+:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" align=3D"center" style=3D"text-align:center"><b><spa=
+n lang=3D"EN-US" style=3D"mso-ligatures:none">&nbsp;</span></b><span lang=
+=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"mso-ligatures:none">&nbsp;</span><spa=
+n lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" align=3D"center" style=3D"text-align:center"><span s=
+tyle=3D"mso-ligatures:none">&nbsp;</span><span lang=3D"EN-US" style=3D"mso-=
+ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:10.0pt;font-family:&quot=
+;Verdana&quot;,sans-serif;color:#666666;mso-ligatures:none">Disclaimer</spa=
+n></b><span lang=3D"EN-US" style=3D"mso-ligatures:none"><o:p></o:p></span><=
+/p>
+<p class=3D"MsoNormal"><span style=3D"font-size:8.0pt;font-family:&quot;Ver=
+dana&quot;,sans-serif;color:#666666;mso-ligatures:none">The information con=
+tained in this communication from the sender is confidential. It is intende=
+d solely for use by the recipient and others authorized
+ to receive it. If you are not the recipient, you are hereby notified that =
+any disclosure, copying, distribution or taking action in relation of the c=
+ontents of this information is strictly prohibited and may be unlawful.<br>
+<br>
+This email has been scanned for viruses and malware, and may have been auto=
+matically archived by Mimecast, a leader in email security and cyber resili=
+ence. Mimecast integrates email defenses with brand protection, security aw=
+areness training, web security,
+ compliance and other essential capabilities. Mimecast helps protect large =
+and small organizations from malicious activity, human error and technology=
+ failure; and to lead the movement toward building a more resilient world. =
+To find out more, visit our website.</span><span lang=3D"EN-US" style=3D"ms=
+o-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"mso-ligatures:none">&n=
+bsp;<o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><span lang=3D"EN-US" style=3D"mso-ligatures:none">&n=
+bsp;</span><span lang=3D"EN-US"><o:p></o:p></span></p>
+</div>
+</body>
+</html>
+
+--_000_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_--
+
+--_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: image/png; name="image001.png"
+Content-Description: image001.png
+Content-Disposition: inline; filename="image001.png"; size=19214;
+	creation-date="Tue, 14 Jul 2026 08:51:41 GMT";
+	modification-date="Tue, 14 Jul 2026 08:51:41 GMT"
+Content-ID: <image001.png@01DD1376.5E97AC90>
+Content-Transfer-Encoding: base64
+
+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
+RK5CYII=
+
+--_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: image/png; name="image002.png"
+Content-Description: image002.png
+Content-Disposition: inline; filename="image002.png"; size=1980;
+	creation-date="Tue, 14 Jul 2026 08:51:41 GMT";
+	modification-date="Tue, 14 Jul 2026 08:51:41 GMT"
+Content-ID: <image002.png@01DD1376.5E97AC90>
+Content-Transfer-Encoding: base64
+
+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
+
+--_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_
+Content-Type: image/jpeg; name="image003.jpg"
+Content-Description: image003.jpg
+Content-Disposition: inline; filename="image003.jpg"; size=3412;
+	creation-date="Tue, 14 Jul 2026 08:51:41 GMT";
+	modification-date="Tue, 14 Jul 2026 08:51:41 GMT"
+Content-ID: <image003.jpg@01DD1376.5E97AC90>
+Content-Transfer-Encoding: base64
+
+/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIf
+IiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7
+Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCABdAIUDASIA
+AhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQA
+AAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3
+ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWm
+p6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEA
+AwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSEx
+BhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElK
+U1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3
+uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD2Wiii
+gAooooAKKKKACud8Y+IjoOnBYCDdz5EWedo7t+H8zXQkgKSe1eSai9x4x8XtFbHMZby426hIx1b+
+Z/Gom7LQ9HLsPGrUcqnwx1ZT0/xPrOnXX2pbyWXccusrFlf8/wCleoeHvEdp4gtPMhPlzJ/rYSeU
+P9R71BqPhKxu/D6aXEgjMC/uZMcq3qfXPevLoptQ8O6wShMF1bsVYHofY+oNReUN9j1XTw+ZQfs1
+yzX4r+vuPcKKxvDniK28QWXmR4SdOJYieVP9R71s1snc+cqU5U5OE1ZoKKKKCAooooAKKKKACiii
+gAooooAKKKKAMDxnqf8AZnhy4ZWxLMPKj9cnr+mT+FUvAegf2bpn26dMXN0AeRyidh+PX8vSl1mz
+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
+
+--_006_AM6PR02MB4135B1DD9D4057918CF25EAB8CF92AM6PR02MB4135eurp_--

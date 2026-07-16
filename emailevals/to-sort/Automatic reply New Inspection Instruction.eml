@@ -1,0 +1,240 @@
+Received: from LO9P123MB7489.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:3a5::16)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Fri, 10 Jul 2026
+ 12:09:31 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=gpHHdbsIVU8XJv4bBL5BVwumwD1kQIwSUbaY3LhOprBsAMo/sKLZr0DJF/X0Qqr3Yao1BcCnXCqMtRo28x/SG3+TO0zyMf/ZuQEtoKSTFqZ3KK368nNEeG4Mm3riY1YCKdiLQzjdmVi0ok9dZIBaj23pKklsP1aJcgPxSzc8Eckm4qwsR3lJTAemxp4cKQ64Qz3b5uq86f5AirZsfSyTikceowZEKc7UbplQk76PtctqJHHt4G0eIVVTXySu2hZL1sOH+yPKm2Xq1YvvmXxwuRJAnLmiv8u5sP32EP6FNwx6VTvTHpp6uLqqGoftB/QvA3FFsJf1rT5eCZL8R5qAEg==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=ZHkWWMCZ8cKe2uNWhJCkeYGIHMSRCvw/yDszaX4AZZE=;
+ b=zCN1kzaHO+ja08e4ll8f0LZ/+eQX94/SGNZcHUKDkLoLdJTytJCZeuoBTaRQ+yXE6rQUDsssgC+LtDGFm4D86QH+rlb8u5b/qMyPFnUozF43EvYDjUA6PYEOAox5MQdRFhioQzsAyZDuW8Qr6SoExR/OYQOC65wHihqKJbypynENOz+zfuKVKoVH84+jKrNC/XLMZFhGwr7h/TlIkYP+dc0tN7GEKrxG+bh7S3ZHy6dOJL9hlN8S/Sw/6ekNGu2JFPlxZj1iSuvlolhtBZGFhjZJpy80SccDX1/EfTZuc1iXCV+IOsgUFywGwXNKzML95RleoGd9Y351xMASAs19mw==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:da06::1) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.helo=cwxp265cu009.outbound.protection.outlook.com; dmarc=pass (p=reject
+ sp=reject pct=100) action=none header.from=autologistic.co.uk; dkim=pass
+ (signature was verified) header.d=autologistic.co.uk; arc=pass (0 oda=1
+ ltdi=1 dkim=[1,1,header.d=autologistic.co.uk]
+ dmarc=[1,1,header.from=autologistic.co.uk])
+Received: from CWLP123CA0046.GBRP123.PROD.OUTLOOK.COM (2603:10a6:401:58::34)
+ by LO9P123MB7489.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:3a5::16) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.17; Fri, 10 Jul
+ 2026 12:09:30 +0000
+Received: from CW2PEPF000056BD.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:401:58:cafe::12) by CWLP123CA0046.outlook.office365.com
+ (2603:10a6:401:58::34) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.202.12 via Frontend Transport; Fri,
+ 10 Jul 2026 12:09:30 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:da06::1)
+ smtp.helo=CWXP265CU009.outbound.protection.outlook.com; dkim=pass (signature
+ was verified) header.d=autologistic.co.uk;dmarc=pass action=none
+ header.from=autologistic.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of
+ CWXP265CU009.outbound.protection.outlook.com designates 2a01:111:f403:da06::1
+ as permitted sender) receiver=protection.outlook.com;
+ client-ip=2a01:111:f403:da06::1;
+ helo=CWXP265CU009.outbound.protection.outlook.com; pr=C
+Received: from CWXP265CU009.outbound.protection.outlook.com
+ (2a01:111:f403:da06::1) by CW2PEPF000056BD.mail.protection.outlook.com
+ (2603:10a6:408:1::14) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.6 via Frontend Transport; Fri, 10
+ Jul 2026 12:09:30 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=bzhrUSMTF7HhstJTM9waAce93DSlqRQFOSTSCn+TSASrpUygsbvVf8YuscuboEpS0g+sK9djX0zJACMkKbE4UX2JKo/7P/gCYk339VuCsbgB7ju8Fg2JWk554Mz1vPKytiRPPvEJ+N+DLoAGoL8MU9TF9UfiFD3mbRqgJc7CEh3nJCpAU/Au8hHb0Y3KS/LDE/FCE8MlT9UwCyt6juC6MBz4HnGFuEoOrEKagKBR9gscwGdsA3tJSKuvL/IDQ1FXxC9RM1XaGdGqSzOqD8ya0pJc4D+cjSrVnzlfWSfhA8NHQmMesdpJPggIfPsnyCRPfg7ggsL+/dNUdJ4ojQCXyg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=ZHkWWMCZ8cKe2uNWhJCkeYGIHMSRCvw/yDszaX4AZZE=;
+ b=U42Be9VTPjY66PCCK+e8kTkYtekWiYDf1hYSL4nZZuJT6spNpkACeLS54j0oe68scE26LgbZ80/0s/3b8Fh0ggoXn3Zn540uFtiyhS2ArUZc8c5uk2zvACtVDWYrZqtAuG1aCn8Mkh4uwJUXZWR603kT5ysP6uyiGTBkt39ozMH3z0c9hLqbbfCVjjjxZBsGrtYgjpixK8EEAl8I/QZKg1YO+nh1ONl3adfjzniJGBqHE1uo5wK5iN215UX/fErB26F1uK69EUo2nxEg+XeSO3M6+dhVE8Gbi+DyYR4o7EVsrpTYZpzXFw7gG7oB/YSoWZVoVlXgOHAPj+iORqnYlA==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=none; dmarc=pass
+ action=none header.from=autologistic.co.uk; dkim=pass
+ header.d=autologistic.co.uk; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=autologistic.co.uk;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=ZHkWWMCZ8cKe2uNWhJCkeYGIHMSRCvw/yDszaX4AZZE=;
+ b=yVBFgHUA1YMDKqVYd86vyuPZV0gCtVuo7Vaw/ooNSNoQLseq/H88jSj56fhfFY9/tx4CCmNd61BqjhvSd9OIDaN6DbEliKLUvNItN45TfllI8Xe/bziD/lTHHsfb+36cO6g8pyhPWB7zv6d04xNgLpXAuzM+MxWZnQcjqfg3QYA=
+Received: from LO2P123MB1805.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:c1::12)
+ by CW1P123MB7693.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:245::5) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.17; Fri, 10 Jul
+ 2026 12:09:28 +0000
+Received: from LO2P123MB1805.GBRP123.PROD.OUTLOOK.COM ([::1]) by
+ LO2P123MB1805.GBRP123.PROD.OUTLOOK.COM ([fe80::5e18:ffe9:504d:a595%4]) with
+ Microsoft SMTP Server id 15.21.0181.016; Fri, 10 Jul 2026 12:09:28 +0000
+From: Cheryl Bolton <cbolton@autologistic.co.uk>
+To: Engineers <engineers@collisionengineers.co.uk>
+Subject: Automatic reply: New Inspection Instruction
+Thread-Topic: New Inspection Instruction
+Thread-Index: Ad0PjS3GDM6e37e4QdGWrU8AojH5KQA10OSAAAAg7FY=
+Date: Fri, 10 Jul 2026 12:09:28 +0000
+Message-ID: <38de179678734dfbb253ff0bfae9c332@LO2P123MB1805.GBRP123.PROD.OUTLOOK.COM>
+References: <CWXP123MB1800980170B68ED321D2C44490FE2@CWXP123MB1800.GBRP123.PROD.OUTLOOK.COM>
+ <LNXP123MB2123BB303CB022F353FC307196FD2@LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM>
+In-Reply-To: <LNXP123MB2123BB303CB022F353FC307196FD2@LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM>
+X-MS-Has-Attach:
+X-Auto-Response-Suppress: All
+X-MS-Exchange-Inbox-Rules-Loop: cbolton@autologistic.co.uk
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=autologistic.co.uk;
+x-ms-exchange-parent-message-id: <LNXP123MB2123BB303CB022F353FC307196FD2@LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM>
+auto-submitted: auto-generated
+x-ms-exchange-generated-message-source: Mailbox Rules Agent
+x-ms-traffictypediagnostic: LO2P123MB1805:EE_|CW1P123MB7693:EE_|CW2PEPF000056BD:EE_|LO9P123MB7489:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: 67f3865b-412d-4ecf-50a1-08dede7c186e
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|50650200027|10070799003|376014|366016|1800799024|5133699003|56012099006|4143699003|22082099003|18002099003|12063799003|8096899003|80100003;
+X-Microsoft-Antispam-Message-Info-Original: 3H6CDYVtwPQijGpJECVEUWF45G/mfDpyJaDJ1tVXZsNJwb3GMHPL7dBQR5561zCcLTRr3RWwwYktcaVEa/dcsvrKyydLEENifgD12xA/Dgr1EI9TysNyOV9U2b8Gbgct92ApSk4xcHuG+wYVrTrzVzfQHwDDoU5MO+6WlGRjbWQ1H6Red2E3oC+CfMMHSk8V0UEW6lK8eHP528obSM5GBMHue24uJ2AJiSoXbK1Y5q50oYXPDnyJue4dwAZ/5AB6K+F9doglFSsn0vcl4CzEdhQ/6YMxjYiPPCZmkOFkv3KWfgGatEs6yiarmQrByFraF0D7m4roL0XWzRkN5jfGAW8kmW0hz6fFNhGJZfwiWxRnoL5EBiXn/SZOlq990JYFZamji5D24KnpYYKRBD0Pf4tfxDGJ/ISVzlAEkPDIbUmcuxSwRjZ0+e/n499WNHGtTpZZ7xXda3Legx45whyN+kwkGQonMs1/IqYIv7tG+dyq0P+bAXQR29WYQoaGRH1Pucwry/Q8dtA1Qmz+P4MT61HYBPBPjGBk0VCVE9GyKPadclEKMOzt0oDOaJQ7DJywZc7LzwaySkQLyKXw+12/84Hppk4WTqQnsW3L3YdRO8OyizICU85EhEiW7mS1neixTtEC1+HTmYG8O4RhWTfqFF5LhQ6EV16ROk7jT1UnPHC7yJxpYMwCUG7uJ6x9FAXp8QnYpftSTNjwIod0qn4GQw==
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LO2P123MB1805.GBRP123.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(50650200027)(10070799003)(376014)(366016)(1800799024)(5133699003)(56012099006)(4143699003)(22082099003)(18002099003)(12063799003)(8096899003)(80100003);DIR:OUT;SFP:1501;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: xKCL3PnQ4PZoVaUNO/98VVs7XsmEe7yJec8Mh5kYu2OHEhL/glNWp3jADJssiObdXL2a/aiTpOdE1yaa9ONmvpx9pifDR5bXX59TAYBDs0sRlx1frdy8W4kEqMDL0k+TpsOEORI7ygJVX4PB1miz9Oxp56ie8FySE6QHZVYm3iSIQuZHReLS/CkQCnEGj8mMhGUp4EIbhoVoyU2u+Ena4SEHlyIZkdAS98m0R5L1DX+zk6EH7FuiXRdQA3el70/RzCoXuT8dRGjFD6E4F8iR1/NZNCSxCnvDaOxXbdXQFB4EAWPlXx96Bnlh6twyPr9658qSQpZQ2dq3of0ULMGEl6b4QpiIVZE0zHW1C9iDQfjbsQqRBqaBbWsBMvFPNdpi1Tg6ktYXKY2CvL/n5rqYQ8pxBPWMDaBkE2Z2RLb1nmCWmucw1FyRBXHHqt4stf6x
+Content-Type: multipart/alternative;
+	boundary="_000_38de179678734dfbb253ff0bfae9c332LO2P123MB1805GBRP123PRO_"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CW1P123MB7693
+Return-Path: <>
+X-MS-Exchange-Organization-ExpirationStartTime: 10 Jul 2026 12:09:30.0382
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 67f3865b-412d-4ecf-50a1-08dede7c186e
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: CW2PEPF000056BD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: CW2PEPF000056BD.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: CW2PEPF000056BD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: c449ac3f-20b6-46d7-97bd-08dede7c1786
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704161611799003|12022799006|6113799003|35042699022|5009299003|6073799003|12012899012|5133699003|19002099009|5063699009|4143699003|22082099003|16102099003|18002099003|57112099003|8096899003|12063799003;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:da06::1;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:CWXP265CU009.outbound.protection.outlook.com;PTR:mail-ukwestazhn150110001.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704161611799003)(12022799006)(6113799003)(35042699022)(5009299003)(6073799003)(12012899012)(5133699003)(19002099009)(5063699009)(4143699003)(22082099003)(16102099003)(18002099003)(57112099003)(8096899003)(12063799003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 10 Jul 2026 12:09:30.0015
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 67f3865b-412d-4ecf-50a1-08dede7c186e
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: CW2PEPF000056BD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO9P123MB7489
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:01.5801711
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.011
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?us-ascii?Q?l6jI3VriAomULmMWlNKQytDzBU9cx7L+DRFBLm2rkzQDYXeMYnPpSAbz5Gst?=
+ =?us-ascii?Q?57vMpVmMoKcXqKWM4k78Ws547Ig8ATMwizpI5lecFVvgA+ThjhPWRUtinQdk?=
+ =?us-ascii?Q?tWXWuaZYgJsTI/0gxbs2fe7P5RFrkTzc11xFFYZFmVg1IkK2uBeNxYFqPVbu?=
+ =?us-ascii?Q?bMXI/e1kQtIR+n+024sCZZ5r71dPK/JkAcA6sMjQvAhExDjgB4kyludDcwXB?=
+ =?us-ascii?Q?EqBfhVRPSCnX6Iu+1gyXEVY3zTzwisVC/kO0Sxv5BAuoN38L4C/M9BL2plbU?=
+ =?us-ascii?Q?p2AZKSC2UCGNo6ysf+WU149wGeBdpLd5q85G0wSeCW70KZ2ipwOBaH9Az2s8?=
+ =?us-ascii?Q?gP4d+XAekoXyOOvQqfwfQrqO2BqT3zIxO46fxrfs4vBtWZ9zgKQcntDbsTha?=
+ =?us-ascii?Q?QEmzJXVruDUixJAAz/gSCEseW/ZmkL16zu6Nppek3o9ztY+W0Mu5xyb+mkz+?=
+ =?us-ascii?Q?JredTtFYtcCVQCXSF3RGK9+q+M7dfytIUehDRJDWtgN+S3y26dPgs2Zwi1/E?=
+ =?us-ascii?Q?IpXq9qRqjO+E9bxJTWcQd9tAYawMRCIIzFMVwQQgqhaiQno4VoCbD6DkZMZc?=
+ =?us-ascii?Q?O36fSRp1eHGp90JFGbNKBlmVOrBtfN4GufMgSOnNU4mfbyPh4bLCbK50RP4F?=
+ =?us-ascii?Q?aGLVOsRPWQvQS1IiqTfhM5A3+83dLoCmA70gM/IzNzNVsCMzXZ3vXAUDV/P1?=
+ =?us-ascii?Q?oxr5+x3C+veESWaxsoGGZU8RmhZK9GCYZHBTzeCuD/gRxwmj4ctvSxGr6aa8?=
+ =?us-ascii?Q?e12BtmnwKzsNXK/WJAb2QBxAw1fqFUqa5kb+lRLP0re833/YFgIYUD8JPbia?=
+ =?us-ascii?Q?mVQm9tbQYZiZJhIWA5x7DxhCYUw/X7dUL0gfMHzek5d8qD+NNF0J1Rjj4qt/?=
+ =?us-ascii?Q?E3VnvbpFuOHDUrPnQnVumpRZPOAOSgvIhrFwkZ0AetOe4hzyljY95NU7T6my?=
+ =?us-ascii?Q?4/lF+ORE+1keRSkY7ldb/BWH3vjd3fAeleYgHSIEgj+H5RtZBfz4sXIg15en?=
+ =?us-ascii?Q?K2ffh9kDZ7gAvFtKun6Hh58FbeN9drdy/zFSbzxrvZxCB4U7E5hrBSltbItY?=
+ =?us-ascii?Q?JfK/Gt73wMJioCquDB2dXJ2UEwKNvO24pu3lsw0JFpmJs4s7ZgVh0tmlENBp?=
+ =?us-ascii?Q?Z0wFpEasqmVSNiHfc45TiIstVFPCHAdwbzfaoamxnGpGF455bhBwNomZMDCd?=
+ =?us-ascii?Q?BKjI6do3Db4sS2vSFALWeHVtLISoPzuSj35ogYKHFdZE8F5L4xL8F7MNVL1T?=
+ =?us-ascii?Q?re4R7m3YgbT3+39AZN547w7Kf8pidjXvBD8lLkqs18YRJtu1AACMVPYYoazM?=
+ =?us-ascii?Q?gF2/qN/ymtcDPE/uHyV7RzCpUpTvZGGVl7rCRHVySH4QSc/LxdWHHVDqfzqL?=
+ =?us-ascii?Q?q3tNbISvwKa/d1tj6yBigZS9vDyn/LWWVCtSYaSga1bujhBaIfFQY+4al8PY?=
+ =?us-ascii?Q?a2fAxP757A0xELw+Wlb3fs1tOAkd8JjoP9ABDUJXZf50fL/t1cs7IAkLcjlu?=
+ =?us-ascii?Q?38nBpjlPCujkz7ibrM/N2p03cRbCN2WDJ7Q+53PEr/K/x2SmmXVT4HL+cuQE?=
+ =?us-ascii?Q?lbheOHqBpqGwBW33eBBzgIzHttIDvMO3Gu3oRYyLBWLwrvUiNwnhapEKGGf9?=
+ =?us-ascii?Q?NTMGqOyXDLzV9TPcw1Hwe4QubASVwKyYOgRtlJHvQCZue34258Moj8+z7H6o?=
+ =?us-ascii?Q?x9ebzVqJTPSCzmvb8nDmpKdxrlrTV5Q01Q+JJZ+fP50Vns5AOKIvXdrIldA9?=
+ =?us-ascii?Q?n0c54k54uYnk6eI/KcarkbSc+iktyCJSRFdcZnhJYtn1ZgripG2TdCguvnwr?=
+ =?us-ascii?Q?37uiln7UmYUze958/NIJDB82TGfS3rXe/AcX15R5wHrIO5QevB3O6uSnmroS?=
+ =?us-ascii?Q?isHKkMyLjg1qbNkH28ZR+pD8/2Xkc+Gk4YtmRp/8NxpLf8EOp7GSE6+a6QPZ?=
+ =?us-ascii?Q?VEQaYhskxzQOzuC7lnrTpaQdfxY1rV5j47P3jM1eT+nftIsj5i9D5rfIt//X?=
+ =?us-ascii?Q?NrV6A3AXf9h2lmOy/LpSgeoE9nmqo/fRnQgucKOuncpnmkPTO2dRT2iykKff?=
+ =?us-ascii?Q?uzu6K4h2sT9xr37pLEz7GLITS8RNVVqG9S9948BaizMBrofLrNTI5T0Vd2h4?=
+ =?us-ascii?Q?nRGd+NYpGW9OUKASsv22yi2j6ocZ2/g4ErXdkSJXgXFLQ/CQezYFppAfrAtb?=
+ =?us-ascii?Q?asqG846dEfS9EBBdqwjUjbtbHZy9HI3w5LGAAk6AAS07N72sXA15940pLlnO?=
+ =?us-ascii?Q?/oRtq+WgLzEyB+oCG+DOwP6i+Dcl5k2ccMKhoKW6MA=3D=3D?=
+MIME-Version: 1.0
+
+--_000_38de179678734dfbb253ff0bfae9c332LO2P123MB1805GBRP123PRO_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+I am currently out of the office on annual leave. For any urgent queries pl=
+ease contact 0800 009 3296 or email Claims@autologistic.co.uk
+
+
+
+--_000_38de179678734dfbb253ff0bfae9c332LO2P123MB1805GBRP123PRO_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:o=3D"urn:schemas-microsoft-com:office:office" xmlns:w=3D"urn:sc=
+hemas-microsoft-com:office:word" xmlns:m=3D"http://schemas.microsoft.com/of=
+fice/2004/12/omml" xmlns=3D"http://www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+@font-face
+	{font-family:"Segoe UI";
+	panose-1:2 11 5 2 4 2 4 2 2 3;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	margin-bottom:.0001pt;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-fareast-language:EN-US;}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	color:#0563C1;
+	text-decoration:underline;}
+a:visited, span.MsoHyperlinkFollowed
+	{mso-style-priority:99;
+	color:#954F72;
+	text-decoration:underline;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Arial",sans-serif;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-family:"Calibri",sans-serif;
+	mso-fareast-language:EN-US;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style>
+</head>
+<body lang=3D"EN-GB" link=3D"#0563C1" vlink=3D"#954F72">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal" style=3D"text-autospace:none"><span style=3D"font-si=
+ze:10.0pt;font-family:&quot;Arial&quot;,sans-serif">I am currently out of t=
+he office on annual leave. For any urgent queries please contact 0800 009 3=
+296 or email Claims@autologistic.co.uk</span><span style=3D"font-family:&qu=
+ot;Arial&quot;,sans-serif"><o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-autospace:none"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal" style=3D"text-autospace:none"><span style=3D"font-si=
+ze:8.5pt;font-family:&quot;Segoe UI&quot;,sans-serif"><o:p>&nbsp;</o:p></sp=
+an></p>
+</div>
+</body>
+</html>
+
+--_000_38de179678734dfbb253ff0bfae9c332LO2P123MB1805GBRP123PRO_--

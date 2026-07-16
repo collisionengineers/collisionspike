@@ -1,0 +1,577 @@
+Received: from CWXP123MB2871.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:3b::10)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Wed, 15 Jul 2026
+ 08:22:56 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=Dc8WfRV8lnM2l0MoaPNUtzDXnwvBYq02yqFnOkTcAwOseQ/2W/zXF4WYsfN2sarL3XkIlfGdjekcgH/tTr28tV4laAeTyAFQYKyOMse2Ppj+3ddxhXG6eXKZWrOFLbVniYs1R45AftNGeXep8nNwSybTJJOhh+qEYRkw25Lxs5+nLXaAVKx2+izjdyl/Yit0uafcH0KFQnjwrlpT0KugMMuy0Jpm3eWAm7Wb/dSwRlIscmv/8shb2G+DfbnwZj3nZRlEWR4A+paTrv5RKXA0PgX25uOR9Bb3PghU1fOol7pXheOPw/W6WkbCczNP3/fQymgBgT3iZRlGpi8ZqfpLag==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=x0fUOpCic20HFlQurdYitR9d53HW8xj4CsF9jmbDGN4=;
+ b=jIEKHasGHQJOIPJeRl81+dm8Pcqbganzha4aoUI9YGTPcs2/xZzPWdeVfys1b1PVZSd/9DYT4amwXK7I1yx+PGeEJimCwRRXtZz5ijh1WJOeQe4it7yn1kzY2SGFjNMZ6xaI2afBgsMimJfVzIWoOXXXWhzNt4ei2ZR4d/f72IprAnFlfDHpv0wuc+610nM/GBpDHJ+ZiRUK88GrF/mUPvMXNKiQiamD6/Xd2DiKLQGCtFINImoCDF2IpLUlpb4b0jTLwwQ88A2GcXGhoXxwnKm3o9ayy6TQN9vOTbItoBpDI5Vu1EVN8FvWUUvpAmGzmCML6fgjuQwJGWYCMnaQXw==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c205::1) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=knightsbridgesolicitors.co.uk; dmarc=bestguesspass action=none
+ header.from=knightsbridgesolicitors.co.uk; dkim=none (message not signed);
+ arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=knightsbridgesolicitors.co.uk]
+ dkim=[1,1,header.d=knightsbridgesolicitors.co.uk]
+ dmarc=[1,1,header.from=knightsbridgesolicitors.co.uk])
+Received: from LO3P123CA0023.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:388::16)
+ by CWXP123MB2871.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:3b::10) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.11; Wed, 15 Jul
+ 2026 08:22:53 +0000
+Received: from LN2PEPF000100CA.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:388:cafe::51) by LO3P123CA0023.outlook.office365.com
+ (2603:10a6:600:388::16) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.11 via Frontend Transport; Wed,
+ 15 Jul 2026 08:22:53 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c205::1)
+ smtp.mailfrom=knightsbridgesolicitors.co.uk; dkim=none (message not signed)
+ header.d=none;dmarc=bestguesspass action=none
+ header.from=knightsbridgesolicitors.co.uk;compauth=pass reason=109
+Received-SPF: Pass (protection.outlook.com: domain of
+ knightsbridgesolicitors.co.uk designates 2a01:111:f403:c205::1 as permitted
+ sender) receiver=protection.outlook.com; client-ip=2a01:111:f403:c205::1;
+ helo=LO3P265CU004.outbound.protection.outlook.com; pr=C
+Received: from LO3P265CU004.outbound.protection.outlook.com
+ (2a01:111:f403:c205::1) by LN2PEPF000100CA.mail.protection.outlook.com
+ (2603:10a6:608:1::4) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Wed, 15
+ Jul 2026 08:22:53 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=Oy8Ok6sS88X843BVLdEI+CZKbWZtq8RSvtNY0pcF7aCwR1fwTUG8WTUm+YvjPMe1ZVIqtEda5Fujy7muVsxADOBPrgVW/gNIVNRLrode9qA7SLEHR3Hm277lk0+k+sVqhb0flLLiQNwQu5cxAV5s2X2svQBmUSGPQso8SFOg93mLml/lEHg/5b5nRIQ1Ge37ngRTo55Kv9GtTvuqSf+l+vPMQpnkyFFXoqA8ifwMsme+wLcX2u5caTNyKAJAsZQAP4RjKheK+GLdRA2BzFSPjp1mlupQtfIPdHREQqqxIdH2JlV3QRn9vFDbyaJhs/dA7w8zLbQvLeKWOnV6Oh+T9Q==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=x0fUOpCic20HFlQurdYitR9d53HW8xj4CsF9jmbDGN4=;
+ b=kItf2pEnSvTmAGOl8aVTeL21kah5DMMBtDI6RqwSH/hZLI515C7/chrkNtq8JJ6gDlvde8kN8nS3Bc+TSrqeaveZBDNWDkpzv92UZcb4Q1QaJkuS9Lh9cOcXoNumIzDvYD5UYqnVnxCzUV8H4BKYlPLefjdLM07ncO6Se7QTYgCWRAPeD+qlskKOVqWlu2N5hUt0njTMkAycV3atSz+9/5JPAHUT1lBPWudEpCF7TGv8N9dF1NIzqNS+TiTnnR/QUZF1V5VzN4F5wFZ4+ilO9WiuSHmPJo6U1jtgfLn266eRCyotYnoOobmKvCoQDc+pormvdykGdko/hcEg32gVKw==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=knightsbridgesolicitors.co.uk; dmarc=pass action=none
+ header.from=knightsbridgesolicitors.co.uk; dkim=pass
+ header.d=knightsbridgesolicitors.co.uk; arc=none
+Received: from LO2P265MB4503.GBRP265.PROD.OUTLOOK.COM (2603:10a6:600:23e::7)
+ by LOBP265MB9139.GBRP265.PROD.OUTLOOK.COM (2603:10a6:600:481::7) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.9; Wed, 15 Jul
+ 2026 08:22:50 +0000
+Received: from LO2P265MB4503.GBRP265.PROD.OUTLOOK.COM
+ ([fe80::2cac:1871:a84:9e7d]) by LO2P265MB4503.GBRP265.PROD.OUTLOOK.COM
+ ([fe80::2cac:1871:a84:9e7d%4]) with mapi id 15.21.0223.011; Wed, 15 Jul 2026
+ 08:22:50 +0000
+From: s aziz <saziz@knightsbridgesolicitors.co.uk>
+To: Engineers <engineers@collisionengineers.co.uk>
+Subject: Mr Imran Zafar - Our Ref: 303789 
+Thread-Topic: Mr Imran Zafar - Our Ref: 303789 
+Thread-Index: Ad0UMuW2M8y9tIAmR1mKNd83ljlcIA==
+Date: Wed, 15 Jul 2026 08:22:50 +0000
+Message-ID: <LO2P265MB4503FCB5A67F5FF454D7288AE1F82@LO2P265MB4503.GBRP265.PROD.OUTLOOK.COM>
+Accept-Language: en-GB, en-US
+Content-Language: en-US
+X-MS-Has-Attach: yes
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none
+ header.from=knightsbridgesolicitors.co.uk;
+x-ms-traffictypediagnostic: LO2P265MB4503:EE_|LOBP265MB9139:EE_|LN2PEPF000100CA:EE_|CWXP123MB2871:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: d51eeb76-ceb0-4064-1450-08dee24a4425
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|376014|366016|6049299003|23010399003|1800799024|38070700021|4053099003|8096899003|56012099006|18002099003;
+X-Microsoft-Antispam-Message-Info-Original: hfrQAB40AoLdE4YpZ5THZ6tCbkXFFVbHQEkZWxigVHT3B8zGwruwmDcZWZzC2goyAyxxGGoZnNRfbLG/SYRfAS6FIkifxx5F1K/JEx+5RWPQ1F189XwfQR4kUEQfO4a2T4YPtgJO+x0HodbHGorjqUTU4aCBzi9B7X3eVqgv+lbaCLdA4qJcooZXj7OI8GtBowmmcblF6vWLoyHNZjhsDufA2K9sZ28q8lAqX8EBIK1bklgAVQfbQHOTFkw3PlvNnVMoS5PUPhfPvJYPZrfCHcdjqnwY7zCdqvlmppKaH+sqTw+f49Be80SG3fzwZ0CBEqn7/tBeIe+3dRZanFzq4HPfWSbs/TBdcrLMihSJyJ3wNFMw2tc2Q1P1DKQRmO1iUFQwkJhgdBJ0wuhhpf7aqelc4PP7kPcG+pLvIqY/1IpKVD09nMP7xc2T4F6ERGhphejN4VWnIBsiQO3VNIA9GTumoT8rLyqm3l2C1RSzuG5bMH3KNcZ8g/o9kRArd8sb3iQcLedzD/DK7Cf1oKulVvRh0tCWjGhJLrIRjGT7u+F6kG2+djRMrdvPavSfvtXTeXFR5GL5zbblTisxMfjqe2cRIa2iGXeKpAaGQTwAFWONlqWJ+ivg4xsj8GomFvI1N3fYFdNWzDd5ygg7gopYfaEE/NXmwcNyvIy0c/HqoGs=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LO2P265MB4503.GBRP265.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(376014)(366016)(6049299003)(23010399003)(1800799024)(38070700021)(4053099003)(8096899003)(56012099006)(18002099003);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: =?us-ascii?Q?pdDNkHYl1Vt+OabaNDIJf8+oUlWTnx6NJSAMlL2HB2lAx7wa44Zfv+dDz4K7?=
+ =?us-ascii?Q?sCf3Qefl+uR6jNTksUWfHRCSQWynpTkbiJjyJBxLlknI3xiGctL9SqY6d5L7?=
+ =?us-ascii?Q?84/6zt3yLiIxv6Dyppw1w4tasl1PMBOofk3IeKTvxJpMw+2gEB9lRFgnk/bu?=
+ =?us-ascii?Q?l/A1M0GilLNfGMImci2zMKilNYZOsB5twcqoC9iTPF3u4YYYm8OOuV/EaK81?=
+ =?us-ascii?Q?/FJWwjhtZ75Xf1uIqukwm+pSL6d3KcJK7ncNBoYVzAVRo9yNOP00I/nbdzOs?=
+ =?us-ascii?Q?GSxSx787gxT5Vu8vvVkqoi/gQ/zrTVL81ALe9zavsJUPfHOMk3X3kflEMMCI?=
+ =?us-ascii?Q?7vea9eYbJA2QXtglnWj7aNtsPa/ponUEexdETGbC96Vt4LkLyafzpStwAYT8?=
+ =?us-ascii?Q?Fm5nkL+hfbkcPx+aMkHB2jM+Gsvb2sFIJ/qnZp/HlNGNKq7YxgpX3cmICF0B?=
+ =?us-ascii?Q?Xj8vCk5F6P5LFuGSCgsVJaDFVaQ6AHWdmXHpJV8cXyuAmxv4iTzWXVp4p3k3?=
+ =?us-ascii?Q?5PENvKowib80Ld+jtmvVshTORVubKSQWzJCKa7dm/NJu3OyWR3Od83emBlxD?=
+ =?us-ascii?Q?6yvd1V9aHzEaiC1XgfHc0qzoVZ5Gqk/XhUUG8KOCYR3XORGtbzOJp4mJ3OJI?=
+ =?us-ascii?Q?9wvUih1ukU3VOWPl1IZyrO4tdTxvy+7p0dBJQY78HSduIh8qQN5cn+SZVhrx?=
+ =?us-ascii?Q?k1up0rpOd29j4MhN8LNIYzy+NUWVDeLZeW+Jc68Mxe1K7oTatdeRGwhFP8xy?=
+ =?us-ascii?Q?vhCQzjfB6b5GhEs6tpSCLJPrbLuXYQ4qI7nieogroFWBQgWKKim3HqawiKlg?=
+ =?us-ascii?Q?Zk3FrwwQy99dvr5eA/Z8GMK4pOCfXTLpKTHnTPTUMwAqqIK9L+lAXfNm/qUw?=
+ =?us-ascii?Q?12l0I5pe9bqM/dSyhrnT8MHx+egtLG49CYI8AK8DzZCh/SQwfV6l2jlzy6vC?=
+ =?us-ascii?Q?1Bh4RZ84SxYxndoLwsoEAuCqlifIUHki0OyN8iPiikJseXK6gWNRlHJZzhWB?=
+ =?us-ascii?Q?rdMY8N83PHabn3S+KaB6Q1RIZ/JUFOKtDRhJ3O9DBrTCqMYrkEk0T3uUtpKl?=
+ =?us-ascii?Q?K2utu1tpx3H0DScHq9n4fT+OZBBJjXSJSSuiKguuhCLEY5ZRabSckaakAihV?=
+ =?us-ascii?Q?3IZ+UJL7l0B4aWFjibBYCljl2ekrEsWWAu+g005gF5sBk6YTrKsADNcW8ZaY?=
+ =?us-ascii?Q?+DWJix3FBbZ7vXq1FqtpTpFF/UCsAw6ZpqY1SgJ80rTfx+8uDygVBax0Fey2?=
+ =?us-ascii?Q?go+gSycezE90P8XDgP+b0pdvM2mYIP+5T/OY0ncXqQ9q7iyj502Uh1nEAjhS?=
+ =?us-ascii?Q?+gdJl1yGl+O6UR+M8nuiREnf162rke+n2xP7qSi8x63NcXUYwyQ8TGzx04Av?=
+ =?us-ascii?Q?mqnahsroyvWidcXiyp487M5JHR9fMRANips0DmJek0feOTHgtTtNuJtTJhti?=
+ =?us-ascii?Q?2asMF9V8oC0KblLYFDSMovdREB9D1cyk8JBjvBXQ5TGeb2tUQddtJCaZ5HbE?=
+ =?us-ascii?Q?bjg2skSLdh0lpZTxV1XAtOe4WyThzzJuRb5IuOfR942KNqbbKYcMb7ghaNQp?=
+ =?us-ascii?Q?NzpnV8r1CWuLGoM07cd0TPD7NGNT1DZu67C19ONq7Ft5mLFp6m0sRW/4axYz?=
+ =?us-ascii?Q?r+5cqjI4xDLEoPNbiVQWxHJ2lrIpjnnCs7B0y3QrHyTPgvUEfEyfq2upuqNP?=
+ =?us-ascii?Q?YdkYcUOgpziA8QhkB9LxYpfl99py6/NeGlVL4sNsnKWgHby19PTd7N+6QSz3?=
+ =?us-ascii?Q?Hy5KWm/HuegxIIPgTkVYdmXAUoWFAak=3D?=
+Content-Type: multipart/related;
+	boundary="_005_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_";
+	type="multipart/alternative"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LOBP265MB9139
+Return-Path: saziz@knightsbridgesolicitors.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 15 Jul 2026 08:22:53.1927
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: d51eeb76-ceb0-4064-1450-08dee24a4425
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: LN2PEPF000100CA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: LN2PEPF000100CA.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: LN2PEPF000100CA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 69e53a5f-caa1-4b86-c805-08dee24a42a1
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704161111799003|6049299003|7149299003|6073799003|6113799003|35042699022|8096899003|4076899003|6133799003|56012099006|5063699009|19002099009|13003099007|18002099003|16102099003|4053099003;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c205::1;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LO3P265CU004.outbound.protection.outlook.com;PTR:mail-uksouthazlp170100001.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704161111799003)(6049299003)(7149299003)(6073799003)(6113799003)(35042699022)(8096899003)(4076899003)(6133799003)(56012099006)(5063699009)(19002099009)(13003099007)(18002099003)(16102099003)(4053099003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 15 Jul 2026 08:22:53.1761
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: d51eeb76-ceb0-4064-1450-08dee24a4425
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LN2PEPF000100CA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CWXP123MB2871
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:03.3287942
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0223.005
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?Windows-1252?Q?NWv0MnWDK2JtAHbMJOpuYU8RCfOhJOgjODtQYtcAjpc2MIIYu0oZIW5x?=
+ =?Windows-1252?Q?vfaV4DZSzs9U9YVd5Q+QqL+Q7NohNETy9r/QEnXHC1y539MG+Fjdj98l?=
+ =?Windows-1252?Q?MrkMQcO8ReMb0QmqTCb7bkWtqWeUCvYRXON3MBg+Zaa4bLw7tQRLUyGy?=
+ =?Windows-1252?Q?ZhtmbhTeC6UUiPeC2+s9ZxaVPMrddxEVLRDBOHoXvppKwB3yTqpTZIaV?=
+ =?Windows-1252?Q?T3s55fTpDvv3/j0nzQhpR5W+o3VRRL+oYGzmoyFE1hIkJ4Xuz/uqAQhL?=
+ =?Windows-1252?Q?qzgSd8k6o2zT2aaY1uOSRPXu8hs6KnSmo8LX2+T22WfhmBceIFuO/oG7?=
+ =?Windows-1252?Q?jBAOZDMUCvqFs7uTWZBvbt7TZSppRa8biiCFdrrkWVO+OKA0M+P+6w5j?=
+ =?Windows-1252?Q?lgdgys/ldqpq9k18oY9wTjdoB5E2ASEJS22xML6IYAGzMgieGDQpVK11?=
+ =?Windows-1252?Q?z5pfYpnhCF3/hJx2pODI3JxqxRr6A8xajiBfxGLdKmQvaILtG747LT8V?=
+ =?Windows-1252?Q?0S3Stiy0YFmoga0HBfZri9LalS3/dkV6jiMbuLPOW90OdXlQFVi50xR4?=
+ =?Windows-1252?Q?HY7gWfLavnotut03OuoJijp4aLSbYnuxV18Klf1kXoft9sxzd0frPSM4?=
+ =?Windows-1252?Q?PKBCB5NCG17AK0xpHO6oiR7ah9R7tze8YvWMwc3QQKDsgxD5Mqwtabnq?=
+ =?Windows-1252?Q?KQio6VaoSxW5rbSXhyjRWbbZ+U0wgMvSNPGqXEKQh15a/6NWLMYZ4gOg?=
+ =?Windows-1252?Q?HLPLU7sZ+NansLHPbGCyTGlkqh/VrPjsdPze49DWVTb+8gDTBOtqkfEk?=
+ =?Windows-1252?Q?EjJtVR75CfQvA85B3k3OwNU37B8R2bPR8RvJ4hFTEeLVxL1tO77FsoIp?=
+ =?Windows-1252?Q?stfSBofcRfzaIIwtYTiJlnsr2RcQD2Zy34oNeHTmUTei1y7cZMdQuPuu?=
+ =?Windows-1252?Q?+mM4nC9tYq+SAEF90Mvho475JJ88EzQr6qpAHVrE+zCBpRphExGB9Z8x?=
+ =?Windows-1252?Q?XivwN6YMc1in0KA8I7PouI4UXEewN7RSsSB7pMyNvNEi4TsE3NDCjNa1?=
+ =?Windows-1252?Q?Nfr9cxO2c4+TnsDbzpIQVcpNG8afdoL5EhhJPjEHrFiNKwtj0Gb6Q8JC?=
+ =?Windows-1252?Q?6ZC2QlCvRIanuHtgHU421P+T4Tkn8OF+EmlxAfShTlXoVGtgzdfGl0zX?=
+ =?Windows-1252?Q?khkubfsLOgxWuwE3EQLS8nLmyPpT0FbQb3rYdw0XiuQN02HMQoPBTkcV?=
+ =?Windows-1252?Q?bEmTTGPnvkSJfEO/9yfCsYfTfWp/Kmchn9wFWPL4mlIvHupzZGxzSda8?=
+ =?Windows-1252?Q?qy7c4O0c9NZQ5FmqhO0za7WRDcv5glTDDogplYmJxgdFXZzfy5FEqrEP?=
+ =?Windows-1252?Q?PvjXb0TX/RANLH7lbP+NNvsfTEoBMLUFVHq2Q8ORoLfPu8ac3gKPqyKx?=
+ =?Windows-1252?Q?QBG5U78uOLXtye5c+0wmAllUany7gyHYuA4QnqS48e6gE+sqrXEF5yM/?=
+ =?Windows-1252?Q?CSDf9kB9FEYK4/V6Yvgh2nHlTzulN70Loerx9jvN/7KRU4k0fzG5dGqU?=
+ =?Windows-1252?Q?VfpCBYHBUmFbmIrPbFkYRNJ/kbb8YCNYxUk9+eGFmGHKTTaxpYdKrmK1?=
+ =?Windows-1252?Q?at4zFjkoCkiYuVf22kGo7jLJmrdKmRmrc03vUJdufrGpTk+PIEmYL9qg?=
+ =?Windows-1252?Q?aLVvORbZcDtnSz6pHMAaxEhnrihRfMjgQVA9F2PDYrRlQAtxo85qe1Tl?=
+ =?Windows-1252?Q?mbcDR9BQ4I/uXdm5oVa/hYzGf76giuPDM+98LyxZWrhogKWWhWUex4LN?=
+ =?Windows-1252?Q?iVGYa8evKTfHqWrrDCAh2iF6FyTLWyRxWlnkHMmQ5X0Nrt5pIfY5/mXE?=
+ =?Windows-1252?Q?RK+o6jn8UOyHKDhJUUaT1N2YAL+vCsLtFOC2IOtQ+UweLRnjBcR9H8o2?=
+ =?Windows-1252?Q?9d094UJV2uLW0b5hO3sXoLofpm1C1wYK3IpLIaZe36NH2Z9GQdx3HoDG?=
+ =?Windows-1252?Q?3s5hoVnLmaa2KxY1cZvU5f7fjrTKrG+FETW7Xav3/4K94B7IovPWXEpm?=
+ =?Windows-1252?Q?7bdvC/M2hjTksZdO4sk1vCZ7JyTjEWGSBQ0cqFZoKo22YpgiIds41tz4?=
+ =?Windows-1252?Q?jCQh0YJXf4y4l0s2xVafG2lHSiwKNRoiU6RpPDXQKykRnD1VH+LEgVmr?=
+ =?Windows-1252?Q?RaEo192sBbpFElVUcGfpqpf331JYc3hEPCjl2NYf4v6RNH4GvhI0IaNF?=
+ =?Windows-1252?Q?IL6C1RQfwG3tB1Q8J3bpl8wpHURfgwuv+UWpT4dCGTg93L190MEzl+Ry?=
+ =?Windows-1252?Q?8WT34xX9PAYrKLJ0m6ffFdO5M+bkEqtU5xhQsVUpROeSZlfySYX+K0po?=
+ =?Windows-1252?Q?FiVBkuHndQ4/g68WhhYU8Ouqv8me04rM+9kfehB6+qUOxgh4W+A2LdvG?=
+ =?Windows-1252?Q?gC/FY6E/GwUTmO6QyvuwhLXMpxVLB3u63xTkEyT8Rc2b4sFTgmLEEi++?=
+ =?Windows-1252?Q?XePXPPdw3NppagKlSKiy5XMoXbKK/ezXcWArBht00bJPdYn8NCjdLOGU?=
+ =?Windows-1252?Q?kkVrt+5ABBZDUSmXOcAMcwz1A8ygZb6gYna4y7rLAGyNhi3B3fHtnFkS?=
+ =?Windows-1252?Q?u3ofUWyR62bqfU3uNNkohPlp?=
+MIME-Version: 1.0
+
+--_005_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_
+Content-Type: multipart/alternative;
+	boundary="_000_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_"
+
+--_000_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Dear sirs,
+
+Please confirm when we can expect the above client's engineer report.
+
+If it could kindly be sent to this email address once ready.
+
+Thank you
+
+Kind Regards
+
+Soundouss Aziz | Paralegal
+
+[KB logo]        [cid:image002.jpg@01DD143B.8141EBF0]
+Mon - Thur 8:30 - 17:30
+
+Direct Dial: 0116 216 5330
+Website: www.knightsbridgesolicitors.co.uk<https://knightsbridgesolicitors.=
+co.uk/>
+Email: saziz@knightsbridgesolicitors.co.uk<mailto:saziz@knightsbridgesolici=
+tors.co.uk>
+
+A:  Cottage 1 Friars Mill Leicester LE3 5BJ
+
+Further Branches:
+A:  The Quadrant, Nuart Road, Beeston, Nottingham, NG9 2NH T:  0115 824 170=
+0
+A:  659A Washwood Heath Road Birmingham B8 2HJ T:  0121 798 0123
+
+Knightsbridge Solicitors is the trading name of Knightsbridge Solicitors Lt=
+d. A list of Directors is available for inspection at the registered office=
+. Knightsbridge Solicitors is registered in England and Wales: 08824257.
+We are authorised and regulated by the Solicitors Regulation Authority - SR=
+A Number 608013.
+This electronic message contains information from Knightsbridge Solicitors,=
+ which may be privileged or confidential. The information is intended for u=
+se only by the individual(s) or entity named above. If you are not the inte=
+nded recipient, be aware that any disclosure, copying, distribution or use =
+of the contents of this information is strictly prohibited. If you have rec=
+eived this electronic message in error, please notify us by email (to the e=
+mail address above) immediately. Knightsbridge Solicitors is authorised and=
+ regulated by the Solicitors Regulation Authority.
+We do not accept liability for any virus infection and/or external compromi=
+se of security in relation to transmissions by e-mail.
+
+
+
+
+--_000_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<!--[if !mso]><style>v\:* {behavior:url(#default#VML);}
+o\:* {behavior:url(#default#VML);}
+w\:* {behavior:url(#default#VML);}
+.shape {behavior:url(#default#VML);}
+</style><![endif]--><style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+@font-face
+	{font-family:Aptos;}
+@font-face
+	{font-family:"Open Sans";}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:11.0pt;
+	font-family:"Aptos",sans-serif;
+	mso-ligatures:standardcontextual;
+	mso-fareast-language:EN-US;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Arial",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-size:11.0pt;
+	mso-fareast-language:EN-US;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-GB" link=3D"#467886" vlink=3D"#96607D" style=3D"word-wrap:=
+break-word">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif">Dear sirs, <o:p>
+</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif">Please confirm when we can expect the above client&#8217;s engineer re=
+port.
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif">If it could kindly be sent to this email address once ready.
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif">Thank you <o:p>
+</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:10.5pt;font-family:&quot=
+;Calibri&quot;,sans-serif;color:black;mso-fareast-language:EN-GB">Kind Rega=
+rds</span></b><span style=3D"font-family:&quot;Calibri&quot;,sans-serif;mso=
+-ligatures:none"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.5pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#202062;mso-fareast-language:EN-GB">&nbsp;</sp=
+an><span style=3D"font-size:12.0pt;font-family:&quot;Calibri&quot;,sans-ser=
+if;color:#202062"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;font-family:&quot=
+;Calibri&quot;,sans-serif;color:#202062;mso-fareast-language:EN-GB">Soundou=
+ss Aziz | Paralegal &nbsp;<o:p></o:p></span></b></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:10.5pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#202062;mso-fareast-language:EN-GB"><o:p>&nbsp=
+;</o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:12.0pt;font-family:&quot;Open Sans&quot;,=
+sans-serif;color:black;mso-fareast-language:EN-GB"><img width=3D"250" heigh=
+t=3D"95" style=3D"width:2.6041in;height:.9895in" id=3D"Picture_x0020_1" src=
+=3D"cid:image001.png@01DD143B.8141EBF0" alt=3D"KB logo"></span><span style=
+=3D"font-size:10.5pt;font-family:&quot;Calibri&quot;,sans-serif;color:black=
+;mso-fareast-language:EN-GB">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span><span style=3D"font-size:12.0pt;font-family:&quot;Times New Roman&qu=
+ot;,serif;mso-fareast-language:EN-GB"><img width=3D"98" height=3D"58" style=
+=3D"width:1.0208in;height:.6041in" id=3D"Picture_x0020_2" src=3D"cid:image0=
+02.jpg@01DD143B.8141EBF0"></span><span style=3D"font-family:&quot;Calibri&q=
+uot;,sans-serif"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fa=
+reast-language:EN-GB">Mon &#8211; Thur 8:30 - 17:30<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fa=
+reast-language:EN-GB"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F497D;mso-fareast-language:EN-GB">Direct Dia=
+l: 0116 216 5330<o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F497D;mso-fareast-language:EN-GB">Website:
+<a href=3D"https://knightsbridgesolicitors.co.uk/"><span style=3D"color:blu=
+e">www.knightsbridgesolicitors.co.uk</span></a><br>
+Email: <a href=3D"mailto:saziz@knightsbridgesolicitors.co.uk"><span style=
+=3D"color:blue">saziz@knightsbridgesolicitors.co.uk</span></a><o:p></o:p></=
+span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;font-family:&quot;Ca=
+libri&quot;,sans-serif;color:#1F497D;mso-fareast-language:EN-GB"><o:p>&nbsp=
+;</o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;color:#7030A0;mso=
+-fareast-language:EN-GB">A:&nbsp;
+</span></b><b><span style=3D"font-size:10.5pt;mso-fareast-language:EN-GB">C=
+ottage 1 Friars Mill Leicester LE3 5BJ</span></b><span style=3D"font-size:1=
+2.0pt;mso-fareast-language:EN-GB"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;mso-fareast-langu=
+age:EN-GB">&nbsp;</span></b><span style=3D"font-size:12.0pt;mso-fareast-lan=
+guage:EN-GB"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;mso-fareast-langu=
+age:EN-GB">Further Branches:</span></b><span style=3D"font-size:12.0pt;mso-=
+fareast-language:EN-GB"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;color:#7030A0;mso=
+-fareast-language:EN-GB">A:&nbsp;
+</span></b><b><span style=3D"font-size:10.0pt;mso-fareast-language:EN-GB">T=
+he Quadrant, Nuart Road, Beeston, Nottingham, NG9 2NH</span></b><span style=
+=3D"font-size:10.0pt">
+</span><b><span style=3D"font-size:12.0pt;color:#7030A0;mso-fareast-languag=
+e:EN-GB">T:</span></b><span style=3D"font-size:12.0pt;mso-fareast-language:=
+EN-GB">&nbsp;
+</span><b><span style=3D"font-size:10.5pt;mso-fareast-language:EN-GB">0115 =
+824 1700</span></b><span style=3D"font-size:10.0pt"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;color:#7030A0;mso=
+-fareast-language:EN-GB">A:&nbsp;
+</span></b><b><span style=3D"font-size:10.5pt;mso-fareast-language:EN-GB">6=
+59A Washwood Heath Road Birmingham B8 2HJ
+</span></b><b><span style=3D"font-size:12.0pt;color:#7030A0;mso-fareast-lan=
+guage:EN-GB">T:</span></b><span style=3D"font-size:12.0pt;mso-fareast-langu=
+age:EN-GB">&nbsp;
+</span><b><span style=3D"font-size:10.5pt;mso-fareast-language:EN-GB">0121 =
+798 0123<o:p></o:p></span></b></p>
+<p class=3D"MsoNormal"><span style=3D"color:#1F497D;mso-fareast-language:EN=
+-GB"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fa=
+reast-language:EN-GB">Knightsbridge Solicitors is the trading name of Knigh=
+tsbridge Solicitors Ltd. A list of Directors is available for inspection at=
+ the registered office. Knightsbridge
+ Solicitors is registered in England and Wales: 08824257.<o:p></o:p></span>=
+</p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fareast-language=
+:EN-GB">We are authorised and regulated by the Solicitors Regulation Author=
+ity - SRA Number 608013.<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fareast-language=
+:EN-GB">This electronic message contains information from Knightsbridge Sol=
+icitors, which may be privileged or confidential.
+ The information is intended for use only by the individual(s) or entity na=
+med above. If you are not the intended recipient, be aware that any disclos=
+ure, copying, distribution or use of the contents of this information is st=
+rictly prohibited. If you have received
+ this electronic message in error, please notify us by email (to the email =
+address above) immediately. Knightsbridge Solicitors is authorised and regu=
+lated by the Solicitors Regulation Authority.
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"mso-margin-top-alt:auto;mso-margin-bottom-a=
+lt:auto"><span style=3D"font-size:12.0pt;color:#1F497D;mso-fareast-language=
+:EN-GB">We do not accept liability for any virus infection and/or external =
+compromise of security in relation to
+ transmissions by e-mail. <o:p></o:p></span></p>
+<p class=3D"MsoNormal"><b><span style=3D"font-size:12.0pt;font-family:&quot=
+;Calibri&quot;,sans-serif;mso-fareast-language:EN-GB">&nbsp;</span></b><spa=
+n style=3D"font-size:12.0pt;font-family:&quot;Calibri&quot;,sans-serif;mso-=
+fareast-language:EN-GB"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-family:&quot;Arial&quot;,sans-se=
+rif"><o:p>&nbsp;</o:p></span></p>
+</div>
+</body>
+</html>
+
+--_000_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_--
+
+--_005_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_
+Content-Type: image/png; name="image001.png"
+Content-Description: image001.png
+Content-Disposition: inline; filename="image001.png"; size=4252;
+	creation-date="Wed, 15 Jul 2026 08:22:50 GMT";
+	modification-date="Wed, 15 Jul 2026 08:22:50 GMT"
+Content-ID: <image001.png@01DD143B.8141EBF0>
+Content-Transfer-Encoding: base64
+
+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
+
+--_005_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_
+Content-Type: image/jpeg; name="image002.jpg"
+Content-Description: image002.jpg
+Content-Disposition: inline; filename="image002.jpg"; size=2157;
+	creation-date="Wed, 15 Jul 2026 08:22:50 GMT";
+	modification-date="Wed, 15 Jul 2026 08:22:50 GMT"
+Content-ID: <image002.jpg@01DD143B.8141EBF0>
+Content-Transfer-Encoding: base64
+
+/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAoHBwgHBgoICAgLCgoLDhgQDg0NDh0VFhEYIx8lJCIf
+IiEmKzcvJik0KSEiMEExNDk7Pj4+JS5ESUM8SDc9Pjv/2wBDAQoLCw4NDhwQEBw7KCIoOzs7Ozs7
+Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozv/wAARCAA6AGIDASIA
+AhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQA
+AAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3
+ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWm
+p6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEA
+AwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSEx
+BhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElK
+U1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3
+uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD2akyK
+GIVSzEAAZJPasW6ubi9uY47JTtQCRXJwren1H8j2oAvXmowWkHns25BII22n7p96qWmrzXUsy/Zt
+ixozKxPytjjr9c/hg1DqWo6bpUomuz5l2wB8mM5GemcduO5rDvfH01tp19dxaemy0t2lCFiSxHAH
+HbkZ9qtU5Nc3QXMjoo9bGEEqDp85U8g84wO446+4rSguEnHAKsOqMMMPqK8Y8E/FHVtb8Txabrkd
+vPbXYZQ0cWxocAsCCO3Fep/Y45nW/tZDcxFcxqr9W7HJ7fy59ajoM2aWqOm3f2mJleRJJYiUkdFI
+Un2q7mgBaKKKACiiigAooooAqajPNDYTyW9obuZUyluHCmT2yeKoapeRaJpT3MUQjlkICR54Dn/P
+asbxikkuq2UkTahH9kiaZnsiqkKWAPJ+9/u471J4wWS4m062DbQ+5izHGOnJ/CtKaUpJMmTsjnPs
+GoXdw7SLmVssxdxkn86yvEOqP4U0UXpsVuri5ZoUSTmKNcclwOuecD2rqJ3lljAsZfLkgIjX94D5
+qf3j7g1zPxJ0mPU/DsTWkzvLpsZldvNBWZc4YY/vD7w9q66s5clkZxSucFpfjWLRrw3Fh4e0+JpA
+Vn5diynqFJPyfhXsfhHVCHt7iz3tpd9B55EhA8gcglj04IOfWvC/Dfhu58S6j9mgZYYYl8y5uZOE
+gjHVmP8ASvZvCekJ4jsrezgEsfhLT/kiV+JNScHJZ/8ApmDn5e9calZNGrR22l6m2sETWEfl6cvC
+TsuPP/3B/d/2j17VrDiuO0fWfEOo3c9/Ctgmj213LatbbSJVSPI3huhOR93FOt/G51CPS7qOyurK
+2vrjZGZ41PnrsZuMN8o+Xr+lQM7CiuGT4o2bRLM2h6okJhW5MhRMCEtt8z73TPbrVmXxwLOaeL7J
+dahI19LbQxW8aqRsjDnq3Iwev6UAdhRXJv8AEHTUfSz9nmMGprEYpQyZUyHCgpnd16nFaXhTVrrW
+dGN3dhBKLiaP5BgYVyo/QUAbVFFFAHJeOY0is4r2VLmdEDRLDC+352xtfrnIx6H6VHrHm6l4ZsNV
+jR0mgUM6scsvGDmul1OxOoadParM8DSKVWVPvIfUVxmh3qaBqMumTWbWunuWQpKrMxccb89GDLkn
+GcAAk5NVCXLJMTV1YxftLDiGFImY5JjBya57xzPqEn9l6RpluqzaujCRUT5nO/AA9B616O2kXGm3
+P9qaGI761lThFbJCn+6R1+tch4nuPFGj2j67o+oT3VtCCJ7a/hWSWyz/ABKxGdvuOneuqtU5o+6Z
+xjrqULHQ477UYPh5o8n+iW5E+u30fWZx1QH0B4A9fpXtNrawWVpFaWsaxQwqEjRRgKB2ri/hH4dO
+j+EUv51JvdUP2iVm67T90H8Ofxru64zU4mw0rw/eXOp63bx3yiyvJxJbNcFYTMow8irnGTnqeKjj
+uPDK2FnYRea0ugxxXEcHnqGUSKVGWJw2A3P4VNaeHPEdmNXsI5NMbTtTnuJi7GTzk8wYA9OOKqye
+AdQ+yXVvHPZ4urC1gZ2UhleEjOP9kgfyoAunQvB5L6L/AGgnnR2P2J4PtQ8xYg3mcj1HXPpUcreD
+bNrbVRqSyrLqLBJIpw6ieWPyznHQbR+FYUfh3VT44lhsUMcUUl5ML2SzKmN5UwMseJBnoB6Vcsfh
+9rEME0lxcWMl019a3SKxZ0PlDDAkjPOew9qAJovDnhCEW9zc3MmnpZzpbRia9ULM8LfJn1Ptx7iu
+i0o6Dod3LpNpqcSz3E7TC0kuAzKzfMQq9QOc4965zUfh/qc/mSW89hJJJNeZS4Riixz4+Yf7a4qw
+vgCeO8E6zW7sl5ZzJK6nfshQKwz2JxmgDuMn/JopNtFADjVHU9JttSiZZsozr5ZlTh9hILKD2B6G
+r9IaAPP5Ydf8OCaS2V18+5ZYYIIvNgjjVfkUKPu7iAM8YJJOa7loFu7MxXcKMJo9ssZGQcjkfTrU
+vY/SnDpQAyGGO3gjghQJHGoVFHQAcAVJRRQAUlLRQAmKWiigAooooAKKKKAP/9kA
+
+--_005_LO2P265MB4503FCB5A67F5FF454D7288AE1F82LO2P265MB4503GBRP_--

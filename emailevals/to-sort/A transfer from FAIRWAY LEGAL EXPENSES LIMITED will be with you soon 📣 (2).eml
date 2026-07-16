@@ -1,0 +1,1309 @@
+Received: from CWXP123MB2999.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:34::10)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Tue, 14 Jul 2026
+ 16:32:01 +0000
+Received: from LO4P302CA0022.GBRP302.PROD.OUTLOOK.COM (2603:10a6:600:2c1::7)
+ by CWXP123MB2999.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:34::10) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.202.19; Tue, 14 Jul
+ 2026 16:31:59 +0000
+Received: from LO1PEPF000028CC.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:2c1:cafe::78) by LO4P302CA0022.outlook.office365.com
+ (2603:10a6:600:2c1::7) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Tue, 14
+ Jul 2026 16:31:59 +0000
+Authentication-Results: spf=pass (sender IP is 192.174.91.95)
+ smtp.mailfrom=sp-bounce.revolut.com; dkim=pass (signature was verified)
+ header.d=revolut.com;dmarc=pass action=none
+ header.from=revolut.com;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of sp-bounce.revolut.com
+ designates 192.174.91.95 as permitted sender)
+ receiver=protection.outlook.com; client-ip=192.174.91.95;
+ helo=mta-91-95.sparkpostmail.com; pr=E
+Received: from mta-91-95.sparkpostmail.com (192.174.91.95) by
+ LO1PEPF000028CC.mail.protection.outlook.com (10.167.240.36) with Microsoft
+ SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.21.223.9 via Frontend Transport; Tue, 14 Jul 2026 16:31:58 +0000
+X-MSFBL: f3c61Mzf8lcCKzqOuNvih6ALdaqO536BPXtyyoAM+cg=|eyJzdWJhY2NvdW50X2l
+	kIjoiMCIsInIiOiJlbmdpbmVlcnNAY29sbGlzaW9uZW5naW5lZXJzLmNvLnVrIiw
+	idGVuYW50X2lkIjoic3BjIiwibWVzc2FnZV9pZCI6IjZhNGU3YzY0NTY2YTkxYTg
+	1YjkzIiwiY3VzdG9tZXJfaWQiOiI2MzczOSJ9
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=revolut.com;
+	s=scph0616; t=1784046716; i=@revolut.com;
+	bh=pVZu5oK1VEPUtl80h9D8ib04laEbS0L9pBV82ScmJMo=;
+	h=Content-Type:Subject:Message-ID:To:Date:From:From:To:Cc:Subject:
+	 Feedback-Id;
+	b=m4l5x0InhsM91B4C2aDScWGhKrSetKbAye7V94+ScIxotRrKgepSA0fdqtdmYXCzC
+	 lOoeLWMEazf7r/TYjlSa4pifNdO+9+VCPmk7yj7wZXrc+hFnVUFn+BBWr6+wrUp+rR
+	 cB1O8P6yWwS1THuYxRKKYaz3f/04hhHZFVYz2ZL0=
+Received: from [10.90.17.70] ([10.90.17.70])
+	by i-043224e4cc422583f.mta1vrest.sd.prd.sparkpost (ecelerity 5.2.0.76224 r(msys-ecelerity:tags/5.2.0.45)) with REST
+	id 39/BD-59556-C74665A6; Tue, 14 Jul 2026 16:31:56 +0000
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset="UTF-8"
+Subject: =?utf-8?B?QSB0cmFuc2ZlciBmcm9tIEZBSVJXQVkgTEVHQUwgRVhQRU5TRVMg?=
+	=?utf-8?B?TElNSVRFRCB3aWxsIGJlIHdpdGggeW91IHNvb24g8J+Tow==?=
+Message-ID: <39.BD.59556.C74665A6@i-043224e4cc422583f.mta1vrest.sd.prd.sparkpost>
+To: engineers@collisionengineers.co.uk
+Date: Tue, 14 Jul 2026 16:31:56 +0000
+From: "Revolut Business" <no-reply@revolut.com>
+Return-Path: msprvs1=20655lbibs1k_=bounces-63739@sp-bounce.revolut.com
+X-MS-Exchange-Organization-ExpirationStartTime: 14 Jul 2026 16:31:59.0179
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: e792abc2-c4bf-4c15-e821-08dee1c56d34
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: LO1PEPF000028CC:EE_|CWXP123MB2999:EE_|LNXP123MB2123:EE_
+X-MS-Exchange-Organization-AuthSource: LO1PEPF000028CC.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id: e792abc2-c4bf-4c15-e821-08dee1c56d34
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:2;ARA:13230040|704162311799003|12012899012|7149299003|3109299003|7049299003|3072899012|13102899012|13012899012|69100299015|2092899012|3092899012|29132699027|1032899013|5062899012|13003099007|19002099009|5063699009|16102099003|57112099003|18003699003|8096899003|2066899003;
+X-Forefront-Antispam-Report: CIP:192.174.91.95;CTRY:US;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:mta-91-95.sparkpostmail.com;PTR:mta-91-95.sparkpostmail.com;CAT:NONE;SFS:(13230040)(704162311799003)(12012899012)(7149299003)(3109299003)(7049299003)(3072899012)(13102899012)(13012899012)(69100299015)(2092899012)(3092899012)(29132699027)(1032899013)(5062899012)(13003099007)(19002099009)(5063699009)(16102099003)(57112099003)(18003699003)(8096899003)(2066899003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 14 Jul 2026 16:31:58.3952
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: e792abc2-c4bf-4c15-e821-08dee1c56d34
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LO1PEPF000028CC.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CWXP123MB2999
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:02.6571596
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0223.005
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944490095)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?utf-8?B?N3BMQlZ2Qm1tVlQ2RHhrY1BHU3dvRmdYSVBkQkcyb1ZuQUxtbFllRWpLYUM5?=
+ =?utf-8?B?eGJNTmt3MW9zTXNWNmxVeHJVTlhIbWgwZFZBd0RxUS9paDdLRDBTazlZMDhz?=
+ =?utf-8?B?MXpYdzRudGdFOE1wbzVISldlb0EwV3loWnRYdHZmVW5qOEdrend6UERCYk8z?=
+ =?utf-8?B?bUtqeWxxVEcwMVd1bnNJSlB4VjJRQUZQNGVPS0hpWi8zTkRhTlc3OXZkZysv?=
+ =?utf-8?B?MjFBWlJzb3djTEhLVUpYWUhrVTUyYzVkSEpTMjdvbVhqd1BVZVVPVnV0YlNi?=
+ =?utf-8?B?Qk56VTRpZlY3OGFZdlk3dThXSFBWTEdTZ3UvRzROZDEvY2syNTdHei90SG9v?=
+ =?utf-8?B?TlNhT25TQ1VvMWdoQW0wazR5OFdYMzM2RzNqUEtEdmphenZPTEc2b0lJc1Ji?=
+ =?utf-8?B?ekJDbEE0OHNXYU5ZMTQ2V3pCMVJNOVdFWTlIdHc3L2FlcVp4Q2ZGaFQ0Umho?=
+ =?utf-8?B?Vmw3TmZzaHhRaU1qUk5UTGJTU3U2MVdnK3QvN210dEI0dkZud2Q2TDNvQytv?=
+ =?utf-8?B?aG9YNjZMd0V4d3Q1b2oyS050M0MxYU54S0RYN0gydzBCT2RNNWdteTRicGJO?=
+ =?utf-8?B?WW5jTnhNenVqTmF1ZVZCK0dUWnBsTVJKV2IwWW5KVmxCV0RhV1BuTkZxQ2Y2?=
+ =?utf-8?B?TWkvajNsalJ0V2hxNSszZmdCdW1SQ1V3VTdraVJGL1ZERi8wMis2UGVtWExM?=
+ =?utf-8?B?eEtwQnd5Y05wOFJ4ZWE4Y2lDbXo2SThxdHBmVGdPQjdZOUtOZ2NIK3NGY0Nt?=
+ =?utf-8?B?RTRLelpwakE2TThmbWJzNEduWHQ0Z3dDTC96M1NYbTFGNkdoUU9rNW9NWEtC?=
+ =?utf-8?B?c1Y2RDZtRTlRQ0NtRkdpUndZUWc4WnhRN2RBdlhSeEhkRHFkSVNteFBtb1Z2?=
+ =?utf-8?B?RnRHeE9SL1lRS0dVRDVQVXNRQWxyQmM5ZjlwamlNalMwY0czVFdYVlJyMHR1?=
+ =?utf-8?B?TkhRY2RlV2pQbSszZ2V1dGhKUXJjMlRlTTVhUVBpME5CNG1vNU9pRTBmZEYv?=
+ =?utf-8?B?cnRoOWQyb0tWd3RvNFBENWFIaUN1VnJkV0ZCL3FDZXdvWEFrVjZZejBDcDVU?=
+ =?utf-8?B?OWo5NDA2QWxkUVlvWFFNbU9yamw2ZG5yeVJKUFJMdHowenBXZG9XdXRKWjlE?=
+ =?utf-8?B?dHNnN0dvcDl4Z1dMQU5ENnorMzYzcERabGlrZUZ0ZFRtOTcyQjlyUHlSVndS?=
+ =?utf-8?B?OHBROEhBOGdJNy9VM2VPc0hJNXRXMDRUblFzYkNUVlFOd2tnQ2xGelFuU0FY?=
+ =?utf-8?B?TTJZSkt6a2h3WXcvNUdyUTAyd1Y4NjdHUXN5cUVtNitsZUNBT3o2RFM1clVq?=
+ =?utf-8?B?akw4UFFUQWtLYktSYzdTaCtnaFpJeFJFK3FNcEVKUEJZdEFTL1Z5K2xhcXd4?=
+ =?utf-8?B?anliODZNeVlyZFFCbVdCQmVDTlg5bXM1TkFxbGF2QXZ5RzhzUzZXVjhTNnhk?=
+ =?utf-8?B?K2JqUWloaWs0c2pYdlc3bmpVMHBiaHptUC9sOEZ6Snc4WkFFZlFMSzErMCtl?=
+ =?utf-8?B?VEVwNXhVaGxnUXRaZzNiY3F1UW5DbEJ4SVNsMXFhdnNVd0NzdEtYaWIyOHMr?=
+ =?utf-8?B?MWMvT0R1N2hzeTdnV040M2FmeUVOa09JVTJzaFhhbXVzQXB0L1BHRW9sUUlV?=
+ =?utf-8?B?eFNxK1UxclRWUFE1ZHZNN3cxUHBMR0ZwbW9JODFMV1dqM2ljbnVjcGVaM1JL?=
+ =?utf-8?B?VXl1L0hIcnRUZktUVldCdkpPY0NjcWx1dUJNMUNGaGgvM1dLeWMybVgvVEJF?=
+ =?utf-8?B?bGlyTkEyWm01d1BoeE1NL2o3c1U4MTRVaDQxcUhLc3cyUW9DTXZmUzhyOWdY?=
+ =?utf-8?B?bHNybnlaNUoyaUFJNHVaSUM4SVpUSnFNSjBIUFo5L0hjSXJnY09PTkg5aU9i?=
+ =?utf-8?B?UXJuc2o4SFJHdGwraUVTWDJwWFJ1MnlYdjVMRElyVHh6bGVYTmErZ3A4bTM0?=
+ =?utf-8?B?TzJBbklRaXJNK1pTUVVET1VXQnJGc1B1d1lBOUxKYUcxTVVLeE5HbzgydHNu?=
+ =?utf-8?B?OXh1YzBRUnF4MVNrcFNuOVpvayt3Q2k5R09wRm9mNkUxeUl4dFNwZG5rMWFN?=
+ =?utf-8?B?Nnk0bzJXdFE0SFlHMlZDZHpsNFBWa2Y5UkdkT0N2TlRjc3Nrcnc2SmFnRkxM?=
+ =?utf-8?B?c0xmUW1UR1dKZU1OaDNCRkh6UnJJR0ZPRGptNFp5ekMydUNMZmdrc1R4OExq?=
+ =?utf-8?B?QXVtUjBhT0NhVjJVNHNFbmVYZW00TllhbDJ5dHBqeG5EVTVBcjgxTFJES054?=
+ =?utf-8?B?UWdoMGVKd2JZV0R3a1R2OVVmVXhjTWJLV2JFMGN6SndpVTM3cU1HalZGUW5G?=
+ =?utf-8?B?Uy9qQXNlcVdJV3dTOFEzWHFYNGtNWlFyK09PWVZWSTIrRllRYnRESjA5T2ov?=
+ =?utf-8?B?bERENTlkZmpiaFE3L1Vsb24vMDJMb29MVUR5ZzJUVWZnWTBBQlRrVzJJbnlv?=
+ =?utf-8?B?NGVsVk5RTjBJeUZTODBkbGRrVTBIeXNNNTRLQmxqME1sY3FyNHJEMG5wL20w?=
+ =?utf-8?B?UGJCTkJGQmk5dlBRWVpSYVJCeDhoSHFKOEtRdU1mc2hsOFVFQ2wzM0V2Yjlq?=
+ =?utf-8?B?Q2dzbUk4YjFsbWJHWmRveDJyVkl2MVpMbkRHdmhpdktGYkR6c3lRQ2txa2xW?=
+ =?utf-8?B?OHhvWXFEcm5aaFBtbzIrcjFkaHRQQkU2dk5sWFh4alROdUE3bzA3WnplRnhF?=
+ =?utf-8?B?Q3JPQ29sT0Znd2Eyei8yVUdub1Vua25WNXFjTTlOWGpra2N3Wlo0dzV2QzB2?=
+ =?utf-8?B?aDVXV3Z4V0VUR0RyYVZPaEduUXcyYmRpYU83ZW1wSTJJTk8rcUZwMTRkdEs0?=
+ =?utf-8?B?RmNDLzlybmY3Mmg3QmxJVDFpRm94N0hNa2FkQkVjQ25mNnFaZ2lldEhSVzJy?=
+ =?utf-8?B?MGpleHFvSWx3OWFuOUg3TnRxb1g4ZHN6aUwrL0RmTEZRaEFabzBwaGg4eXJM?=
+ =?utf-8?B?a3JERWcrY3BKTEc2bUM4TDJSdzRqMGlCNDQ2bHpMbWJvVGo0MU5IRDBEWmNs?=
+ =?utf-8?B?NjU4N0R5QmN3Ky9kVGlISVJQK1kyY21OSEhPY25sd0xPQzh3Z2wxUU5samRO?=
+ =?utf-8?B?U0tlbmk5VncyTWJ3PT0=?=
+MIME-Version: 1.0
+
+<!doctype html><html xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:=
+schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:offi=
+ce"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"><t=
+itle></title>=0A=
+    <!--[if !mso]><!-->=0A=
+    <meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">=0A=
+    <!--<![endif]-->=0A=
+    =0A=
+    <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=
+=3D1">=0A=
+    <style type=3D"text/css">=0A=
+      #outlook a { padding:0; }=0A=
+      body { margin:0;padding:0;-webkit-text-size-adjust:100%;-ms-text-size=
+-adjust:100%; }=0A=
+      table, td { border-collapse:collapse;mso-table-lspace:0pt;mso-table-r=
+space:0pt; }=0A=
+      img { border:0;height:auto;line-height:100%; outline:none;text-decora=
+tion:none;-ms-interpolation-mode:bicubic; }=0A=
+      p { display:block;margin:13px 0; }=0A=
+    </style>=0A=
+    <!--[if mso]>=0A=
+    <noscript>=0A=
+    <xml>=0A=
+    <o:OfficeDocumentSettings>=0A=
+      <o:AllowPNG/>=0A=
+      <o:PixelsPerInch>96</o:PixelsPerInch>=0A=
+    </o:OfficeDocumentSettings>=0A=
+    </xml>=0A=
+    </noscript>=0A=
+    <![endif]-->=0A=
+    <!--[if lte mso 11]>=0A=
+    <style type=3D"text/css">=0A=
+      .mj-outlook-group-fix { width:100% !important; }=0A=
+    </style>=0A=
+    <![endif]-->=0A=
+    =0A=
+      <!--[if !mso]><!-->=0A=
+        <link href=3D"https://fonts.googleapis.com/css?family=3DRoboto:300,=
+400,500,700" rel=3D"stylesheet" type=3D"text/css">=0A=
+        <style type=3D"text/css">=0A=
+          @import url(https://fonts.googleapis.com/css?family=3DRoboto:300,=
+400,500,700);=0A=
+        </style>=0A=
+      <!--<![endif]-->=0A=
+=0A=
+    =0A=
+    =0A=
+    <style type=3D"text/css">=0A=
+      @media only screen and (min-width:480px) {=0A=
+        .mj-column-per-100 { width:100% !important; max-width: 100%; }=0A=
+      }=0A=
+    </style>=0A=
+    <style media=3D"screen and (min-width:480px)">=0A=
+      .moz-text-html .mj-column-per-100 { width:100% !important; max-width:=
+ 100%; }=0A=
+    </style>=0A=
+    =0A=
+  =0A=
+    <style type=3D"text/css">=0A=
+    =0A=
+    =0A=
+=0A=
+    @media only screen and (max-width:479px) {=0A=
+      table.mj-full-width-mobile { width: 100% !important; }=0A=
+      td.mj-full-width-mobile { width: auto !important; }=0A=
+    }=0A=
+  =0A=
+    </style>=0A=
+    <style type=3D"text/css">=0A=
+    @font-face {=0A=
+    font-family: 'Aeonik Pro';=0A=
+    font-display: fallback;=0A=
+    font-weight: 900;=0A=
+    src: url('https://cdn.revolut.com/media/fonts/AeonikPro-Black.woff2') f=
+ormat('woff2');=0A=
+  }=0A=
+=0A=
+  @font-face {=0A=
+    font-family: 'Aeonik Pro';=0A=
+    font-display: fallback;=0A=
+    font-weight: 500;=0A=
+    src: url('https://cdn.revolut.com/media/fonts/AeonikPro-Medium.woff2') =
+format('woff2');=0A=
+  }=0A=
+=0A=
+  @font-face {=0A=
+    font-family: 'Inter';=0A=
+    font-display: fallback;=0A=
+    font-weight: 400;=0A=
+    src: url('https://cdn.revolut.com/media/fonts/Inter-Regular.woff2') for=
+mat('woff2');=0A=
+  }=0A=
+=0A=
+  @font-face {=0A=
+    font-family: 'Inter';=0A=
+    font-display: fallback;=0A=
+    font-weight: 500;=0A=
+    src: url('https://cdn.revolut.com/media/fonts/Inter-Medium.woff2') form=
+at('woff2');=0A=
+  }=0A=
+=0A=
+  @font-face {=0A=
+    font-family: 'Inter';=0A=
+    font-display: fallback;=0A=
+    font-weight: 600;=0A=
+    src: url('https://cdn.revolut.com/media/fonts/Inter-SemiBold.woff2') fo=
+rmat('woff2');=0A=
+  }:root {=0A=
+            color-scheme: only light;=0A=
+            supported-color-schemes: light;=0A=
+          }=0A=
+=0A=
+          a {=0A=
+            font-family: Inter, -apple-system, Roboto, "Segoe UI", Arial, s=
+ans-serif;=0A=
+            font-weight: 400;=0A=
+            line-height: 1.375;=0A=
+            text-decoration: none;=0A=
+            font-size: inherit;=0A=
+            color: #6FA0FF;=0A=
+          }=0A=
+=0A=
+          .legacy-crypto-banner a {=0A=
+            font-weight: 600;=0A=
+          }=0A=
+=0A=
+          =0A=
+  .npsRating,=0A=
+  .detailsCells,=0A=
+  .transactions {=0A=
+    margin-left: 0 !important;=0A=
+    margin-right: 0 !important;=0A=
+  }=0A=
+=0A=
+  =0A=
+    .logo-image img {=0A=
+      width: auto !important;=0A=
+      max-width: 100% !important;=0A=
+    }=0A=
+=0A=
+    .footer .logo {=0A=
+      padding: 0 !important;=0A=
+      padding-top: 12px !important;=0A=
+    }=0A=
+=0A=
+    .footer .logo img {=0A=
+      margin-left: 0 !important;=0A=
+    }=0A=
+=0A=
+    .logo-business-name {=0A=
+      font-family: Inter, -apple-system, Roboto, "Segoe UI", Arial, sans-se=
+rif !important;=0A=
+      font-size: 12px !important;=0A=
+      line-height: 18px !important;=0A=
+      color: #717173 !important;=0A=
+    }=0A=
+=0A=
+    .footer .logo-logo {=0A=
+      width: 100% !important;=0A=
+      max-width: 100% !important;=0A=
+    }=0A=
+=0A=
+    =0A=
+    .logo {=0A=
+      padding-top: 12px !important;=0A=
+      padding-bottom: 12px !important;=0A=
+    }=0A=
+=0A=
+    .logo img {=0A=
+      margin-left: -4px !important;=0A=
+    }=0A=
+=0A=
+    html[dir=3Drtl] .logo img {=0A=
+      margin-left: 0 !important;=0A=
+      margin-right: -4px !important;=0A=
+    }=0A=
+  =0A=
+    =0A=
+=0A=
+=0A=
+    html[dir=3Drtl] .logo-image,=0A=
+    html[dir=3Drtl] .logo-image td {=0A=
+      text-align: right !important;=0A=
+    }=0A=
+    html[dir=3Drtl] .logo-business-name,=0A=
+    html[dir=3Drtl] .logo-business-name div {=0A=
+      text-align: left !important;=0A=
+    }=0A=
+  =0A=
+=0A=
+  :root .textList,=0A=
+  :root .imageWithTextList,=0A=
+  :root .imageWithText,=0A=
+  :root .text,=0A=
+  :root .bulletList,=0A=
+  :root .button-container,=0A=
+  :root .footer,=0A=
+  :root .logo,=0A=
+  :root .disclaimer,=0A=
+  :root .title {=0A=
+    padding-left: 24px !important; =0A=
+    padding-right: 24px !important;=0A=
+  }=0A=
+=0A=
+  :root .npsRating,=0A=
+  :root .detailsCells,=0A=
+  :root .transactions {=0A=
+    margin-left: 24px !important;=0A=
+    margin-right: 24px !important;=0A=
+  }=0A=
+=0A=
+  .link-plain {=0A=
+    =0A=
+  display: inline !important;=0A=
+  color: #686868 !important;=0A=
+  font-size: 12px !important;=0A=
+  font-weight: 600 !important;=0A=
+  background-color: #EFEFEF !important;=0A=
+  border-radius: 8px !important;=0A=
+  padding: 2px 4px !important;=0A=
+  pointer-events: none !important;=0A=
+  cursor: text !important;=0A=
+  user-select: text !important;=0A=
+=0A=
+  }=0A=
+=0A=
+  .no-link {=0A=
+    =0A=
+  cursor: text !important;=0A=
+  color: inherit !important;=0A=
+  user-select: text !important;=0A=
+=0A=
+  }=0A=
+=0A=
+  @media only screen and (min-width: 601px) {=0A=
+    .textList,=0A=
+    .imageWithTextList,=0A=
+    .imageWithText,=0A=
+    .text,=0A=
+    .bulletList,=0A=
+    .button-container,=0A=
+    .footer,=0A=
+    .logo,=0A=
+    .disclaimer,=0A=
+    .title {=0A=
+      padding-left: 32px !important;=0A=
+      padding-right: 32px !important;=0A=
+    }=0A=
+=0A=
+    .npsRating,=0A=
+    .detailsCells,=0A=
+    .transactions {=0A=
+      margin-left: 32px !important;=0A=
+      margin-right: 32px !important;=0A=
+    }=0A=
+=0A=
+    .legacy-crypto-banner {=0A=
+      margin-left: auto !important;=0A=
+      margin-right: auto !important;=0A=
+    }=0A=
+=0A=
+    =0A=
+    .footer .logo-logo {=0A=
+      width: 100% !important;=0A=
+      max-width: 100% !important;=0A=
+    }=0A=
+=0A=
+    =0A=
+    .logo  {=0A=
+      margin: 0 auto !important;=0A=
+      padding-top: 12px !important;=0A=
+      padding-bottom: 0 !important;=0A=
+    }=0A=
+=0A=
+    .footer .logo {=0A=
+      padding: 0 !important;=0A=
+      padding-top: 12px !important;=0A=
+    }=0A=
+  =0A=
+  =0A=
+  }=0A=
+=0A=
+  .footer .socials-plain {=0A=
+    font-family: Inter, -apple-system, Roboto, "Segoe UI", Arial, sans-seri=
+f !important;=0A=
+    font-size: 12px !important;=0A=
+    line-height: 1.667 !important;=0A=
+    color: #717173 !important;=0A=
+  }=0A=
+=0A=
+  .footer .socials-plain img {=0A=
+    margin-right: 8px !important;=0A=
+    display: inline !important;=0A=
+    vertical-align: middle !important;=0A=
+  }=0A=
+=0A=
+  .transactions-wrapper {=0A=
+    background-color: #F4F5F6 !important;=0A=
+    color: #191C1F !important;=0A=
+  }=0A=
+=0A=
+  .transactions-title,=0A=
+  .transactions-title-last {=0A=
+    color: #717173 !important;=0A=
+  }=0A=
+=0A=
+  table.chat-visible-table {=0A=
+    border-collapse: collapse !important;=0A=
+    word-break: normal !important;=0A=
+  }=0A=
+=0A=
+  table.chat-visible-table th, table.chat-visible-table td {=0A=
+    border: 1px solid #191C1F !important;=0A=
+  }=0A=
+    </style>=0A=
+    <meta name=3D"color-scheme" content=3D"only light">=0A=
+          <meta name=3D"supported-color-schemes" content=3D"light">=0A=
+  </head>=0A=
+  <body style=3D"word-spacing: normal; width: 100%;">
+<div style=3D"color:transparent;visibility:hidden;opacity:0;font-size:0px;b=
+order:0;max-height:1px;width:1px;margin:0px;padding:0px;border-width:0px!im=
+portant;display:none!important;line-height:0px!important;"><img border=3D"0=
+" width=3D"1" height=3D"1" src=3D"https://click.revolut.com/q/sgbvXnpNYcU7B=
+pxO6L6CWA~~/AAD4-xA~/bGuOBnCAdRHYcA32K_hVw9uxfJf_bLokfO4-tv5CwBnicz6ayWWtb2=
+7CA9ZXj0eSmLlNnrSDDsjTxsBFbDK9vo-mnpztywNLb7N2iGe86Oo~" alt=3D""></div>
+=0A=
+    =0A=
+    =0A=
+      <div class=3D"body-container " style=3D"">=0A=
+        =0A=
+      =0A=
+      <!--[if mso | IE]><table align=3D"center" border=3D"0" cellpadding=3D=
+"0" cellspacing=3D"0" class=3D"content-wrapper-outlook" role=3D"presentatio=
+n" style=3D"width:600px;" width=3D"600" ><tr><td style=3D"line-height:0px;f=
+ont-size:0px;mso-line-height-rule:exactly;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"content-wrapper" style=3D"margin:0px auto;max-width:600=
+px;">=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:center;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"logo-outlook" width=
+=3D"600px" ><table align=3D"center" border=3D"0" cellpadding=3D"0" cellspac=
+ing=3D"0" class=3D"logo-outlook" role=3D"presentation" style=3D"width:NaNpx=
+;" width=3D"NaN" ><tr><td style=3D"line-height:0px;font-size:0px;mso-line-h=
+eight-rule:exactly;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"logo" style=3D"padding-left: 24px; padding-right: 24px;=
+ margin: 0px auto; max-width: NaNpx; box-sizing: border-box;">=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"logo-logo-outlook" st=
+yle=3D"vertical-align:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix logo-logo" style=
+=3D"font-size:0px;text-align:left;direction:ltr;display:inline-block;vertic=
+al-align:top;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" style=3D"font-size:0px;padding:auto;word=
+-break:break-word;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;">        <table class=3D"logo-marketing-table" ro=
+le=3D"presentation" width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" bord=
+er=3D"0">=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;width:50%">=0A=
+              <a href=3D"https://click.revolut.com/f/a/WWUOzKbrU6TtzBT_ffyO=
+uA~~/AAD4-xA~/kJu-gbsDai4pUazw9WdPbDz9pqRyd-2l2jyPylum03e4jR0gbuH8qUCj0L6EW=
+pP6JXzc5CMkALU0DdJbvJ8F4u1IjvUPhCEhTANLwHBLo4N6LT1EGsq4Y-C-GwHtgD3WijmFPrTs=
+g_ZJliKmLNj6Pw~~" style=3D"font-family: Inter, -apple-system, Roboto, 'Sego=
+e UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; text-decora=
+tion: none; font-size: inherit; color: #6FA0FF;"><img src=3D"https://assets=
+.revolut.com/email/logo/v2/RevolutBusiness-black-background.png" alt=3D"" c=
+lass=3D"logo-image" style=3D"max-height:28px;display:block;border:0"></a>=
+=0A=
+            </td>=0A=
+            <td class=3D"logo-business-name" style=3D"vertical-align:middle=
+;text-align:right;width:50%;padding-left:10px;line-height:18px;">=0A=
+              FAIRWAY LEGAL EXPENSES LIMITED=0A=
+            </td>=0A=
+          </tr>=0A=
+        </table>=0A=
+      </div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"" widt=
+h=3D"600px" ><table align=3D"center" border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0" class=3D"" role=3D"presentation" style=3D"width:NaNpx;" width=3D=
+"NaN" ><tr><td style=3D"line-height:0px;font-size:0px;mso-line-height-rule:=
+exactly;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div style=3D"margin:0px auto;max-width:NaNpx;">=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"title-outlook" style=
+=3D"vertical-align:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix title" style=3D"=
+padding-left: 24px; padding-right: 24px; font-size: 0px; text-align: left; =
+direction: ltr; display: inline-block; vertical-align: top; width: 100%; bo=
+x-sizing: border-box;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" class=3D"title-title" style=3D"font-size=
+:0px;padding:auto;word-break:break-word;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;"><h1 style=3D"margin: 0; padding-top: 24px; paddi=
+ng-bottom: 8px; font-family: Aeonik Pro, -apple-system, Roboto, 'Segoe UI',=
+ Arial, sans-serif; font-size: 32px; font-weight: 500; color: #191C1F; line=
+-height: 1.125;">You've got a transfer heading your way</h1></div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"text-o=
+utlook content-block-outlook" width=3D"600px" ><table align=3D"center" bord=
+er=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"text-outlook content-=
+block-outlook" role=3D"presentation" style=3D"width:NaNpx;" width=3D"NaN" >=
+<tr><td style=3D"line-height:0px;font-size:0px;mso-line-height-rule:exactly=
+;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"text content-block" style=3D"padding-left: 24px; paddin=
+g-right: 24px; margin: 0px auto; max-width: NaNpx; box-sizing: border-box;"=
+>=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"" style=3D"vertical-a=
+lign:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:t=
+op;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" class=3D"text-compat " style=3D"font-siz=
+e: 0px; padding: auto; word-break: break-word; padding-top: 16px; padding-b=
+ottom: 16px;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;"><div class=3D"text-container" style=3D"color: #1=
+91C1F; font-family: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-s=
+erif; font-weight: 400; line-height: 1.375; font-size: 16px;">FAIRWAY LEGAL=
+ EXPENSES LIMITED sent you a transfer and it=E2=80=99s expected by 14/07/20=
+26</div></div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"text-o=
+utlook content-block-outlook" width=3D"600px" ><table align=3D"center" bord=
+er=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"text-outlook content-=
+block-outlook" role=3D"presentation" style=3D"width:NaNpx;" width=3D"NaN" >=
+<tr><td style=3D"line-height:0px;font-size:0px;mso-line-height-rule:exactly=
+;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"text content-block" style=3D"padding-left: 24px; paddin=
+g-right: 24px; margin: 0px auto; max-width: NaNpx; box-sizing: border-box;"=
+>=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"" style=3D"vertical-a=
+lign:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:t=
+op;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" class=3D"text-compat greyed" style=3D"fo=
+nt-size: 0px; padding: auto; word-break: break-word; padding-top: 16px; pad=
+ding-bottom: 16px;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;"><div class=3D"text-container" style=3D"font-fami=
+ly: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-serif; font-weigh=
+t: 400; margin: 0; color: #000000; border-radius: 16px; font-size: 16px; li=
+ne-height: 1.375; padding: 8px 16px; background-color: #F4F5F6;"><p style=
+=3D"margin: 0; padding: 0; color: #191C1F; font-family: Inter, -apple-syste=
+m, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-height: 1.=
+375; font-size: 16px; padding-top: 8px; padding-bottom: 8px;"><strong>Sende=
+r</strong>: FAIRWAY LEGAL EXPENSES LIMITED</p><p style=3D"margin: 0; paddin=
+g: 0; color: #191C1F; font-family: Inter, -apple-system, Roboto, 'Segoe UI'=
+, Arial, sans-serif; font-weight: 400; line-height: 1.375; font-size: 16px;=
+ padding-top: 8px; padding-bottom: 8px;"><strong>Recipient</strong>: Collis=
+ion Engineers =C2=B7 29925-01 Tewelde Hagos FX66EEP</p><p style=3D"margin: =
+0; padding: 0; color: #191C1F; font-family: Inter, -apple-system, Roboto, '=
+Segoe UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; font-si=
+ze: 16px; padding-top: 8px; padding-bottom: 8px;"><strong>Amount</strong>: =
+=C2=A380</p><p style=3D"margin: 0; padding: 0; color: #191C1F; font-family:=
+ Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: =
+400; line-height: 1.375; font-size: 16px; padding-top: 8px; padding-bottom:=
+ 8px;"><strong>Sent on</strong>: 14 July 2026 4:31 PM GMT</p><p style=3D"ma=
+rgin: 0; padding: 0; color: #191C1F; font-family: Inter, -apple-system, Rob=
+oto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; f=
+ont-size: 16px; padding-top: 8px; padding-bottom: 8px;"><strong>Expected by=
+</strong>: 14/07/2026</p></div></div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"text-o=
+utlook content-block-outlook" width=3D"600px" ><table align=3D"center" bord=
+er=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"text-outlook content-=
+block-outlook" role=3D"presentation" style=3D"width:NaNpx;" width=3D"NaN" >=
+<tr><td style=3D"line-height:0px;font-size:0px;mso-line-height-rule:exactly=
+;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"text content-block" style=3D"padding-left: 24px; paddin=
+g-right: 24px; margin: 0px auto; max-width: NaNpx; box-sizing: border-box;"=
+>=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"" style=3D"vertical-a=
+lign:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:t=
+op;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" class=3D"text-compat " style=3D"font-siz=
+e: 0px; padding: auto; word-break: break-word; padding-top: 16px; padding-b=
+ottom: 16px;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;"><div class=3D"text-container" style=3D"color: #1=
+91C1F; font-family: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-s=
+erif; font-weight: 400; line-height: 1.375; font-size: 16px;"><h3 style=3D"=
+margin: 0; padding: 0; font-family: Inter, -apple-system, Roboto, 'Segoe UI=
+', Arial, sans-serif; font-size: 16px; padding-top: 8px; padding-bottom: 8p=
+x; color: #191C1F; font-weight: 600; line-height: 1.125;">Why did I receive=
+ this email?</h3><p style=3D"margin: 0; padding: 0; color: #191C1F; font-fa=
+mily: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-serif; font-wei=
+ght: 400; line-height: 1.375; font-size: 16px; padding-top: 8px; padding-bo=
+ttom: 8px;">This email is for informational purposes only. You received thi=
+s email because you=E2=80=99re a recipient of the incoming payment above. T=
+he sender gave us your email address so we could let you know about this pa=
+yment. </p><p style=3D"margin: 0; padding: 0; color: #191C1F; font-family: =
+Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: 4=
+00; line-height: 1.375; font-size: 16px; padding-top: 8px; padding-bottom: =
+8px;">We won't use your email address for any other purposes except to tell=
+ you about incoming payments from this sender. If you'd like to know more a=
+bout how we use your personal data, then please see our <a href=3D"https://=
+click.revolut.com/f/a/Kl-VP8bxVWeqRixV3KK4iw~~/AAD4-xA~/cww4DVPHNLe4qx-eAN1=
+p_TGW5ydzZ3fpyNaGq3Q2uhqLNdrZ1KAUX2qZXsYT1D15B9cynH4TaYt6ibFL5Ck7Z4t8t61ll9=
+ZqhteBytgVIvZAq7jPWGevRqaWpFW-1M0zvTnJNHXPqN-I_fbgxoBM2hCNvfRlNrUipmyUm28Rw=
+ig8oVtL1Z_PayKYZ93Euq8Y" style=3D"font-family: Inter, -apple-system, Roboto=
+, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; text=
+-decoration: none; font-size: inherit; color: #6FA0FF;">Privacy Notice</a> =
+or reach out to dpo@revolut.com. </p><p style=3D"margin: 0; padding: 0; col=
+or: #191C1F; font-family: Inter, -apple-system, Roboto, 'Segoe UI', Arial, =
+sans-serif; font-weight: 400; line-height: 1.375; font-size: 16px; padding-=
+top: 8px; padding-bottom: 8px;">If you don't want to receive these emails, =
+please contact dpo@revolut.com. </p></div></div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"text-o=
+utlook content-block-outlook" width=3D"600px" ><table align=3D"center" bord=
+er=3D"0" cellpadding=3D"0" cellspacing=3D"0" class=3D"text-outlook content-=
+block-outlook" role=3D"presentation" style=3D"width:NaNpx;" width=3D"NaN" >=
+<tr><td style=3D"line-height:0px;font-size:0px;mso-line-height-rule:exactly=
+;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"text content-block" style=3D"padding-left: 24px; paddin=
+g-right: 24px; margin: 0px auto; max-width: NaNpx; box-sizing: border-box;"=
+>=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"" style=3D"vertical-a=
+lign:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:t=
+op;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"left" class=3D"text-compat " style=3D"font-siz=
+e: 0px; padding: auto; word-break: break-word; padding-top: 16px; padding-b=
+ottom: 16px;">=0A=
+                  =0A=
+      <div style=3D"font-family:Inter, -apple-system, Roboto, Arial, Noto S=
+ans Arabic, Noto Sans Hebrew, sans-serif;font-size:13px;line-height:1;text-=
+align:left;color:#000000;"><div class=3D"text-container" style=3D"color: #1=
+91C1F; font-family: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-s=
+erif; font-weight: 400; line-height: 1.375; font-size: 16px;">=E2=80=94 Rev=
+olut Business</div></div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr><tr><td class=3D"footer=
+-outlook" width=3D"600px" ><table align=3D"center" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0" class=3D"footer-outlook" role=3D"presentation" sty=
+le=3D"width:NaNpx;" width=3D"NaN" ><tr><td style=3D"line-height:0px;font-si=
+ze:0px;mso-line-height-rule:exactly;"><![endif]-->=0A=
+    =0A=
+      =0A=
+      <div class=3D"footer" style=3D"padding-left: 24px; padding-right: 24p=
+x; margin: 0px auto; max-width: NaNpx; padding-top: 32px; padding-bottom: 6=
+8px; box-sizing: border-box;">=0A=
+        =0A=
+        <table align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" style=3D"width:100%;">=0A=
+          <tbody>=0A=
+            <tr>=0A=
+              <td style=3D"direction:ltr;font-size:0px;padding:auto;text-al=
+ign:left;">=0A=
+                <!--[if mso | IE]><table role=3D"presentation" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"><tr><td class=3D"" style=3D"vertical-a=
+lign:top;width:NaNpx;" ><![endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:t=
+op;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:top;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+          =0A=
+              <tr>=0A=
+                <td align=3D"center" class=3D"footer-divider" style=3D"font=
+-size: 0px; padding: auto; word-break: break-word; padding-top: 4px; paddin=
+g-bottom: 4px;">=0A=
+                  =0A=
+      <p style=3D"font-size: 1px; margin: 0px auto; width: 100%; border-top=
+: solid 1px #F4F5F6;">=0A=
+      </p>=0A=
+      =0A=
+      <!--[if mso | IE]><table align=3D"center" border=3D"0" cellpadding=3D=
+"0" cellspacing=3D"0" style=3D"border-top:solid 4px #000000;font-size:1px;m=
+argin:0px auto;width:NaNpx;" role=3D"presentation" width=3D"NaNpx" ><tr><td=
+ style=3D"height:0;line-height:0;"> &nbsp;=0A=
+</td></tr></table><![endif]-->=0A=
+    =0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+                          <tr>=0A=
+                <td align=3D"left" class=3D"footer-social" style=3D"font-si=
+ze: 0px; word-break: break-word; padding: 32px 0;">=0A=
+                  =0A=
+      =0A=
+     <!--[if mso | IE]><table align=3D"left" border=3D"0" cellpadding=3D"0"=
+ cellspacing=3D"0" role=3D"presentation" ><tr><td><![endif]-->=0A=
+              <table align=3D"left" border=3D"0" cellpadding=3D"0" cellspac=
+ing=3D"0" role=3D"presentation" style=3D"float:none;display:inline-table;">=
+=0A=
+                <tbody>=0A=
+                  =0A=
+      <tr class=3D"footer-social-item">=0A=
+        <td style=3D"padding:auto;vertical-align:middle;">=0A=
+          <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"p=
+resentation" style=3D"border-radius:3px;width:24px;">=0A=
+            <tbody>=0A=
+              <tr>=0A=
+                <td style=3D"font-size:0;height:24px;vertical-align:middle;=
+width:24px;">=0A=
+                  <a href=3D"https://click.revolut.com/f/a/BK7xONSNJU4fwNye=
+nf2BzQ~~/AAD4-xA~/_c-hdS7AEO_vnB8WGfPUqtRckLfxXML3SYYz0NtFmH5HF_QvOTD82rcNR=
+5weMW0tPu1u9ZoeQTd7Ch5xUVXxTwgMI8y0ocR_Ja5Ec7pcYMsCMS_vPuJRim5-LgiGVcg1A5Dt=
+5Nj9LFmFskwG04mdCg~~" target=3D"_blank" style=3D"font-family: Inter, -apple=
+-system, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-heig=
+ht: 1.375; text-decoration: none; font-size: inherit; color: #6FA0FF;">=0A=
+                    <img height=3D"24" src=3D"https://assets.revolut.com/em=
+ail/icons/Twitter.png" style=3D"border-radius: 3px; display: block; margin-=
+right: 24px;" width=3D"24">=0A=
+                  </a>=0A=
+                </td>=0A=
+              </tr>=0A=
+            </tbody>=0A=
+          </table>=0A=
+        </td>=0A=
+        =0A=
+          <td style=3D"vertical-align:middle;padding:4px 4px 4px 0;">=0A=
+            <a href=3D"https://click.revolut.com/f/a/BK7xONSNJU4fwNyenf2BzQ=
+~~/AAD4-xA~/_c-hdS7AEO_vnB8WGfPUqtRckLfxXML3SYYz0NtFmH5HF_QvOTD82rcNR5weMW0=
+tPu1u9ZoeQTd7Ch5xUVXxTwgMI8y0ocR_Ja5Ec7pcYMsCMS_vPuJRim5-LgiGVcg1A5Dt5Nj9LF=
+mFskwG04mdCg~~" style=3D"font-family: Inter, -apple-system, Roboto, 'Segoe =
+UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; text-decorati=
+on: none; font-size: inherit; color: #6FA0FF;" target=3D"_blank">=0A=
+              x=0A=
+            </a>=0A=
+          </td>=0A=
+          =0A=
+      </tr>=0A=
+    =0A=
+                </tbody>=0A=
+              </table>=0A=
+            <!--[if mso | IE]></td><td><![endif]-->=0A=
+              <table align=3D"left" border=3D"0" cellpadding=3D"0" cellspac=
+ing=3D"0" role=3D"presentation" style=3D"float:none;display:inline-table;">=
+=0A=
+                <tbody>=0A=
+                  =0A=
+      <tr class=3D"footer-social-item">=0A=
+        <td style=3D"padding:auto;vertical-align:middle;">=0A=
+          <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"p=
+resentation" style=3D"border-radius:3px;width:24px;">=0A=
+            <tbody>=0A=
+              <tr>=0A=
+                <td style=3D"font-size:0;height:24px;vertical-align:middle;=
+width:24px;">=0A=
+                  <a href=3D"https://click.revolut.com/f/a/dA0FaTefMstmNYO3=
+3qyHbQ~~/AAD4-xA~/f-Q6hbc9XEqrVUOYqoYdbagAJnwNVPy_49Yredw7hy-i9HsKXdXkSDfY1=
+PU9Q3E56ZGJez2VvQOzCbOQm9-7YAWCyU62zYse0d-kUpXe6uUCVu3VbsqYFJfHqTIv6S2RYERM=
+kPu6qvZg1lQcXmtKRA~~" target=3D"_blank" style=3D"font-family: Inter, -apple=
+-system, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-heig=
+ht: 1.375; text-decoration: none; font-size: inherit; color: #6FA0FF;">=0A=
+                    <img height=3D"24" src=3D"https://assets.revolut.com/em=
+ail/icons/Facebook.png" style=3D"border-radius: 3px; display: block; margin=
+-right: 24px;" width=3D"24">=0A=
+                  </a>=0A=
+                </td>=0A=
+              </tr>=0A=
+            </tbody>=0A=
+          </table>=0A=
+        </td>=0A=
+        =0A=
+          <td style=3D"vertical-align:middle;padding:4px 4px 4px 0;">=0A=
+            <a href=3D"https://click.revolut.com/f/a/dA0FaTefMstmNYO33qyHbQ=
+~~/AAD4-xA~/f-Q6hbc9XEqrVUOYqoYdbagAJnwNVPy_49Yredw7hy-i9HsKXdXkSDfY1PU9Q3E=
+56ZGJez2VvQOzCbOQm9-7YAWCyU62zYse0d-kUpXe6uUCVu3VbsqYFJfHqTIv6S2RYERMkPu6qv=
+Zg1lQcXmtKRA~~" style=3D"font-family: Inter, -apple-system, Roboto, 'Segoe =
+UI', Arial, sans-serif; font-weight: 400; line-height: 1.375; text-decorati=
+on: none; font-size: inherit; color: #6FA0FF;" target=3D"_blank">=0A=
+              facebook=0A=
+            </a>=0A=
+          </td>=0A=
+          =0A=
+      </tr>=0A=
+    =0A=
+                </tbody>=0A=
+              </table>=0A=
+            <!--[if mso | IE]></td><td><![endif]-->=0A=
+              <table align=3D"left" border=3D"0" cellpadding=3D"0" cellspac=
+ing=3D"0" role=3D"presentation" style=3D"float:none;display:inline-table;">=
+=0A=
+                <tbody>=0A=
+                  =0A=
+      <tr class=3D"footer-social-item">=0A=
+        <td style=3D"padding:auto;vertical-align:middle;">=0A=
+          <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"p=
+resentation" style=3D"border-radius:3px;width:24px;">=0A=
+            <tbody>=0A=
+              <tr>=0A=
+                <td style=3D"font-size:0;height:24px;vertical-align:middle;=
+width:24px;">=0A=
+                  <a href=3D"https://click.revolut.com/f/a/pMosi8jGolghMW69=
+1QZZHA~~/AAD4-xA~/y2-MZm3AyqbIs4h06RvoKGpz4SFFKK0w5yM2vZ5XjYjqhIzxnjs9Y4n6Z=
+OqMh5zGn7cMPLTEOFSw6ZnStvMHACJT4eU3JWtLXVr9u9LCfyHBhUTjvIyLGpYqWfh2e356sTwa=
+A2NNTscVGqa80490Djq0_10kXtGrW63_A18nWFE~" target=3D"_blank" style=3D"font-f=
+amily: Inter, -apple-system, Roboto, 'Segoe UI', Arial, sans-serif; font-we=
+ight: 400; line-height: 1.375; text-decoration: none; font-size: inherit; c=
+olor: #6FA0FF;">=0A=
+                    <img height=3D"24" src=3D"https://assets.revolut.com/em=
+ail/icons/Linkedin.png" style=3D"border-radius: 3px; display: block; margin=
+-right: 24px;" width=3D"24">=0A=
+                  </a>=0A=
+                </td>=0A=
+              </tr>=0A=
+            </tbody>=0A=
+          </table>=0A=
+        </td>=0A=
+        =0A=
+          <td style=3D"vertical-align:middle;padding:4px 4px 4px 0;">=0A=
+            <a href=3D"https://click.revolut.com/f/a/pMosi8jGolghMW691QZZHA=
+~~/AAD4-xA~/y2-MZm3AyqbIs4h06RvoKGpz4SFFKK0w5yM2vZ5XjYjqhIzxnjs9Y4n6ZOqMh5z=
+Gn7cMPLTEOFSw6ZnStvMHACJT4eU3JWtLXVr9u9LCfyHBhUTjvIyLGpYqWfh2e356sTwaA2NNTs=
+cVGqa80490Djq0_10kXtGrW63_A18nWFE~" style=3D"font-family: Inter, -apple-sys=
+tem, Roboto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-height: =
+1.375; text-decoration: none; font-size: inherit; color: #6FA0FF;" target=
+=3D"_blank">=0A=
+              linkedin=0A=
+            </a>=0A=
+          </td>=0A=
+          =0A=
+      </tr>=0A=
+    =0A=
+                </tbody>=0A=
+              </table>=0A=
+            <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+    =0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+                          <tr>=0A=
+                <td align=3D"left" class=3D"footer-text" style=3D"font-size=
+: 0px; padding: auto; word-break: break-word; padding-bottom: 32px;">=0A=
+                  =0A=
+      <div style=3D"text-align: left; font-family: Inter, -apple-system, Ro=
+boto, 'Segoe UI', Arial, sans-serif; font-size: 12px; line-height: 1.667; c=
+olor: #717173;">                =C2=A9 2026 Revolut Ltd<br><br>=0A=
+=0A=
+Responses to this email are not monitored. If you would like to find out mo=
+re about which Revolut entity you receive services from, or if you have any=
+ other questions, please reach out to us via the in-app chat in the Revolut=
+ Business app.<br><br>=0A=
+=0A=
+Cryptocurrency products are provided either by:<br><br>=0A=
+=0A=
+(i) Revolut Digital Assets Europe Ltd (RDAEL), a private company registered=
+ in the Republic of Cyprus (no. HE430310) with registered address Omonoias,=
+ 13, Soho Office (Embassy), 3052, Limassol, Cyprus. RDAEL is licensed by th=
+e Cyprus Securities and Exchange Commission (License No. 001/2025) as a Cry=
+pto Asset Service Provider (CASP) under EU Regulation 2023/1114 on markets =
+in crypto-assets (MiCA); or<br><br>=0A=
+=0A=
+(ii) Revolut Ltd (No. 08804411), a company that is authorised by the Financ=
+ial Conduct Authority under the Electronic Money Regulations 2011 (Firm Ref=
+erence 900562), and is registered with the Financial Conduct Authority to o=
+ffer cryptocurrency services under the Money Laundering, Terrorist Financin=
+g and Transfer of Funds (Information on the Payer) Regulations 2017. Regist=
+ered address: <a href=3D"https://click.revolut.com/f/a/c0zZVqt4n_8XnOhdB5rH=
+Lw~~/AAD4-xA~/8QYp22bbEgIAjOIlZKsn_vz5Idmj6GFiC0pcHcdYS2-lrYXcGVa3MlfPpdO-g=
+MStIlnXO-ejRWt1tUU3kf_ZR9HCISUQzLbXZOXwWyHRLvWGvnC--P8aocJTZSKI4bfU1cmsvO36=
+Kmg4CK25GGtERneFTn-PlW-2J9_UuPzTFsjGz_uwIYAZRM6g3OpOt15oFlp9slrn6l04Vh1lY14=
+18w~~">30 South Colonnade, London E14 5HX, United Kingdom</a>.<br><br>=0A=
+=0A=
+Depending on whether clients have accepted the RDAEL terms and conditions e=
+ither during the creation of their cryptocurrency account or the migration =
+of EEA clients from Revolut Ltd to RDAEL.=0A=
+              </div>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+            =0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td><td class=3D"" style=3D"width:NaNpx;" ><![=
+endif]-->=0A=
+            =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix" style=3D"font-s=
+ize:0;line-height:0;text-align:left;display:inline-block;width:100%;directi=
+on:ltr;">=0A=
+        <!--[if mso | IE]><table border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" role=3D"presentation" ><tr><td style=3D"vertical-align:middle;width:=
+NaNNaNpx;" ><![endif]-->=0A=
+                =0A=
+      <div class=3D"mj-column-per-100 mj-outlook-group-fix logo-logo" style=
+=3D"font-size:0px;text-align:left;direction:ltr;display:inline-block;vertic=
+al-align:middle;width:100%;">=0A=
+        =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" width=3D"100%">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"vertical-align:middle;padding:auto;">=0A=
+              =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"" width=3D"100%">=0A=
+        <tbody>=0A=
+                        <tr>=0A=
+                <td align=3D"left" class=3D"logo-image" style=3D"font-size:=
+0px;padding:auto;word-break:break-word;">=0A=
+                  =0A=
+      <table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" role=3D"prese=
+ntation" style=3D"border-collapse:collapse;border-spacing:0px;">=0A=
+        <tbody>=0A=
+          <tr>=0A=
+            <td style=3D"width:NaNInfinity;">=0A=
+              =0A=
+        <a href=3D"https://click.revolut.com/f/a/WWUOzKbrU6TtzBT_ffyOuA~~/A=
+AD4-xA~/kJu-gbsDai4pUazw9WdPbDz9pqRyd-2l2jyPylum03e4jR0gbuH8qUCj0L6EWpP6JXz=
+c5CMkALU0DdJbvJ8F4u1IjvUPhCEhTANLwHBLo4N6LT1EGsq4Y-C-GwHtgD3WijmFPrTsg_ZJli=
+KmLNj6Pw~~" target=3D"_blank" style=3D"font-family: Inter, -apple-system, R=
+oboto, 'Segoe UI', Arial, sans-serif; font-weight: 400; line-height: 1.375;=
+ text-decoration: none; font-size: inherit; color: #6FA0FF;">=0A=
+          =0A=
+      <img src=3D"https://assets.revolut.com/email/logo/v2/RevolutBusiness-=
+grey.png" style=3D"border:0;display:block;outline:none;text-decoration:none=
+;height:auto;max-height:12px;width:100%;font-size:13px;" width=3D"Infinity"=
+ height=3D"auto">=0A=
+    =0A=
+        </a>=0A=
+      =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+                </td>=0A=
+              </tr>=0A=
+                    </tbody>=0A=
+      </table>=0A=
+    =0A=
+            </td>=0A=
+          </tr>=0A=
+        </tbody>=0A=
+      </table>=0A=
+    =0A=
+      </div>=0A=
+    =0A=
+              <!--[if mso | IE]></td><![endif]-->=0A=
+                  <!--[if mso | IE]></tr></table><![endif]-->=0A=
+      </div>=0A=
+    =0A=
+          <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table></td></tr></table><![endif]-->=0A=
+              </td>=0A=
+            </tr>=0A=
+          </tbody>=0A=
+        </table>=0A=
+        =0A=
+      </div>=0A=
+    =0A=
+      =0A=
+      <!--[if mso | IE]></td></tr></table><![endif]-->=0A=
+    =0A=
+    =0A=
+      </div>=0A=
+    =0A=
+ =20
+<img border=3D"0" width=3D"1" height=3D"1" alt=3D"" src=3D"https://click.re=
+volut.com/q/K-rN657V0qauirmUsIjj1w~~/AAD4-xA~/cUBBPtzk2UVEwb3EkqzbF2XnoIyNV=
+0XcX34cK_CydU5_iyCMQ1DKNH2VCynz6U_QX-fMCB1LS3AWTkdDWYvhetMUJ7tOGs_JjTYb_lHt=
+M4k~">
+</body>=0A=
+</html>=0A=
+ =20
+
