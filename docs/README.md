@@ -55,9 +55,15 @@ playbooks under [azure/README.md](./azure/README.md). _Historical:_ [PLAN.md](./
     [plans/work-todo-spike/README.md](./plans/work-todo-spike/README.md), **not** authoritative on live state.
 
 ## Working drafts — non-binding
+- [workingspace/ai-realignment-plans/README.md](./workingspace/ai-realignment-plans/README.md) — the
+  **AI realignment plan set** (2026-07-16): one agent harness (triage agent + tools) unifying the AI
+  estate; absorbs/supersedes the four earlier AI working notes below (verdicts inside).
 - [workingspace/model-evaluation-plan.md](./workingspace/model-evaluation-plan.md) — extraction-first
   Foundry model-comparison plan and links to the related AI-first/parser working notes. These drafts are
   exploratory and do not supersede accepted ADRs, tickets, or binding reviews.
+- [workingspace/pr89-box-facade-resolution-plan.md](./workingspace/pr89-box-facade-resolution-plan.md) —
+  resolving the Box facade collision between live PR #87 (delete) and PR #89 / TKT-034 (archive-holding
+  adoption) so #89 can land dark without weakening #87's live destructive-delete safety.
 
 ## Operator & status
 - [../ROADMAP.md](../ROADMAP.md) — the forward worklist; tickets carry the atomic work items beneath it.

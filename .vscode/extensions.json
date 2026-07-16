@@ -1,7 +1,6 @@
 {
   "recommendations": [
     "ms-azuretools.vscode-azurefunctions",
-    "ms-vscode.azure-account",
     "ms-python.python",
     "dbaeumer.vscode-eslint"
   ]
