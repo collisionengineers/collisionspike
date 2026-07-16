@@ -1,5 +1,0 @@
-﻿garage_name,garage_postcode,garage_email,candidate_code,candidate_name,candidate_postcode,name_jaccard,name_contain,pc_full_match,pc_outward_match,tier
-J Mullen Specialist Coachworks,EH32 0DS,jmullenspeciaistcoachworks@outlook.com,CLAIM2,Claims Specialist,LU4 9BN,0.5,1.0,False,False,potential
-M A Bodyshop,KY1 2NL,,GMB,G M Bodyshop,PA15 4TW,0.5,0.67,False,False,potential
-The Claims Team (Uzi),G5 8JD,,CLS TEAM,The Claims Team,G20 9AE,0.5,1.0,False,False,potential
-Westfoot Ltd T/A CB Cars,G81 1PL,,CB CARS,C B Cars Clydebank,G81 1PL,0.0,0.0,True,True,potential

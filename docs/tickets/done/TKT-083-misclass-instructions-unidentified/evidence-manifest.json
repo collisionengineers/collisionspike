@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-083",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/classifier-card-screenshot.png",
+      "originalFilename": "classifier-card-screenshot.png",
+      "sha256": "c1b1e02dcb2b8c1242dc46660008f34c2239e2d176ba8f68584b074659df1951",
+      "storagePath": "tests/fixtures/evidence/sha256/c1/c1b1e02dcb2b8c1242dc46660008f34c2239e2d176ba8f68584b074659df1951.png"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "originalFilename": "Our Ref 30230-01 ; Name Mr Abdullahi Yusuf Ibrahim   ; Vehicle Registration Number BV72YVB  .eml",
+      "sha256": "555f009741f1eed170bc0b28597325cb234755223986e1faa4d027f627a4d1c8",
+      "storagePath": "tests/fixtures/evidence/sha256/55/555f009741f1eed170bc0b28597325cb234755223986e1faa4d027f627a4d1c8.eml"
+    }
+  ]
+}

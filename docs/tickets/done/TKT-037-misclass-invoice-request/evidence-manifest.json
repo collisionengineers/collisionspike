@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-037",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/Engineer Report.pdf",
+      "originalFilename": "Engineer Report.pdf",
+      "sha256": "0dfca4974c82133ddba899547344884d00ec28b30b23943a4b6a47349c69c531",
+      "storagePath": "tests/fixtures/evidence/sha256/0d/0dfca4974c82133ddba899547344884d00ec28b30b23943a4b6a47349c69c531.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "originalFilename": "Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "sha256": "f95aae71a6465c90f1590f99636528b4772f33faa9b2c2b55adad521b721dbb4",
+      "storagePath": "tests/fixtures/evidence/sha256/f9/f95aae71a6465c90f1590f99636528b4772f33faa9b2c2b55adad521b721dbb4.eml"
+    }
+  ]
+}

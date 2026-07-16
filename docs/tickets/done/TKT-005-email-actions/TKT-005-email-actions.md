@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006, TKT-009, TKT-012]
-research-link: docs/plans/work-todo-spike/email-management/research/actual-management-of-emails.md
+research-link: docs/tickets/done/TKT-005-email-actions/TKT-005-email-actions.md
 ---
 
 # Make the inbox actionable (dismiss removes from view)
@@ -28,8 +28,8 @@ Dismissing an email removes it from the active inbox view and the state survives
 auditable.
 
 ## Research
-- Operator stub: [actual-management-of-emails.md](../../../plans/work-todo-spike/email-management/actual-management-of-emails.md)
-- Research pack: [research/actual-management-of-emails.md](../../../plans/work-todo-spike/email-management/research/actual-management-of-emails.md)
+- Operator stub: [actual-management-of-emails.md](TKT-005-email-actions.md)
+- Research pack: [research/actual-management-of-emails.md](TKT-005-email-actions.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

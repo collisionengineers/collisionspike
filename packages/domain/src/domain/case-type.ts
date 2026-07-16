@@ -33,7 +33,7 @@
    ============================================================ */
 
 /** The case-type taxonomy (mirrors choice_case_type / case-type.json). Named
- *  CaseWorkType ("the work TYPE", per the choiceset description) because the
+ *  CaseWorkType ("the work TYPE", per the code-table description) because the
  *  model barrel already exports a differently-scoped `CaseType` (queues.ts —
  *  the instructions/images evidence-COMPOSITION of a case). */
 export type CaseWorkType = 'standard' | 'audit' | 'audit_total_loss' | 'diminution';
@@ -67,7 +67,7 @@ export function allowedCaseTypes(principalCode: string | null | undefined): read
 export interface CaseTypeSignals {
   /** The parser envelope's `case_type` field ({value, dual, signals}) when present. */
   parserCaseType?: { value?: string | null; dual?: boolean; signals?: readonly string[] } | null;
-  /** The legacy parser `audit` envelope ({value, signals}) — corroboration/fallback. */
+  /** The legacy parser `audit` envelope retained for independently deployed parser workers. */
   parserAudit?: { value?: boolean; signals?: readonly string[] } | null;
   /** The email classifier's subtype (e.g. 'existing_provider_audit') — corroboration only. */
   classifierSubtype?: string | null;
@@ -100,7 +100,6 @@ export function decideCaseType(signals: CaseTypeSignals): CaseTypeDecision {
       signals: parserSignals,
     };
   }
-  // Legacy envelope shape (a not-yet-redeployed parser): audit boolean only.
   if (signals.parserAudit?.value === true) {
     return { caseType: 'audit', dual: false, signals: parserSignals };
   }

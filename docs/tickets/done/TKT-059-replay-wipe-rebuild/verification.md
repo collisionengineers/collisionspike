@@ -33,7 +33,7 @@ Connected `SET ROLE csadmin` (RLS bypass — non-admin reads return false zeros,
   route over-corrects, so the reprocess must run through the FULL live pipeline and be validated against
   a labelled sample (the P2 fix-wave) BEFORE any write. Reprocess is BLOCKED on P2.
 - **P2 RESOLUTION (2026-07-05) — Finding 2 was largely a DIAGNOSTIC ARTIFACT; the classifier is sound.**
-  Ran the eval harness (`scripts/eval-email/run_eval.py --taxonomy v2`) over the committed FULL `.eml`
+  Ran the eval harness (`scripts/evaluation/email/run_eval.py --taxonomy v2`) over the committed FULL `.eml`
   samples (with attachments) that back the misclass tickets: **`receiving_work` recall = 94% (16/17)** and
   the confusion matrix shows new-work does NOT collapse. The reprocess-diff's "62% change / 188→2
   receiving_work" was caused by feeding the classifier **no attachment signal and a truncated body** — its

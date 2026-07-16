@@ -18,11 +18,11 @@ until the regression acceptance is rebuilt and verified. Under
 - `packages/domain/src/capabilities/registry.ts` + `schemas.ts` — write capabilities (`set_on_hold`,
   `log_chase`, `set_triage_state`, `reclassify_inbound`, `save_inspection_decision`, `edit_case_fields`,
   `create_case`; `merge_cases` is `destructive+humanOnly`, never proposable).
-- `api/src/functions/assistant.ts` — a single `propose_action` tool (validates params against the zod
+- `services/data-api/src/features/assistant/chat-routes.ts` — a single `propose_action` tool (validates params against the zod
   schema, returns a `ProposedAction`; performs NO write) + `buildExecutor`.
-- `api/src/lib/concurrency.ts` (+ `concurrency.test.ts`) — `versionToken`/`ifMatch`/`staleVersion`;
-  applied to `setOnHold` + `caseById` (ETag) in `api/src/functions/cases.ts`.
-- `mockup-app/src/components/ConfirmActionCard.tsx` — independently re-fetches the target, renders the
+- `services/data-api/src/platform/http/concurrency.ts` (+ `concurrency.test.ts`) — `versionToken`/`ifMatch`/`staleVersion`;
+  applied to `setOnHold` + `caseById` (ETag) in `services/data-api/src/features/cases/`.
+- `apps/web/src/features/assistant/ConfirmActionCard.tsx` — independently re-fetches the target, renders the
   structured route+params diff, POSTs with `If-Match`, 409s on stale. Wired in `AssistantDrawer.tsx`;
   `data/index.ts` + `rest-client.ts` (`executeProposal`, `caseWithVersion`).
 - `packages/domain/src/gates.ts` — `ASSISTANT_WRITE_TIER_ENABLED` gate (default off).

@@ -6,9 +6,10 @@ Investigated + pinned (2026-07-09, PLAN-003 lifecycle wave) — algorithm audite
 (deploy-phase read-only checks).
 
 ## Root-cause analysis (code audit)
-The estimate lives in `functions/enrichment/analysis.py` `current_mileage_estimate` (a faithful
-port of the collisionplugin TS original), called by `functions/enrichment/function_app.py` with
-NO `as_of` → **it projects to TODAY**:
+The audited calculation is now owned by
+`services/functions/vehicle-enrichment/vehicle_data/mileage.py::estimate_displayed_mileage`, with the
+case-workflow target date supplied through the canonical vehicle-data service. Without an explicit
+target date the lookup date is used, so the estimate projects beyond the last MOT observation:
 
 ```
 estimate = last_MOT_odometer + annual_rate × (days_since_last_MOT / 365.25)   (rounded to 100)
@@ -25,10 +26,10 @@ estimate = last_MOT_odometer + annual_rate × (days_since_last_MOT / 365.25)   (
 - The number is therefore **by design a projected CURRENT mileage** — correct for "what is the
   odometer likely to read today", and an OVER-estimate whenever the vehicle stopped being driven
   (e.g. a collision-damaged car off the road since the incident: the projection keeps accruing
-  at the historical rate).
+  at the prior rate).
 
 ## Shipped
-- `functions/enrichment/tests/test_enrich.py` —
+- `services/functions/vehicle-enrichment/tests/test_enrich.py` —
   `test_estimate_projects_forward_from_last_mot_by_design_tkt044`: pins rate 7995 mi/yr,
   estimate 48,800 on a 40,000 last-MOT reading 403 days stale (projection term = 8,800), and the
   auditable basis fields. Suite: **30 passed**.

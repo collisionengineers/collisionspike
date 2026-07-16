@@ -19,7 +19,7 @@ Verified by: ticket-verifier dispatch, 10-07-26. Findings:
   (62 webhook requests/3d) but 0 "CE report detected" — no report-named PDF has landed. Expected
   absence. Re-delivery no-op guard offline-proven (150 pytest incl. the redelivery case).
 - **Line 3 (detector a, sent-email):** requires the operator-approved DONE_SENT_EMAIL_ENABLED
-  test-slot flip (creates per-mailbox SentItems Graph subscriptions — gated.md D3). Zero detector
+  test-slot flip (creates per-mailbox SentItems Graph subscriptions — ticket board D3). Zero detector
   invocations in 3d KQL; only the 3 Inbox Graph subs exist. An operator wait, not implementer debt.
 - Detector (c) EVA poll: no acceptance line; skeleton correctly dark pending EVA REST.
 - **Real bugs found: none.**
@@ -74,10 +74,10 @@ No repaired webhook or terminal transition has been live-proven yet.
 
 - Manual, Box report-PDF and sent-email detectors retain the shared guarded `eva_submitted → done`
   path. Its status and required `report_delivered` audit are now atomic and rollback-tested in
-  `api/src/lib/terminal-transition.test.ts`.
+  `services/data-api/src/features/cases/terminal-transition.test.ts`.
 - `mark_case_done` settles only on a successful response; transport/non-success/configuration faults
   raise a retry signal, while a successful `{updated:false}` remains an idempotent no-op.
-  `functions/box-webhook/tests/test_data_api_client.py` pins those response classes.
+  `services/functions/box-webhook/tests/test_data_api_client.py` pins those response classes.
 - The webhook delivery cache distinguishes in-flight from settled. `tests/test_webhook.py` covers a
   fresh evidence write followed by mark-done failure, redelivery that reuses the durable evidence row,
   and a same-id duplicate that receives 503 while the first request is still in flight and then fails.
@@ -127,7 +127,7 @@ PENDING
   genuine Archive redelivery with `updated=false`.
 - Observe the next natural threaded provider send for an `eva_submitted` case; require
   `sent-items-mark-done`. Continue confirming non-provider messages remain no-ops.
-- Refresh `LIVE_FACTS.json`, `docs/gated.md`, and the live-environment mirror after independently reading
+- Refresh `LIVE_FACTS.json`, `docs/tickets/BOARD.md`, and the live-environment mirror after independently reading
   the current gate and subscription state.
 
 ## Confidence + unread surfaces

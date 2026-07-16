@@ -15,9 +15,8 @@ research-link: docs/tickets/done/TKT-076-inspection-provider-scope-proximity/evi
 The inspection-address shortlist is effectively the same global top-8 for every case:
 
 - **Provider scoping is a silent no-op.** `inspectionAddressSuggestions`
-  (`api/src/functions/inspection.ts`) filters on `s.providerCode`, which `mappers.ts` parses
-  from a `provider=` token in `source_note` — but the seed never wrote `source_note`, so no row
-  has a providerCode, and the filter keeps rows with **none**
+  (`services/data-api/src/features/cases/inspection-routes.ts`) filters on `s.providerCode`, but the
+  rows did not carry the canonical `provider_code`, and the filter keeps rows with **none**
   (`!s.providerCode || …`) — every case sees the same interleaved global list.
 - **TKT-062 residual**: when the provider scope is empty the fallback serves global rows
   **unlabelled** — staff can't tell they're looking at an unscoped list.
@@ -28,20 +27,20 @@ The inspection-address shortlist is effectively the same global top-8 for every 
 ## Evidence
 
 - `evidence/operator-note.md` — plan Phase B + root causes 1/5 (2026-07-06 investigation).
-- `api/src/functions/inspection.ts` ~lines 86–95 — scoping over `all` in JS, keep-if-no-code
+- `services/data-api/src/features/cases/inspection-routes.ts` ~lines 86–95 — scoping over `all` in JS, keep-if-no-code
   filter, unlabelled fallback.
-- `api/src/lib/mappers.ts` ~line 352 — `providerCode` from the (never-written) note token.
-- `functions/location-suggest/clue_extraction.py` — the postcode-regex shape to reuse.
+- `services/data-api/src/shared/mapping/` ~line 352 — `providerCode` lacked canonical column backing.
+- `services/functions/location-assist/clue_extraction.py` — the postcode-regex shape to reuse.
 - Depends on TKT-075 landing the `provider_code` + lat/lon columns and the reseed (TKT-080)
-  for live data; the code fallback for legacy rows keeps it testable before then.
+  for live data; fixture rows keep the behavior testable before then.
 
 ## Proposed change
 
-PROPOSED (not built) — in `api/src/functions/inspection.ts` + `api/src/lib/mappers.ts`,
+PROPOSED (not built) — in `services/data-api/src/features/cases/inspection-routes.ts` + `services/data-api/src/shared/mapping/`,
 **ordering only** (ADR-0013: no runtime address matcher, a human always confirms):
 
-- **Real server-side scoping**: read the new `provider_code` column (fallback to the note
-  token/label prefix for legacy rows) and scope with `WHERE`, not a keep-if-absent JS filter.
+- **Real server-side scoping**: read the canonical `provider_code` column and scope with `WHERE`,
+  not a keep-if-absent JS filter.
 - **Kill the silent firehose**: unknown/empty provider → a small **labelled** global top-N
   ("Showing common locations — no provider-specific sites yet" in handler language), never
   unlabelled corpus rows.
@@ -68,7 +67,7 @@ PROPOSED (not built) — in `api/src/functions/inspection.ts` + `api/src/lib/map
 
 ## Verification requirements (proof standard)
 
-1. **Offline tests** — api unit tests for: WHERE-scoping (provider hit / miss), legacy-row
+1. **Offline tests** — api unit tests for: WHERE-scoping (provider hit / miss), earlier-row
    fallback parse, labelled-fallback shape, proximity blend ordering (fixture centroids),
    missing-postcode degradation, honest-empty. All green, recorded.
 2. **Gate** — `node verify-all.mjs` green; api deploy recorded in [changes.md](./changes.md).

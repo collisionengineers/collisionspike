@@ -16,10 +16,10 @@ The "Suggest location" assist is deployed and gated ON (Function `cespkloc-fn-a7
 `LOCATION_ASSIST_ENABLED`/`AZURE_MAPS_ENABLED` true, Maps + Vision provisioned) — but it runs
 on **text clues only**, because it can't actually fetch a photo:
 
-- `functions/location-suggest/photo_source.py` ships a `StubPhotoSource` (returns no live
+- `services/functions/location-assist/photo_source.py` ships a `StubPhotoSource` (returns no live
   bytes) and a `BoxPhotoSource` that **deliberately raises** — so Vision OCR never sees an
   image.
-- Even when OCR runs, `functions/location-suggest/maps_client.py` does **address search
+- Even when OCR runs, `services/functions/location-assist/maps_client.py` does **address search
   only** — an OCR'd **business name** from signage ("Halfords Autocentre") doesn't geocode, so
   the strongest photo clue is discarded.
 
@@ -29,12 +29,12 @@ returns nothing useful.
 ## Evidence
 
 - `evidence/operator-note.md` — plan Phase C + root cause 4 (2026-07-06 investigation).
-- `functions/location-suggest/photo_source.py` — stub + raising Box source.
-- `functions/location-suggest/maps_client.py` — address-only search.
+- `services/functions/location-assist/photo_source.py` — stub + raising Box source.
+- `services/functions/location-assist/maps_client.py` — address-only search.
 - Byte-path prior art: `GET /api/evidence/{id}/content` (TKT-048) already resolves blob-first /
   Box-fallback bytes; the box-webhook Function holds the Box content-read pattern.
-- Invocation path: `mockup-app/src/screens/CaseDetail.tsx` → API proxy
-  (`api/src/functions/proxy.ts`) → the Function.
+- Invocation path: `apps/web/src/features/cases/CaseDetail.tsx` → API proxy
+  (`services/data-api/src/platform/http/proxy-routes.ts`) → the Function.
 
 ## Proposed change
 
@@ -48,7 +48,7 @@ auto-apply; a human always confirms):
 - **Signage lookup**: add Azure Maps fuzzy/POI search for OCR'd business names in
   `maps_client.py`; when a POI hit lands near a provider corpus site, surface that site as a
   `corpus_match` candidate.
-- **Redeploy** `cespkloc-fn-a7tzj2`; wire any new app settings (documented in gated.md if
+- **Redeploy** `cespkloc-fn-a7tzj2`; wire any new app settings (documented in ticket board if
   operator-held).
 - **UI**: auto-**run** the assist once when the corpus shortlist is empty and the case has
   photos (auto-suggest, never auto-apply); the button stays available whenever the gate is on.

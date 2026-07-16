@@ -6,7 +6,7 @@
 
 # Annotations
 
-See dashboardannotated.png and dashboardraw.png:
+The annotated findings are transcribed below:
 
 Area 1: unnecessary/questionable fields: Parsing (should be instant-ish), Box (same as submitted), Should have one general field for "Not Ready". This combines: Awaiting Instructions, Awaiting Images, anything that needs or has been chased. 
 

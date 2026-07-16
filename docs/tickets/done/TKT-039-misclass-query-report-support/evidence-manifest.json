@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-039",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "originalFilename": "Client Mrs Ruby Wiggett, Vehicle VOLKSWAGEN T-ROC LIFE TSI S-A DF72LVV, Our Ref 45391_1.eml",
+      "sha256": "46631642ce7133bb31e0ed089a499cf28ca0748b18e3c93718ff9c49654b34b5",
+      "storagePath": "tests/fixtures/evidence/sha256/46/46631642ce7133bb31e0ed089a499cf28ca0748b18e3c93718ff9c49654b34b5.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/EngineersReport-V1.pdf",
+      "originalFilename": "EngineersReport-V1.pdf",
+      "sha256": "a65d04621c5b30eb0ae5bb012796769a44c76a804b37ea4d5a1e48a64db955cf",
+      "storagePath": "tests/fixtures/evidence/sha256/a6/a65d04621c5b30eb0ae5bb012796769a44c76a804b37ea4d5a1e48a64db955cf.pdf"
+    }
+  ]
+}

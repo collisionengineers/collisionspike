@@ -6,9 +6,9 @@ PENDING
 ## Evidence
 (implementer-gathered, 2026-07-08 — awaiting the independent verifier)
 - needs_review case QDOS26029 rendered IN the Review queue on the deployed SPA —
-  [evidence/review-queue-needs-review-case-2026-07-08.png](./evidence/review-queue-needs-review-case-2026-07-08.png)
+  [evidence/review-queue-needs-review-case-2026-07-08.png](./evidence-manifest.json)
   (+ tab counts Not ready 154 / Review 135 / Held 59:
-  [evidence/review-queue-live-2026-07-08.png](./evidence/review-queue-live-2026-07-08.png))
+  [evidence/review-queue-live-2026-07-08.png](./evidence-manifest.json))
 - Live re-evaluation movement (needs_review→missing_images 109; missing_required_fields→
   ready_for_eva 23; ready_for_eva 0→23) — changes.md +
   [evidence/post-reeval-state-2026-07-08.txt](./evidence/post-reeval-state-2026-07-08.txt)
@@ -70,7 +70,7 @@ the superseded opposite queue rule and is invalid for current acceptance.
   checklist/submission (`case-readiness.ts:54-101`), but it deliberately included every `needs_review`
   field as a blocker. `changes.md:147-151` explicitly records that removal of the blanket blocker,
   read-only viewing semantics, implementation and live recomputation remain pending.
-- Historical screenshots are now negative evidence: `review-queue-needs-review-case-2026-07-08.png` shows
+- prior screenshots are now negative evidence: `review-queue-needs-review-case-2026-07-08.png` shows
   QDOS26029 in Review with claimant `—`, exactly the incomplete shape the superseding 2026-07-12 acceptance
   forbids. They cannot certify the current queue contract.
 - No backup-first active-case recomputation, QDOS26079 disposition, residual ledger, DB/API/SPA parity

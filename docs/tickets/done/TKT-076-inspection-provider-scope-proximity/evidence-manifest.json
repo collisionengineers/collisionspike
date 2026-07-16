@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "ticket": "TKT-076",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/tkt076-fallback-address-tab.png",
+      "originalFilename": "tkt076-fallback-address-tab.png",
+      "sha256": "7d69eb942332df5febcea83aeda3080313a6d21d51d833f7e28943caf3287cdb",
+      "storagePath": "tests/fixtures/evidence/sha256/7d/7d69eb942332df5febcea83aeda3080313a6d21d51d833f7e28943caf3287cdb.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/tkt076-pch-address-tab.png",
+      "originalFilename": "tkt076-pch-address-tab.png",
+      "sha256": "1713124d4ba1de6080fba61680062308970c2b29f1216fc13c67c45676dff69e",
+      "storagePath": "tests/fixtures/evidence/sha256/17/1713124d4ba1de6080fba61680062308970c2b29f1216fc13c67c45676dff69e.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/tkt076-qdos-address-tab.png",
+      "originalFilename": "tkt076-qdos-address-tab.png",
+      "sha256": "af9013e026bebc6dee09bc9097975eccbf5f3cc16e23dc1e4ddeef529847ebf0",
+      "storagePath": "tests/fixtures/evidence/sha256/af/af9013e026bebc6dee09bc9097975eccbf5f3cc16e23dc1e4ddeef529847ebf0.png"
+    }
+  ]
+}

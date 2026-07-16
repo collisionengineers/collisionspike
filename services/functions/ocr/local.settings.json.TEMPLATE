@@ -1,0 +1,20 @@
+{
+  "_comment": "TEMPLATE ONLY. Copy to local.settings.json (gitignored) for local runs. No secret values belong here. DOCINTEL_KEY is needed only for the docintel provider and is supplied as a secret reference. Feature availability is enforced by the calling service.",
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+
+    "OCR_PROVIDER": "tesseract",
+    "PLATE_PROVIDER": "fast_alpr",
+    "OCR_PAGE_LIMIT": "2",
+
+    "DOCINTEL_ENABLED": "false",
+    "DOCINTEL_ENDPOINT": "https://<your-docintel-resource>.cognitiveservices.azure.com",
+    "DOCINTEL_KEY": "@Microsoft.KeyVault(SecretUri=https://<vault-name>.vault.azure.net/secrets/docintel-read-key/)",
+    "DOCINTEL_API_VERSION": "2024-11-30",
+
+    "ALPR_DETECTOR_MODEL": "yolo-v9-t-384-license-plate-end2end",
+    "ALPR_OCR_MODEL": "cct-xs-v2-global-model"
+  }
+}

@@ -17,7 +17,7 @@
    banned-word sweeps) + `node verify-all.mjs` red-budget gate.
 6. Live SPA: mailbox chips named info@/engineers@/desk@; single condensed list;
    VRM|Ref columns; no strength UI; status links open the case; suggested-action
-   column display-only while gated; legacy `/inbox?category=…&view=…` deep links
+   column display-only while gated; earlier `/inbox?category=…&view=…` deep links
    rewrite to `?type=…`; dashboard tiles 2×2-aligned at ~1024/~1440.
 7. Operator: Mail.ReadWrite re-consent → `OUTLOOK_MOVE_ENABLED=true` → live move
    test → mark E6 verified here.
@@ -42,7 +42,7 @@
 6. ⏳ **Operator click-through** (SPA was redeployed + CSP verified; visual
    pass needs a signed-in staff session): mailbox chips read info@/engineers@/
    desk@; single condensed list; VRM|Ref columns; no strength UI; status links
-   open the case; Suggested-action column display-only while gated; legacy
+   open the case; Suggested-action column display-only while gated; earlier
    `/inbox?category=…&view=…` deep links rewrite to `?type=…`; dashboard tiles
    2×2-aligned.
    **⚠ 2026-07-03 correction:** the first pass claimed the dashboard panel
@@ -69,12 +69,12 @@
    Review / Held) filling the column. Deployed bundle `index-BbQFemVH.js`; verified
    live at maximized 1920 (void gone, columns balanced); build + SPA vitest + live
    CSP green. Memory corrected: operator runs **maximized 1920**, verify there first.
-7. ⏳ **Operator (gated.md B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
+7. ⏳ **Operator (ticket board B4)**: Mail.ReadWrite Exchange-RBAC re-consent →
    `OUTLOOK_MOVE_ENABLED=true` on both apps → **live-test the move yourself**
    (no automated live move was or will be run) → record here.
 
 ## Verdict update — 2026-07-09 (ticket-verifier dispatch)
 
-VERIFIED-LIVE on the ticket's visual/UI acceptance + the recorded backfill proofs. Live pass: mailbox chips name real mailboxes for ALL 740 emails (sum exact, zero Other-source); VRM | Ref separate columns; clickable Case-created status opens the case (QDOS26070); one condensed list with search + chips + one E-mail-type dropdown; zero percentages/strength wording (plain-English explanations); Suggested-action Outlook filing text renders; dashboard right column INBOX -> TODAY/THIS WEEK -> QUEUES with no dead-space void; legacy deep-links rewrite (?category=...&view=active -> ?type=...). HANDOFF RECORDED: the one remaining clause — the live Outlook "File to…" move — is operator/B4-gated by this ticket's own acceptance and is now tracked by TKT-091 (the 503 bug ticket); it does not block this ticket's closure.
+VERIFIED-LIVE on the ticket's visual/UI acceptance + the recorded backfill proofs. Live pass: mailbox chips name real mailboxes for ALL 740 emails (sum exact, zero Other-source); VRM | Ref separate columns; clickable Case-created status opens the case (QDOS26070); one condensed list with search + chips + one E-mail-type dropdown; zero percentages/strength wording (plain-English explanations); Suggested-action Outlook filing text renders; dashboard right column INBOX -> TODAY/THIS WEEK -> QUEUES with no dead-space void; earlier deep-links rewrite (?category=...&view=active -> ?type=...). HANDOFF RECORDED: the one remaining clause — the live Outlook "File to…" move — is operator/B4-gated by this ticket's own acceptance and is now tracked by TKT-091 (the 503 bug ticket); it does not block this ticket's closure.
 
 Verified by: ticket-verifier dispatch, transcribed by the orchestrating session, 2026-07-09.

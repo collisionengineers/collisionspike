@@ -6,9 +6,9 @@ PENDING
 ## Evidence
 (implementer-gathered, 2026-07-08 — awaiting the independent verifier)
 - Mechanism + seams: changes.md (this ticket); live proof shared with TKT-129
-  ([A.QDOS26029 screenshot](../../verify/TKT-129-image-based-inspection-done/evidence/aqdos26029-case-page-live-2026-07-08.png),
+  ([A.QDOS26029 screenshot](../../verify/TKT-129-image-based-inspection-done/evidence-manifest.json),
   [delta output](../../verify/TKT-129-image-based-inspection-done/evidence/delta-apply-output-2026-07-08.txt)).
-- Unit tests: `api/src/lib/inspection-prefill.test.ts` (applicability matrix, guarded fill,
+- Unit tests: `services/data-api/src/features/cases/inspection-prefill.test.ts` (applicability matrix, guarded fill,
   audit/provenance, race-lost no-op).
 
 ## Pending / gaps

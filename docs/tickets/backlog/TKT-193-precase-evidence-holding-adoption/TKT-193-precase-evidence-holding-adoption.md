@@ -16,7 +16,7 @@ Triage and similar pre-instruction messages can contain the original email, vehi
 
 ## Evidence
 - [Operator process note](../TKT-192-triage-precase-category/evidence/operator-source/triage-process.md) — triage requests must not become cases; their email and attachments should be retained and linked when instructions arrive.
-- [Triage sample corpus](./evidence/) — supplied request/reply emails, image attachments and the legacy triage document template demonstrate multiple subjects, provider references and attachment shapes.
+- [Triage sample corpus](./evidence-manifest.json) — supplied request/reply emails, image attachments and the earlier triage document template demonstrate multiple subjects, provider references and attachment shapes.
 - ADR-0015 currently says raw email bytes are retained only when a Case is extracted. The operator has explicitly approved a narrow pre-case holding exception, which must be documented rather than implemented as an unrecorded policy contradiction.
 - TKT-034 already adopts registration-named image folders into later cases, and TKT-145 backfills evidence after a case link; neither supplies a durable non-Case identity for original email/document/image evidence.
 
@@ -47,10 +47,10 @@ The holding record is not a hidden case: it does not participate in case counts,
 - **Policy review:** independently verify the ADR/document amendment is narrow, that ordinary query/other messages still follow their existing retention rule, and that no user-facing string exposes implementation terms.
 
 ## Research
-Distilled 2026-07-13 from the operator's [triage process note](../TKT-192-triage-precase-category/evidence/operator-source/triage-process.md), the [supplied triage corpus](./evidence/) and the existing pre-instruction/adoption tickets. The operator resolved the former policy question by approving a pre-case identity/evidence holding record that is adopted when instructions arrive.
+Distilled 2026-07-13 from the operator's [triage process note](../TKT-192-triage-precase-category/evidence/operator-source/triage-process.md), the [supplied triage corpus](./evidence-manifest.json) and the existing pre-instruction/adoption tickets. The operator resolved the former policy question by approving a pre-case identity/evidence holding record that is adopted when instructions arrive.
 
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator process note](../TKT-192-triage-precase-category/evidence/operator-source/triage-process.md)
-- [Triage sample corpus](./evidence/)
+- [Triage sample corpus](./evidence-manifest.json)

@@ -38,7 +38,7 @@ Regression coverage includes:
 - merge SQL orders parent upload-batch transfer before item transfer and leaves collision evidence
   rebinding ownership-neutral until that ordered step;
 - multiple completed operation bindings on a merged survivor remain exact by upload key;
-- explicit-save compatibility snapshot updates draft, persisted baseline and concurrency version while
+- explicit-save continuity snapshot updates draft, persisted baseline and concurrency version while
   preserving dirty field values;
 - an explicit Save while a Manual Intake source is dead-lettered remains `needs_review` instead of
   promoting the case from the stale editable field snapshot;
@@ -49,7 +49,7 @@ Regression coverage includes:
 
 ## Live proof still required
 
-1. Apply `migration/assets/schema/deltas/2026-07-12-tkt166-manual-intake-case-create.sql` before the
+1. Apply `database/migrations/2026-07-12-tkt166-manual-intake-case-create.sql` before the
    API release, then deploy API and SPA in the documented order.
 2. In the deployed SPA, create one disposable document-led case using a PDF instruction, an extra PDF
    and supported photos.
@@ -122,7 +122,7 @@ PENDING
 - No terminal Archive failure/retry or merge-survivor lifecycle was exercised.
 - No Archive proof beneath test root `392761581105`.
 - No persisted-instruction parser/remediation fetch was exercised.
-- Deployment records still leave API/orchestration/SPA and designated proof pending, so the later
+- Deployment records still leave API/services/orchestration/SPA and designated proof pending, so the later
   live rollout lacks complete artifact provenance.
 
 ### How to re-verify

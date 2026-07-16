@@ -58,8 +58,8 @@ after       | {"oneShot": "TKT-148", "chaserId": "93dfcb3a-695e-421c-ba44-143e27
 `rowToChaser` (the unchanged case-detail read mapper) renders this row as
 `{ targetType: 'work_provider', targetName: 'QDOS', channel: 'email', templateUsed:
 'Overview photo request', status: 'drafted', summary: 'Suggested chase — …' }` — the
-mapping is pinned offline in `api/src/lib/overview-chase.test.ts` +
-`api/src/functions/cases-chase.test.ts` (shared-mapper contract).
+mapping is pinned offline in `services/data-api/src/features/cases/overview-chase.test.ts` +
+`services/data-api/src/features/cases/chase-route.test.ts` (shared-mapper contract).
 
 ## Negative control
 

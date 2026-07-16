@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-125",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-add-case-no-descriptors.png",
+      "originalFilename": "live-add-case-no-descriptors.png",
+      "sha256": "a6ce1cf376ca19bee21b2a71ac83e6f675ea9a22bdf2ee764a6057ccb32482bd",
+      "storagePath": "tests/fixtures/evidence/sha256/a6/a6ce1cf376ca19bee21b2a71ac83e6f675ea9a22bdf2ee764a6057ccb32482bd.png"
+    }
+  ]
+}

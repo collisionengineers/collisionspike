@@ -37,7 +37,7 @@ Function rides the next parser deploy and the live /parse stays engine-v2.13 unt
    — the `tractable_01` fixture pins `vehicle_model="Volkswagen Touran"` +
    `vin="WVGZZZ1TZFW030347"`; `tractable_02` pins the no-VIN sample
    (`vin=""` from the `'-'` placeholder; absence is not an error).
-2. Vendored copy: `cd functions/parser && python -m pytest -q` — drift guard
+2. Vendored copy: `cd services/functions/parser && python -m pytest -q` — drift guard
    (`test_engine_vendored_in_sync.py`) green against the sibling
    `engine-v2.16` tree; judge against the recorded pre-existing environmental
    failure on this box (`test_multiformat_extraction[ALS_doc]`).
@@ -55,13 +55,13 @@ was proven before, but the repaired `/parse` envelope is not live until the pars
 
 - Sibling engine `v2.16` is tagged/pushed and the vendored tree matches it. Targeted Tractable/VIN,
   banner-recall and EVA tests pass; the full Windows parser run is 270 passed / 28 skipped with the one
-  recorded pre-existing legacy `.DOC` environmental failure unchanged from main.
-- `functions/parser/tests/test_parse.py` and the OpenAPI contract pin top-level VIN
+  recorded pre-existing earlier `.DOC` environmental failure unchanged from main.
+- `services/functions/parser/tests/test_parse.py` and the OpenAPI contract pin top-level VIN
   value/source/confidence. Orchestration parse and SPA parser-adapter tests preserve that envelope.
   EVA serializer tests prove the settled 12-field export remains unchanged and contains no VIN.
 - Deployment proof still required: deploy the parser from the merged release SHA, POST both Tractable
   fixtures, verify VIN presence/absence at the top level and reassert the 12-field EVA body is
-  byte-shape compatible.
+  byte-shape supported.
 
 ## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
 
@@ -83,10 +83,10 @@ VERIFIED-LIVE
   remote tag peels to that exact commit, and Git proves TKT-147 source commit `2609b1a` is an ancestor of
   both deployed `engine-v2.16` (`8dd4ba8`) and current locked `engine-v2.24` (`e9cec4a`).
 - **Regression acceptance 1 — `/parse` exposes VIN value/source/confidence:**
-  `functions/parser/tests/test_parse.py` pins the top-level VIN envelope, while
-  `changes-regression-11-07-26.md:14-17` records the Function/orchestration/SPA contract propagation.
+  `services/functions/parser/tests/test_parse.py` pins the top-level VIN envelope, while
+  `changes-regression-11-07-26.md:14-17` records the Function/services/orchestration/SPA contract propagation.
   Wrapper commit `56161d3` is an ancestor of both deployed PR 55 merge `c7e78cc` and corrected runtime
-  `3cc4705`. `.azure/deployment-plan.md:334-341` records parser publication and a live `12-field/VIN`
+  `3cc4705`. `docs/operations/live-environment.md:334-341` records parser publication and a live `12-field/VIN`
   smoke returning 200. A fresh read-only 72-hour parser query independently shows sustained live
   `/api/parse` 200 responses from role `cespike-parser-dev-x7xt3d5ovhi7y`; no request was created for this
   verification.
@@ -98,7 +98,7 @@ VERIFIED-LIVE
 - **Regression acceptance 3 — OpenAPI and route tests pin both behaviors:** `verification.md:56-61` names
   the parser route tests, OpenAPI schema, orchestration type and SPA adapter tests; the exact released
   candidate passed parser contracts/OpenAPI and vendored-tag drift before publish
-  (`.azure/deployment-plan.md:244-249,266-267,310`).
+  (`docs/operations/live-environment.md:244-249,266-267,310`).
 
 ## Pending / gaps
 
@@ -112,7 +112,7 @@ VERIFIED-LIVE
 ## How to re-verify
 
 1. Run the sibling Tractable/rule/normalization/export fixture slice at the locked tag and run
-   `python -B functions/parser/scripts/verify_vendor_pin.py --sibling <official sibling clone>`; require
+   `python -B services/functions/parser/scripts/verify_vendor_pin.py --sibling <official sibling clone>`; require
    the immutable-tag PASS.
 2. Against the deployed parser, use the retained non-sensitive TRACTABLE 01 and 02 fixtures through the
    normal authorized smoke path. Require make+model on both; top-level VIN value/source/confidence on

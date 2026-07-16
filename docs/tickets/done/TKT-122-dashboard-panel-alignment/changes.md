@@ -12,7 +12,7 @@ operator's "Inbox and 'Check the flagged details' not lining up fully". (Heading
 aligned at y=336; only the first content blocks disagreed.)
 
 ## What was built
-**`mockup-app/src/screens/Dashboard.tsx`**: the facet-chip row now renders ONLY when at least one
+**`apps/web/src/features/dashboard/Dashboard.tsx`**: the facet-chip row now renders ONLY when at least one
 chip will actually show (`pastDueCount || duplicateCount || conflictCount`). No grid/layout changes
 were needed — the cockpit grid itself was sound.
 

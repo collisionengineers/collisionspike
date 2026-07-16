@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "evidence.schema.json",
+  "title": "Repository evidence catalog",
+  "type": "object",
+  "required": ["version", "roots", "store", "summary", "blobs", "usages"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "roots": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "store": { "type": "string" },
+    "summary": {
+      "type": "object",
+      "required": [
+        "logicalUsages",
+        "uniqueBlobs",
+        "sourceBytes",
+        "storedBytes",
+        "duplicateOccurrences",
+        "duplicateBytesEliminated"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "logicalUsages": { "type": "integer", "minimum": 0 },
+        "uniqueBlobs": { "type": "integer", "minimum": 0 },
+        "sourceBytes": { "type": "integer", "minimum": 0 },
+        "storedBytes": { "type": "integer", "minimum": 0 },
+        "duplicateOccurrences": { "type": "integer", "minimum": 0 },
+        "duplicateBytesEliminated": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "blobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sha256", "size", "mediaType", "extension", "storagePath"],
+        "additionalProperties": false,
+        "properties": {
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "size": { "type": "integer", "minimum": 0 },
+          "mediaType": { "type": "string" },
+          "extension": { "type": "string", "pattern": "^\\.[a-z0-9]+$" },
+          "storagePath": { "type": "string" }
+        }
+      }
+    },
+    "usages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["owner", "role", "originalPath", "originalFilename", "size", "sha256", "consumers"],
+        "additionalProperties": false,
+        "properties": {
+          "owner": { "type": "string" },
+          "role": { "type": "string" },
+          "originalPath": { "type": "string" },
+          "originalFilename": { "type": "string" },
+          "size": { "type": "integer", "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "consumers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        }
+      }
+    }
+  }
+}

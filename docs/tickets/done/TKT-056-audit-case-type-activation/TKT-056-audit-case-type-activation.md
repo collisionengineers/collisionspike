@@ -50,6 +50,6 @@ markers, no `engineer_report` evidence.
 
 ## Evidence corpus
 
-`emails/…Engineers 2… 577037/577039.eml` (direct pch-ltd.com), `test-cases-and-data/{A.PCH261339,
-D.PCH26190, QDOS261608, QDOS261572}` (added 2026-07-03), `test-cases-and-data/test-cases/
+`emails/…Engineers 2… 577037/577039.eml` (direct pch-ltd.com), `tests/fixtures/manifests/evidence.json#{A.PCH261339,
+D.PCH26190, QDOS261608, QDOS261572}` (added 2026-07-03), `tests/fixtures/manifests/evidence.json#test-cases/
 {A.PCH261269, A.PCH261272, QDOS261253, QDOS261530}`, TKT-051's Connexus-routed sample.

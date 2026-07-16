@@ -12,16 +12,16 @@ plan: PLAN-004
 # Make Not Ready status language agree with the queue
 
 ## Problem
-The live Not Ready queue contains a generic status badge and reason filter labelled “Needs review”. That tells a handler both that the case is not ready and that it needs review, even though Review is a separate queue reserved for cases that could theoretically be sent to EVA. The two labels describe incompatible workflow states.
+The live Not Ready queue contains a generic status badge and reason filter labelled “Needs review”. That tells a handler both that the case is not ready and that it needs review, even though Review is a separate queue reserved for cases that could theoretically be sent to EVA. The two labels describe mutually exclusive workflow states.
 
 ## Evidence
-- [Live queue screenshot](./evidence/not-ready-needs-review-live.png) — Not Ready is selected while the reason chip and several row badges say “Needs review”.
-- [Second supplied screenshot](./evidence/not-ready-needs-review-live-2.png) — confirms the same contradiction across multiple rows.
-- `mockup-app/src/components/StatusBadge.tsx` maps the stored `needs_review` status directly to the rendered label “Needs review”.
+- [Live queue screenshot](./evidence-manifest.json) — Not Ready is selected while the reason chip and several row badges say “Needs review”.
+- [Second supplied screenshot](./evidence-manifest.json) — confirms the same contradiction across multiple rows.
+- `apps/web/src/shared/ui/StatusBadge.tsx` maps the stored `needs_review` status directly to the rendered label “Needs review”.
 - TKT-130 defines Review as the fully ready queue and Not Ready as the home for missing or unresolved requirements.
 
 ## Proposed change
-Keep the stored status value for compatibility, but translate it into the canonical handler-facing workflow language. A generic `needs_review` case must display “Not ready” wherever it appears as a case status or Not Ready reason. More specific blocker labels such as “Missing fields” and “Missing images” remain specific. Field-level review provenance is a different concept and is not renamed by this ticket.
+Keep the stored status value for continuity, but translate it into the canonical handler-facing workflow language. A generic `needs_review` case must display “Not ready” wherever it appears as a case status or Not Ready reason. More specific blocker labels such as “Missing fields” and “Missing images” remain specific. Field-level review provenance is a different concept and is not renamed by this ticket.
 
 ## Acceptance
 - A case in the Not Ready queue never displays “Needs review” as its case status, reason, filter, count or action wording.
@@ -42,7 +42,7 @@ Keep the stored status value for compatibility, but translate it into the canoni
 
 - A status/reason matrix covers each canonical blocker alone and in combination, asserting queue label,
   row badge, detail text, filter membership and accessible name from the same data.
-- Signed-in live proof samples at least one generic legacy row and one row per available specific blocker,
+- Signed-in live proof samples at least one generic earlier row and one row per available specific blocker,
   confirming the UI names what is actually preventing readiness and contains no contradictory “Needs review”.
 
 ## Research

@@ -9,27 +9,27 @@ live resolved-case extraction.
 (none yet — the wave's work is uncommitted on `feat/final-wave` per the dispatch instructions)
 
 ## Files touched
-Sibling-first check: the vendored engine (`functions/parser/cedocumentmapper_v2`,
+Sibling-first check: the vendored engine (`services/functions/parser/cedocumentmapper_v2`,
 `engine-v2.11`) ALREADY composes `<provider>_<vrm>_img_<page>_<n>` stems from its
 `fields` argument with the TKT-090 omit-when-unknown rule — **the engine template did not
 change** (as the ticket predicted); only the Function-layer adapter + orchestration now
 pass the fields.
 
-- `orchestration/src/functions/intakeOrchestrator.ts` — all three `extractImages` call
+- `services/orchestration/src/workflows/intake/intakeOrchestrator.ts` — all three `extractImages` call
   sites (attach_case lane, linked-reply lane, main mint lane) now thread
   `providerPrincipal: principalCode` (the providerMatch step-1 result already in scope;
   omitted when unresolved).
-- `orchestration/src/functions/activities/extractImages.ts` — input gains
+- `services/orchestration/src/workflows/evidence/extractImages.ts` — input gains
   `providerPrincipal?`; the parser call passes `provider` = the upper-cased principal and
   `vrm` = `canonicalizeVrm(caseVrm)` (compact form), each ONLY when non-empty.
-- `orchestration/src/lib/functions-client.ts` — `callExtractImages` optional
+- `services/orchestration/src/adapters/functions-client.ts` — `callExtractImages` optional
   `provider`/`vrm` body fields (omitted when unknown).
-- `functions/parser/function_app.py` — `/extract-images` accepts optional `provider` +
+- `services/functions/parser/function_app.py` — `/extract-images` accepts optional `provider` +
   `vrm` strings (blank/non-string degrade to None — identity is additive, never a 400).
-- `functions/parser/parser_adapter.py` — `run_image_extraction(…, provider=None,
+- `services/functions/parser/parser_adapter.py` — `run_image_extraction(…, provider=None,
   vrm=None)` builds the engine `fields` dict from ONLY the resolved values (empty dict →
   neutral stems, exactly the TKT-090 behaviour).
-- Fixtures/tests: `functions/parser/tests/test_extract_images.py` — route-level
+- Fixtures/tests: `services/functions/parser/tests/test_extract_images.py` — route-level
   passthrough contract (provider/vrm reach the adapter; blank/non-string ignored) + two
   REAL-engine tests: `provider="QDOS", vrm="AB12CDE"` → stem
   `QDOS_AB12CDE_img_<page>_<n>.<ext>`; VRM-only → `AB12CDE_img_…` (partial identity keeps

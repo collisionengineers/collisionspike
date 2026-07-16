@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-029",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/Credit_Repair_Engineer_Instruction_46203.2087640856.pdf",
+      "originalFilename": "Credit_Repair_Engineer_Instruction_46203.2087640856.pdf",
+      "sha256": "1479c259748c42a9a1ebc4e0994649eef7276a75b41e5d1644e672eb9cde6698",
+      "storagePath": "tests/fixtures/evidence/sha256/14/1479c259748c42a9a1ebc4e0994649eef7276a75b41e5d1644e672eb9cde6698.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/New inspection requests.eml",
+      "originalFilename": "New inspection requests.eml",
+      "sha256": "dfc835ccccdf520a1258a92c709adbae0043d2e67c43636fc23d207e1f9f9906",
+      "storagePath": "tests/fixtures/evidence/sha256/df/dfc835ccccdf520a1258a92c709adbae0043d2e67c43636fc23d207e1f9f9906.eml"
+    }
+  ]
+}

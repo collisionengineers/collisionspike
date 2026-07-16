@@ -30,7 +30,7 @@ process.stdin.on('end', () => {
         `[azure-churn-guard] STOP — this Azure op has now failed ${count}× in a row. Do NOT run it again. ` +
         'Two-strikes rule: invoke the matching skill (`azure:azure-diagnostics` / `azure:azure-kusto` / ' +
         '`azure:azure-rbac`) or `microsoft-docs:microsoft-docs` to find out WHY first, or dispatch the ' +
-        '**azure-diagnostician** agent. Route via docs/azure/README.md before a third attempt.';
+        '**azure-diagnostician** agent. Route via docs/operations/README.md before a third attempt.';
       process.stdout.write(
         JSON.stringify({
           systemMessage: msg,

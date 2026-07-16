@@ -20,7 +20,7 @@ The registry, older tickets and live app settings have drifted, and some feature
 - Known drift examples: TKT-034 and TKT-110 wording trails the current registry.
 
 ## Proposed change
-PROPOSED (not built): generate a code-derived gate inventory, compare it with live API/orchestration/retained-Function settings and the authoritative intent, safely activate approved implemented features, smoke-test every active path, and update the registry.
+PROPOSED (not built): generate a code-derived gate inventory, compare it with live API/services/orchestration/retained-Function settings and the authoritative intent, safely activate approved implemented features, smoke-test every active path, and update the registry.
 
 ## Acceptance
 - A code-derived inventory lists every feature/config gate reader, owning component, default behavior, dependency, intended production state, live value, registry value, and verification method. Secret values are never printed or committed.
@@ -30,7 +30,7 @@ PROPOSED (not built): generate a code-derived gate inventory, compare it with li
 - Intentionally disabled behavior has an explicit current reason and owner; retired gates are removed from code/config/docs rather than left as misleading toggles.
 - Gate changes use backup/readback, change one coherent feature at a time, and are idempotent. No secret/auth/RBAC scope is widened incidentally.
 - Every enabled feature receives a behavioral smoke test at its real surface, not just an app-setting readback. Failures roll back or remain visibly blocked with evidence.
-- API/orchestration/Function restarts caused by setting changes are monitored through health, function registration and error telemetry before proceeding.
+- API/services/orchestration/Function restarts caused by setting changes are monitored through health, function registration and error telemetry before proceeding.
 - A machine-readable registry check fails CI when code gate names, documented intended states and tracked live-state entries drift.
 - Final Chrome/API/MCP/Box/Outlook read-only checks cover the active user-visible/integration features; Box mutation probes remain within test root and Outlook is never mutated.
 - `LIVE_FACTS.json`, `live-environment.md`, readiness matrix and gated decisions reflect the final verified state and timestamp.

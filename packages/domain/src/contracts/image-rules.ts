@@ -2,8 +2,8 @@
    Collision Engineers — EVA image rules contract (CANONICAL).
 
    Re-implements collisioncc `src/lib/image-rules.ts`
-   `validateEvaImageRequirements`, aligned with the prototype's
-   `mockup-app/src/components/readiness.ts` image checks.
+   `validateEvaImageRequirements`, aligned with the web app's
+   `apps/web/src/shared/ui/readiness.ts` image checks.
 
    The EVA upload set must satisfy:
      - >= 2 accepted images, AND

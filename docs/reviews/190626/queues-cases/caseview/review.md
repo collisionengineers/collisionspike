@@ -27,7 +27,7 @@ Will adapt chasers from Job Sheet which are more minimalistic
 "Mark Held" unnecessary - a cases queue state depends on the information / Images / Instructions and whether we have them.
 
 
-"This tool never auto-sends (ADR-0003) — it drafts only. Copy the text or log it as drafted; the actual send is a flow / user action." - clear dev docs reference leaking into app. ADR shouldn't be getting mentioned in the actual app text. Also contradicts the greyed out "Send Via Outlook" that is greyed out.
+"This tool never auto-sends (ADR-0003) — it drafts only. Copy the text or log it as drafted; sending is a separate staff action." - clear dev docs reference leaking into app. ADR shouldn't be getting mentioned in the actual app text. Also contradicts the greyed out "Send Via Outlook" that is greyed out.
 
 # Evidence
 

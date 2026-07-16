@@ -34,18 +34,18 @@ Invoke explicitly — for a single ticket you'll work yourself, use `ticket-impl
 4. **Brief.** Build the delegation brief from [templates.md](templates.md). Never dispatch without the
    area hard rules attached; paste the Acceptance section — don't link it.
 5. **Dispatch & supervise.** One level only. **Implementers strictly sequential** (one shared dev
-   environment: concurrent deploys to `cespk-api-dev`/`cespk-orch-dev` and concurrent `mockup-app/src`
+   environment: concurrent deploys to `cespk-api-dev`/`cespk-orch-dev` and concurrent `apps/web/src`
    edits collide). **Verifiers up to 3 in parallel** (read-only). On failure/block apply two-strikes —
    reassess or surface to the user; never redispatch an identical brief.
 6. **Record.** Implementer returns → confirm `changes.md` is drafted (write it from the agent's report
    if not, per [ticket-implement/templates.md](../ticket-implement/templates.md)). Verifier returns →
    transcribe the verdict block **verbatim** into `verification.md`, adding a line
    `Verified by: ticket-verifier dispatch, <date>`.
-7. **Move & sync.** `node scripts/ticket-move.mjs TKT-NNN <status>` (never hand-move). Then the two
+7. **Move & sync.** `node scripts/maintenance/ticket-move.mjs TKT-NNN <status>` (never hand-move). Then the two
    gaps the script does **not** cover: the ticket's row in the
    [README index](../../../docs/tickets/README.md) (right section, right path) and the BOARD row's
    **State** cell text.
-8. **Gate.** `node scripts/check-tickets.mjs && node scripts/check-doc-links.mjs && node scripts/check-skills-sync.mjs`.
+8. **Gate.** `node scripts/checks/check-tickets.mjs && node scripts/checks/check-doc-links.mjs && node scripts/maintenance/generate-agent-adapters.mjs --check`.
    Fix failures before handing off. Commit only when the user asks.
 9. **Report.** Per-ticket outcome table: id, dispatched-to, verdict, transition made, gaps.
 
@@ -59,7 +59,7 @@ done    → now                 (regression reopen only; needs a dated follow-up
 anything else → forbidden — stop and ask the user
 ```
 
-`scripts/ticket-move.mjs` enforces this graph deterministically (TKT-114): an illegal move exits
+`scripts/maintenance/ticket-move.mjs` enforces this graph deterministically (TKT-114): an illegal move exits
 non-zero naming the transition + the allowed targets; `--migrate` is exempt; `--dry-run` reports the
 same verdict without touching files. `--force` bypasses with a loud warning — **`verify → now` (the
 verify-sweep's reopen path when live proof fails) is deliberately `--force`-only**; use it exactly
@@ -73,12 +73,12 @@ claims. `TESTED (offline)` closes a ticket only when its Acceptance explicitly a
 
 | `area` | Implement dispatch | Hard rules carried in the brief |
 |---|---|---|
-| `email` `intake` `pipeline` `platform` `integration` `enrichment` `evidence` | **azure-integration-engineer** | [docs/azure/README.md](../../../docs/azure/README.md) playbooks + `azure:*` skills; `az`/`func`/`psql` via WSL2; offline eval fixtures where they exist (`scripts/eval-email/`) |
+| `email` `intake` `pipeline` `platform` `integration` `enrichment` `evidence` | **azure-integration-engineer** | [operations](../../../docs/operations/README.md) runbooks + `azure:*` skills; `az`/`func`/`psql` via PowerShell; offline eval fixtures where they exist (`scripts/evaluation/email/`) |
 | `ui` `dashboard` | **fluent-spa-designer** | HARD RULE: no engineering language in rendered strings (AGENTS.md); Fluent v9 + CE tokens; build before deploy + hard refresh; a11y follow-up → **accessibility-engineer** if Acceptance requires |
 | `box` | **azure-integration-engineer** (code) / **box-integration-architect** (tenant, scopes, webhooks) | the box-scope-guard hook is BLOCKING — stay inside the allowlist |
 | `ai` | **azure-integration-engineer** (assistant/API plumbing) / **ticket-implementer** (research/bench) | gates read from the registry |
 | `parsing` | **ticket-implementer** | ADR-0018 sibling-first + fixture + re-vendor; fetch the sibling before re-cut (checkout can be stale) |
-| `docs` | **ticket-implementer** (or inline if trivial) | [docs/MAINTENANCE.md](../../../docs/MAINTENANCE.md); no live-number leakage outside the registry |
+| `docs` | **ticket-implementer** (or inline if trivial) | [documentation governance](../../../docs/governance/documentation.md); no live-number leakage outside the registry |
 | EVA-contract tickets (any area) | **eva-sentry-integration** | the 12-field contract + photo-order rules |
 | verification pass (any area) | **ticket-verifier** | always; read-only |
 

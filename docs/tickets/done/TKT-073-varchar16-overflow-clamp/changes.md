@@ -22,7 +22,7 @@ errors. Full KQL in the diagnostician result, transcribed to verification.md at 
 
 ## Shipped — one guarded helper at the write seams
 
-- **`api/src/lib/varchar-guard.ts`** (+tests): `clampVarchar(value, max)` (truncate + report) and
+- **`services/data-api/src/shared/validation/varchar.ts`** (+tests): `clampVarchar(value, max)` (truncate + report) and
   `vrmOrEmpty(value)` (an over-length "VRM" is a junk sniff — DROPPED to '' like "no VRM", never
   truncated into the correlation key).
 - Wired with warn-traces naming the field + original length:
@@ -32,7 +32,7 @@ errors. Full KQL in the diagnostician result, transcribed to verification.md at 
     clamped to 100;
   - `upsertInboundEmail` sibling columns clamped (name 200, body_vrm 16-drop, body_caseref 32,
     body_jobref 64) so a swallowed insert no longer silently loses the triage row.
-- Unit tests: `api/src/lib/varchar-guard.test.ts` (over-length in → truncated/dropped out, row
+- Unit tests: `services/data-api/src/shared/validation/varchar.test.ts` (over-length in → truncated/dropped out, row
   shape valid; null tolerance).
 
 ## Deploy state

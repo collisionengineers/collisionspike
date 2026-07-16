@@ -8,44 +8,44 @@ verifier's own run; the cardinal non-collision invariant confirmed); live model-
 `IMAGE_ANALYSIS_ENABLED` flip remain DEFERRED, so the ticket **stays in `verify`**. Nothing was
 flipped/applied/deployed (build-dark).
 
-**Verifier confirmation (08-07-26):** ran `npm --prefix api test -- image-analysis` → 10 passed; the
+**Verifier confirmation (08-07-26):** ran `npm --prefix services/data-api test -- image-analysis` → 10 passed; the
 non-collision grep across `image-analysis.ts` + `image-analysis*.ts` shows the ONLY table write is
 `INSERT INTO ai_suggestion` (every `image_role_code`/`registration_visible` hit is a `SELECT`/comment/
-prompt/parse, never a column write); `git show --stat 0dbe31f` confirms `orchestration/src/lib/image-classify.ts`
-(the live TKT-064 auto-writer) and `api/src/functions/ai-suggestions.ts` (`promoteAcceptedSuggestion`) are
+prompt/parse, never a column write); `git show --stat 0dbe31f` confirms `services/orchestration/src/platform/image-classify.ts`
+(the live TKT-064 auto-writer) and `services/data-api/src/features/assistant/register-suggestion-routes.ts` (`promoteAcceptedSuggestion`) are
 absent from the diff. `IMAGE_ANALYSIS_ENABLED` is default-off and absent from `LIVE_FACTS.json` (dark). The
 one item the verifier could not run standalone — `evidence/run-transcript.mjs` (it node-imports the domain
 `dist` ESM, a general repo build property) — is fully subsumed by the passing 10-test suite, whose figures
 match the committed transcript exactly.
 
 ## Evidence (offline)
-- **Unit suite** `api/src/lib/image-analysis.test.ts` — 10/10 green:
-  `npm --prefix api test -- image-analysis`. Covers the full staged sequence, per-stage graceful
+- **Unit suite** `services/data-api/src/features/assistant/image-analysis.test.ts` — 10/10 green:
+  `npm --prefix services/data-api test -- image-analysis`. Covers the full staged sequence, per-stage graceful
   degradation, the registration tri-state (F3), the "detected VRM ≠ case identity" boundary, and the
   VLM json_schema/parse contracts.
 - **Run transcript** over the TKT-040 sample set — [`evidence/offline-run.md`](./evidence/offline-run.md)
-  + `evidence/offline-run.txt` (regenerate: `node docs/tickets/now/TKT-016-ai-image-analysis/evidence/run-transcript.mjs`
-  after `npx tsc -b` in `api/`). Happy path = 9 pending drafts (staged observations + one ranked
+  + `evidence/offline-run.txt` (regenerate: `node docs/tickets/verify/TKT-016-ai-image-analysis/evidence/run-transcript.mjs`
+  after `npx tsc -b` in `services/data-api/`). Happy path = 9 pending drafts (staged observations + one ranked
   `address_suggestion`, `autoApplied:false`); every degradation scenario is graceful (no crash, no
   auto-write).
 - **Regression** — full suites green (api 251, domain 954); API `tsc -b` clean; esbuild bundle builds and
-  the route `generateImageAnalysis` is present in `deploy/api/main.cjs`.
+  the route `generateImageAnalysis` is present in `.artifacts/deploy/data-api/main.cjs`.
 
 ## The concrete checks a verifier should run (offline)
-1. `npm --prefix api test -- image-analysis` → 10 passed.
-2. In `api/`: `npx tsc -b` → clean; then
-   `node docs/tickets/now/TKT-016-ai-image-analysis/evidence/run-transcript.mjs` → the staged transcript,
+1. `npm --prefix services/data-api test -- image-analysis` → 10 passed.
+2. In `services/data-api/`: `npx tsc -b` → clean; then
+   `node docs/tickets/verify/TKT-016-ai-image-analysis/evidence/run-transcript.mjs` → the staged transcript,
    9 happy-path drafts, all degradation scenarios non-throwing.
 3. **Non-collision audit** (the cardinal invariant): confirm the producer writes NO evidence/case column.
-   - `grep -n "UPDATE evidence\|UPDATE case_\|image_role_code\|registration_visible\|case_\.vrm" api/src/functions/image-analysis.ts api/src/lib/image-analysis.ts api/src/lib/image-analysis-adapters.ts`
+   - `grep -n "UPDATE evidence\|UPDATE case_\|image_role_code\|registration_visible\|case_\.vrm" services/data-api/src/features/assistant/image-analysis-routes.ts services/data-api/src/features/assistant/image-analysis.ts services/data-api/src/features/assistant/image-analysis-adapters.ts`
      → the ONLY table write is `INSERT INTO ai_suggestion` in `persistDraft`; no evidence/case UPDATE.
-   - Confirm `orchestration/src/lib/image-classify.ts` and the intake write path are untouched by this diff.
-   - Confirm `promoteAcceptedSuggestion` (`api/src/functions/ai-suggestions.ts`) is unmodified (promotion
+   - Confirm `services/orchestration/src/platform/image-classify.ts` and the intake write path are untouched by this diff.
+   - Confirm `promoteAcceptedSuggestion` (`services/data-api/src/features/assistant/register-suggestion-routes.ts`) is unmodified (promotion
      stays the existing human-accept, fill-if-empty path).
 
 ## Pending / gaps (operator, DPIA-gated)
-- Apply `migration/assets/schema/deltas/2026-07-08-image-analysis-suggestion-types.sql` (SET ROLE csadmin).
-- Flip `IMAGE_ANALYSIS_ENABLED` on `cespk-api-dev` after the image-egress DPIA sign-off (docs/gated.md §F.7).
+- Apply `database/migrations/2026-07-08-image-analysis-suggestion-types.sql` (SET ROLE csadmin).
+- Flip `IMAGE_ANALYSIS_ENABLED` on `cespk-api-dev` after the image-egress DPIA sign-off (docs/tickets/BOARD.md §F.7).
 - Deploy the api bundle; then a live run on a real case with photos to confirm pending `ai_suggestion`
   rows are minted (and that a live VLM/fast-alpr/location call returns real observations).
 - Follow-on (NOT this ticket): the SPA reviewer surface for the new suggestion kinds; TKT-088/112
@@ -74,7 +74,7 @@ Executed (azure-integration-engineer dispatch):
   surface is a follow-on). Close it via an authenticated call once a staff token/SPA trigger exists.
 - **Provisional:** subscription still FreeTrial (PAYG/A1 outstanding). Capacity: gpt-5 shared 50K-TPM (watch 429).
 
-Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../architecture/live-environment.md).
+Registry updated: `LIVE_FACTS.json` (gate + `lastVerified`) + [live-environment.md](../../../operations/live-environment.md).
 
 ## Verdict update — 2026-07-10 (final sweep, ticket-verifier dispatch; transcribed verbatim)
 

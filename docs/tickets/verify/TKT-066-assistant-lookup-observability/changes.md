@@ -3,7 +3,7 @@
 ## Status
 verify — **GATE FLIPPED LIVE 2026-07-09** (PLAN-003 final wave D1, operator-granted):
 `ASSISTANT_TOOLSET_V2=true` on `cespk-api-dev`, readback-proven (registry:
-[live-environment.md](../../../architecture/live-environment.md)). Code deployed. Remaining
+[live-environment.md](../../../operations/live-environment.md)). Code deployed. Remaining
 proof: an operator-session spaced-VRM lookup (`YT13 UTV`) through the assistant.
 Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 
@@ -13,10 +13,10 @@ Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 ## Files touched
 - `packages/domain/src/domain/vrm-canon.ts` (+ `vrm-canon.test.ts`) — the one `canonicalizeVrm` (upper +
   alnum-only); re-pointed the three divergent call-sites: `packages/domain/src/domain/vrm-filter.ts`,
-  `orchestration/src/lib/image-classify.ts`, and `openVrmTwins` in `api/src/functions/cases.ts`.
-- `api/src/lib/aoai-chat.ts` (+ `aoai-chat.test.ts`) — `ChatLogger` + `toolErrors` on the result + one
+  `services/orchestration/src/platform/image-classify.ts`, and `openVrmTwins` in `services/data-api/src/features/cases/`.
+- `services/data-api/src/features/assistant/chat-client.ts` (+ `aoai-chat.test.ts`) — `ChatLogger` + `toolErrors` on the result + one
   retry on a tool throw (Postgres cold-connect).
-- `api/src/functions/assistant.ts` (+ `assistant.test.ts`) — `lookup_case` matches on the canonical VRM
+- `services/data-api/src/features/assistant/chat-routes.ts` (+ `assistant.test.ts`) — `lookup_case` matches on the canonical VRM
   (`regexp_replace(upper(c.vrm),'[^A-Z0-9]','','g')`) so a spaced/lower-case registration resolves; fixed a
   latent `wp.name` → `wp.display_name` (the `work_provider` table has no `name` column).
 - `packages/domain/src/gates.ts` — `ASSISTANT_TOOLSET_V2` gate (default off).
@@ -25,7 +25,7 @@ Under [PLAN-001](../../plans/PLAN-001-ai-mcp-hardening.md) Phase 1.
 A spaced registration (`YT13 UTV`) could never match the compacted stored mark, and a tool exception was
 swallowed silently. One canonicaliser now normalises VRMs everywhere; the assistant matches on the
 canonical form, logs + returns tool failures, and retries once. The registry-driven read adapter is
-selected by `ASSISTANT_TOOLSET_V2`, so the legacy 3-tool path stays as instant rollback.
+selected by `ASSISTANT_TOOLSET_V2`, so the earlier 3-tool path stays as instant rollback.
 
 ## Incident note — 2026-07-09 ASSISTANT_TOOLSET_V2 flip broke assistant chat (fixed, final wave D2)
 

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "ticket": "TKT-188",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/1.png",
+      "originalFilename": "1.png",
+      "sha256": "dd6d9ebd6c30201dee298ef5a041845585cabda1a3ba3721aa70b0fbb5a8c69a",
+      "storagePath": "tests/fixtures/evidence/sha256/dd/dd6d9ebd6c30201dee298ef5a041845585cabda1a3ba3721aa70b0fbb5a8c69a.png"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "originalFilename": "Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "sha256": "392475663d9075654c84313b1e243e0b15dfa9b780c6f8dc17e99ac2e0573539",
+      "storagePath": "tests/fixtures/evidence/sha256/39/392475663d9075654c84313b1e243e0b15dfa9b780c6f8dc17e99ac2e0573539.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/DE67LLG.pdf",
+      "originalFilename": "DE67LLG.pdf",
+      "sha256": "dd4adbc43e7ae909ee4794343da881894a5beeb581d8ef0c05a86a50c8b5ad5e",
+      "storagePath": "tests/fixtures/evidence/sha256/dd/dd4adbc43e7ae909ee4794343da881894a5beeb581d8ef0c05a86a50c8b5ad5e.pdf"
+    }
+  ]
+}

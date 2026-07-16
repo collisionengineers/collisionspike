@@ -45,7 +45,7 @@ and a retained mailbox/message key. None has claimant-name field provenance.
 | Review | needs_review | email | 51 |
 
 Email accounts for 84 cases and retro reconstruction for 48. Primary retained-source families are:
-11 legacy DOC, 2 DOCX, 64 PDF, 54 email-body artifact, and 1 with no instruction artifact. The last
+11 earlier DOC, 2 DOCX, 64 PDF, 54 email-body artifact, and 1 with no instruction artifact. The last
 case remains rerunnable from its mailbox source. In total, 72 retain an instruction in Blob, 59 in
 Archive, and one is mailbox-only; **0/132 lack every rerunnable source**. Parser/engine version was
 not persisted per case, so no per-row version claim is possible.
@@ -61,7 +61,7 @@ An obvious labelled claimant/client field appears in the retained preview for 27
 - Stored `needs_review`, `on_hold=false`, therefore incorrectly in Review under the pre-fix mapping.
 - Claimant and claimant overview blank; claimant provenance rows: 0.
 - One linked inbound row was present in the production mailbox set.
-- Retained active sources comprised one legacy DOC (44,032 bytes) and its original EML
+- Retained active sources comprised one earlier DOC (44,032 bytes) and its original EML
   (3,249,096 bytes).
 - Both sources were verified beneath authorised test root `392761581105`; exact evidence, file, and
   case-folder identifiers are deliberately kept out of Git.
@@ -69,14 +69,14 @@ An obvious labelled claimant/client field appears in the retained preview for 27
 ### First loss stage
 
 The original message contains an explicit labelled claimant/client value. The dated telemetry trace
-(operation identifiers omitted from Git) showed orchestration invoke the legacy DOC and the parser
+(operation identifiers omitted from Git) showed orchestration invoke the earlier DOC and the parser
 return 422 because the deployed Linux host had no Word, LibreOffice, or antiword reader.
 Orchestration skipped that candidate and created the case from the empty parse result. The claimant
 was therefore lost at document read, before persistence; Postgres did not discard a non-empty value.
 
 ## Safe remediation contract
 
-After the legacy-DOC/runtime fix is live, snapshot these 132 case IDs and replay only their retained
+After the earlier-DOC/runtime fix is live, snapshot these 132 case IDs and replay only their retained
 original sources. Fill claimant only when the current field is blank, preserve every staff value,
 write source provenance and a before/after audit event, then run the canonical readiness evaluator.
 Use case ID plus canonical Internet Message-ID/evidence ID as the idempotency key. The residual

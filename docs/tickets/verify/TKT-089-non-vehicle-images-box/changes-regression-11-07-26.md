@@ -12,7 +12,7 @@ EVA because `accepted_for_eva` remains false.
 
 - The parser and email attachment filters keep plausible panoramic vehicle images for classification.
 - Automatic non-vehicle exclusion requires a high-confidence result with no readable registration signal.
-- Evidence records retain the source of an exclusion decision so classifier retries cannot overwrite staff, provider, cleanup, or legacy decisions.
+- Evidence records retain the source of an exclusion decision so classifier retries cannot overwrite staff, provider, cleanup, or earlier decisions.
 - A later successful vehicle classification clears only an earlier classifier-owned exclusion and restores the image's accepted state.
 - Staff can review automatically excluded photos, persist role/registration/acceptance/exclusion changes, and recover a false positive across a page reload.
 - A staff include/exclude decision survives later classifier retries.
@@ -38,16 +38,16 @@ EVA because `accepted_for_eva` remains false.
   with fair retry timing, preventing non-ready rows from starving newer eligible photos (`070a0bf`).
 - Merge collision handling transfers or completes pending Archive work alongside the surviving
   evidence row, and completion acknowledges only the claimed generation (`070a0bf`).
-- The ownership migration now safely parses legacy audit snapshots and infers ownership only from an
+- The ownership migration now safely parses earlier audit snapshots and infers ownership only from an
   actual before/after field change. Reflection-only records own no exclusion decision, an unchanged
-  legacy exclusion reason owns only the exclusion field, and an explicit staff decision always wins
+  earlier exclusion reason owns only the exclusion field, and an explicit staff decision always wins
   before classifier inference. The executable fixture
-  `migration/assets/schema/tests/tkt089-staff-ownership-fixture.sql` pins those cases. The migration
+  `database/tests/tkt089-staff-ownership-fixture.sql` pins those cases. The migration
   must be rerun after the repaired API deploy to close the rolling-write window; that is deployment
   work, not claimed here as live proof.
 - Classifier recovery, staff review and suggestion acceptance now share the same decision-generation
   contract. A high-confidence classifier-owned false positive can be restored, while staff, provider,
-  cleanup and legacy-owned decisions remain protected. The API, orchestration and SPA regressions in
+  cleanup and earlier-owned decisions remain protected. The API, orchestration and SPA regressions in
   `internal-box-classification.test.ts`, `archive-mirror-outbox.test.ts`,
   `archive-mirror-monitor.test.ts` and `evidence-review.test.ts` exercise recovery, stale claims,
   Archive eligibility and reload-safe controls.

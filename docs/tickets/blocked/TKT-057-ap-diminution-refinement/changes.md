@@ -13,10 +13,10 @@ number (the QDOS dual pattern, e.g. PCH26010 → AP.PCH26010); a Case/PO already
 returned unchanged (a standalone A. mint IS the marker ID — never double-prefixed, and never a
 renumber: presentation-only, the stored case_po is untouched). Unit tests added in
 `case-type.test.ts`. `Case.caseType?` surfaced on the domain Case
-(`packages/domain/src/model/types.ts`) + `api/src/lib/mappers.ts` (`case_type_code` → name,
+(`packages/domain/src/model/types.ts`) + `services/data-api/src/shared/mapping/` (`case_type_code` → name,
 omitted for standard).
 
-**SPA — `mockup-app/src/screens/CaseDetail.tsx`**: a compact case-type control in the title-tag
+**SPA — `apps/web/src/features/cases/CaseDetail.tsx`**: a compact case-type control in the title-tag
 row — a menu button labelled with the current type in plain English (**"Standard case" / "Audit
 review" / "Total-loss audit review" / "Diminution review"**) with radio items; persists via the
 EXISTING `PATCH /api/cases/{id} { caseType }` seam and folds the server Case back (an omitted

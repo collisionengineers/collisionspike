@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "case_link_state",
+  "displayName": "Case Link State",
+  "description": "Case.caseLinkState — dedup staging (ADR-0010). `none` = no pending link; `pending` = propose-attach awaiting staff confirm (drives duplicate_risk review); `linked` = staff confirmed attach to another open case (linked_to_instruction). Never auto-merge on VRM+time or across providers.",
+  "default": "none",
+  "options": [
+    { "value": 100000000, "name": "none",    "label": "None" },
+    { "value": 100000001, "name": "pending", "label": "Pending" },
+    { "value": 100000002, "name": "linked",  "label": "Linked" }
+  ]
+}

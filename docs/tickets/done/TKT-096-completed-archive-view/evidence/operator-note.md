@@ -8,5 +8,5 @@ Search-scope decision to bake in: the case search must **not** exclude terminals
 with a status badge on result rows. This makes global search the primary way (besides the Completed view)
 to reach a delivered case.
 
-> This is Phase D of the case-done plan. The full A–E plan (with code references) is preserved in the
-> anchor ticket [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../../verify/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> This is the completed-view input to the case-done work. The enduring status decision is recorded in
+> the anchor ticket [TKT-094](../../../verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md).

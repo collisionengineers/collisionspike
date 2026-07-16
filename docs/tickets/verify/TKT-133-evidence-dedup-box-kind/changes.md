@@ -3,7 +3,7 @@
 > Regression follow-up (2026-07-11): [changes-regression-11-07-26.md](./changes-regression-11-07-26.md)
 
 ## Status
-Reopened to `now` on 2026-07-11: PR 55 review found that the case-merge route bypassed the established same-case SHA dedup contract. The prior implementation and cleanup record below remains historical evidence.
+Reopened to `now` on 2026-07-11: PR 55 review found that the case-merge route bypassed the established same-case SHA dedup contract. The prior implementation and cleanup record below remains prior evidence.
 
 ## Overview
 The fix spans the two producers + the writer + a one-off data cleanup:
@@ -14,7 +14,7 @@ The fix spans the two producers + the writer + a one-off data cleanup:
 
 ## Data API — sha256 write-time dedup/link (api workspace)
 
-- `api/src/functions/internal.ts` — `internalCasesEvidence` (POST /api/internal/cases/{id}/evidence):
+- `services/data-api/src/features/` — `internalCasesEvidence` (POST /api/internal/cases/{id}/evidence):
   per row, when the caller supplies a plausible sha256 (64-hex, `SHA256_HEX_RE`), an ADDITIONAL
   pre-check runs BEFORE either lane INSERT:
   `SELECT id, box_file_id, box_file_url, storage_path, source_message_id FROM evidence
@@ -27,7 +27,7 @@ The fix spans the two producers + the writer + a one-off data cleanup:
   metadata update-in-place). Response extended `{ persisted, updated }` → `{ persisted, updated, merged }`
   (additive; orchestration types the response as `{ persisted: number }` — unaffected).
   All pre-existing dedup (source_message_id / box_file_id / storage_path NOT EXISTS) preserved.
-- `api/src/functions/internal-evidence-dedup.test.ts` — NEW, 7 tests: the acceptance regression
+- `services/data-api/src/features/evidence/internal-persist-routes.test.ts` — NEW, 7 tests: the acceptance regression
   (email arrival then Box mirror = ONE row, merge UPDATE carries box_file_id), the mirror-first
   direction, NEGATIVE same-sha-different-case inserts normally, no/implausible sha256 = prior
   behaviour, same-identity retry falls through to update-in-place.
@@ -39,21 +39,21 @@ The email-attachment lane persisted evidence rows with NO sha256 (only the extra
 lane carried one). The hash is now computed at the ONE seam every evidence byte-stream passes
 through — blob landing — and carried to the persist call:
 
-- `orchestration/src/lib/blob.ts` — `uploadEvidenceBytes` returns `sha256` (hex, node:crypto).
-- `orchestration/src/functions/activities/fetchMessage.ts` — envelope `attachments[]` + `rawEml`
+- `services/orchestration/src/platform/blob.ts` — `uploadEvidenceBytes` returns `sha256` (hex, node:crypto).
+- `services/orchestration/src/workflows/intake/fetchMessage.ts` — envelope `attachments[]` + `rawEml`
   carry optional `sha256` (optional = replay-safe for envelopes checkpointed before the field).
-- `orchestration/src/functions/activities/classifyPersist.ts` — row assembly extracted into the
+- `services/orchestration/src/workflows/evidence/classifyPersist.ts` — row assembly extracted into the
   exported pure `buildBaseEvidenceRows()` (attachment + raw-`.eml` rows, sha256 carried); the
   ADR-0015 body-instruction row stamps `sha256` from its own upload.
-- `orchestration/src/lib/data-api.ts` — `persistEvidence` row type gains optional `sha256`.
+- `services/orchestration/src/adapters/data-api.ts` — `persistEvidence` row type gains optional `sha256`.
 - NOT changed: `registerBoxEvidence` (retro lane) registers BYTE-LESS rows from a Box folder
   LISTING (Box exposes sha1, not sha256) — already dedups on `box_file_id`; the `boxArchive`
   activity registers no rows (it stamps existing ones).
 - New `classifyPersist.test.ts` (5 cases). Orch suite 262/262 green; `tsc -b` clean.
 
-## box-webhook Function (functions/box-webhook/) — honest kind + sha256 at source
+## box-webhook Function (services/functions/box-webhook/) — honest kind + sha256 at source
 
-- `evidence_kind.py` (new): pure classifier mirroring the api/domain mapping exactly
+- `evidence_kind.py` (new): pure classifier mirroring the Data API/domain mapping exactly
   (packages/domain classification.ts + the TKT-124 re-kind delta): extension PRIMARY
   (jpg/jpeg/png → image; pdf/docx/doc → instruction; eml → email), MIME fallback for
   unknown/absent extensions (image/* wildcard → image; pdf/word → instruction;
@@ -69,7 +69,8 @@ through — blob landing — and carried to the persist call:
   (honest, never fails the write).
 - `data_api_client.py` `create_evidence`: forwards `sha256` onto the wire row (lowercase hex —
   matching the api's exact-match expectation), omitted when None.
-- Tests: `tests/test_evidence_kind.py` (mapping table) + receiver/data-api-client additions.
+- Tests: `services/functions/box-webhook/tests/test_evidence_kind.py` (mapping table) plus
+  receiver/data-api-client additions.
   box-webhook pytest 150 → 238, green.
 
 ## One-off audited cleanup of existing twins (LIVE, 2026-07-09)
@@ -102,7 +103,7 @@ One `duplicate_dropped` audit_event per affected case. Executed via the transien
   extracts that never reach EVA order).
 - **Honest remainder**: 214 same-name active rows remain in the BLOB↔BLOB class (the same
   filename re-attached across different emails) — indistinguishable from genuinely distinct
-  photos without a byte-hash backfill over historic blob rows (they predate sha256 stamping);
+  photos without a byte-hash backfill over prior blob rows (they predate sha256 stamping);
   new-ticket candidate.
 
 ## Remainders

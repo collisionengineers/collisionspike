@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-116",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-queue-not-ready-page1.png",
+      "originalFilename": "live-queue-not-ready-page1.png",
+      "sha256": "f95c489fdb35840106d240b356efda87c15de8fb55f68992ccb110b4947bb874",
+      "storagePath": "tests/fixtures/evidence/sha256/f9/f95c489fdb35840106d240b356efda87c15de8fb55f68992ccb110b4947bb874.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-queue-not-ready-page2-pager.png",
+      "originalFilename": "live-queue-not-ready-page2-pager.png",
+      "sha256": "1e6c09b5ae8275e63da5145bc414abfb1f15651686273ef0fd6739f4bffc7550",
+      "storagePath": "tests/fixtures/evidence/sha256/1e/1e6c09b5ae8275e63da5145bc414abfb1f15651686273ef0fd6739f4bffc7550.png"
+    }
+  ]
+}

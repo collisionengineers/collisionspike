@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "ticket": "TKT-102",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/followup-2026-07-13/✅ New completed lead Book Ashfaq in today.eml",
+      "originalFilename": "✅ New completed lead Book Ashfaq in today.eml",
+      "sha256": "2acec6863392250f9e2b1991e4c5447c5b289dfa61360874656a84e058f48992",
+      "storagePath": "tests/fixtures/evidence/sha256/2a/2acec6863392250f9e2b1991e4c5447c5b289dfa61360874656a84e058f48992.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/followup-2026-07-13/LINE_LEVEL_ESTIMATE.pdf",
+      "originalFilename": "LINE_LEVEL_ESTIMATE.pdf",
+      "sha256": "10490567e7eadeef9ddd926e2e1726b8a94826aff2769a59f60089e63d7df097",
+      "storagePath": "tests/fixtures/evidence/sha256/10/10490567e7eadeef9ddd926e2e1726b8a94826aff2769a59f60089e63d7df097.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/tractableexamples/✅ New completed lead Book  Kobi  in today.eml",
+      "originalFilename": "✅ New completed lead Book  Kobi  in today.eml",
+      "sha256": "38b8a4e9e749985cd301563e59771580f33e99d237f253741f42c7261e182e5e",
+      "storagePath": "tests/fixtures/evidence/sha256/38/38b8a4e9e749985cd301563e59771580f33e99d237f253741f42c7261e182e5e.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/tractableexamples/✅ New completed lead Book Imran in today.eml",
+      "originalFilename": "✅ New completed lead Book Imran in today.eml",
+      "sha256": "f5112b955b77c0e85618e1cf6bd9b68e50a2db685eebb4c179c3a9dcf0af7c99",
+      "storagePath": "tests/fixtures/evidence/sha256/f5/f5112b955b77c0e85618e1cf6bd9b68e50a2db685eebb4c179c3a9dcf0af7c99.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/tractableexamples/✅ New completed lead Book Jenosampaul  in today.eml",
+      "originalFilename": "✅ New completed lead Book Jenosampaul  in today.eml",
+      "sha256": "b3664ce49c2decb41d7ceb188867a68c63673ed03ba31bbeaab3c933e0341ca1",
+      "storagePath": "tests/fixtures/evidence/sha256/b3/b3664ce49c2decb41d7ceb188867a68c63673ed03ba31bbeaab3c933e0341ca1.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/tractableexamples/LINE_LEVEL_ESTIMATE.pdf",
+      "originalFilename": "LINE_LEVEL_ESTIMATE.pdf",
+      "sha256": "bcf5814a37c72298343dfe3a683b38f8517db977046f0b09c3afcf9bd75c85c6",
+      "storagePath": "tests/fixtures/evidence/sha256/bc/bcf5814a37c72298343dfe3a683b38f8517db977046f0b09c3afcf9bd75c85c6.pdf"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/tractableexamples/tractable.pdf",
+      "originalFilename": "tractable.pdf",
+      "sha256": "452b80d5abeea53374f93e1ea9dd91eed16e5cb02c4b23b329a09f0de65b486e",
+      "storagePath": "tests/fixtures/evidence/sha256/45/452b80d5abeea53374f93e1ea9dd91eed16e5cb02c4b23b329a09f0de65b486e.pdf"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/tractableexamples/tractable2.pdf",
+      "originalFilename": "tractable2.pdf",
+      "sha256": "2706c8e82761e63a54b5653c4501faeb06f36202cdbf991cae7e72e364819872",
+      "storagePath": "tests/fixtures/evidence/sha256/27/2706c8e82761e63a54b5653c4501faeb06f36202cdbf991cae7e72e364819872.pdf"
+    }
+  ]
+}

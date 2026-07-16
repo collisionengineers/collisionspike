@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-189",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/operator-source/1.png",
+      "originalFilename": "1.png",
+      "sha256": "9241a54e0da0b233afd8b211b337d714ff8d38658015c672fd3f751bdd706c8a",
+      "storagePath": "tests/fixtures/evidence/sha256/92/9241a54e0da0b233afd8b211b337d714ff8d38658015c672fd3f751bdd706c8a.png"
+    }
+  ]
+}

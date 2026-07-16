@@ -55,15 +55,15 @@ The first defective stage is the parser rule engine, not the existing value-forw
 
 The offline downstream trace is intact for a non-empty parser value:
 
-- `orchestration/src/functions/intakeOrchestrator.ts` forwards `exVal('claimant_name')` in
+- `services/orchestration/src/workflows/intake/intakeOrchestrator.ts` forwards `exVal('claimant_name')` in
   `parserEvaFields`.
 - `caseResolve` forwards the same envelope to `resolvePersist`.
-- `api/src/lib/parser-eva-fields.ts` selects `claimant_name` as `eva_claimant_name` with
+- `services/data-api/src/features/inbound/parser-eva-fields.ts` selects `claimant_name` as `eva_claimant_name` with
   `claimantName` provenance.
 - The persistence helper is fill-if-empty, so an existing staff value is not overwritten.
 
 This proves that the reproduced synthetic misses originate before persistence. It does **not** yet
-prove that every historical live blank has the same cause; the retained-source census must classify
+prove that every prior live blank has the same cause; the retained-source census must classify
 those separately.
 
 ## Implemented parser contract
@@ -109,29 +109,29 @@ those separately.
 
 - Sibling focused extraction suite: `76 passed, 1 skipped`.
 - Sibling full suite: `457 passed, 5 skipped, 5 failed`; all five failures are the recorded
-  Windows legacy-DOC/eval environment baseline (LibreOffice/antiword unavailable), not claimant
+  Windows earlier-DOC/eval environment baseline (LibreOffice/antiword unavailable), not claimant
   regressions.
 - Vendored immutable proof + claimant/contact/smoke slice: `41 passed, 2 skipped`.
 - Vendored full parser suite: `292 passed, 11 skipped, 1 failed`; the one failure is the recorded
   `ALS INSTRUCT 01.DOC` Windows extraction baseline (`NG63GHU` unavailable on this runner).
 - Repaired sibling focused extraction suite: `86 passed, 1 skipped`.
 - Repaired sibling full suite: `468 passed, 5 skipped, 5 failed`; the same five recorded
-  Windows legacy-DOC/eval environment failures remain.
+  Windows earlier-DOC/eval environment failures remain.
 - Final vendored immutable/claimant/contact/smoke slice: `54 passed, 2 skipped`.
 - Final vendored full parser suite: `305 passed, 11 skipped, 1 failed`; the same recorded ALS
-  legacy-DOC failure remains.
+  earlier-DOC failure remains.
 - Final-review repaired sibling focused extraction suite: `22 passed`.
 - Final-review repaired sibling full suite: `472 passed, 5 skipped, 5 failed`; the same five
-  recorded Windows legacy-DOC/eval environment failures remain.
+  recorded Windows earlier-DOC/eval environment failures remain.
 - Final vendored immutable/claimant/contact/smoke slice: `60 passed, 2 skipped`.
 - Final vendored full parser suite: `311 passed, 11 skipped, 1 failed`; the same recorded ALS
-  legacy-DOC failure remains.
+  earlier-DOC failure remains.
 - Exact-head repaired sibling focused extraction suite: `37 passed`.
 - Exact-head repaired sibling full suite: `487 passed, 5 skipped, 5 failed`; the same five recorded
-  Windows legacy-DOC/eval environment failures remain.
+  Windows earlier-DOC/eval environment failures remain.
 - Final vendored immutable/claimant/contact/smoke slice: `79 passed, 2 skipped`.
 - Final vendored full parser suite: `330 passed, 11 skipped, 1 failed`; the same recorded ALS
-  legacy-DOC failure remains.
+  earlier-DOC failure remains.
 
 ## Still required before TKT-150 can close
 

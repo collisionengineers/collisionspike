@@ -20,14 +20,14 @@ grant (done 2026-07-03) was never reached.
 - **Provisioned the queue** (the actual fix): management-plane PUT created
   `cespkorchstdev01/queueServices/default/queues/outlook-move` (2026-07-09; listing now shows it).
   Enqueue → consumer → Graph move → write-back is now end-to-end unblocked.
-- **Error mapping** (`api/src/lib/outlook-queue.ts` + `inbound.ts`): new `classifyEnqueueFailure`
+- **Error mapping** (`services/data-api/src/features/inbound/outlook-queue.ts` + `inbound.ts`): new `classifyEnqueueFailure`
   maps the failure families to machine-readable reasons + staff-facing sentences —
   `queue_missing` / `not_authorised` / `not_configured` / `no_identity` / `unavailable`; the route
   now `ctx.error`s the real exception (it previously lived only in the audit row), audits the
   reason, and returns `503 {error, reason, message}`; the gate-off 409 also carries a message.
-  Unit tests: `api/src/lib/outlook-queue.test.ts` (incl. the live QueueNotFound literal and a
+  Unit tests: `services/data-api/src/features/inbound/outlook-queue.test.ts` (incl. the live QueueNotFound literal and a
   no-engineering-language assertion on every rendered sentence).
-- **SPA failure UX** (`mockup-app/src/data/rest-client.ts` + `screens/Inbox.tsx`): the rest client
+- **SPA failure UX** (`apps/web/src/data/rest-client.ts` + `screens/Inbox.tsx`): the rest client
   now attaches the server's `message` to thrown errors (`serverMessageOf`); the File-to toast
   renders THAT plain-English sentence (e.g. "Outlook filing is not fully set up yet — the filing
   queue is missing. Ask the administrator.") instead of the raw technical line.

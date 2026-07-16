@@ -5,7 +5,7 @@ code-complete offline (final wave D2, 2026-07-09) — SPA deploy + live verifica
 
 ## Changes — TKT-137
 
-**SPA only (`mockup-app/src`); the server seam was already complete (producer + audited review/apply), it was purely unrendered.**
+**SPA only (`apps/web/src`); the server seam was already complete (producer + audited review/apply), it was purely unrendered.**
 
 - `screens/inbox-suggestions.ts` — added the triage_category selector family alongside the
   Phase-2 ref-gate helpers: `TRIAGE_CATEGORY_SUGGESTION_TYPE`, `triageCategoryValue`
@@ -27,10 +27,10 @@ code-complete offline (final wave D2, 2026-07-09) — SPA deploy + live verifica
   composition incl. unknown-token humanisation, malformed-value tolerance, applied-pair
   validation). Suite: 24 files / 353 tests green; `npm run build` green.
 
-**Producer shape consumed** (read-only confirmation): `api/src/functions/internal.ts`
+**Producer shape consumed** (read-only confirmation): `services/data-api/src/features/`
 L1929-1940 writes `suggested_value = { category, subtype, sourceMessageId? }` (tokens
 validated at write time); `rationale` is the ai_suggestion column, not part of the value.
-Accept-side apply: `api/src/functions/ai-suggestions.ts` L272-353 (relabel unless
+Accept-side apply: `services/data-api/src/features/assistant/register-suggestion-routes.ts` L272-353 (relabel unless
 classifier_mode='human', improvement signal + inbound_reclassified audit).
 
 **Semantics kept:** suggest-only (nothing changes until a person clicks), no engineering

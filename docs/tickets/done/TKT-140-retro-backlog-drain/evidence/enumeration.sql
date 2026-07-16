@@ -14,7 +14,7 @@
 --         (candidateRef/candidateVrm are envelope sniffs re-derived at drain time —
 --          not persisted; the persisted body_* columns are the enumeration proxy.)
 --   * CASE_PO_SHAPE_RE: ^((AP|A|D)\.[ ]?)?([A-Z]{2}\d{5}|[A-Z]{3,5}\d{5,6})$  (case-insens.)
---   * Rung-1 resolve-existing (api/src/functions/internal-retro.ts findExistingCases):
+--   * Rung-1 resolve-existing (services/data-api/src/features/inbound/retro-routes.ts findExistingCases):
 --       ref keys probe upper(case_po)=key OR upper(case_ref)=key; vrm probes
 --       case_.vrm = key (exact). r1_match_loose adds a whitespace/case-insensitive
 --       VRM compare (conservative: a loose match is treated as "already cased").
@@ -151,7 +151,7 @@ SELECT a.*,
 -- ---------------------------------------------------------------------------
 -- Output 3 — prior retro machinery outcomes (live mint-guard / ladder evidence).
 -- ---------------------------------------------------------------------------
-\o /mnt/c/Users/Alex/Documents/GitHub/collisionsuite/active/collisionspike/docs/tickets/now/TKT-140-retro-backlog-drain/evidence/enum-retro-audit-history.csv
+\o docs/tickets/done/TKT-140-retro-backlog-drain/evidence/enum-retro-audit-events.csv
 SELECT ca.name AS action, count(*) AS events,
        min(ae.occurred_at) AS first_seen, max(ae.occurred_at) AS last_seen
   FROM audit_event ae

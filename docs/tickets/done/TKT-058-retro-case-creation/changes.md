@@ -6,7 +6,7 @@
   (+ the shared `INTAKE_CHANNEL_LABELS` map); `intakeChannelKindCodec` union widened;
   `intake-channel.json` +2 options (parity with the canonical DDL — also fixes the
   pre-existing lag where a provider_api case decoded to the 'email' fallback).
-- `api/src/lib/mappers.ts`: fallback-semantics note (the 'email' default now only masks a
+- `services/data-api/src/shared/mapping/`: fallback-semantics note (the 'email' default now only masks a
   genuinely-NULL channel code).
 - SPA: CasePeekDrawer / CaseDetail / CaseList channel chips moved off the hardcoded
   `whatsapp ? 'WhatsApp' : 'Email'` ternaries onto `INTAKE_CHANNEL_LABELS` (a retro or
@@ -18,7 +18,7 @@
 
 ## 2026-07-04 — R3 built (Outlook `$search` fallback rung; ships dark)
 
-- `orchestration/src/lib/graph.ts`: `kqlPhrase` + `searchMessages` — Graph messages
+- `services/orchestration/src/adapters/graph.ts`: `kqlPhrase` + `searchMessages` — Graph messages
   `$search` per Microsoft Learn (verified this session, pinned in the function header):
   from/subject/body default targeting, sent-date ordering (client re-ranks), double-quoted
   clause, NO `$filter`/`$orderby` combining on messages (silent-failure risk), no
@@ -40,7 +40,7 @@
 
 ## 2026-07-04 — R2 built (Box archive reconstruction — the primary source; ships dark)
 
-- **Box client** (`functions/box-webhook/box_client.py`): dual RW/RO scope model —
+- **Box client** (`services/functions/box-webhook/box_client.py`): dual RW/RO scope model —
   `BOX_READONLY_ROOT_IDS` config, **split verification caches** (`_SCOPE_VERIFIED` RW-only /
   `_SCOPE_VERIFIED_RO` — a single cache would let an RO-verified id pass a later WRITE
   assertion), `_assert_readable_scope` (reads may target RW + RO roots; writes unchanged,
@@ -51,7 +51,7 @@
   fields widened (`type,size`). Routes: `POST box/search` (rootIds validated server-side),
   `GET box/files/{id}/content`. pytest: RO/RW matrix incl. the cache-split regression +
   search post-filter + download cap/host pins (135 total green).
-- **Parser wrapper** (`functions/parser/function_app.py` — repo-local, vendored engine
+- **Parser wrapper** (`services/functions/parser/function_app.py` — repo-local, vendored engine
   untouched per ADR-0018): `POST /explode-eml` (stdlib `email`; text/plain-preferred body,
   HTML-stripped fallback; nested `message/rfc822` re-emitted as `.eml`; signature-raster
   byte-floor skip (TKT-047); per-attachment + total caps; typed 400/422). 6 new pytest.
@@ -84,25 +84,26 @@
   `CASEREF_RE`), `normalizeCasePo`, `decideRetro`, `decideRetroStatus`, `parseCasePoMarker`,
   `matchPrincipalByCasePo`, `markerToCaseType`, `selectBoxInstructionCandidate`; barrel export;
   `gates.ts` + `retroCase` / `retroOutlookSearch` / `retroBoxArchiveRootIds`.
-- **Schema**: `migration/assets/schema/deltas/2026-07-04-retro-case.sql` (idempotent, additive
+- **Schema**: `database/migrations/2026-07-04-retro-case.sql` (idempotent, additive
   — `choice_audit_action` 100000046-48, `choice_intake_channel_kind` 100000003 `retro`) +
   the same rows appended to canonical `000_enums_lookups.sql`. NOT yet applied live.
 - **Data API** (`api`): `AUDIT_ACTION` + retro codes; exported the shared internals
   (`withServiceAuth`, `upsertInboundEmail`, `applyParserFields`, `isUniqueViolation`, envelope
-  types) from `functions/internal.ts` (no behaviour change); new `lib/retro-validate.ts`
-  (+tests) and `functions/internal-retro.ts` — `POST /api/internal/retro/resolve-existing`
+  types) from `services/data-api/src/features/` (no behaviour change); new
+  `services/data-api/src/features/inbound/retro-validate.ts` (+tests) and
+  `services/data-api/src/features/inbound/retro-routes.ts` — `POST /api/internal/retro/resolve-existing`
   (any-status link, never-re-point guard, ambiguity flag) + `POST /api/internal/retro/create`
   (get-or-create under triage locks, verbatim discovered PO, terminal-only-when-verified,
   conflict→link); registered in `src/index.ts`.
 - **Orchestration**: `lib/data-api.ts` + `retroResolveExisting`/`retroCreate`; new
-  `functions/gated/retro-case.ts` — `retroCaseOrchestrator` (ladder scaffold: rung 1 live,
+  `services/orchestration/src/workflows/retro/retro-case.ts` — `retroCaseOrchestrator` (ladder scaffold: rung 1 live,
   R2/R3 rungs stubbed), activities `retroFindTrigger`/`retroResolveExisting`/
   `retroRecordFailure`, keyed drain starter `POST /api/retro-case` (deterministic
   `retro-<id>` instance dedup); registered in `src/index.ts`; two additive `decideRetro` +
   `callSubOrchestratorWithRetry` hooks in `intakeOrchestrator.ts` (reply lane after
   `linkReply` non-linked; non-reply lane before its return).
 - **Verification**: domain 442→full-workspace 886 vitest green; api tsc + 153 tests green;
-  orch tsc green; esbuild bundles rebuilt (`deploy/api/main.cjs`, `deploy/orch/main.cjs`).
+  orch tsc green; esbuild bundles rebuilt (`.artifacts/deploy/data-api/main.cjs`, `.artifacts/deploy/orchestration/main.cjs`).
   Gates unset everywhere → live behaviour unchanged (ships dark).
 
 ## 2026-07-09 — PLAN-003 intake wave (reopened on the PHA5007 operator report; fixes shared with TKT-119)

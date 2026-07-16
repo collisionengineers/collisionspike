@@ -13,7 +13,10 @@ research-link: docs/adr/0011-work-provider-intermediary-garage-roles.md
 > **DEPLOYED + BACKFILLED 2026-07-06** — forward fix live on `cespk-orch-dev` + `cespk-api-dev`;
 > the 20 already-mislabelled cases are re-resolved/cleaned live. **VERIFIED-LIVE 2026-07-10** — the
 > live-occurrence probe met at volume (see [verification.md](./verification.md)); the QDOS
-> `known_email_domains` item re-homed to gated.md D3.
+> `known_email_domains` item re-homed to ticket board D3.
+
+The implementation record is in [changes.md](./changes.md); the live proof is in
+[verification.md](./verification.md).
 
 ## Problem
 
@@ -25,13 +28,13 @@ Data-API denylist + the D9 corpus delta) only ever **stopped the wrong label** �
 
 ### Root cause (code-verified, engine-v2.6 live)
 
-An audit email = a PCH/QDOS **instruction** (often a legacy `.doc`) **plus an attached third-party
+An audit email = a PCH/QDOS **instruction** (often a earlier `.doc`) **plus an attached third-party
 "Exclusive Vehicle Assessors" report** (`.pdf`, parser layout "EVA (Engineers)",
 `engineer_report:true`). The provider went blank via a three-way interaction:
 
-1. `orchestration/src/functions/activities/parse.ts::selectInstructionIndex` picked the **wrong
+1. `services/orchestration/src/workflows/intake/parse.ts::selectInstructionIndex` picked the **wrong
    document**: signal 1 (extraction `work_provider`) is empty for the `.doc` (FC1 has no reliable
-   legacy `.doc` reader → 422 → candidate dropped) and `''` for the EVA report (v2.6 suppression);
+   earlier `.doc` reader → 422 → candidate dropped) and `''` for the EVA report (v2.6 suppression);
    signal 2 misses (the audit instruction content-types as `report`, the EVA report as `instruction`
    but engineer-report-excluded); signal 3 fell through to **PDF-first → the EVA report**.
 2. engine-v2.6 blanks the selected EVA report's `work_provider`.
@@ -50,23 +53,23 @@ An audit email = a PCH/QDOS **instruction** (often a legacy `.doc`) **plus an at
   field extraction (**1a**). `intakeOrchestrator.ts` prefers this over the chosen envelope's value.
 - `parse.ts` `selectInstructionIndex` signal-3 never chooses an engineer-report layout over a
   non-engineer candidate (**1b**).
-- `api/src/functions/internal.ts` `applyParserFields` — single-candidate intermediary fallback: fill
+- `services/data-api/src/features/` `applyParserFields` — single-candidate intermediary fallback: fill
   `work_provider_id` when content-match is unmatched/denylisted and the sender's intermediary routes
   for exactly one provider; **>1 stays Held, never guessed** (**1c**).
 - Tests: `parse.test.ts` selection + `resolveWorkProviderAcrossDocs`; `apply-parser-fields.test.ts`.
 
 **Backfill (applied live 2026-07-06,
-`migration/assets/schema/deltas/2026-07-06-backfill-eva-mislabelled-cases.sql`):** 20 pre-fix cases —
+`database/migrations/2026-07-06-backfill-eva-mislabelled-cases.sql`):** 20 pre-fix cases —
 re-resolved 14 (direct `pch-ltd.com` senders → PCH, unambiguous), cleared all 20 free-text labels +
 20 stale `workProvider` provenance rows. The 6 `connexus.co.uk` intermediary-only cases ({PCH,SBL})
 left blank + Held for a human (never guessed). No Case/PO minted (ADR-0022 cutover concern).
 
-**Also:** `migration/assets/schema/deltas/2026-07-06-pch-display-name.sql` — PCH `display_name`
+**Also:** `database/migrations/2026-07-06-pch-display-name.sql` — PCH `display_name`
 "PCH (name pending)" → "Performance Car Hire" (so the resolved cases show the real name).
 
 ## Known contributing cause (scoped follow-up — not blocking)
 
-Legacy binary `.doc` is unreadable on the FC1 Linux host, which is why signal 1 is empty for `.doc`
+earlier binary `.doc` is unreadable on the FC1 Linux host, which is why signal 1 is empty for `.doc`
 instructions. The real fix is the already-known **parser container migration** (ROADMAP Later) or
 upstream `.docx`/PDF. 1a makes the pipeline resolve correctly for every *readable* instruction
 (`.docx`/PDF/body) regardless.

@@ -9,16 +9,16 @@ new-case form, same batch).
 **Label rename (no collision with "Image Based Assessment")**:
 - `packages/domain/src/model/queues.ts`: `CASE_TYPE_LABELS.images_only` → **"Images received —
   awaiting instructions"**; new `CASE_TYPE_SHORT_LABELS` ("Awaiting instructions") for tight chrome.
-- `mockup-app/src/screens/ManualIntake.tsx`: the entry button renamed **"Images only (no
+- `apps/web/src/features/intake/ManualIntake.tsx`: the entry button renamed **"Images only (no
   instructions yet)"** (was "Image based (images only)"); dropzone copy updated. Grep confirms no
   rendered "Image based" wording remains for the composition sense — every remaining "Image Based
   Assessment" string is the inspection METHOD (correct).
 
 **VRM as the primary identifier (no Case/PO before instructions)**:
-- `mockup-app/src/screens/CaseList.tsx`: the Case/PO cell of a pre-mint case now shows the **VRM in
+- `apps/web/src/features/cases/CaseList.tsx`: the Case/PO cell of a pre-mint case now shows the **VRM in
   mono + a muted "by registration" line** (tooltip: "No Case/PO yet — identified by the registration
   until instructions arrive") instead of a bare em-dash.
-- `mockup-app/src/screens/CaseDetail.tsx`: the header fallback reads **"No Case/PO yet — identified
+- `apps/web/src/features/cases/CaseDetail.tsx`: the header fallback reads **"No Case/PO yet — identified
   by registration"** beside the large VRM plate.
 - Search already keys on VRM (global search + queue search hay include `vrm`); `caseDisplayName`
   (row labels) was already VRM-first — verified, not rebuilt.

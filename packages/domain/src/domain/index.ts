@@ -5,7 +5,7 @@
    intake flows (Phase-1 plan §5.2 / §5.3 / §5.8 / §5.9). Mirrors collisioncc
    semantics (graph-intake classification, ADR-0010 dedup/case-linking,
    provider-by-domain, inspection-address policy) WITHOUT importing or calling
-   it. The Power Automate flows mirror these tables; the Code App reuses them.
+   it. Runtime services and the web app consume the same tables.
    ============================================================ */
 
 export * from './classification';

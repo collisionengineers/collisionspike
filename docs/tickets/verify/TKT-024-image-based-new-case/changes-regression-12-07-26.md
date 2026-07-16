@@ -17,6 +17,6 @@ This follow-up removes the remaining Insured Name input and repairs the field gr
 
 ## Offline evidence
 
-- `npm run test --workspace mockup-app -- --run src/screens/ManualIntake.test.tsx` — 1 file, 3 rendered component tests passed.
-- `npm run test --workspace mockup-app` — 47 files, 506 tests passed.
-- `npm run build --workspace mockup-app` — production TypeScript/Vite build passed.
+- `npm run test --workspace @cs/web -- --run src/features/intake/ManualIntake.test.tsx` — 1 file, 3 rendered component tests passed.
+- `npm run test --workspace @cs/web` — 47 files, 506 tests passed.
+- `npm run build --workspace @cs/web` — production TypeScript/Vite build passed.

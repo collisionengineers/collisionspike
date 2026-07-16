@@ -1,13 +1,13 @@
 # Evidence — TKT-041 (cancelled/closed-case emails)
 
 The evidence for this ticket is the corpus of 13 real `.eml` samples kept in the sibling
-[`source-emails/cancelled-cases/`](../source-emails/cancelled-cases/) directory (a mix of cancellation,
+[`source-emails/cancelled-cases/`](../evidence-manifest.json) directory (a mix of cancellation,
 closure, instruction and estimate mails — useful as both positives and near-miss negatives for the eval
 corpus).
 
 **Why the samples live under `source-emails/`, not moved directly into `evidence/`.** The eval harness
-references every one of these 13 files by its exact path in `scripts/eval-email/manifest.json` (manifest ids
-`tkt041-*`), and `scripts/check-tickets.mjs` fails if any of those manifest paths stop resolving. Relocating
+references every one of these 13 files by its exact path in `scripts/evaluation/email/manifest.json` (manifest ids
+`tkt041-*`), and `scripts/checks/check-tickets.mjs` fails if any of those manifest paths stop resolving. Relocating
 the files would break the harness and the ticket gate — and `manifest.json` is outside `docs/tickets/**` — so
 the samples stay at their manifest-referenced path and this README is the `evidence/` pointer to them.
 

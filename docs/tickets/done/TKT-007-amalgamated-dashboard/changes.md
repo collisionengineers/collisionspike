@@ -8,7 +8,7 @@ Done — amalgamated dashboard endpoint, hooks, and UI are wired.
   data hooks, and the UI that joins the case-pipeline summary with inbound-email triage at a glance.
 
 ## Files touched
-- `api/src/functions/dashboard.ts` (endpoint) + `api/src/functions/dashboard.test.ts`.
+- `services/data-api/src/features/cases/dashboard-routes.ts` (endpoint) + `services/data-api/src/features/cases/dashboard-routes.test.ts`.
 - SPA dashboard component + data hooks (within the `94902ce` change set).
 
 ## Summary

@@ -9,11 +9,11 @@ done — multi-format extraction + the field-drop fix are implemented and verifi
 - `20b114f` — fix(intake): persist full parser EVA extraction on email-minted cases → maps the parser output into the EVA columns + `field_level_provenance` so the extracted fields actually land on the case.
 
 ## Files touched
-- `api/src/lib/parser-eva-fields.ts` (+ `parser-eva-fields.test.ts`)
-- `api/src/functions/internal.ts`
-- `orchestration/src/lib/data-api.ts`
-- `orchestration/src/functions/activities/caseResolve.ts`
-- `orchestration/src/functions/intakeOrchestrator.ts`
+- `services/data-api/src/features/inbound/parser-eva-fields.ts` (+ `parser-eva-fields.test.ts`)
+- `services/data-api/src/features/`
+- `services/orchestration/src/adapters/data-api.ts`
+- `services/orchestration/src/workflows/intake/caseResolve.ts`
+- `services/orchestration/src/workflows/intake/intakeOrchestrator.ts`
 
 ## Summary
 The regression was that the parser output was not being persisted into the case's EVA columns, so only the registration survived. The fix re-establishes the parse.ts→parser contract and maps each extracted field into its EVA column plus a provenance row. Extraction now spans PDF/.doc/.docx/.eml/.msg via the vendored cedocumentmapper engine. Live cases confirm multiple EVA fields and provenance rows populating from real instructions.

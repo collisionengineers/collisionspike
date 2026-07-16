@@ -7,7 +7,7 @@ included); awaiting live-proof pass (JSON read seam / SPA render) before `verify
 
 ## Commits
 - ONE commit on `feat/backlog-drain` (hash in the dispatch return report / `git log
-  --follow` on `api/src/lib/overview-chase.ts`) — detector + seam wiring + tests + bundle
+  --follow` on `services/data-api/src/features/cases/overview-chase.ts`) — detector + seam wiring + tests + bundle
   + these ticket artifacts. It also CARRIES the dispatching loop's already-staged ticket
   folder moves (TKT-146 now→verify, TKT-148 backlog→now, BOARD/README rows): the
   pre-commit doc gate enumerates the commit's index and crashes on half-committed folder
@@ -15,16 +15,16 @@ included); awaiting live-proof pass (JSON read seam / SPA render) before `verify
   made by the dispatching loop's ticket-move script, not by this implementation.
 
 ## Files touched
-- `api/src/lib/overview-chase.ts` (NEW) — the detector: pure predicate + guarded mint.
-- `api/src/lib/overview-chase.test.ts` (NEW) — 17 offline tests (predicate boundaries,
+- `services/data-api/src/features/cases/overview-chase.ts` (NEW) — the detector: pure predicate + guarded mint.
+- `services/data-api/src/features/cases/overview-chase.test.ts` (NEW) — 17 offline tests (predicate boundaries,
   mint shape, idempotency, advisory never-throws, handler-plain copy).
-- `api/src/functions/cases.ts` — staff-side `recomputeStatus` now runs the detector on
+- `services/data-api/src/features/cases/` — staff-side `recomputeStatus` now runs the detector on
   EVERY evaluation (the early return on unchanged status became a conditional block —
   a merge can add photos while the status stays `missing_images`).
-- `api/src/functions/internal.ts` — internal `recomputeStatus` (the orchestration
+- `services/data-api/src/features/` — internal `recomputeStatus` (the orchestration
   status-evaluate seam the TKT-146 classify sweep re-invokes per stamped case) runs the
   detector too.
-- `docs/tickets/now/TKT-148-overview-photo-chaser/{changes,verification}.md` + `evidence/`
+- `docs/tickets/done/TKT-148-overview-photo-chaser/{changes,verification}.md` + `evidence/`
   (one-shot-run.md, one-shot-backup-candidates.csv, one-shot-minted.csv).
 
 ## Summary
@@ -40,7 +40,7 @@ existing backfilled corpus: 31 cases, 31 drafted chases, backup CSV before minti
 
 ## Decisions of record
 - **N = 5** (`OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES`, code constant in
-  `api/src/lib/overview-chase.ts`) — minimum accepted photos before an overview-less set
+  `services/data-api/src/features/cases/overview-chase.ts`) — minimum accepted photos before an overview-less set
   is chased.
 - **Overview candidate = accepted, non-excluded image with role `overview`, regardless of
   `registration_visible`** (the ticket-brief letter: "zero overview-role candidates"). A
@@ -78,7 +78,7 @@ existing backfilled corpus: 31 cases, 31 drafted chases, backup CSV before minti
 
 ## Deploys
 - `cespk-api-dev` 2026-07-10: bundle rebuilt (`npm run build --prefix api` →
-  `node build-api.cjs` → `npm install --prefix deploy/api --omit=dev` → local
+  `node scripts/build/build-api.cjs` → `npm install --prefix .artifacts/deploy/data-api --omit=dev` → local
   `require(main.cjs)` smoke → `func azure functionapp publish` from Windows).
   Function count 96 (unchanged), state Running, no-auth 401, App Insights clean
   (94×200 + 5×204, zero exceptions in the 15-min window). No orch change (the detector is

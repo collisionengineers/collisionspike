@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "ticket": "TKT-024",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/1.png",
+      "originalFilename": "1.png",
+      "sha256": "a93ecd5574b6da2b9904f0f68500d266fb325cb0d1894151f0c169b7c58a45a4",
+      "storagePath": "tests/fixtures/evidence/sha256/a9/a93ecd5574b6da2b9904f0f68500d266fb325cb0d1894151f0c169b7c58a45a4.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/2.png",
+      "originalFilename": "2.png",
+      "sha256": "6abc3c9f58f7a25ba1c114463cb0d784342fc7fc53d74d7ea7d5d5c47ab18f3e",
+      "storagePath": "tests/fixtures/evidence/sha256/6a/6abc3c9f58f7a25ba1c114463cb0d784342fc7fc53d74d7ea7d5d5c47ab18f3e.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/3.png",
+      "originalFilename": "3.png",
+      "sha256": "e2436a1157f2eb908f5b59e4f564f54209e1841b2d226d2e7d6f6a2957cf49fc",
+      "storagePath": "tests/fixtures/evidence/sha256/e2/e2436a1157f2eb908f5b59e4f564f54209e1841b2d226d2e7d6f6a2957cf49fc.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/4.png",
+      "originalFilename": "4.png",
+      "sha256": "f77c7279ca6341c6a1f45782f46f95d03fd682337bfbcb342e16f852bffb9527",
+      "storagePath": "tests/fixtures/evidence/sha256/f7/f77c7279ca6341c6a1f45782f46f95d03fd682337bfbcb342e16f852bffb9527.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/current-form-layout.png",
+      "originalFilename": "current-form-layout.png",
+      "sha256": "a1447d8cadb60b1aef13655b4afa2a33f6f257baa9febdab47673616e323e69f",
+      "storagePath": "tests/fixtures/evidence/sha256/a1/a1447d8cadb60b1aef13655b4afa2a33f6f257baa9febdab47673616e323e69f.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-images-only-form.png",
+      "originalFilename": "live-images-only-form.png",
+      "sha256": "aab9ce8902ce394cf099f31cc9704eabd97c2b7fe59beb350674a7b2983ba732",
+      "storagePath": "tests/fixtures/evidence/sha256/aa/aab9ce8902ce394cf099f31cc9704eabd97c2b7fe59beb350674a7b2983ba732.png"
+    }
+  ]
+}

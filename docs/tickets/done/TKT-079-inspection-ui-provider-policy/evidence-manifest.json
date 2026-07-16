@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-079",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/tkt079-fw-expanded.png",
+      "originalFilename": "tkt079-fw-expanded.png",
+      "sha256": "645e2789bfd72e842a4571a053cb4e441669fc2a6268c45c2b1185169300f8ea",
+      "storagePath": "tests/fixtures/evidence/sha256/64/645e2789bfd72e842a4571a053cb4e441669fc2a6268c45c2b1185169300f8ea.png"
+    }
+  ]
+}

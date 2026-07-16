@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-127",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-generate-5-suggestions-2026-07-08.png",
+      "originalFilename": "live-generate-5-suggestions-2026-07-08.png",
+      "sha256": "592abaaa7d9cc93c0b4756c262c8a8f4b5b85443e127e81b1ac94ec9f90342a3",
+      "storagePath": "tests/fixtures/evidence/sha256/59/592abaaa7d9cc93c0b4756c262c8a8f4b5b85443e127e81b1ac94ec9f90342a3.png"
+    }
+  ]
+}

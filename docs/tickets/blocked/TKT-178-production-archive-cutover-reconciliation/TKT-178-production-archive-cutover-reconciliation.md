@@ -43,7 +43,7 @@ Those operator inputs are necessary but not sufficient. Before the zero-write pr
 cutover executor and every prerequisite contract must exist at one exact reviewed commit/artifact set and
 have independent evidence. The dependency manifest classifies TKT-004, TKT-009, TKT-052, TKT-094, TKT-095,
 TKT-158, TKT-175 and TKT-177 as hard gates; none may remain `blocked`, `backlog` or `verify`. TKT-063,
-TKT-096 and TKT-140 are compatibility/evidence dependencies whose deployed contracts must still match the
+TKT-096 and TKT-140 are continuity/evidence dependencies whose deployed contracts must still match the
 rehearsed release. A status change alone is not evidence. A branch, stub, dark no-op, unverified ticket or
 locally modified executor is not implementation readiness.
 
@@ -68,7 +68,7 @@ locally modified executor is not implementation readiness.
 - Add a canonical batch Case/PO cutover-mapping service. The current one-case `PATCH` route cannot lock and
   atomically move a swap/cycle component and must not be looped as the cutover executor.
 - Add a cutover allocator health/fail-closed mode: `mintCasePo` currently falls back to database maximum when
-  a floor read fails, which is unsafe while historical floors are authoritative.
+  a floor read fails, which is unsafe while prior floors are authoritative.
 - Add a signed-run/fence-token exact-destination webhook-staging operation plus a durable Box-event hold. The
   current facade rejects a production target outside its mirror write root and the active receiver writes
   evidence/status synchronously; production events must ACK/enqueue durably without those writes until release.
@@ -94,7 +94,7 @@ locally modified executor is not implementation readiness.
 - **A3.** The signed job sheet alone defines the active-job roster. A deterministic ledger accounts for the
   union of every signed-sheet row, every scoped application case and relationship including completed,
   held, unnumbered, retired and merged lineage, every scoped Archive source/destination object including
-  unparseable names, every EVA result, and every valid historical Case/PO allocation needed to establish a prefix
+  unparseable names, every EVA result, and every valid prior Case/PO allocation needed to establish a prefix
   maximum. Archive, EVA and read-only Outlook are completion/correlation evidence; they cannot add or remove
   an active job. A roster-membership correction requires a newly signed/checksummed sheet amendment plus a
   regenerated ledger/hash and named approval. A disposition may classify evidence/conflict/out-of-scope but
@@ -165,7 +165,7 @@ locally modified executor is not implementation readiness.
   webhook staging and the Box-event buffer prove pre-root readback plus no fenced writes; source-bearing Graph
   telemetry proves durable origin; and the
   deterministic compiler executes the exact approved hashed bytes; and allocator health/floor reads fail
-  closed for every mint while any historical floor remains authoritative (or until a separately proved
+  closed for every mint while any prior floor remains authoritative (or until a separately proved
   per-prefix graduation establishes DB maximum at/above that floor). A stub, dark no-op, process-local cache, raw
   helper output or undocumented manual provider action fails preflight. A dependency/version manifest records
   each hard gate, evidence-only dependency and post-cutover item with owner, verdict and immutable versions:
@@ -184,7 +184,7 @@ locally modified executor is not implementation readiness.
   assign finals, assert row counts/uniqueness/post-state, and roll back the whole component on mismatch.
   Status deactivation does not release the index and is not a staging mechanism. Archive rename cycles use
   their separately checkpointed temporary-name saga and inverses. Unsupported components remain held. Floors
-  are the maximum of every valid historical allocation per prefix, not merely current active jobs. EVA submission is an
+  are the maximum of every valid prior allocation per prefix, not merely current active jobs. EVA submission is an
   irreversible business-event commit point: before vendor acceptance/unknown response, the durable typed
   inverse stack is popped in strict LIFO checkpoint order with each postcondition verified; after it, recovery
   is forward-only unless a separate business-authorized compensation exists.
@@ -200,7 +200,7 @@ locally modified executor is not implementation readiness.
   while pre-existing cutover rows follow their typed inverses.
 
 ## Validation
-- **Offline/rehearsal:** run the full ledger and executor against a production-shaped snapshot and synthetic Archive/Outlook/EVA fixtures covering every source-only union class and explicit out-of-scope balance; a historical maximum visible only on terminal/retired/EVA/Archive evidence; two-way swaps, three-way cycles, chains into occupied targets, many-to-one refusal, stale versions, failure before/after temporary staging; duplicate bytes, different same-name bytes, nested folders, response loss, worker recycle, floor-read failure, concurrent scoped writes and interrupted execution. Prove no temporary/NULL Case/PO can commit, prove permanent/per-prefix floor fail-closed behavior, exercise consumed ingress nomination, one-shot leases and timebox expiry, and preserve all genuine canary bytes/edits through compensation while proving scoped fence, queue resume, EVA idempotency and per-row database/Archive inverses without rewinding unrelated work.
+- **Offline/rehearsal:** run the full ledger and executor against a production-shaped snapshot and synthetic Archive/Outlook/EVA fixtures covering every source-only union class and explicit out-of-scope balance; a prior maximum visible only on terminal/retired/EVA/Archive evidence; two-way swaps, three-way cycles, chains into occupied targets, many-to-one refusal, stale versions, failure before/after temporary staging; duplicate bytes, different same-name bytes, nested folders, response loss, worker recycle, floor-read failure, concurrent scoped writes and interrupted execution. Prove no temporary/NULL Case/PO can commit, prove permanent/per-prefix floor fail-closed behavior, exercise consumed ingress nomination, one-shot leases and timebox expiry, and preserve all genuine canary bytes/edits through compensation while proving scoped fence, queue resume, EVA idempotency and per-row database/Archive inverses without rewinding unrelated work.
 - **Future signed-in/live preflight (blocked now):** after implementation readiness, the signed job sheet,
   EVA and production
   Archive authority exist, record the successful EVA contract probe plus authenticated read-only

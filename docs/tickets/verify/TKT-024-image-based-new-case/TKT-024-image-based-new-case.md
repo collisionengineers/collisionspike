@@ -66,6 +66,6 @@ Distilled 2026-06-30 from an operator drop-note; raw material in [evidence/](./e
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
-- [Current form screenshot](./evidence/current-form-layout.png)
+- [Current form screenshot](./evidence-manifest.json)
 - [Regression changes](./changes-regression-12-07-26.md)
 - [Operator follow-up](./evidence/operator-followup-12-07-26.md)

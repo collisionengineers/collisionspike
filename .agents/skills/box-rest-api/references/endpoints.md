@@ -1,48 +1,36 @@
-# Box REST endpoints — request/response field detail
+# Box endpoint surface
 
-Field-level depth for the unified operations in `SKILL.md`. Re-read **developer.box.com** +
-`automationsresearch/box/markdown` for exhaustive schemas; this is the distilled surface the pivot uses.
+All requests carry a server-minted bearer token. Back off on `429` and preserve
+the response status for retry decisions.
 
-## CreateFolder — `POST /2.0/folders`
-- Body: `{ "name": "<UPPERCASE Case/PO>", "parent": { "id": "<BoxArchiveRootId>" } }`.
-- `201` → `{ id, name, parent, ... }`. Stamp `id` → `cr1bd_boxfolderid`.
-- `409 item_name_in_use` → folder already exists; treat as idempotent success. The conflicting id is in
-  `context_info.conflicts[0].id` — read it back rather than failing. Box folder names are
-  **case-insensitive** for collision, so `AX26001` and `ax26001` collide.
+## Folders
 
-## CopyFileRequest — `POST /2.0/file_requests/{templateId}/copy`
-- The **only** create path (no create-from-scratch). Body: `{ "folder": { "id": "<folderId>" },
-  "status": "active", "expires_at": "<ISO8601, optional>" }`.
-- `200` → the new File Request `{ id, url, folder, status, ... }`. `url` is the public upload link →
-  return as `fileRequestUrl`. The capture form (incl. the `vehicle_registration` metadata field) is
-  **baked into the template** and cannot be varied by copy.
-- One File Request per folder (a second copy onto the same folder is a duplicate).
+- `POST /2.0/folders` with `{name, parent:{id}}` creates the uppercase Case/PO
+  folder. A `409 item_name_in_use` is an idempotency signal; resolve and reuse the
+  conflicting folder id.
+- `GET /2.0/folders/{id}/items` lists contents. Paginate before comparing items
+  with evidence records.
+- `PUT /2.0/folders/{id}?fields=shared_link` creates or updates a folder link.
 
-## GetSharedLink / GetFolderSharedLink — `PUT /2.0/files/{id}?fields=shared_link` · `PUT /2.0/folders/{id}?fields=shared_link`
-- Two **separate operationIds** (the connector + connection-reference + Code App split file vs folder):
-  `GetSharedLink` = the **file** variant (`PUT /2.0/files/{id}`); `GetFolderSharedLink` = the **folder**
-  variant (`PUT /2.0/folders/{id}`). The generated `*Service` method names equal these.
-- Body (identical for both): `{ "shared_link": { "access": "<open|company|collaborators>",
-  "permissions": { "can_download": true } } }`. Returns `shared_link.url` (+ `shared_link.download_url`
-  for files).
-- "Open in Box" surfaces the **folder** link (`GetFolderSharedLink`); the (not-pursued) iframe embed
-  would need that folder link's `/embed/s/{token}` form.
+## Files
 
-## ListFolder — `GET /2.0/folders/{id}/items?fields=id,name,created_at,modified_at`
-- The op for the reconciliation sweep — a **deferred, not-yet-built** secondary backstop (documented,
-  not wired; Box's retry on the receiver's non-2xx is the primary recovery today). When built it would
-  paginate with `limit`/`offset` (or marker) and compare against Dataverse Evidence rows to detect
-  dropped `FILE.UPLOADED` events.
+- `POST /2.0/files/content` uploads bytes.
+- `GET /2.0/files/{id}/content` downloads bytes through the server-side function.
+- `PUT /2.0/files/{id}?fields=shared_link` creates or updates a file link.
 
-## CreateWebhook — `POST /2.0/webhooks`
-- Body: `{ "target": { "id": "<folderId>", "type": "folder" }, "address": "<https endpoint>",
-  "triggers": ["FILE.UPLOADED"] }`. Prefer one webhook on the **archive root** over per-case.
-- `409` if a duplicate target+app+user webhook already exists.
-- Lifecycle: `GET /2.0/webhooks/{id}`, `DELETE /2.0/webhooks/{id}`, `GET /2.0/webhooks` (list).
+## File requests
 
-## File-Request lifecycle — `GET` / `PUT` / `DELETE /2.0/file_requests/{id}`
-- `PUT` with `{ "status": "inactive" }` deactivates (stops uploads) without deleting; `"active"`
-  re-enables. `DELETE` removes it. `GET` reads current state.
+- `POST /2.0/file_requests/{templateId}/copy` copies the approved template to a
+  case folder and returns the upload URL.
+- `GET`, `PUT`, and `DELETE /2.0/file_requests/{id}` read, activate/deactivate,
+  or remove the request.
 
-> All calls carry `Authorization: Bearer <CCG token>` minted in the Function (never the connector).
-> Rate limits: ~1000/min/user (Box) and ~100/connection/60s (connector) — back off on `429`.
+## Webhooks
+
+- `POST /2.0/webhooks` creates a folder webhook for `FILE.UPLOADED`.
+- `GET` or `DELETE /2.0/webhooks/{id}` reads or removes it.
+- Prefer one webhook on the approved archive root. A duplicate target/app/user
+  combination returns `409`.
+
+The application-facing wrapper routes are registered in
+`services/functions/box-webhook/function_app.py` and are the stable public surface.

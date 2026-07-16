@@ -5,9 +5,9 @@ FAILED — core dashboard behavior is live, but narrow-layout and focus-contrast
 
 ## Evidence
 - Release tests — PASS: domain 551, SPA 421, API 585 and reciprocal-review 48.
-- `npm run build --workspace mockup-app` — PASS; TypeScript and the Vite production build completed.
-- `mockup-app/src/screens/dashboard-layout.test.ts` — 8 focused component-contract tests cover exactly three queue cards, canonical counts/routes, removed regions, healthy and zero data, section-only Inbox failure, loading space, reading order, responsive structure and handler-language rules.
-- `mockup-app/src/data/rest-client.test.ts` proves an Inbox-count 5xx rejects instead of being silently converted to zero.
+- `npm run build --workspace @cs/web` — PASS; TypeScript and the Vite production build completed.
+- `apps/web/src/features/dashboard/dashboard-layout.test.ts` — 8 focused component-contract tests cover exactly three queue cards, canonical counts/routes, removed regions, healthy and zero data, section-only Inbox failure, loading space, reading order, responsive structure and handler-language rules.
+- `apps/web/src/data/rest-client.test.ts` proves an Inbox-count 5xx rejects instead of being silently converted to zero.
 - Commit hook gates — PASS: documentation links, all 164 tickets / 4 plans, and skill sync.
 
 ## Live evidence — 2026-07-12
@@ -58,7 +58,7 @@ FAILED block documents the superseded pre-repair asset and cannot certify or fai
 
 - Acceptance 1 (`TKT-155...md:31`) — the 2026-07-12 signed-in pass showed exactly Not ready 204,
   Review 191 and Held 124, matching left-navigation counts, and all three correct routes
-  (`verification.md:13-27`; `.azure/deployment-plan.md:109-113`). Current production JS still
+  (`verification.md:13-27`; `docs/operations/live-environment.md:109-113`). Current production JS still
   contains the three canonical queue definitions/routes and repaired shell.
 - Acceptance 2 (`:32`) — that pass proved the old Needs action region, both lists, Show all controls
   and lower queue-count region absent (`verification.md:17-18`; deployment plan `:113`).

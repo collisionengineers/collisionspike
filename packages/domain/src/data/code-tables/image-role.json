@@ -1,0 +1,14 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "image_role",
+  "displayName": "Image Role",
+  "description": "Evidence.imageRole — mirrors collisioncc image-rules. Default is `unknown`; role tagging is MANUAL until M2 image AI. EVA image-rules require >=1 overview (registration visible) + >=1 damage_closeup.",
+  "default": "unknown",
+  "options": [
+    { "value": 100000000, "name": "overview",        "label": "Overview" },
+    { "value": 100000001, "name": "damage_closeup",  "label": "Damage Closeup" },
+    { "value": 100000002, "name": "additional",      "label": "Additional" },
+    { "value": 100000003, "name": "unknown",         "label": "Unknown" }
+  ]
+}

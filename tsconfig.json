@@ -2,7 +2,8 @@
   "files": [],
   "references": [
     { "path": "./packages/domain" },
-    { "path": "./api" },
-    { "path": "./orchestration" }
+    { "path": "./services/data-api" },
+    { "path": "./services/orchestration" },
+    { "path": "./apps/web" }
   ]
 }

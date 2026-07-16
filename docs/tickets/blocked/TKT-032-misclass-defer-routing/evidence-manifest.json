@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "ticket": "TKT-032",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/audatex-request/BUNDLE.PDF",
+      "originalFilename": "BUNDLE.PDF",
+      "sha256": "1e5c41a77985731982d6ec7e6af291984ecf1c96ab75c836b489fde676a20b4d",
+      "storagePath": "tests/fixtures/evidence/sha256/1e/1e5c41a77985731982d6ec7e6af291984ecf1c96ab75c836b489fde676a20b4d.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/audatex-request/Our ref 575689.eml",
+      "originalFilename": "Our ref 575689.eml",
+      "sha256": "5f5f73e9a7e8c3f664b724e1fa9e23c9e36f5c73e8569feff871df22a9fdd60a",
+      "storagePath": "tests/fixtures/evidence/sha256/5f/5f5f73e9a7e8c3f664b724e1fa9e23c9e36f5c73e8569feff871df22a9fdd60a.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/pcd-diminution/16DL - Diminution - 2026-06-29_Manual.pdf",
+      "originalFilename": "16DL - Diminution - 2026-06-29_Manual.pdf",
+      "sha256": "170b7f7cccd0eea72e830440ebd5d4483ae22714f3edd99220a2b0adf0ca4b7b",
+      "storagePath": "tests/fixtures/evidence/sha256/17/170b7f7cccd0eea72e830440ebd5d4483ae22714f3edd99220a2b0adf0ca4b7b.pdf"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/pcd-diminution/16DL.pdf",
+      "originalFilename": "16DL.pdf",
+      "sha256": "e1f6602f7f77e715f166f022310e9906f81da0bac9beb66d86f02d6b29ef5796",
+      "storagePath": "tests/fixtures/evidence/sha256/e1/e1f6602f7f77e715f166f022310e9906f81da0bac9beb66d86f02d6b29ef5796.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/pcd-diminution/Our ref 576299.eml",
+      "originalFilename": "Our ref 576299.eml",
+      "sha256": "e8a12915f8a71ca90a6f849f4f801b89f238b1ef4f1de47a5a4c1bf7501cf31e",
+      "storagePath": "tests/fixtures/evidence/sha256/e8/e8a12915f8a71ca90a6f849f4f801b89f238b1ef4f1de47a5a4c1bf7501cf31e.eml"
+    }
+  ]
+}

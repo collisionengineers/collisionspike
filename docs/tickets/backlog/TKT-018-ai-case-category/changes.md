@@ -23,7 +23,7 @@ remains the current picture.
 ## Determination — 2026-07-09 (PLAN-003 final wave D2, assessment only — no build)
 
 **The dependencies this ticket was deferred behind are now live.** Per the registry
-([live-environment.md](../../../architecture/live-environment.md) / `LIVE_FACTS.json`, 2026-07-09):
+([live-environment.md](../../../operations/live-environment.md) / `LIVE_FACTS.json`, 2026-07-09):
 
 - **TKT-015 suggestion layer** — live (`AI_ASSIST_ENABLED=true` on `cespk-api-dev`): the `ai_suggestion`
   generate/review seam, the CaseDetail assist panel, and the audited accept/dismiss path all exist.
@@ -46,7 +46,7 @@ remains the current picture.
 4. **Governance**: a fresh DPIA look is warranted before flipping any gate — this flow produces an
    *economic judgement about a claim*, a higher-stakes output class than role/registration classification;
    the 2026-07-08 attestation covered classification/assist, not loss categorisation. Operator sign-off
-   line would go in docs/gated.md.
+   line would go in docs/tickets/BOARD.md.
 5. **Gate**: its own app-setting (e.g. `DAMAGE_CATEGORY_ENABLED`), default-off, built dark.
 
 **Decision: stays `backlog`.** The ticket was operator-deferred ("until the pipeline is fully complete");

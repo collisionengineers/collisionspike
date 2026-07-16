@@ -23,7 +23,7 @@ merge/tag, deployment, and read-only live replay/probe remain before `VERIFIED-L
 ## Release and live evidence
 - Immutable source proof is complete: `engine-v2.24` at reviewed sibling commit
   `e9cec4acb8f1f49fb81c4d279d3a31cc82356d84`, **PASS (36 files)**.
-- Apply the additive taxonomy delta before deploying parser/orchestration/API/SPA.
+- Apply the additive taxonomy delta before deploying parser/services/orchestration/API/SPA.
 - Reprocess or safely probe the supplied message read-only and show the corrected label
   with no case mutation and no Outlook move.
 
@@ -55,7 +55,7 @@ of wrong behavior.
   `receiving_work` can mint; API retro and reply-linking guards reject website enquiries. Fresh domain
   policy/folder/routing/codec slice: 4 files/78 tests passed.
 - Acceptance 4 — **TESTED (source), partially live.** Merge `eaa31fbe` spans parser/domain/additive
-  DDL/API/orchestration/SPA. Baseline and idempotent delta append the codes; DTOs, mappings, counts,
+  DDL/API/services/orchestration/SPA. Baseline and idempotent delta append the codes; DTOs, mappings, counts,
   assisted vocabulary and SPA taxonomy all contain them. PR 80 and sibling PR 10 are merged; remote
   tag `engine-v2.24` resolves to reviewed commit `e9cec4acb8f1f49fb81c4d279d3a31cc82356d84`, matching
   `VENDOR_LOCK.json`. Live database rows and backend revisions remain unproved.
@@ -86,7 +86,7 @@ of wrong behavior.
 - Live PostgreSQL lookup parity is unproved. An authorized read without firewall change failed to
   connect; no firewall rule or retry loop was used.
 - No authenticated inbox row was read; live asset proves strings/mapping only.
-- API/orchestration/SPA focused reruns were unavailable without local dependencies; no install was
+- API/services/orchestration/SPA focused reruns were unavailable without local dependencies; no install was
   made.
 
 ### How to re-verify
@@ -94,7 +94,7 @@ of wrong behavior.
 1. From an approved read-only Azure path, identify deployed parser artifact/version and prove
    `engine-v2.24` at `e9cec4ac...`; update the live registry.
 2. With explicit approval for a no-side-effect classifier probe, parse the byte-identical `.eml` and
-   POST only classifier fields to live `/api/classify-email`; do not invoke orchestration/reprocessing.
+   POST only classifier fields to live `/api/classify-email`; do not invoke services/orchestration/reprocessing.
    Capture 200 with category, subtype, taxonomy version 4 and website-rule signals.
 3. Read the original Graph message before/after and compare immutable message ID and folder; do not
    move it. Read inbound/case records for that internet-message-id and prove no mint/link/update.

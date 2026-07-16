@@ -10,5 +10,5 @@ action first — zero detector infra, makes `done` usable and testable on day on
 auto-detectors (Box report-PDF first as the webhook is already live, then sent-email, then the gated EVA
 poll).
 
-> This is Phase C of the case-done plan. The full A–E plan (with code references) is preserved in the
-> anchor ticket [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> This note supplies the detector requirements. The enduring status decision is recorded in the
+> anchor ticket [TKT-094](../../TKT-094-case-done-status-model/TKT-094-case-done-status-model.md).

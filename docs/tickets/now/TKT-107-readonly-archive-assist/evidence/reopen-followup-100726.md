@@ -7,7 +7,8 @@ The 2026-07-10 verify-sweep ruled **FAILED against the Acceptance as written** â
 
 1. **Acceptance line 1 is unimplemented.** The inbox surface ("this unmatched email may match
    archive folder X Â· Open in Box") was never built: `archiveLookup`'s only consumer is
-   `api/src/functions/assistant.ts` (grep-proven across api/orchestration/mockup-app/packages);
+   `services/data-api/src/features/assistant/chat-routes.ts` (grep-proven across `services/data-api`,
+   `services/orchestration`, `apps/web`, and `packages`);
    the existing inbox hint (`Inbox.tsx:674-682`) is TKT-093's open-case `linkSuggestionCasePo`, not
    an archive match. No re-scope exists anywhere (ADR-0022 doesn't cover it).
 2. **The implemented assistant rung is a live no-op.** The code rides the live api build (the old

@@ -17,7 +17,7 @@ classifier must parse. There is no machine-to-machine intake channel today — e
 arrives by email (Graph PUSH) or manual SPA entry.
 
 ## Evidence
-- Email + manual are the only live intake channels (`api/src/functions/internal.ts`
+- Email + manual are the only live intake channels (`services/data-api/src/features/`
   cases/resolve; `cases.ts` createCase). Both mint the Case/PO with the SAME advisory-locked
   block (previously copy-pasted).
 - The EVA 12-field contract, image rules, Blob evidence landing, dedup, and audit trail are
@@ -28,14 +28,14 @@ Add `POST /api/provider-intake/cases`, authenticated by a per-provider **API key
 (`X-Api-Key: cspk_…`), hash-only + show-once. Design + rationale: **[ADR-0020](../../../adr/0020-provider-api-intake-channel.md)**.
 Publishable provider contract: **[provider-api-intake-spec.md](../../../reference/provider-api-intake-spec.md)**.
 
-- **Schema:** new `provider_api_key` table (canonical `migration/assets/schema/170_provider_api_key.sql`
+- **Schema:** new `provider_api_key` table (canonical `database/baseline/170_provider_api_key.sql`
   + FK/RLS in `900_constraints.sql`); idempotent delta
-  [`deltas/2026-07-03-provider-api-intake.sql`](../../../../migration/assets/schema/deltas/2026-07-03-provider-api-intake.sql)
+  [`deltas/2026-07-03-provider-api-intake.sql`](../../../../database/migrations/2026-07-03-provider-api-intake.sql)
   (table + FK + RLS + GRANT, audit actions `100000042–45`, intake-channel-kind `provider_api` `100000002`).
-- **API:** `api/src/lib/api-key-auth.ts` (`withApiKey`), `api/src/lib/case-po.ts` (shared mint,
-  both existing call sites refactored to it), `api/src/lib/blob.ts` (ported `uploadEvidenceBytes`),
-  `api/src/lib/provider-intake-validate.ts` (pure validator), `api/src/functions/provider-keys.ts`
-  (Superuser mint/list/revoke), `api/src/functions/provider-intake.ts` (the intake route).
+- **API:** `services/data-api/src/platform/auth/api-key-auth.ts` (`withApiKey`), `services/data-api/src/features/cases/case-po.ts` (shared mint,
+  both existing call sites refactored to it), `services/data-api/src/features/evidence/blob-store.ts` (ported `uploadEvidenceBytes`),
+  `services/data-api/src/features/providers/intake-validate.ts` (pure validator), `services/data-api/src/features/providers/key-routes.ts`
+  (Superuser mint/list/revoke), `services/data-api/src/features/providers/intake-route.ts` (the intake route).
 - **SPA:** Admin → provider editor → "API keys" section (Superuser): list, generate (plaintext
   shown once + copy), revoke. `rest-client.ts` + `@cs/domain` DTOs.
 

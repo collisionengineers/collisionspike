@@ -8,7 +8,7 @@ verify — built (SPA-only, no gate); code-complete + tested offline, not yet de
 - `7bdcb94` — ai: PLAN-001 Phase 1 (assistant drawer New-chat control).
 
 ## Files touched
-- `mockup-app/src/components/AssistantDrawer.tsx` — a "New chat" control that clears `turns` + `input`,
+- `apps/web/src/features/assistant/AssistantDrawer.tsx` — a "New chat" control that clears `turns` + `input`,
   disabled while a request is in flight.
 
 ## Summary

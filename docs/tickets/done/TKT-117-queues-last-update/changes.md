@@ -2,7 +2,7 @@
 
 ## Status
 Built + deployed live (2026-07-09, PLAN-003 UI-wave batch). Server-derived descriptor; the label
-wording lives in ONE place (`api/src/lib/last-activity.ts`) — never a raw enum in the UI.
+wording lives in ONE place (`services/data-api/src/shared/last-activity.ts`) — never a raw enum in the UI.
 
 ## What was built
 
@@ -10,25 +10,25 @@ wording lives in ONE place (`api/src/lib/last-activity.ts`) — never a raw enum
 { label, date }` (`CaseLastActivity`) — present only on the queue LIST payload.
 
 **API**:
-- **New `api/src/lib/last-activity.ts`** (pure, unit-tested): the ONE audit-action→plain-English map
+- **New `services/data-api/src/shared/last-activity.ts`** (pure, unit-tested): the ONE audit-action→plain-English map
   ("Email received", "Files received", "Images received", "Chased", "Sent to EVA", "Case closed", …;
-  post-choiceset delta codes mapped by frozen integer; unmapped → "Updated" — never an enum).
+  post-code-table delta codes mapped by frozen integer; unmapped → "Updated" — never an enum).
   `humanActorName()` guards internal ids: an Entra oid (GUID) or "System" NEVER renders; a UPN
   reduces to its local part; note rows read "Note added by <author>" or degrade to "Note added".
-- **New `api/src/lib/last-activity.test.ts`**: pins the mapping, the GUID guard, the three row kinds,
+- **New `services/data-api/src/shared/last-activity.test.ts`**: pins the mapping, the GUID guard, the three row kinds,
   and sweeps every emittable label for snake_case/engineering tokens.
-- **`api/src/lib/mappers.ts`**: `CASE_SELECT_WITH_ACTIVITY` — CASE_SELECT plus ONE
+- **`services/data-api/src/shared/mapping/`**: `CASE_SELECT_WITH_ACTIVITY` — CASE_SELECT plus ONE
   `LEFT JOIN LATERAL` over the union of `audit_event` / `note` / `chaser` (newest row, LIMIT 1;
   shared column fragments so it can't drift from CASE_SELECT). `rowToCase` maps
   `last_activity_kind/_at/_actor/_action_code` → `lastActivity` (conditional — single-case reads
   without the join are unaffected).
-- **`api/src/functions/cases.ts`**: `loadAllCases` (the `GET /api/queues/{name}/cases` source) now
+- **`services/data-api/src/features/cases/`**: `loadAllCases` (the `GET /api/queues/{name}/cases` source) now
   uses the activity-joined SELECT — no per-case fan-out.
 
 **SPA**:
-- **`mockup-app/src/screens/case-list-columns.ts`**: new `lastUpdate` column id, added to ALL three
+- **`apps/web/src/features/cases/case-list-columns.ts`**: new `lastUpdate` column id, added to ALL three
   queue column sets (test updated: every queue carries it).
-- **`mockup-app/src/screens/CaseList.tsx`**: the `Last update` column renders the server label +
+- **`apps/web/src/features/cases/CaseList.tsx`**: the `Last update` column renders the server label +
   DD/MM/YYYY date stacked (ellipsised, tooltip with the full text); em-dash when a case has no
   activity yet.
 

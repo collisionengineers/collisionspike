@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "ticket": "TKT-040",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/(EREF5) RTA on 27_06_2026  Mr Mohammed Osman Ahmed (Our Ref HMA_46428_1, Vehicle WN14XPZ).eml",
+      "originalFilename": "(EREF5) RTA on 27_06_2026  Mr Mohammed Osman Ahmed (Our Ref HMA_46428_1, Vehicle WN14XPZ).eml",
+      "sha256": "6f4645eced37cf93c5af14b6c17002c6a2ba4510d8d2e8dd0f85a774c1d52b1e",
+      "storagePath": "tests/fixtures/evidence/sha256/6f/6f4645eced37cf93c5af14b6c17002c6a2ba4510d8d2e8dd0f85a774c1d52b1e.eml"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/2_CLVDamage4-V1.jpg",
+      "originalFilename": "2_CLVDamage4-V1.jpg",
+      "sha256": "65d42d8fd824ad012aa92fa888c3badc33db9060fd4fef6c677348cc33ba358e",
+      "storagePath": "tests/fixtures/evidence/sha256/65/65d42d8fd824ad012aa92fa888c3badc33db9060fd4fef6c677348cc33ba358e.jpg"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/3_CLVDamage3-V1.jpg",
+      "originalFilename": "3_CLVDamage3-V1.jpg",
+      "sha256": "d620bc3f57490758374c8bc8a391260ff34db33e36d39a73b855bc93c2238411",
+      "storagePath": "tests/fixtures/evidence/sha256/d6/d620bc3f57490758374c8bc8a391260ff34db33e36d39a73b855bc93c2238411.jpg"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/4_CLVDamage2-V1.jpg",
+      "originalFilename": "4_CLVDamage2-V1.jpg",
+      "sha256": "3ec2e3999a817b8abdb008e0e1a22f405d12049f2a5c8b49698f7b9b8cb5f889",
+      "storagePath": "tests/fixtures/evidence/sha256/3e/3ec2e3999a817b8abdb008e0e1a22f405d12049f2a5c8b49698f7b9b8cb5f889.jpg"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/CLVDamage5-V1.jpg",
+      "originalFilename": "CLVDamage5-V1.jpg",
+      "sha256": "37c3820f98e9000ecd42a589668f7463dfca384c809ad5533e9731f5d141e6c8",
+      "storagePath": "tests/fixtures/evidence/sha256/37/37c3820f98e9000ecd42a589668f7463dfca384c809ad5533e9731f5d141e6c8.jpg"
+    }
+  ]
+}

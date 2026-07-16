@@ -23,13 +23,13 @@ message-id repeat rung could NEVER match a redelivery.
 
 ## Shipped
 
-- **Intake idempotency key fix** (`orchestration/src/functions/activities/caseResolve.ts`): the
+- **Intake idempotency key fix** (`services/orchestration/src/workflows/intake/caseResolve.ts`): the
   rung-1 key is now `inbound.internetMessageId` (falling back to the Graph id) — redelivery/
   cross-mailbox repeats now hit the message-id rung BEFORE the persist-time UNIQUE backstop.
 - **Regression tests** (`packages/domain/src/domain/dedup.test.ts` — "TKT-092 FW:-resend vectors"):
   same payload hash + new message id → `drop`; same parser ref + new hash → `attach` to the open
   case; different ref on the same VRM → `new_due_to_reference` (never merged).
-- **Merge hardening** (`api/src/functions/cases.ts` mergeCases): now also re-points the source's
+- **Merge hardening** (`services/data-api/src/features/cases/` mergeCases): now also re-points the source's
   `inbound_email` rows to the survivor, and applies the TKT-052 provider preference (see that
   ticket) — used by staff merges going forward.
 - **Data fix** (`deltas/2026-07-09-intake-wave-data-fixes.sql` §B/§C, APPLIED LIVE, backup table

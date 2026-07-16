@@ -5,10 +5,10 @@ BLOCKED (operator)
 
 ## Evidence
 The soft-remove action and confirm dialog are coded (`94902ce`) and the delete/finalize plumbing landed
-in `api/src/functions/cases.ts` (`d5e2d4b`); the live enum rows are applied. The action is gated on
+in `services/data-api/src/features/cases/` (`d5e2d4b`); the live enum rows are applied. The action is gated on
 `CollisionSpike.Superuser`, and the operator's staff principal does not yet hold that app-role — and
 assigning an app-role is an access-control change only the operator can make (see staff app-role state in
-the registry [live-environment.md](../../../architecture/live-environment.md)). Per ADR-0017 Box deletion is
+the registry [live-environment.md](../../../operations/live-environment.md)). Per ADR-0017 Box deletion is
 ACK-only (no automated Box delete).
 
 ## Pending / gaps

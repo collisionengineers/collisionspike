@@ -7,7 +7,7 @@ Verified by: ticket-verifier dispatch, 10-07-26 (verdict block transcribed 1:1 b
 data-pass W1 results appended).
 
 ## Evidence
-- Offline: `api/src/lib/overview-chase.test.ts` — 17 tests (predicate boundaries at N=5,
+- Offline: `services/data-api/src/features/cases/overview-chase.test.ts` — 17 tests (predicate boundaries at N=5,
   zero-overview / zero-unclassified legs, terminal/retired exclusion, mint row shape +
   audit, lost-guard idempotency, advisory never-throws, handler-plain copy); api suite
   39 files / 412 tests green; `tsc -b` green.
@@ -58,15 +58,15 @@ VERIFIED-LIVE
 ### Evidence
 **Acceptance line 1 — "Cases with >=N accepted photos and zero overview candidates surface a
 suggested overview chase (draft, staff-sent)":**
-- **Code-read (deployed source + bundle):** `api/src/lib/overview-chase.ts` — predicate exactly N=5
+- **Code-read (deployed source + bundle):** `services/data-api/src/features/cases/overview-chase.ts` — predicate exactly N=5
   (`OVERVIEW_CHASE_MIN_ACCEPTED_IMAGES=5`), zero accepted overview-role photos, zero still-unclassified
   (TKT-131 predicate), non-terminal + not `linked_to_instruction`. Idempotency = single-statement
   `INSERT … WHERE NOT EXISTS` (blocks on template-ever-exists OR any open chaser); draft-only (no
   status_code in the INSERT → DB default drafted; no sent_by/sent_at); whole function try/catch →
-  return false (advisory never-throws). **No sendMail/send path exists anywhere in api/src (grep: zero
+  return false (advisory never-throws). **No sendMail/send path exists anywhere in services/data-api/src (grep: zero
   matches).** Both seams wired, detector runs on EVERY evaluation outside the changed-status
   conditional: cases.ts:209 and internal.ts:281. The built bundle carries the template string.
-- **Offline proof re-run by the verifier:** `npm --prefix api test -- src/lib/overview-chase.test.ts`
+- **Offline proof re-run by the verifier:** `npm --prefix services/data-api test -- src/features/cases/overview-chase.test.ts`
   → 17/17 passed (2026-07-10 14:29).
 - **Live SPA (verifier's own read-only session via the operator's signed-in Chrome, own tab):**
   Not-ready queue renders A.QDOS26062 — "Chased · 10/07/2026" (one of the 31 minted); Review queue
@@ -126,9 +126,9 @@ repair. The earlier A.QDOS26029 live suggestion proves the old build, not this r
   unique index, preventing concurrent evaluations from creating two active drafts. The detector locks
   and re-reads case lineage, provider and evidence immediately before insert, so a concurrent
   finalise/merge/evidence decision cannot act on the caller's stale snapshot.
-- `api/src/lib/overview-chase.test.ts` and `cases-chase.test.ts` cover concurrent/idempotent creation,
+- `services/data-api/src/features/cases/overview-chase.test.ts` and `cases-chase.test.ts` cover concurrent/idempotent creation,
   stale-state refusal and distinct suggested versus sent activity.
-  `mockup-app/src/components/ChaserPanel.test.ts` covers the existing Overview request remaining
+  `apps/web/src/shared/ui/ChaserPanel.test.ts` covers the existing Overview request remaining
   visible and labelled as drafted, while a sent chase remains chased.
 - Deployment proof still required: apply the unique-index delta, deploy API/SPA, rerun concurrent
   evaluation on a prepared overview-less case and confirm one drafted row. Reopen A.QDOS26029 and
@@ -156,7 +156,7 @@ VERIFIED-LIVE
   conflicting active duplicates existed when applied. Concurrent/idempotent behavior is covered by
   the API regression suite.
 - **Regression 2 — suggestions appear drafted, never sent:** The current production queue says
-  **“Chase suggested,”** replacing the former misleading “Chased” label for A.QDOS26029. Historical
+  **“Chase suggested,”** replacing the former misleading “Chased” label for A.QDOS26029. prior
   row `93dfcb3a-695e-421c-ba44-143e27ddce3c` is `drafted`, with `sent_by` and `sent_at` null.
 - **Regression 3 — sent chases remain chased:** Current source keeps separate suggested/drafted and
   sent wording, with component coverage in `ChaserPanel.test.ts`. No current sent control was opened

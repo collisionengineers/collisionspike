@@ -1,0 +1,27 @@
+{
+  "name": "@cs/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b --force",
+    "test": "vitest run",
+    "start": "func start",
+    "dev": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/storage-blob": "^12.25.0",
+    "@cs/domain": "*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "jose": "^5.9.6",
+    "pg": "^8.13.1",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.9"
+  }
+}

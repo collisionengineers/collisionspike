@@ -30,7 +30,7 @@ render) — offline-only proof is not sufficient for this ticket.
    **live behavior DEFERRED**. `evidence-upload.ts` wraps the route in `withRole('CollisionSpike.User')`
    (L28) → fail-closed 401/403; `classifyUpload` gate (L46); `uploadEvidenceBytes` → Blob (L54);
    `INSERT INTO evidence(...)` (L56-61); `writeAudit({action: AUDIT_ACTION.evidence_added, ...})` (L71-77).
-   Route registered `api/src/index.ts:25`; `AUDIT_ACTION.evidence_added = 100000049` + choiceset row present.
+   Route registered `services/data-api/src/index.ts:25`; `AUDIT_ACTION.evidence_added = 100000049` + code-table row present.
    All INSERT columns exist in `060_evidence.sql`. *Live 401/403 probe + actual blob landing + DB insert =
    deferred (needs deploy).*
 
@@ -39,7 +39,7 @@ render) — offline-only proof is not sufficient for this ticket.
    cannot be proven offline.
 
 5. **Model has NO write tool — `TOOLS` SELECT-only (TKT-060 invariant)** — OFFLINE-PROVEN (load-bearing).
-   `git show --stat 3f011fb -- api/` is **EMPTY** — the SPA slice touched zero api/ files.
+   `git show --stat 3f011fb -- services/data-api/` is **EMPTY** — the SPA slice touched zero Data API files.
    `toolsForRequest()` (`assistant.ts:137-148`) derives from `readCapabilities()` (SELECT-only); the only
    non-read addition is the pre-existing **dark-gated `propose_action`** (`assistantWriteTier()` off by
    default), which drafts a `ProposedAction` for human confirm and performs **no** DB write — and is **not**
@@ -48,15 +48,15 @@ render) — offline-only proof is not sufficient for this ticket.
 6. **Oversized/unsupported rejected in plain language** — OFFLINE-PROVEN.
    `attach-validate.ts:45-57`: `"That file is too big — the limit is 15 MB."` /
    `"That file looks empty, so I did not add it."` / `"I can only add photos and PDFs to a case."` Server
-   mirror `api/src/lib/upload-validate.ts:19-30` uses identical wording. `attach-validate.test.ts` asserts no
+   mirror `services/data-api/src/features/evidence/upload-validate.ts` uses identical wording. `attach-validate.test.ts` asserts no
    banned tokens (mime/blob/payload/multipart/endpoint/byte/401/403). 19/19 green; full suite 312/312.
 
-**Gates:** `npm --prefix mockup-app run build` exit 0 · `npx vitest run` → 312 passed (21 files) ·
+**Gates:** `npm --prefix apps/web run build` exit 0 · `npx vitest run` → 312 passed (21 files) ·
 `attach-validate.test.ts` → 19 passed · `check-tickets` OK · `check-doc-links` OK.
 
 ## Pending / gaps
 **Offline classes — PASSED:** Acceptance 1, 2, 5, 6 fully at code+build level; the server-route *code* for 3
-(auth wrapper, blob, INSERT, audit) + its unit test; schema-compatibility of the INSERT.
+(auth wrapper, blob, INSERT, audit) + its unit test; schema-continuity of the INSERT.
 
 **Live classes — DEFERRED to post-deploy (expected — BUILD-DARK, not bugs):**
 - Live attach→confirm→upload chain on the deployed SPA: (a) API response, (b) Postgres `evidence` row +
@@ -72,9 +72,9 @@ by default). It drafts proposals for human confirm, performs no write, and is no
 TKT-060 evidence-upload invariant holds — but `TOOLS` is not *literally* SELECT-only when that gate flips.
 
 ## How to re-verify
-- **Offline (repeatable now):** `npm --prefix mockup-app run build`; `cd mockup-app && npx vitest run` (312)
-  and `npx vitest run src/components/attach-validate.test.ts` (19); `npm --prefix api test`;
-  `node scripts/check-tickets.mjs`; `node scripts/check-doc-links.mjs`; `git show --stat 3f011fb -- api/`
+- **Offline (repeatable now):** `npm --prefix apps/web run build`; `cd @cs/web && npx vitest run` (312)
+  and `npx vitest run src/shared/ui/attach-validate.test.ts` (19); `npm --prefix services/data-api test`;
+  `node scripts/checks/check-tickets.mjs`; `node scripts/checks/check-doc-links.mjs`; `git show --stat 3f011fb -- services/data-api/`
   (must be empty).
 - **Live (after operator deploys SPA + API):** open the deployed SPA (`cespk-spa-dev`) assistant drawer →
   attach a real JPEG → name the case's registration → confirm the card. Then capture (a) the API response,
@@ -101,7 +101,7 @@ requirements:
 - **✅ Class 4 (negative live probe) — CAPTURED:** live `POST /api/cases/{id}/evidence/upload` **without a
   token → 401** (route deployed + fail-closed).
 - **✅ Class 5 (invariant audit at the deployed commit):** `uploadCaseEvidence` is a staff route; the assistant
-  `TOOLS` set carries no upload tool (`git show --stat 3f011fb -- api/` empty at the deployed commit `a06d2dc`).
+  `TOOLS` set carries no upload tool (`git show --stat 3f011fb -- services/data-api/` empty at the deployed commit `a06d2dc`).
 - **DEFERRED (not fabricated) — classes 1–3:** the attach→confirm→upload chain, the Postgres `evidence` +
   `evidence_added` rows, and the Evidence-tab render need a **signed-in SPA session** driving a real upload —
   not self-drivable here (no mintable staff token; processing a real file is the operator's action). Close by

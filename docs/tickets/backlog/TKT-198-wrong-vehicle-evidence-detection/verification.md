@@ -16,7 +16,7 @@ PENDING
 | A7 — consistent downstream exclusion/recompute | Readiness, image-gap, ordering and EVA-export tests omit excluded images but general evidence retains them; correction recomputes once. | Signed-in queues/case/EVA preparation and downloaded controlled export agree before and after one override. | PENDING |
 | A8 — parity across every source lane | Email/PDF, Manual Intake, direct upload and Archive-upload integration tests use the same decision contract. | Operator-approved signed-in samples from available controlled lanes show identical warning/decision behavior. | PENDING |
 | A9 — approved corpus and calibrated report | All named positive/negative/source/decision/rerun slices pass with published threshold, precision/recall and zero unsupported auto-exclusions. | Read-only live distribution is compared with the approved corpus slices and any drift blocks/rolls back activation. | PENDING |
-| A10 — real deployed proof without seeded data | Full domain/API/orchestration/SPA/export suites plus isolated end-to-end scenarios pass. | Recorded operator-designated real evidence proves naturally available outcomes and no deletion; unavailable outcomes stay PENDING. | PENDING |
+| A10 — real deployed proof without seeded data | Full domain/API/services/orchestration/SPA/export suites plus isolated end-to-end scenarios pass. | Recorded operator-designated real evidence proves naturally available outcomes and no deletion; unavailable outcomes stay PENDING. | PENDING |
 
 ## Pending / gaps
 Implementation and all offline and signed-in/live proof are pending.

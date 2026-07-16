@@ -1,10 +1,8 @@
-# Corpus Administration
+# Provider settings review
 
-Need to check .csv for active corpus and last used date for actives
-
-Other corpora currently show as placeholders
-
-"Assisted import — preview onlyParsing the Principals / Garages sheets into draft records is [BUILD]. Activating corpus records is a Dataverse write [DEPLOY-WITH-LOGIN] — there is no live SharePoint contact here. The diff below is an illustrative sample." - needs addressing
-
-
-Corpus Admin currently basically non-functional.
+1. Confirm the active provider corpus and show an honest last-used value for active records.
+2. Replace placeholder reference-data areas with useful current summaries.
+3. Rewrite assisted-import copy in plain handler language; do not expose build, deployment, storage or
+   persistence mechanics.
+4. Provider administration must be functional or clearly unavailable. It must not present an
+   apparently editable but non-working screen.

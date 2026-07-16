@@ -41,7 +41,7 @@ PROPOSED (not built):
 ## Validation
 - Build the labelled cohort and publish its composition, decision rubric, disagreements and mass-email error analysis in the planned evidence artifact before implementation is selected.
 - Add deterministic-rule and suggestion-schema tests for every cohort class, explicit request/deadline, negative signal, conflict and uncertain outcome.
-- Run the full historical email evaluation corpus and report a before/after confusion matrix, with the required zero unsupported positives on the approved mass-email cohort.
+- Run the full prior email evaluation corpus and report a before/after confusion matrix, with the required zero unsupported positives on the approved mass-email cohort.
 - Add rendered and accessibility tests for positive, negative/suppressed, uncertain and explanation states, plus mutation guards proving suggestions alone cause no write or send.
 - Before visible rollout, run the result in signed-in shadow mode on a current live sample, obtain operator adjudication, then capture representative rendered suggestions and audit records without sending or moving any email.
 

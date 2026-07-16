@@ -19,15 +19,17 @@ Open cases, including QDOS26079 and cases in Held, are missing claimant names ev
 - TKT-001/TKT-022 — established multi-format parser and document-layout rules.
 - TKT-130 — readiness/queue contract that must treat a missing claimant as Not Ready.
 
-## Proposed change
-IN PROGRESS: claimant extraction is immutably re-vendored at `engine-v2.24`; conflict visibility,
-source-preserving create/merge/replay/later-document handling, two-phase provider recovery, the deployed-parser
-fingerprint contract, and the claimant-only remediation runner are merged. The PR #93 runtime/schema/API/
-orchestration/Box/parser boundary was deployed and verified; PRs #94–#96 hardened only the offline runner.
-The latest 156-case v8 read-only plan then failed its independent audit because 18 tokenized retained-text
-sources still lack an exact raw-email binding, root-level binding remained zero, and QDOS26079 still failed at
-source processing. V8 is superseded. No current backup, approval, apply, journal, or ledger exists. This work is
-not the final operational cutover and does not switch production Archive roots or call production EVA.
+## Current state
+IN PROGRESS: claimant extraction is re-vendored at `engine-v2.24`; conflict visibility,
+source-preserving create/merge/replay/later-document handling, two-phase provider recovery and the
+deployed-parser fingerprint contract are merged. The latest read-only candidate plan failed its independent
+source-binding audit: retained text still lacks exact raw-message binding for part of the cohort, root-level
+binding remained empty, and QDOS26079 still failed at source processing. That plan is superseded.
+
+The one-time remediation executable and its package command are not retained in the repository reset. They
+produced evidence but are not an approved or reusable production interface. A future apply tool must be rebuilt
+from this ticket's acceptance, separately reviewed, bound to a newly audited plan and backup, and explicitly
+authorized. No current backup, approval, apply, journal or residual ledger exists.
 
 ## Acceptance
 - A reproducible census lists every active Held, Not Ready, and Review case whose claimant name is blank, grouped by provider, source format, intake path, parser version, and earliest source message/document.
@@ -54,5 +56,4 @@ Distilled 2026-07-12 from the operator's live-case report; raw wording is in [ev
 - [Offline root-cause record](./evidence/offline-root-cause-2026-07-12.md)
 - [Dated live census](./evidence/live-census-2026-07-12.md)
 - [Superseded-plan summary](./evidence/remediation-plan-summary-2026-07-13.md)
-- [Controlled remediation runbook](./remediation-runbook.md)
-- [Current PLAN-005/TKT-150 handoff](../../../handoff/05-plan-005-tkt-150-remediation.md)
+- [Future remediation safety contract](./remediation-runbook.md)

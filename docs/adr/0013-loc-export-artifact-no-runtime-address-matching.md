@@ -1,104 +1,42 @@
-# `Loc` is an EVA-export artifact, not an intake input; the inspection address is an offline-derived suggestion, never resolved at runtime
+# ADR-0013 — `Loc` is an export artifact, not an intake address
 
-**Status:** Accepted (2026-06-23). **Supersedes** the ROADMAP-4a "inspection-address matching service"
-decision and the `190626` review's "address-match — LIVE" line (both recorded a runtime matcher that
-should never have existed).
+**Status:** Accepted (2026-06-23).
 
-> **Framing note (read the H1 precisely).** "Never resolved at runtime" means **no AUTO-resolver** — not
-> "no live address feature." Three distinct things: (1) the **offline-derived corpus** is *data* (mined
-> offline, re-seeded offline) — "offline" applies **here only**; (2) a **live, human-confirmed**
-> suggestion *pick* **and** a gated, reviewer-invoked **"Suggest location"** assist (vision + geocode)
-> **do run at review time** — they only ever *suggest*, never auto-apply (see Consequences §60–72);
-> (3) the removed **auto-matcher** is the only thing that is dead. So inspection address is a **live
-> staff find/pick aid**, not an offline-only artefact.
-
-## Context
-
-EVA field 9 needs the **full inspection address**. EVA stores it, but its **export only surfaces a
-`Loc`** — a full or, for ~57% of located cases, a **part** postcode (an outward district such as `CH5`).
-`raw/.../everyrepairloc.xlsx` is that EVA export, so **`Loc` is an artifact of EVA's export limitation,
-not a field that arrives in intake.** In live intake the full address is usually **not in the documents**
-and is **worked out manually** by staff — from the email, domain knowledge, or, when unclear, recorded as
-"Image Based Assessment" (`docs/requirements/admin-overview.md`).
-
-The address-resolution work was already done — **offline**. Collision Engineers' own Box/EVA **case
-history** was mined per provider into the master sheet
-`…/codexwork/inspection_locations_and_provider_principal.csv`, mapping `(provider, Loc) → full address`.
-Only the rows that carry a **real full address** are loaded (by `dataverse/.build/16-seed-suggested-addresses.ps1`)
-into `cr1bd_inspectionaddress` as provider-scoped **suggestions** (`decisionMode=Unknown`,
-`sourceLabel='suggested:…'`), surfaced in the Code App Address tab for a **manual pick**. This corpus is
-the **static totality at this time** — improvable later, but a fixed snapshot now.
-
-> **Update ([ADR-0016](0016-inspection-address-corpus-eva-export.md), 2026-06-24):** the suggestion
-> SOURCE was later regenerated from the 2-year EVA full-address export — this no-runtime-matcher decision
-> is **unchanged and re-affirmed** there; the `codexwork` CSV is now historical provenance, not the live source.
-
-A separate, redundant **runtime matcher** had been built on a misreading of `Loc` — an Azure Function, a
-companion Power Automate resolve flow, and a custom connector — that tried to re-derive a full address at
-runtime by matching a Case's part-postcode `Loc` against a generic repairer corpus. It treated the
-export artifact as a live input (there is no `cr1bd_loc` Case column), and it tried to make the *partial*
-`Loc` a live concern. It was a fully orphaned, unwired `[BUILD]` artifact.
+This decision supersedes the earlier runtime address-matching proposal and the corresponding
+“address match is live” statement in Review 190626. The supersession applies only to automatic
+address resolution; it does not remove the staff-facing address corpus or suggestion assistance.
 
 ## Decision
 
-1. **`Loc` is not an intake signal.** No `cr1bd_loc` column, no parser district-extraction step. The
-   pipeline never resolves a partial postcode at runtime.
-2. **There is exactly one inspection-address model:** the **offline-derived, full-address-only
-   suggestions corpus** (`cr1bd_inspectionaddress`) → **manual staff pick/edit** → "Image Based
-   Assessment" with a reason when unclear. The Code App `address-policy.ts` gate + the suggestions +
-   the CaseDetail Address tab are that model, and they are correct.
-3. **The live corpus is full addresses only.** A partial / bare postcode is **never loaded and never
-   suggested**. Unresolved partials remain in the master sheet as a **future-investigation backlog**
-   (resolve to a full address later, then add) — out of scope for the live system.
-4. **The runtime matcher is removed root-and-stem** (2026-06-23): the Function, the resolve flow, the
-   custom connection reference, and its design plan were deleted; the live Azure resources were
-   decommissioned. It is **not archived** — this is a development system, and a wrong thing is removed,
-   not kept as legacy. **Never rebuild it.**
+Do not treat the EVA `Loc` value as an intake field and do not derive an inspection address from it at
+runtime. Staff select or edit a full address from the curated corpus or deliberately choose
+`Image Based Assessment` with a reason.
+
+A reviewer-invoked location assistant may rank or suggest candidates using current case evidence, but it
+never auto-applies an address. A suggestion miss leaves the decision unresolved.
+
+## Rationale
+
+`Loc` is frequently an outward postcode or other incomplete export value. Converting it to a full address
+creates false precision and can select the wrong location.
 
 ## Consequences
 
-- One model to reason about; no orphaned "matcher" to mistake for a live capability.
-- **Suggestion *ordering* is permitted and does not reopen this ADR.** Ranking the offline-derived
-  suggestions for a case — by frequency/recency, or by proximity (an accident location when present in
-  the instruction, else claimant-home-address proximity) — is an **ordering signal only**: it changes
-  the order staff see, **never** auto-selects, and there is still **no runtime resolver**. The Phase-4a
-  proximity signal (ADR-0016) sits entirely within this bound.
-- Future improvement of the corpus is **offline** (more case-history mining → more confirmed full
-  addresses → re-seed the suggestions), never a runtime auto-resolver.
-- **Suggestions may also be generated LIVE, per case, for the situation where the corpus *and* the case
-  documents cannot identify the inspection location — provided they stay SUGGESTIONS a reviewer confirms.**
-  A human-in-the-loop assist that proposes candidate location(s) from **vision over the case's own
-  inspection photos** (visible signage / landmarks / plate / EXIF) and/or **geolocation of text clues in
-  the instruction** (e.g. accident location, claimant address) is **permitted**: it ends in the reviewer
-  picking a candidate or recording "Image Based Assessment" with a reason — **nothing auto-applies**.
-- **Scope clarification (2026-06-24):** what this ADR forbids is **runtime AUTO-resolution** — the system
-  deriving *and applying* a location with no human confirmation (the removed matcher). It does **not**
-  forbid offline corpus building, nor live, human-confirmed candidate *suggestions*. For the avoidance of
-  doubt, **partial postcodes are not an input to the live system**: they existed only as the `Loc` column of
-  an EVA *export* spreadsheet (the artifact that spawned the removed matcher); intake documents do not carry
-  them and the app does not handle them. See
-  [`docs/architecture/inspection-address-corpus.md`](../architecture/inspection-address-corpus.md).
-- This ADR is the authoritative record; the older ROADMAP-4a framing and the `190626` review line are
-  superseded by it.
+Only validated full addresses enter the suggestion corpus. Partial postcodes may assist search but are
+not promoted. The product retains a live staff-facing address aid without a hidden auto-resolver.
 
-## Amendment (2026-07-08) — provider-policy image-based pre-fill (TKT-109 / TKT-129)
+Suggestion ordering by provider history, frequency, recency, or proximity is permitted because it changes
+only what staff see first. A reviewer-invoked location assistant may also propose candidates from case
+evidence. Neither path may select or persist an address without staff confirmation.
 
-The 2026-07-08 operator direction ("auto populate the image based providers based on the spreadsheet
-evidence already obtained") **supersedes the no-auto-populate reading of this ADR for
-`always_image_based` providers only**. For a work provider whose operator-designated
-`inspection_location_policy` is `always_image_based` (evidenced by the TKT-075 corpus run — QDOS
-99.9% / PCH 99.6% / AX 99.2% / SBL 99.5% image-based), the case's inspection field is now
-**auto-completed as "Image Based Assessment"** at the status-evaluation seam (fill-if-empty,
-`inspection_decision_code = image_based`, provenance + `inspection_override` audit, reason
-"Provider policy: image-based assessment"), and staff can still override to a physical address.
+## Amendment — provider-policy image-based pre-fill (2026-07-08)
 
-What this amendment does **not** change:
+The later operator direction for provider-policy image-based work supersedes the manual-only reading of
+this ADR for providers whose recorded `inspection_location_policy` is `always_image_based`. When the
+inspection field is empty, status evaluation may fill it with `Image Based Assessment`, set the matching
+decision code and provenance, and write the inspection-override audit with the reason
+`Provider policy: image-based assessment`. Staff can still replace that result with a physical address.
 
-- **No runtime ADDRESS matcher, still.** The pre-fill never derives or applies a *physical address*
-  — it records the policy literal for providers whose inspections are image-based by policy. The
-  removed `Loc` matcher stays dead; corpus suggestions remain manual-pick-only.
-- **Every image-based outcome still carries a reason** — here the policy reason, recorded on the
-  audit + provenance trail (the `address-policy.ts` "never silent, always a reason" invariant keeps
-  its reason half; its "explicit reviewer decision" half is what the operator direction supersedes
-  for this one policy value).
-- `prefer_address` / `required_address` providers keep the full manual decision flow unchanged.
+This amendment does not permit an automatic physical-address matcher. Providers with `prefer_address`
+or `required_address` retain the staff-confirmed address flow, and every policy-filled image-based outcome
+must retain its reason and audit trail.

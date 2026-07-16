@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "intake_channel_kind",
+  "displayName": "Intake Channel Kind",
+  "description": "Case.intakeChannelKind — how an item arrived. Audatex is out of scope. WhatsApp intake is manual (ADR-0007). Channel mode (auto|manual) is stored separately on the Case table.",
+  "options": [
+    { "value": 100000000, "name": "email",        "label": "Email" },
+    { "value": 100000001, "name": "whatsapp",     "label": "WhatsApp" },
+    { "value": 100000002, "name": "provider_api", "label": "Provider API" },
+    { "value": 100000003, "name": "retro",        "label": "Retro (reconstructed)" }
+  ]
+}

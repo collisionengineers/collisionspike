@@ -13,11 +13,11 @@
 The ticket's central ask — suppress PDF-extracted letterhead/logo crops from becoming case-image evidence
 (the `LtrtoEngineerIn__RJS_UnknownVRM_img_1_x` QDOS26004 sample) — is **implemented and deployed**:
 
-- `functions/parser/cedocumentmapper_v2/application/service.py:401` `is_decorative(width, height)` — an
+- `services/functions/parser/cedocumentmapper_v2/application/service.py:401` `is_decorative(width, height)` — an
   area floor `_MIN_EXTRACTED_IMAGE_AREA = 200*200` (line 45); unknown dimensions are kept (recall-safe).
 - Applied on **both** PDF extraction paths: PyMuPDF (`service.py:433`) and the pypdf fallback (line 453).
 - Unit-tested against this ticket's exact evidence:
-  `functions/parser/tests/test_extract_images.py:161` `test_small_decorative_image_is_filtered_out`
+  `services/functions/parser/tests/test_extract_images.py:161` `test_small_decorative_image_is_filtered_out`
   (docstring names "the QDOS26004 bug … `LtrtoEngineerIn__RJS_UnknownVRM_img_1_3`"; asserts `count == 0`),
   with the companion large-image "is kept" recall guard.
 
@@ -51,17 +51,17 @@ above the 200×200 area.
   150×800 tall sidebar strip suppressed, 80×40 classic logo suppressed; 1600×1200 and 4032×3024
   photo shapes kept; `is_decorative_raster` unit matrix incl. unknown-dims-kept and the
   840×240 / 845×241 / 3000×1000 boundaries. Sibling suite: **396 passed, 4 skipped**.
-- **Re-vendored** into `functions/parser/cedocumentmapper_v2/` per the PROVENANCE.md mirror loop —
+- **Re-vendored** into `services/functions/parser/cedocumentmapper_v2/` per the PROVENANCE.md mirror loop —
   only `application/service.py` changed, byte-identical to the `engine-v2.11` tag; drift guard
   (`test_engine_vendored_in_sync.py`) 7 passed. `PROVENANCE.md` updated (history entry + Cut-from
   section → `engine-v2.11`).
-- **Mirrored wrapper tests** (`functions/parser/tests/test_extract_images.py`):
+- **Mirrored wrapper tests** (`services/functions/parser/tests/test_extract_images.py`):
   `test_large_banner_furniture_is_filtered_out` (900×180 + 150×800),
   `test_real_photo_shape_is_never_banner_filtered` (1600×1200), plus the TKT-090 naming test.
   File: 13 passed. Full parser suite: 278 passed / 11 skipped / 1 failed
   (`test_multiformat_extraction[ALS_doc]` — known-environmental on this Windows box, pre-existing).
 - **Email lane in lockstep:** the identical thresholds now also run on the Graph-attachment lane
-  (TKT-047, `orchestration/src/lib/image-sniff.ts`) — both filters cite each other in comments.
+  (TKT-047, `services/orchestration/src/platform/image-sniff.ts`) — both filters cite each other in comments.
 
 NOT done here (dispatcher-owned): parser Function deploy, the live data audit (item 1 above),
 TKT-047's live proof (item 2), the backfill decision (item 3), and the live re-parse probe.
@@ -80,7 +80,7 @@ push before relying on the ref in CI.
   Nearly all were already `accepted_for_eva=false` (the image classifier keeps them out of EVA) but
   still polluted the evidence view + Box mirror.
 
-**Audited cleanup EXECUTED** — [`deltas/2026-07-09-tkt089-evidence-cleanup.sql`](../../../../migration/assets/schema/deltas/2026-07-09-tkt089-evidence-cleanup.sql):
+**Audited cleanup EXECUTED** — [`deltas/2026-07-09-tkt089-evidence-cleanup.sql`](../../../../database/migrations/2026-07-09-tkt089-evidence-cleanup.sql):
 **163 rows excluded** (rungs: <25KB doc-extract crops already EVA-rejected = 161; email-lane
 `imageNNN.*` signature = 1; sub-1.5KB crop = 1), backup table `backup_20260709_tkt089_evidence`
 (163 rows), **107 per-case audit rows** (action `attachment_classified`, actor
@@ -105,7 +105,7 @@ classifier-stamped non-vehicle crops mirrored. Per the follow-up's constraint, t
 **classifier-gated, not threshold-tuned** — three coordinated pieces:
 
 ### 1. Box-mirror filter (api — the storage-gap closure)
-`api/src/functions/internal.ts` `internalCasesArchiveEvidence`
+`services/data-api/src/features/` `internalCasesArchiveEvidence`
 (`GET /api/internal/cases/{id}/archive-evidence`): the selection now carries **`AND excluded = false`**
 (column is `NOT NULL DEFAULT false`), so an excluded row — classifier-stamped non-vehicle, person
 reflection, staff/cleanup exclusion — is never offered to `boxArchiveEvidence` as mirror work.
@@ -122,14 +122,14 @@ reflection, staff/cleanup exclusion — is never offered to `boxArchiveEvidence`
   guaranteed later archive run per case and skipping would strand genuine photos out of the Box archive
   after any transient AOAI failure (a Box-mirror recall regression).
 - **Deliberately NOT role-aware.** A classified-'other' crop is stored as role `unknown` (the domain
-  choice-set has no `other` row — `imageRoleCodec` coalesces it), which is indistinguishable from
+  code table has no `other` row — `imageRoleCodec` coalesces it), which is indistinguishable from
   not-yet-classified; filtering on role would strand real photos. `excluded` is the one deliberate,
   auditable, staff-reversible discriminator (un-excluding a row makes the next archive run pick it up).
-- Offline pin: NEW `api/src/functions/internal-archive-evidence.test.ts` (3 tests — the four-condition
+- Offline pin: NEW `services/data-api/src/features/archive/internal-evidence-routes.test.ts` (3 tests — the four-condition
   predicate incl. `excluded = false`, row passthrough, 400 guard).
 
 ### 2. Classifier-gated suppression for extraction crops (orchestration)
-`orchestration/src/lib/image-classify.ts` `classificationToEvidenceFields` gains an options param
+`services/orchestration/src/platform/image-classify.ts` `classificationToEvidenceFields` gains an options param
 `{ nonVehicleExcluded?: boolean }`: when set and the classification is non-vehicle **`other`** (and not
 person-reflection, which keeps precedence + its own reason), the mapping returns
 **`excluded: true, exclusionReason: 'non-vehicle image detected (auto-classified)'`** (user-legible,
@@ -145,7 +145,7 @@ Observability: the `extractImages` summary event now carries **`excludedNonVehic
 7 days to 2026-07-09 (~590/day, ~$1.40/day at TKT-131's ~$0.0024/image), unchanged by this fix; the
 engine retune (below) slightly REDUCES it (suppressed crops never reach the pipeline).
 Offline pins: `image-classify.test.ts` (+3 mapping tests incl. recall guard over all three vehicle
-roles) and NEW `orchestration/src/functions/activities/extractImages.test.ts` (5 tests through the
+roles) and NEW `services/orchestration/src/workflows/evidence/extractImages.test.ts` (5 tests through the
 REAL mapping: 'other'→excluded+reason; vehicle crop accepted+not-excluded; classify-null fail-open;
 gate-off never calls the classifier; the excludedNonVehicle counter).
 
@@ -160,12 +160,12 @@ shape-caught** (the verifier's judgement: a small square is indistinguishable fr
 photo) — it stays engine-kept and the classifier lane (#2) owns it; a sibling pin documents that
 division of labour. Sibling fixtures: 575×174 suppressed (unit matrix + PDF-extraction param),
 768×240 / 767×240 inclusive-boundary pair, 204×204 kept. Sibling suite **452 passed / 5 skipped**
-(all skips environmental). **Re-vendored** into `functions/parser/cedocumentmapper_v2/` per the
+(all skips environmental). **Re-vendored** into `services/functions/parser/cedocumentmapper_v2/` per the
 PROVENANCE mirror loop — only `application/service.py` changed; drift guard green; PROVENANCE.md
 history + Cut-from updated to `engine-v2.15`. The parser deploy **rides the already-vendored
 `engine-v2.14`** (TKT-147 Tractable `two_label_join` + VIN envelope — additive, EVA export
 byte-stable, no DDL dependency; live was v2.13). Email-lane lockstep:
-`orchestration/src/lib/image-sniff.ts` `BANNER_ASPECT_RATIO` 3.5 → 3.2 (+ test boundaries updated,
+`services/orchestration/src/platform/image-sniff.ts` `BANNER_ASPECT_RATIO` 3.5 → 3.2 (+ test boundaries updated,
 575×174 flagged, 204×204 documented classifier-owned).
 
 ### Suites / gates
@@ -184,8 +184,8 @@ byte-stable, no DDL dependency; live was v2.13). Email-lane lockstep:
 
 ### Live re-proof (the verifier's probe, re-run post-deploy)
 - **Engine probe:** both named samples POSTed to the live `/extract-images`
-  (`test-cases-and-data/QDOS261608/.../42117_1_LtrtoEngineerIn.pdf` and
-  `docs/tickets/to-distill/audits/report-and-audit-report/LtrtoEngineerIn.pdf`) → **HTTP 200,
+  (`tests/fixtures/manifests/evidence.json#QDOS261608/.../42117_1_LtrtoEngineerIn.pdf` and
+  the source file catalogued by [TKT-162](../../backlog/TKT-162-nested-audit-archive/evidence-manifest.json)) → **HTTP 200,
   count = 1 each** (was 2/2): the QDOS logo (10,720 B png) is **gone**; only the MGAA badge returns
   (28,728 / 29,026 B jpeg) — by design, it is classifier-owned downstream.
 - **Mirror-filter probe (excluded-and-not-mirrored, live):** Postgres recon found A.QDOS26009 holding

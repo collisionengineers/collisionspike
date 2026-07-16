@@ -1,8 +1,0 @@
-# Runtime dependencies for the box-webhook Function (CCG token-mint facade +
-# webhook receiver). MI-based Dataverse access (no keys) needs azure-identity.
-azure-functions>=1.21.0
-httpx>=0.27.0
-azure-identity>=1.17.0
-# JWT (Server Authentication) token mint: build + RS512-sign the assertion.
-PyJWT>=2.4.0
-cryptography>=3.4.8

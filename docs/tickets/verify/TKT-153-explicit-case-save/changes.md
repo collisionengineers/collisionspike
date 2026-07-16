@@ -23,13 +23,13 @@ Implemented on `codex/tkt-153-explicit-save`; awaiting PR review, deployment and
   Evidence tab; registration and Case/PO retain their existing explicit, isolated
   Save/Cancel controls.
 - Manual saves update only the newest staff provenance row and retain extracted,
-  conflicting and historical source rows. Readiness now selects current-value provenance
-  deterministically (reviewed, then staff, then newest) with harmless legacy formatting
+  conflicting and prior source rows. Readiness now selects current-value provenance
+  deterministically (reviewed, then staff, then newest) with harmless earlier formatting
   normalisation; unrelated old values cannot make a field appear reviewed.
 - Confirmed inspection-address corpus rows are case-disambiguated, so two cases using the
   same address cannot overwrite each other's source note.
 
-## Read-only live compatibility check
+## Read-only live continuity check
 
 The active database was checked before merge. Across all populated EVA fields, there were
 zero reviewed provenance rows whose value failed the tolerant current-value comparison and
@@ -40,5 +40,5 @@ removed after the read-only query.
 ## Tests
 - `npm test --workspace @cs/domain` — 1,136 passed.
 - `npm test --workspace @cs/api` — 632 passed.
-- `npm test --workspace mockup-app` — 465 passed.
+- `npm test --workspace @cs/web` — 465 passed.
 - Domain, API and SPA production builds passed.

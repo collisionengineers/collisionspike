@@ -8,7 +8,7 @@ not started
 **Root cause (ESTABLISHED, not assumed):** "OCTOBER" appears NOWHERE in the source email (raw .eml
 grep = 0 hits; the message is the TKT-093 forwarded Audatex email from pch-ltd.com). It entered via
 the **/parse VRM path**: `caseResolve` stamps the parser VRM onto BOTH `case_.vrm` AND
-`inbound_email.body_vrm` (`api/src/functions/internal.ts` — "upgrade its body_vrm to the best VRM").
+`inbound_email.body_vrm` (`services/data-api/src/features/` — "upgrade its body_vrm to the best VRM").
 The live FC1 parse of the attached Audatex PDF surfaced the month word; a local engine-v2.10 re-parse
 of the SAME PDF returns the real plate `BE57JDS`. The accepting hole: NO layer rejected an all-alpha
 "mark" — the format check (`[A-Z0-9]{2,8}`) passes OCTOBER, provider label rules have no digit

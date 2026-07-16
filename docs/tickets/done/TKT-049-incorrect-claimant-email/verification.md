@@ -6,7 +6,7 @@ VERIFIED-LIVE (2026-07-01)
 ## Evidence
 - Offline: `pytest tests/test_contact_extraction.py::test_ax_credit_repair_team_inbox_is_not_claimant_email` → **1 passed**; drift guard **6/6**.
 - Deploy: `cespike-parser-dev-x7xt3d5ovhi7y` — 3 functions registered post config-zip (`parse`, `classify_email`, `extract_images`).
-- Live: `POST /api/parse` on [TKT-050 sample AX intake .eml](../TKT-050-ax-pdf-extract/evidence/new-inspection-request-ax-ref1074398.eml) with `provider_hint=ax` → `claimant_email.value=""` (not `CreditRepair_TeamInbox@ax-uk.com`).
+- Live: `POST /api/parse` on [TKT-050 sample AX intake .eml](../TKT-050-ax-pdf-extract/evidence-manifest.json) with `provider_hint=ax` → `claimant_email.value=""` (not `CreditRepair_TeamInbox@ax-uk.com`).
 
 ## Pending / gaps
 None.

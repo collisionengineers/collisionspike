@@ -2,8 +2,9 @@
    Collision Engineers — the shared AI capability registry (PLAN-001, ADR-0025).
 
    ONE env-free / I/O-free descriptor table that BOTH AI surfaces consume:
-     - the in-app assistant read adapter (api/src/functions/assistant.ts), and
-     - the read-only MCP server for external agents (api/src/functions/mcp.ts).
+     - the in-app assistant read adapter (services/data-api/src/features/assistant/chat-routes.ts), and
+     - the read-only MCP server for external agents
+       (services/data-api/src/features/assistant/mcp-routes.ts).
 
    A descriptor says WHAT a capability is (name, model-facing schema, kind, who may
    use it, which route a confirmed write hits) — never HOW it executes. The SQL /

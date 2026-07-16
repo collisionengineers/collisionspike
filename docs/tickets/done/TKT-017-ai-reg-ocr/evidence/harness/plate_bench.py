@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """plate_bench.py — reg-OCR benchmark harness for TKT-017.
 
-Mirrors the shape of `scripts/eval-email/run_eval.py`: a labelled corpus
+Mirrors the shape of `scripts/evaluation/email/run_eval.py`: a labelled corpus
 (`bench-manifest.json`) + a pluggable set of engine adapters + a scorer that
 reports the TKT-017 metric set (exact normalised-VRM match, partial/ambiguous
 reads, false-positive plate text, "visible-but-unreadable", "no registration
@@ -14,7 +14,7 @@ Two tiers, because reg-OCR has two separable layers:
   TIER A — the SHARED post-processing decision layer (runs HERE, no deps).
       Every candidate engine (fast-alpr, DI Read, gpt-5 vision) ultimately hands
       raw OCR candidate strings to the SAME production code that decides
-      `registration_visible` / `vrm_match` / `plate_text`: `ocr/plate_adapter.py`
+      `registration_visible` / `vrm_match` / `plate_text`: `services/functions/ocr/plate_adapter.py`
       (`normalise_vrm`, `_looks_like_plate`, `_build_result`). Those functions are
       pure and import nothing heavy, so we score them directly over a labelled set
       of candidate scenarios. This measures the decision layer's behaviour on:
@@ -36,7 +36,7 @@ Usage:
 
 PII: TIER A uses only SYNTHETIC plate strings (fake VRMs). A real TIER B photo
 corpus keeps ground-truth registrations in a GITIGNORED overlay, never in the
-committed manifest — see harness/README.md and scripts/eval-email/README.md.
+committed manifest — see harness/README.md and scripts/evaluation/email/README.md.
 """
 from __future__ import annotations
 
@@ -196,7 +196,7 @@ def run_tier_a() -> dict[str, Any]:
         })
     return {
         "tier": "A",
-        "target": "ocr/plate_adapter.py::_build_result (LIVE shared decision layer)",
+        "target": "services/functions/ocr/plate_adapter.py::_build_result (LIVE shared decision layer)",
         "total": len(SCENARIOS), "passed": passed,
         "decision_layer_latency_us_mean": round(sum(latencies_us) / len(latencies_us), 2),
         "findings": findings,
@@ -232,12 +232,12 @@ def _stub(name: str, reason: str) -> EngineAdapter:
 
 ENGINES: dict[str, EngineAdapter] = {
     # Incumbent: local detector+OCR, no egress. Needs onnxruntime + fast-alpr
-    # (no cp314 wheels on this box) — call ocr/plate_adapter.read_plate(provider="fast_alpr").
+    # (no cp314 wheels on this box) — call services/functions/ocr/plate_adapter.read_plate(provider="fast_alpr").
     "fast_alpr": _stub("fast_alpr", "onnxruntime/fast-alpr unavailable (Python 3.14, no numpy)"),
     # Managed OCR over the whole photo -> substring VRM. Needs a live
-    # cespkdocintel-dev call — ocr/plate_adapter.read_plate(provider="docintel").
+    # cespkdocintel-dev call — services/functions/ocr/plate_adapter.read_plate(provider="docintel").
     "docintel": _stub("docintel", "requires a live cespkdocintel-dev credential/token"),
-    # VLM: reuse orchestration/src/lib/image-classify.ts semantics (gpt-5 vision).
+    # VLM: reuse services/orchestration/src/platform/image-classify.ts semantics (gpt-5 vision).
     # Needs a Cognitive Services token for digital-3339-resource.
     "gpt5_vision": _stub("gpt5_vision", "requires a live digital-3339-resource Cognitive token"),
 }
@@ -299,7 +299,7 @@ def main() -> int:
         with open(args.json_out, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2)
         print(f"\nwrote {args.json_out}")
-    # Tier A is a CHARACTERISATION, not a pass/fail gate (cf. scripts/eval-email
+    # Tier A is a CHARACTERISATION, not a pass/fail gate (cf. scripts/evaluation/email
     # "ground truth, not a pass/fail gate"): a documented-contract match is the
     # expectation, and the findings are the point. Always exit 0 here.
     return 0

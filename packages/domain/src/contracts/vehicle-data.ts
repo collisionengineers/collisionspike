@@ -246,7 +246,7 @@ export const vehicleDataEnrichmentResponseSchema = z
     vehicle: z.record(z.string(), z.unknown()),
     provider_snapshots: z.array(providerSnapshotSchema),
     mileage: mileageSchema,
-    // Mechanical bridge fields emitted by legacy_enrichment_adapter.
+    // Mechanical bridge fields emitted by case_enrichment_projection.
     vehicle_model: z.string().optional(),
     make: z.string().optional(),
     current_mileage: nonNegativeInteger.optional(),

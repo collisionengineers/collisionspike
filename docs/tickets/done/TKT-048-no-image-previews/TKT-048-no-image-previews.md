@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-002, TKT-016, TKT-064]
-research-link: docs/plans/go-live/README.md
+research-link: docs/tickets/done/TKT-048-no-image-previews/evidence-manifest.json
 ---
 
 > **DONE — 2026-07-05 (go-live sprint P4 follow-up).** Real inline previews now render.
@@ -26,7 +26,7 @@ research-link: docs/plans/go-live/README.md
 ## Problem
 
 Every image tile on a case's **Evidence** tab renders as a blank grey block — the
-operator screenshot ([1.png](./1.png)) shows eight
+operator screenshot ([1.png](./evidence-manifest.json)) shows eight
 `ClientVehicle…DamageImage*.jpg` cards where the thumbnail area is an empty slate rectangle;
 only the filename, the `Role` dropdown (all `Unclassified`), the `Exclude (person reflection)`
 toggle, and the `Open in Archive ↗` deep link render. No actual photo is ever shown, so staff
@@ -35,9 +35,9 @@ reflection — they must click `Open in Archive` and leave the app for Box on ev
 
 This is not a load failure — it is **by design of the preserved mockup**: the tile has never
 carried image bytes. `EvidenceCard` draws a coloured `<div>` placeholder, not an `<img>`
-(`mockup-app/src/screens/CaseDetail.tsx:509` — `<div className={styles.thumb}
+(`apps/web/src/features/cases/CaseDetail.tsx:509` — `<div className={styles.thumb}
 style={{ backgroundColor: ev.thumbColor ?? '#5a5a64' }}>`), and the same `thumbColor`
-placeholder pattern backs the EVA order list (`mockup-app/src/components/ImageOrderList.tsx:189`).
+placeholder pattern backs the EVA order list (`apps/web/src/shared/ui/ImageOrderList.tsx:189`).
 The `Evidence` model has no preview field at all: `thumbColor?` is documented as
 *"Optional placeholder thumbnail tint (no real image bytes in the mock)"*
 (`packages/domain/src/model/types.ts:120-121`); the only real handle to the pixels is
@@ -54,7 +54,7 @@ delivery path:
   (`packages/domain/src/model/types.ts`) — e.g. a Data-API-relative thumbnail URL — and
   populate it from wherever the image lives (Blob `cespkevidstdev01`, or the Box
   file via `boxFileId`).
-- **Delivery must clear the CSP.** `mockup-app/staticwebapp.config.json` pins
+- **Delivery must clear the CSP.** `apps/web/staticwebapp.config.json` pins
   `img-src 'self' data: blob:` and `connect-src 'self' https://cespk-api-dev…azurewebsites.net
   https://login.microsoftonline.com`. A raw `<img src>` pointed at a Box host or a blob-storage
   host is therefore **blocked**; the bytes must be served **same-origin through the Data API**
@@ -83,3 +83,8 @@ Archive` as the full-size fallback.
 - [ ] The `OVERVIEW` / `EXCLUDED` overlays, the `Role` dropdown, the reflection toggle, and
       `Open in Archive ↗` continue to work over the thumbnail.
 - [ ] The EVA order list (`ImageOrderList`) shows the same real thumbnails.
+
+## Delivery record
+
+See [changes.md](./changes.md) for the implementation record and
+[verification.md](./verification.md) for the retained verification evidence.

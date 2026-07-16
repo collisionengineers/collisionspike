@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-036",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Our Ref 206848.001 - Kassar Saeed - New eng ins.eml",
+      "originalFilename": "Our Ref 206848.001 - Kassar Saeed - New eng ins.eml",
+      "sha256": "3abb72c66d16b39d528ebebd97bbd2ffddb2118e60a2a80d067d92b87eb9f98b",
+      "storagePath": "tests/fixtures/evidence/sha256/3a/3abb72c66d16b39d528ebebd97bbd2ffddb2118e60a2a80d067d92b87eb9f98b.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/To Engineer with instructions.DOC",
+      "originalFilename": "To Engineer with instructions.DOC",
+      "sha256": "f54bbbf61296510c0055799251992a46dbdc1cac0128d0264217bfbaa9b205b9",
+      "storagePath": "tests/fixtures/evidence/sha256/f5/f54bbbf61296510c0055799251992a46dbdc1cac0128d0264217bfbaa9b205b9.doc"
+    }
+  ]
+}

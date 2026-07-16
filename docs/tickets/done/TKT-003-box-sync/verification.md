@@ -13,7 +13,7 @@ the case Box folder; `boxArchiveEvidence` completes without 500s. See
 - Regression root cause (dead `evidence.blob_purged_at` predicate from `493433e`/`781f02b`) removed and
   redeployed to `cespk-api-dev` + `cespk-orch-dev`.
 
-## Historical context
+## prior context
 - **2026-06-30 (pre-regression):** `QDOS26001` Box folder `395397724540` contained `message.eml` +
   `LtrtoEngineerIn.pdf`; telemetry `{"evt":"boxArchiveEvidence","uploaded":2,"total":2}`; stamping gap
   noted (`box_file_id` / `box_synced_at` NULL) — addressed in the 493433e rework (which then introduced
@@ -25,4 +25,4 @@ the case Box folder; `boxArchiveEvidence` completes without 500s. See
 Run a live intake, list the case Box folder (`.eml` + instruction docs + images), and confirm
 `boxArchiveEvidence` `uploaded`/`total` in App Insights. Optionally confirm `evidence.box_file_id` and
 `case_.box_synced_at` are populated. Box gate state: see
-[live-environment.md](../../../architecture/live-environment.md).
+[live-environment.md](../../../operations/live-environment.md).

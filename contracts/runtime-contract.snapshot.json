@@ -1,0 +1,4962 @@
+{
+  "schemaVersion": 1,
+  "httpRoutes": {
+    "count": 189,
+    "typeScriptCount": 163,
+    "pythonCount": 26,
+    "routes": [
+      {
+        "runtime": "typescript",
+        "functionName": "recentActivity",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/activity",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/activity-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "reviewAiSuggestion",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/ai-suggestions/{id}/review",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/suggestion-review-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "archive-holding-adopt-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/archive-holding-adopt/{caseId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/archiveHolding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "assistantChat",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/assistant/chat",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/chat-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "box-archive-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box-archive",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/archive/boxArchive.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "box-file-request-copy-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box-file-request-copy",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/archive/box-file-request-copy.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "box-folder-create-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box-folder-create",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/archive/box-folder-create.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "box_webhook",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box-webhook",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "copy_file_request",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/file-requests/{fileRequestId}/copy",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "file_request_lifecycle",
+        "methods": [
+          "DELETE",
+          "GET",
+          "PUT"
+        ],
+        "publicPath": "/api/box/file-requests/{fileRequestId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "download_file",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/box/files/{fileId}/content",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "move_file",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/files/{fileId}/move",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "get_shared_link_file",
+        "methods": [
+          "PUT"
+        ],
+        "publicPath": "/api/box/files/{fileId}/shared-link",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "file_deletion",
+        "methods": [
+          "DELETE",
+          "GET"
+        ],
+        "publicPath": "/api/box/files/{fileId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "upload_file",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/folders/{folderId}/files",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "list_folder",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/box/folders/{folderId}/items",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "get_shared_link_folder",
+        "methods": [
+          "PUT"
+        ],
+        "publicPath": "/api/box/folders/{folderId}/shared-link",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "folder_lifecycle",
+        "methods": [
+          "DELETE",
+          "GET",
+          "PATCH"
+        ],
+        "publicPath": "/api/box/folders/{folderId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "create_folder",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/folders",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "verify_write_scope",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/scope/write-check",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "search",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/search",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "webhook_lifecycle",
+        "methods": [
+          "DELETE",
+          "GET"
+        ],
+        "publicPath": "/api/box/webhooks/{webhookId}",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "create_webhook",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/box/webhooks",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/box-webhook/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "revokeCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/capture-sessions/{id}/revoke",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "rotateCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/capture-sessions/{id}/rotate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "deleteCaseImage",
+        "methods": [
+          "DELETE"
+        ],
+        "publicPath": "/api/cases/{caseId}/images/{evidenceId}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/evidence-delete.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "caseById",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id:guid}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/read-edit-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "activityForCase",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/activity",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/activity-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "generateAiSuggestions",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/ai-suggestions/generate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/suggestion-generation-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "caseAiSuggestions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/ai-suggestions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/suggestion-review-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "retryManualIntakeArchive",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/archive-retry",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/create-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "caseBoxCopyFileRequest",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/box/copy-file-request",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "caseBoxFinalize",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/box/finalize",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "caseBoxSharedLink",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/box/shared-link",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "listCaptureSessions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/capture-sessions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/capture-sessions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "logChase",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/chase",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/queue-action-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "markEvaSubmitted",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/eva-submitted",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "uploadCaseEvidence",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/evidence/upload",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/evidence/upload-route.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "setOnHold",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/hold",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/queue-action-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "generateImageAnalysis",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/image-analysis/generate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/image-analysis-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "imagesForCase",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/images",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/activity-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "saveInspectionDecision",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/inspection-decision",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/inspection-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inspectionAddressSuggestions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/inspection-suggestions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/inspection-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "markCaseDone",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{id}/mark-done",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "mergeCandidates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/{id}/merge-candidates",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/merge-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "removeCase",
+        "methods": [
+          "DELETE"
+        ],
+        "publicPath": "/api/cases/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/activity-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "patchCase",
+        "methods": [
+          "PATCH"
+        ],
+        "publicPath": "/api/cases/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/read-edit-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "mergeCases",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases/{tgt}/merge",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/merge-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "nextCasePo",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases/next-po",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/activity-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "openVrmTwins",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/queue-action-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createCase",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/create-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "chaser-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/chaser",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/intake/chaser.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "classify_email_route",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/classify-email",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/parser/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "completedCases",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/completed/cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/archive-completion-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "agingExceptions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/aging-exceptions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "liveCounts",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/live-counts",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "pipelineStages",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/pipeline-stages",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "queueCounts",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/queue-counts",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "reasonCounts",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/reason-counts",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "throughput",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard/throughput",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "dashboardSummary",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/dashboard",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/dashboard-routes.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "dvsa_mot_enrich",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/dvsa-mot/enrich",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/vehicle-enrichment/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "eva-report-poll-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/eva-report-poll",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/intake/eva-report-poll.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "eva_instruction_inspection",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/eva/instruction-inspection",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/eva-sentry/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "evidenceContent",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/evidence/{id}/content",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/evidence/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "patchEvidence",
+        "methods": [
+          "PATCH"
+        ],
+        "publicPath": "/api/evidence/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/evidence/routes.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "explode_eml",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/explode-eml",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/parser/function_app.py"
+      },
+      {
+        "runtime": "python",
+        "functionName": "extract_images_route",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/extract-images",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/parser/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "finalize-eva-box-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/finalize-eva-box",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/archive/finalize-eva-box.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "fingerprint",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/fingerprint",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/parser/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getAiAssistGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/ai-assist",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "aiChatGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/ai-chat",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/assistant/chat-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getBoxFileRequestTemplateId",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/box/file-request-template",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getBoxGates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/box",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getDeleteCaseImageGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/delete-case-image",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getLocationAssistGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/location-assist",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getOutlookMoveGate",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/gates/outlook-move",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/gate-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "graph-lifecycle-sent",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/graph-lifecycle-sent",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/graph-webhook-sent.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "graph-lifecycle",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/graph-lifecycle",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/graph-lifecycle.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "graph-renew-http",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/graph-renew",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/graph-renew-http.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "graph-webhook-sent",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/graph-webhook-sent",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/graph-webhook-sent.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "graph-webhook",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/graph-webhook",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/graph-webhook.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inboundOutlookLink",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inbound/{id:guid}/outlook-link",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inboundEmailById",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inbound/{id:guid}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "reclassifyInbound",
+        "methods": [
+          "PATCH"
+        ],
+        "publicPath": "/api/inbound/{id}/classification",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "detachInboundEmail",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/inbound/{id}/detach",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "moveInboundToOutlook",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/inbound/{id}/outlook-move",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inboundEmailSuggestions",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inbound/{id}/suggestions",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "setTriageState",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/inbound/{id}/triage",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inboundEmailCounts",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inbound/counts",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inboundEmails",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inbound",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/inbound/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "inspectionAddressCounts",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/inspection-addresses/counts",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/inspection-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingAdoptionFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingCheckpoint",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/files/{fileId}/checkpoint",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingFinalize",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/{id}/finalize",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingAdoptionCandidates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/archive-holding/adoption-candidates",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingDeferredClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/deferred/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploadFailed",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/files/{id}/failed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploaded",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/files/{id}/uploaded",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingRegister",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/register",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingReserve",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/reserve",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingUploadClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-holding/uploads/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveMirrorOutboxComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-mirror-outbox/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/mirror-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveMirrorOutboxDefer",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/archive-mirror-outbox/{id}/defer",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/mirror-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveMirrorOutboxPending",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/archive-mirror-outbox/pending",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/mirror-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalAudit",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/audit",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalBoxFileRequestOutboxDrain",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/box-file-request-outbox/drain",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/file-request-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalBoxCaseByFolder",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/box/case-by-folder/{folderId}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalBoxMarkPurged",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/box/mark-purged",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalBoxPurgeCandidates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/box/purge-candidates",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesArchiveEvidenceRelease",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/archive-evidence/release",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesArchiveEvidenceStamp",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/archive-evidence/stamp",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesArchiveEvidence",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/cases/{id}/archive-evidence",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalArchiveHoldingClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/archive-holding/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/internal-archive-holding.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCaseBoxFolderGet",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/cases/{id}/box-folder",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCaseBoxFolderStamp",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/box-folder",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalEvaSubmission",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/cases/{id}/eva-submission",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesEvidence",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/evidence",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/evidence/internal-persist-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesMarkDone",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/mark-done",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesSetIngested",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/set-ingested",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesStatusEvaluate",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/{id}/status-evaluate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-evidence-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesLookup",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/lookup",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalCasesResolve",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/cases/resolve",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-resolution-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalDedupContext",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/dedup-context",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/providers/internal-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalDispositionCase",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/disposition/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalDispositionDue",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/disposition/due",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalEvidenceBackfillRequestDrain",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/evidence-backfill-requests/drain",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/evidence/backfill-drain-route.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalEvidenceBoxClassification",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/evidence/{id}/box-classification",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-classification-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalEvidenceUnclassifiedBox",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/internal/evidence/unclassified-box",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/internal-classification-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundEmail",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound-email",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-record-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundEvidenceBackfillValidate",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound/{id}/evidence-backfill/validate",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/evidence/internal-backfill-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundEvidenceBackfill",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound/{id}/evidence-backfill",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/evidence/internal-backfill-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundOutlookMoved",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound/{id}/outlook-moved",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-triage-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundAttention",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound/attention",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/evidence/internal-persist-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalInboundLinkReply",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/inbound/link-reply",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-record-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalOutlookLinkBackfillCandidates",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/outlook-links/backfill-candidates",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalOutlookLinkBackfillResult",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/outlook-links/backfill-result",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalPrincipals",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/principals",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalProviderArchiveOutboxComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/provider-archive-outbox/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/provider-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalProviderArchiveOutboxDefer",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/provider-archive-outbox/{id}/defer",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/provider-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalProviderArchiveOutboxPending",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/provider-archive-outbox/pending",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/archive/provider-outbox-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalProviderMatchRecords",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/provider-match-records",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/providers/internal-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalRetroCreate",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/retro/create",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/retro-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalRetroResolveExisting",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/retro/resolve-existing",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/retro-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalStaffUploadCleanupComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/staff-upload-cleanup/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalStaffUploadCleanupClaim",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/staff-upload-cleanup/claim",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-operations-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalStatusRecomputeComplete",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/status-recompute/{id}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalStatusRecomputePending",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/status-recompute/pending",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/cases/internal-maintenance-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalTriageContext",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/triage/context",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-triage-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalTriageHeldPreInstruction",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/triage/held-pre-instruction",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-triage-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalTriageSuggestLink",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/internal/triage/suggest-link",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/inbound/internal-triage-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "internalWorkProviderAiAllowed",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/internal/work-provider/{id}/ai-allowed",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "service-bearer"
+        ],
+        "source": "services/data-api/src/features/providers/internal-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "jobsheet-import-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/jobsheet-import",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/intake/jobsheet-import.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "locationAssistSuggest",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/location-assist/suggest",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/platform/http/proxy-routes.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "location_suggest_route",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/location-suggest",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/location-assist/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "archive-holding-monitor",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/maintenance/archive-holding-monitor",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/archive-holding-monitor.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "box-maintenance-monitors",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/maintenance/box-monitors",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/archive/box-maintenance-monitor.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "evidence-backfill-publisher-monitor",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/maintenance/evidence-backfill-publisher-monitor",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/evidence/evidence-backfill-publisher-monitor.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "mcpServer",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "publicPath": "/api/mcp",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "staff-bearer"
+        ],
+        "source": "services/data-api/src/features/assistant/mcp-routes.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "ocr_pdf",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/ocr-pdf",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/ocr/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "outlook-link-backfill",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/outlook-link-backfill",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/outlook-link-backfill.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "outlook-link-resolve",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/outlook-link-resolve",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/mailbox/outlook-link-resolve.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "parse",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/parse",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/parser/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "parserParse",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/parser/parse",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/platform/http/proxy-routes.ts"
+      },
+      {
+        "runtime": "python",
+        "functionName": "plate_ocr",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/plate-ocr",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/functions/ocr/function_app.py"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "providerIntakeCase",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/provider-intake/cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "provider-api-key"
+        ],
+        "source": "services/data-api/src/features/providers/intake-route.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "providerByCode",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/providers/{code}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/providers/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "revokeProviderApiKey",
+        "methods": [
+          "DELETE"
+        ],
+        "publicPath": "/api/providers/{id}/api-keys/{keyId}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.Superuser"
+        ],
+        "source": "services/data-api/src/features/providers/key-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "listProviderApiKeys",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/providers/{id}/api-keys",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.Superuser"
+        ],
+        "source": "services/data-api/src/features/providers/key-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createProviderApiKey",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/providers/{id}/api-keys",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.Superuser"
+        ],
+        "source": "services/data-api/src/features/providers/key-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "updateProvider",
+        "methods": [
+          "PATCH"
+        ],
+        "publicPath": "/api/providers/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.Superuser"
+        ],
+        "source": "services/data-api/src/features/providers/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "providers",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/providers",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/providers/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "exchangeCaptureSecret",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/exchange",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "renewCaptureAccess",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/renew",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "submitCaptureSession",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/submit",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "completeCaptureUpload",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/uploads/{assetId}/complete",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "createCaptureUpload",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}/uploads",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "captureManifest",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/public/capture/sessions/{id}",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/data-api/src/features/cases/capture.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "casesForQueue",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/queues/{name}/cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/queue-action-routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "retro-case-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/retro-case",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/retro/retro-case.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "retro-deleted-probe",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/retro-deleted-probe",
+        "authLevel": "function",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/retro/retro-deleted-probe.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "globalSearch",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/search",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/cases/search-route.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "getHoldNewCasesDefault",
+        "methods": [
+          "GET"
+        ],
+        "publicPath": "/api/settings/hold-new-cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.User"
+        ],
+        "source": "services/data-api/src/features/settings/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "setHoldNewCasesDefault",
+        "methods": [
+          "PUT"
+        ],
+        "publicPath": "/api/settings/hold-new-cases",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "role:CollisionSpike.Superuser"
+        ],
+        "source": "services/data-api/src/features/settings/routes.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "triage-classify-start",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/triage-classify",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [],
+        "source": "services/orchestration/src/workflows/intake/triage-classify.ts"
+      },
+      {
+        "runtime": "typescript",
+        "functionName": "vehicleDataLookup",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/vehicle-data/lookup",
+        "authLevel": "anonymous",
+        "policyIdentifiers": [
+          "vehicle-lookup"
+        ],
+        "source": "services/data-api/src/features/vehicle/routes.ts"
+      }
+    ]
+  },
+  "domainDtos": {
+    "count": 56,
+    "declarations": [
+      {
+        "name": "AiAssistGate",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AiAssistGate {\n    enabled: boolean;\n    modelConfigured: boolean;\n}",
+        "sha256": "69291c438e9ddde677c36952a6cb9b23008ba40760b26926214d95cf51d43453"
+      },
+      {
+        "name": "AiSuggestion",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AiSuggestion {\n    id: string;\n    caseId?: string;\n    evidenceId?: string;\n    inboundEmailId?: string;\n    suggestionType: AiSuggestionType;\n    suggestedValue: unknown;\n    rationale?: string;\n    confidence?: number;\n    modelVersion?: string;\n    reviewState: AiSuggestionReviewState;\n    createdAt: string;\n    reviewedBy?: string;\n    reviewedAt?: string;\n}",
+        "sha256": "42f6a1412cef0c68a643e38dc27b620ed9865f27daab86a0c944b3b84350eea0"
+      },
+      {
+        "name": "AiSuggestionReviewDecision",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type AiSuggestionReviewDecision = 'accepted' | 'rejected';",
+        "sha256": "4df1dafd77c53d08a3a78591802fe07f1db067c662751a299d0b10a5e349caff"
+      },
+      {
+        "name": "AiSuggestionReviewInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AiSuggestionReviewInput {\n    decision: AiSuggestionReviewDecision;\n}",
+        "sha256": "451959976fdba0842e432d5500081b8ddf9e2de04bf6c693755770615a934ca2"
+      },
+      {
+        "name": "AiSuggestionReviewResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AiSuggestionReviewResult {\n    id: string;\n    reviewState: AiSuggestionReviewState;\n    promoted: boolean;\n    promotedField?: string;\n}",
+        "sha256": "86a5224774dee4d5c58daf0b1d32234ce7a5cfa541e17d8d004620bb52344862"
+      },
+      {
+        "name": "AiSuggestionReviewState",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type AiSuggestionReviewState = 'pending' | 'accepted' | 'rejected' | 'superseded';",
+        "sha256": "fc0e329a57fe0b374686a9ca40e7478d674b50538f113d65e1a6ec453c01cc5c"
+      },
+      {
+        "name": "AiSuggestionType",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type AiSuggestionType = 'image_role' | 'registration' | 'inspection_address' | 'triage_category' | 'vehicle_present' | 'same_vehicle' | 'background_text' | 'location_hint' | 'address_suggestion' | 'damage_area' | 'damage_severity' | 'accident_summary' | (string & {});",
+        "sha256": "ae04eb5ed1267ec1dc0a9a64360b4a82386076dcaa2922874a7695519adc2e8f"
+      },
+      {
+        "name": "AssistantChatTurn",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AssistantChatTurn {\n    role: 'user' | 'assistant';\n    content: string;\n}",
+        "sha256": "5319db815cff0e77e99fddc8fa100416ede3a2a6baa8e93b65a1ac41e2e94f61"
+      },
+      {
+        "name": "AssistantReply",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface AssistantReply {\n    reply: string;\n    toolsUsed?: string[];\n    disabled?: boolean;\n    error?: boolean;\n    proposals?: ProposedAction[];\n}",
+        "sha256": "7e321e7d8795e3f54a715c8d60318bce020df3f730c3a80a8bbedcb01d1313a0"
+      },
+      {
+        "name": "BoxGates",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface BoxGates {\n    apiEnabled: boolean;\n    folderAtIntakeEnabled: boolean;\n    fileRequestEnabled: boolean;\n    fileRequestTemplateConfigured: boolean;\n}",
+        "sha256": "59f7f0e689650ef8541741f6a67f77c8d4b3ad9115bdddf399ed9a0246822a60"
+      },
+      {
+        "name": "CaptureGuidanceMode",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export type CaptureGuidanceMode = 'off' | 'shadow' | 'advisory' | 'enforced';",
+        "sha256": "0a79b13b074fcbdad5560b8e053e025d4751486a80359ee80cafa9363ce2d1f7"
+      },
+      {
+        "name": "CaptureSessionListResponse",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionListResponse {\n    sessions: CaptureSessionStaffSummary[];\n}",
+        "sha256": "05c22e5256cfc19719c5f6b361548d9c25557ebbc4392d4d31da9e68b46566bb"
+      },
+      {
+        "name": "CaptureSessionSecretResponse",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionSecretResponse {\n    session: CaptureSessionStaffSummary;\n    captureUrl: string;\n}",
+        "sha256": "2dc327fca75ca956e0eecd93d0183c0d30e34e05d12065b9b7da20546b757c2f"
+      },
+      {
+        "name": "CaptureSessionStaffSummary",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CaptureSessionStaffSummary {\n    sessionId: string;\n    status: CaptureSessionStatus;\n    shotPlanId: string;\n    shotPlanLabel: string;\n    guidanceMode: CaptureGuidanceMode;\n    expiresAt: string;\n    createdAt: string;\n    submittedAt?: string;\n    requiredTotal: number;\n    requiredCompleted: number;\n}",
+        "sha256": "f61369b1d55107372bdad3e736826a8329cf19d1c277cb4aa497ada7c0084c6b"
+      },
+      {
+        "name": "CaptureSessionStatus",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export type CaptureSessionStatus = 'open' | 'complete' | 'expired' | 'revoked' | 'locked';",
+        "sha256": "2536c2df0ee7f44905002c325731f2bfb7bbf3f79a30235ba04f8c07a45492aa"
+      },
+      {
+        "name": "CaseUpdateInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface CaseUpdateInput {\n    vrm?: string;\n    evaFields?: Partial<Record<EvaFieldKey, string>>;\n    inspectionDecision?: InspectionDecisionInput;\n    editSession?: true;\n    caseType?: string;\n    casePo?: string;\n}",
+        "sha256": "fb1fdad75239e96c4facca49d9e5d3f52b58031ea8256bbafb96bcb9e9dcfc31"
+      },
+      {
+        "name": "ClassifierMode",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type ClassifierMode = 'deterministic' | 'llm' | 'human';",
+        "sha256": "b5399d43937304f399c33bb21f2312cdefb6a11e31f282944f9eb45c7d421957"
+      },
+      {
+        "name": "CreateCaptureSessionRequest",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/capture.ts",
+        "signature": "export interface CreateCaptureSessionRequest {\n    shotPlanId?: string;\n    expiresInHours?: number;\n}",
+        "sha256": "9f90865a35851d38ed9d79be08ebd34089bca68fba7bfb309e8af75eca3e8fa1"
+      },
+      {
+        "name": "CreateCaseInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface CreateCaseInput {\n    evaFields: EvaFields;\n    vrm: string;\n    casePo?: string;\n    provider?: string;\n    providerCode?: string;\n    insuredName?: string;\n    providerReference?: string;\n    status: CaseStatus;\n    sourceLabel?: string;\n    writeProvenance?: boolean;\n    inspectionDecision?: Case['inspectionDecision'];\n    inspectionDecisionReason?: string;\n    onHold?: boolean;\n    receivedFrom?: string;\n    receivedOn?: string;\n}",
+        "sha256": "12955e9a37c26022f352b1019d3a5c2ec70e0521639f69b294c8f9822793567c"
+      },
+      {
+        "name": "CreateCaseOptions",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface CreateCaseOptions {\n    idempotencyKey?: string;\n    evidenceUploadKey?: string;\n    expectedEvidenceCount?: number;\n    instructionEvidenceIndex?: number;\n}",
+        "sha256": "0cb20cafa0be4e595a929ef6a70ef4813ec1ac5ed9ec9b83f61b36d52d51da72"
+      },
+      {
+        "name": "CreateCaseResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface CreateCaseResult {\n    id: string;\n    replayed?: boolean;\n}",
+        "sha256": "e1afb0392dbc8f9403c54e63992bcb1b079c10bc6ed0ce7beb4c36960b73b226"
+      },
+      {
+        "name": "CreateProviderApiKeyInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface CreateProviderApiKeyInput {\n    label: string;\n}",
+        "sha256": "dcc7708d9a1edcc298573c67cc6045e75f4b4116d4436689e1f38f98e9c464b4"
+      },
+      {
+        "name": "CreateProviderApiKeyResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface CreateProviderApiKeyResult {\n    id: string;\n    keyPrefix: string;\n    plaintextKey: string;\n}",
+        "sha256": "78ce40c1e0b8db860ad0e7e6c023d4e06a678d980b62fd1872ee6bd1ded05c02"
+      },
+      {
+        "name": "DashboardSummary",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface DashboardSummary {\n    liveCounts: LiveCounts;\n    throughput: Throughput;\n    queueCounts: Record<QueueName, number>;\n    pipelineStages: PipelineStage[];\n    reasonFacets: ReasonFacet[];\n    agingExceptions: AgingExceptions;\n    inbound: InboundCounts;\n}",
+        "sha256": "967cad72802e49715a771b0031a6c4f4e42b39d4ebcc3956ee7b1bf4587e9214"
+      },
+      {
+        "name": "DataAccess",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface DataAccess {\n    caseById(id: string): Promise<Case | undefined>;\n    createCase(input: CreateCaseInput, options?: CreateCaseOptions): Promise<CreateCaseResult>;\n    updateCase(id: string, patch: CaseUpdateInput): Promise<Case>;\n    casesForQueue(name: QueueName, now?: Date): Promise<Case[]>;\n    openVrmTwins(vrm: string, excludeCaseId?: string): Promise<Case[]>;\n    openCasePoMatches(casePo: string, excludeCaseId?: string): Promise<Case[]>;\n    setOnHold(caseId: string, onHold: boolean): Promise<void>;\n    mergeCandidates(caseId: string): Promise<Case[]>;\n    mergeCases(sourceCaseId: string, targetCaseId: string): Promise<MergeCasesResult>;\n    imagesForCase(caseId: string): Promise<Evidence[]>;\n    providers(): Promise<Provider[]>;\n    providerByCode(code: string): Promise<Provider | undefined>;\n    inspectionAddressSuggestions(caseId: string, q?: string): Promise<SuggestedAddress[]>;\n    inspectionAddressCounts(): Promise<InspectionAddressCounts>;\n    saveInspectionDecision(caseId: string, decision: InspectionDecisionInput): Promise<SaveInspectionDecisionResult>;\n    liveCounts(now?: Date): Promise<LiveCounts>;\n    throughput(now?: Date): Promise<Throughput>;\n    agingExceptions(now?: Date): Promise<AgingExceptions>;\n    queueCounts(now?: Date): Promise<Record<QueueName, number>>;\n    reasonCounts(now?: Date): Promise<ReasonFacet[]>;\n    pipelineStages(): Promise<PipelineStage[]>;\n    recentActivity(): Promise<ActivityEvent[]>;\n    activityForCase(caseId: string): Promise<ActivityEvent[]>;\n    getBoxGates(): Promise<BoxGates>;\n    getBoxFileRequestTemplateId(): Promise<string | undefined>;\n    getLocationAssistGate(): Promise<LocationAssistGate>;\n    getHoldNewCasesDefault(): Promise<boolean>;\n    setHoldNewCasesDefault(value: boolean): Promise<void>;\n    inboundEmails(facet?: InboundFacet): Promise<InboundEmail[]>;\n    inboundEmailCounts(): Promise<InboundCounts>;\n    setTriageState(id: string, state: TriageState): Promise<void>;\n}",
+        "sha256": "2ebcd3cf3934ca8e33627c367d30f36e2321ad1b8ea3ae3cc37a5cbb302fc819"
+      },
+      {
+        "name": "DeleteCaseImageGate",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface DeleteCaseImageGate {\n    enabled: boolean;\n}",
+        "sha256": "636ea0d44161000feae9041c093ae7f6a151c2769693c37c05c2e895984d30b7"
+      },
+      {
+        "name": "GenerateAiSuggestionsResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface GenerateAiSuggestionsResult {\n    generated: number;\n    reason?: 'disabled' | 'no_input' | 'empty' | 'error';\n}",
+        "sha256": "a9b4affb97200c4efea4450853a3ce9cce5de516901fadb1f0032ec96b5fbae8"
+      },
+      {
+        "name": "InboundAttentionReason",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type InboundAttentionReason = 'unable_to_locate' | 'images_no_match';",
+        "sha256": "1fef6bf55bf646ce327b48aba8fb9f026e219a1f22cf074f662a50a1ecd4b7bb"
+      },
+      {
+        "name": "InboundCategory",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type InboundCategory = 'receiving_work' | 'query' | 'billing' | 'non_actionable' | 'other' | 'case_update' | 'cancellation' | 'pre_instruction' | 'website_enquiry';",
+        "sha256": "257bd8e511f883e43b012d71faa5869aa1d45d82b90a3e102451aadb287ea425"
+      },
+      {
+        "name": "InboundCounts",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface InboundCounts {\n    receiving_work: number;\n    query: number;\n    billing: number;\n    non_actionable: number;\n    other: number;\n    case_update: number;\n    cancellation: number;\n    pre_instruction: number;\n    website_enquiry: number;\n    untriaged: number;\n}",
+        "sha256": "b5ebd63c5b28644d4a96709111a0c0f0540059e7b335e888fc9eb2c121c0dc61"
+      },
+      {
+        "name": "InboundEmail",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface InboundEmail {\n    id: string;\n    name: string;\n    sourceMessageId: string;\n    outlookWebLink?: string;\n    subject: string;\n    fromAddress: string;\n    senderDomain: string;\n    sourceMailbox: string;\n    receivedOn: string;\n    hasAttachments: boolean;\n    category: InboundCategory;\n    subtype: InboundSubtype;\n    confidence: number;\n    classifierMode: ClassifierMode;\n    signals: string[];\n    triageState: TriageState;\n    bodyVrm: string;\n    bodyCaseref: string;\n    bodyJobref?: string;\n    conversationId?: string;\n    bodyPreview: string;\n    caseId?: string;\n    casePo?: string;\n    linkSuggestionCasePo?: string;\n    workProviderId?: string;\n    suggestedCategory?: InboundCategory;\n    suggestedSubtype?: InboundSubtype;\n    outlookMoveState?: OutlookMoveState;\n    outlookMovedFolder?: string;\n    outlookMovedAt?: string;\n    attentionReason?: InboundAttentionReason;\n}",
+        "sha256": "c58081977f9c7b76b45c17960983b1950a5d1476535f1c003fe5c97ad8b26984"
+      },
+      {
+        "name": "InboundFacet",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface InboundFacet {\n    category?: InboundCategory;\n    subtype?: InboundSubtype;\n    view?: InboundView;\n}",
+        "sha256": "504d5b80867cbb9615e97e6519101bc81b83920954b4a57e0d82901d87005ff5"
+      },
+      {
+        "name": "InboundSubtype",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type InboundSubtype = 'existing_provider_instruction' | 'existing_provider_audit' | 'existing_provider_diminution' | 'new_client_work' | 'query_existing_work' | 'query_new_enquiry' | 'billing_request' | 'case_summary' | 'acknowledgement' | 'other' | 'images_received' | 'cancellation_notice' | 'update_general' | 'payment_remittance' | 'pre_instruction_directions' | 'website_general_enquiry';",
+        "sha256": "7a1cb301b9dd84ec79e29bf900c5bde75574b50c91033a57a1cbcf0f86cc6c8d"
+      },
+      {
+        "name": "InboundView",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type InboundView = 'active' | 'handled' | 'all';",
+        "sha256": "a1db190561ec5e66567f17800aefc730164fc059011de666ff83aa23669da266"
+      },
+      {
+        "name": "InspectionAddressCounts",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface InspectionAddressCounts {\n    confirmed: number;\n    suggested: number;\n}",
+        "sha256": "02a0fb656d1583ea4e69fd3dd55bccec72488da0673c3c427b83cb4a1c72c332"
+      },
+      {
+        "name": "InspectionDecisionInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface InspectionDecisionInput {\n    decisionMode: Case['inspectionDecision'];\n    sourceLabel: string;\n    sourceNote: string;\n    addressLines?: string[];\n    postcode?: string;\n}",
+        "sha256": "72aa9c1ebf78d0cc228684c0229466e92f48ffba7dc1b0ce486574d36c415cae"
+      },
+      {
+        "name": "LocationAssistGate",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface LocationAssistGate {\n    assistEnabled: boolean;\n    mapsEnabled: boolean;\n    apiBaseConfigured: boolean;\n    enabled: boolean;\n    aiEnabled: boolean;\n}",
+        "sha256": "ce86e152006243c7d4b349e40a0e564fef6dba4a81e19988aa15c9b5e6a05660"
+      },
+      {
+        "name": "MergeCasesResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface MergeCasesResult {\n    targetCaseId: string;\n    movedEvidence: number;\n}",
+        "sha256": "3ef53ac7adb30b41b1e3ba49114b8353e923059eac8e9b186ce6ec0df286d4ea"
+      },
+      {
+        "name": "NextCasePoResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface NextCasePoResult {\n    principal: string;\n    yy: string;\n    seq: string;\n    nextSeq: number;\n    evaLower: string;\n    boxUpper: string;\n    source: 'db' | 'box' | 'floor';\n}",
+        "sha256": "702ad6178c6f644efea7dbd9815651a80c079e9b2dbc3120619ae52f21bedfc8"
+      },
+      {
+        "name": "OutlookMessageLinkResolution",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface OutlookMessageLinkResolution {\n    status: OutlookMessageLinkStatus;\n    outlookWebLink?: string;\n}",
+        "sha256": "04f18e77803263651c57dcf34fbeac124cb6696e843d649aa032adcb5baf5322"
+      },
+      {
+        "name": "OutlookMessageLinkStatus",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type OutlookMessageLinkStatus = 'available' | 'missing_identity' | 'not_found' | 'not_accessible' | 'unavailable';",
+        "sha256": "1821818af962d736856f4f9d2e0212b40a5d933f4eaf2a0532678f6963b7b253"
+      },
+      {
+        "name": "OutlookMoveGate",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface OutlookMoveGate {\n    enabled: boolean;\n}",
+        "sha256": "23ed071ac509111a48e71a7998695b50a067d971914e4c629d5faa7b4e7c643d"
+      },
+      {
+        "name": "OutlookMoveState",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type OutlookMoveState = 'queued' | 'moved' | 'failed';",
+        "sha256": "236d88d423774f1b13f42d05547d0666a9b46b24cf0bc49bd2d89f166f65453a"
+      },
+      {
+        "name": "ProposedAction",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface ProposedAction {\n    capability: string;\n    title: string;\n    method: string;\n    path: string;\n    body: Record<string, unknown>;\n    params: Record<string, unknown>;\n}",
+        "sha256": "a89782e1ff4b49ec2e1fd2685928c61a0d4636831a5357cc357c8ace1c645449"
+      },
+      {
+        "name": "ProviderApiAttachment",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface ProviderApiAttachment {\n    filename: string;\n    contentType: string;\n    base64Data: string;\n}",
+        "sha256": "2c0f20c6c3cabf4b80f506e5e9d0eb631c9f59e137799aa446a13b1e3338cfab"
+      },
+      {
+        "name": "ProviderApiImage",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface ProviderApiImage extends ProviderApiAttachment {\n    imageRole?: 'overview' | 'damage_closeup' | 'additional';\n    sequenceIndex?: number;\n    excluded?: boolean;\n    exclusionReason?: string;\n}",
+        "sha256": "6ce11528b3599944c8f16a8f474619f9eb09f4fc744d410036de4acd994db67e"
+      },
+      {
+        "name": "ProviderApiKey",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface ProviderApiKey {\n    id: string;\n    label: string;\n    keyPrefix: string;\n    createdAt: string;\n    createdBy?: string;\n    revokedAt?: string | null;\n    lastUsedAt?: string | null;\n}",
+        "sha256": "ef79a302e0dfe39c1fba1fe3b08f0286593a57a19666c4aafa4735cb8e22295a"
+      },
+      {
+        "name": "ProviderApiSubmission",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface ProviderApiSubmission {\n    providerReference: string;\n    vrm: string;\n    vehicleModel?: string;\n    claimantName: string;\n    claimantTelephone?: string;\n    claimantEmail?: string;\n    dateOfLoss: string;\n    dateOfInstruction: string;\n    accidentCircumstances: string;\n    inspectionAddress?: string;\n    vatStatus?: '' | 'Yes' | 'No';\n    mileage?: string;\n    mileageUnit?: '' | 'Miles' | 'Km';\n    instructions: ProviderApiAttachment[];\n    images: ProviderApiImage[];\n}",
+        "sha256": "27b698064d8dbb995d09c2457352c1f0b0ef780520fa4f24d60919d214c73373"
+      },
+      {
+        "name": "ProviderApiSubmissionResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/provider-api.ts",
+        "signature": "export interface ProviderApiSubmissionResult {\n    caseId: string;\n    casePo: string | null;\n}",
+        "sha256": "3c6d1907063d55de942e43ef7142d5a852a0ac3927191470dbe487f4e4d94229"
+      },
+      {
+        "name": "ProviderUpdateInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface ProviderUpdateInput {\n    providerAutomationMode?: ProviderAutomationMode;\n    knownEmailDomains?: string[];\n}",
+        "sha256": "b4762fede33f5ec7bb6c229aa433cd8c865de96bd39147f69fb484d6e56fe9d8"
+      },
+      {
+        "name": "ReclassifyInboundInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface ReclassifyInboundInput {\n    category?: InboundCategory;\n    subtype?: InboundSubtype;\n    tag?: 'Inspection' | 'New client work' | 'Audit' | 'Diminution' | 'Query';\n    reason?: string;\n}",
+        "sha256": "c78beb74d5ca8b9ea6f390f442872c984d8ca9ff4e3e465feef15af834fb2c5f"
+      },
+      {
+        "name": "RemoveCaseInput",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface RemoveCaseInput {\n    acknowledgeArchiveFolderHandled?: boolean;\n    reason?: string;\n}",
+        "sha256": "0f7edd5897456380b12450ce9302cd9fc34710019535b0388365d1cbf117f245"
+      },
+      {
+        "name": "RemoveCaseResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface RemoveCaseResult {\n    id: string;\n    status: CaseStatus;\n    alreadyRemoved: boolean;\n    boxFolderUrl?: string;\n}",
+        "sha256": "8456d39f17c51f3f3b980daa782a2352fd5e5923bd8c3ae668fb820cc80cd4f3"
+      },
+      {
+        "name": "SaveInspectionDecisionResult",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface SaveInspectionDecisionResult {\n    persisted: boolean;\n    id?: string;\n}",
+        "sha256": "c6743174c69cbd673fbc5d7dbf93c928d60dfc284aa3b95b931c2623156f228b"
+      },
+      {
+        "name": "SuggestedAddress",
+        "kind": "InterfaceDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export interface SuggestedAddress {\n    id: string;\n    lines: string[];\n    postcode: string;\n    providerCode?: string;\n    locValue?: string;\n    evidenceNote?: string;\n    confidenceBand?: string;\n    source?: 'corpus' | 'assist';\n    confidence?: number;\n    label?: string;\n    sourcePhotoRef?: string;\n    frequency?: number;\n    lastSeen?: string;\n    rank?: number;\n    distanceMiles?: number;\n    scopeFallback?: boolean;\n}",
+        "sha256": "974ad4df4ed1b38a7fb945b3fe4813c6ec74bfbc53f9c03e561e388718a97b6f"
+      },
+      {
+        "name": "TriageState",
+        "kind": "TypeAliasDeclaration",
+        "source": "packages/domain/src/dto/index.ts",
+        "signature": "export type TriageState = 'new' | 'routed' | 'actioned' | 'dismissed';",
+        "sha256": "6f332e6563938d88596b39da885e0957b11a1531e88d753959ce4e48133fcdad"
+      }
+    ]
+  },
+  "jsonSchemas": {
+    "count": 7,
+    "schemas": [
+      {
+        "path": "contracts/eva-payload.schema.json",
+        "id": "https://collisionengineers.example/contracts/eva-payload.schema.json",
+        "title": "EVA payload (12-field, settled contract)",
+        "sha256": "4293c84efda6c6447daad18c8c9601065c7de2d1372b76ab278689204a9058c7"
+      },
+      {
+        "path": "contracts/vehicle-data-v1.schema.json",
+        "id": "https://collisionengineers.co.uk/contracts/vehicle-data-v1.schema.json",
+        "title": "CollisionSpike canonical vehicle data lookup",
+        "sha256": "6f826e589d43844ffeb2772af007da5479b255e1cd4a98dcb117b25bc3286147"
+      },
+      {
+        "path": "packages/domain/src/data/schema/_code-table.schema.json",
+        "id": "_code-table.schema.json",
+        "title": "CollisionSpike code-table metadata",
+        "sha256": "7288ad3dffbc4b6c501a9af60b4e552696e77638cc3fc7b34fa5753eb0d293b0"
+      },
+      {
+        "path": "services/functions/parser/cedocumentmapper_v2/resources/eva-json.schema.json",
+        "id": "https://collisionengineers.local/contracts/eva-json.schema.json",
+        "title": "EVA JSON Export",
+        "sha256": "e06b8b9ea7ae71af3afb3afcba9f185a543ff584f07a32f3e9e8ee6a1e9ad567"
+      },
+      {
+        "path": "services/functions/parser/cedocumentmapper_v2/resources/triage-rules.schema.json",
+        "id": "https://collisionengineers.local/contracts/triage-rules.schema.json",
+        "title": "Triage Rule Phrase Data",
+        "sha256": "29848d89abe3a40a681fc113eb506beb508f4824d17e190f3d83fe73ef2ac959"
+      },
+      {
+        "path": "services/functions/parser/contracts/eva-payload.schema.json",
+        "id": "https://collisionengineers.example/contracts/eva-payload.schema.json",
+        "title": "EVA payload (12-field, settled contract)",
+        "sha256": "9e9e0b1fce030921543baefade06543f8000e51269212c4a134cb00e012f3f3e"
+      },
+      {
+        "path": "tests/fixtures/manifests/evidence.schema.json",
+        "id": "evidence.schema.json",
+        "title": "Repository evidence catalog",
+        "sha256": "ad2081dc484f663d2b45e8b0e8f2f26494193960630a398d4553d4fb1f0168db"
+      }
+    ]
+  },
+  "authPolicies": {
+    "acceptedRoleClaims": [
+      "CollisionSpike.Admin",
+      "CollisionSpike.Agent",
+      "CollisionSpike.ImageIngest",
+      "CollisionSpike.Superuser",
+      "CollisionSpike.User"
+    ],
+    "liveApplicationRoles": [
+      "CollisionSpike.Superuser",
+      "CollisionSpike.User"
+    ],
+    "routePolicyIdentifiers": [
+      "provider-api-key",
+      "role:CollisionSpike.Superuser",
+      "role:CollisionSpike.User",
+      "service-bearer",
+      "staff-bearer",
+      "vehicle-lookup"
+    ]
+  },
+  "liveResources": [
+    {
+      "registryPath": "deployables.archiveEvents.resource",
+      "kind": "resource",
+      "name": "cespkbox-fn-v76a47"
+    },
+    {
+      "registryPath": "deployables.dataApi.resource",
+      "kind": "resource",
+      "name": "cespk-api-dev"
+    },
+    {
+      "registryPath": "deployables.database.database",
+      "kind": "database",
+      "name": "collisionspike"
+    },
+    {
+      "registryPath": "deployables.database.resource",
+      "kind": "resource",
+      "name": "cespk-pg-dev"
+    },
+    {
+      "registryPath": "deployables.evaSentry.resource",
+      "kind": "resource",
+      "name": "cespkeva-fn-ufa3ci"
+    },
+    {
+      "registryPath": "deployables.evaValidation.resource",
+      "kind": "resource",
+      "name": "cespkeval-fn-6c6fxd"
+    },
+    {
+      "registryPath": "deployables.locationAssist.resource",
+      "kind": "resource",
+      "name": "cespkloc-fn-a7tzj2"
+    },
+    {
+      "registryPath": "deployables.ocr.resource",
+      "kind": "resource",
+      "name": "cespkocr-fn-dev-glju3v"
+    },
+    {
+      "registryPath": "deployables.orchestration.resource",
+      "kind": "resource",
+      "name": "cespk-orch-dev"
+    },
+    {
+      "registryPath": "deployables.parser.resource",
+      "kind": "resource",
+      "name": "cespike-parser-dev-x7xt3d5ovhi7y"
+    },
+    {
+      "registryPath": "deployables.vehicleEnrichment.resource",
+      "kind": "resource",
+      "name": "cespkenrich-fn-gi62sd"
+    },
+    {
+      "registryPath": "deployables.web.resource",
+      "kind": "resource",
+      "name": "cespk-spa-dev"
+    },
+    {
+      "registryPath": "environment.resourceGroup",
+      "kind": "resourceGroup",
+      "name": "rg-collisionspike-dev"
+    }
+  ],
+  "postgresBaseline": {
+    "files": [
+      {
+        "path": "database/baseline/000_enums_lookups.sql",
+        "sha256": "74ff783fc1900b1f6ac1746cb9ee46211af7e6930d7f45dfd64922bac7947778"
+      },
+      {
+        "path": "database/baseline/010_work_provider.sql",
+        "sha256": "1c58cf96baf8dbd4f700e04f24f3c02e3f2720d55837081ff239f3fc92c0795e"
+      },
+      {
+        "path": "database/baseline/020_repairer.sql",
+        "sha256": "855734b54c24e05bc59788f7bf054c0d665d518f24d8ba96d7ebcf3728438083"
+      },
+      {
+        "path": "database/baseline/030_image_source.sql",
+        "sha256": "7449f18f2839007c77b43586aa111bb95c9cf071ed677fb20cd46146275e960b"
+      },
+      {
+        "path": "database/baseline/040_inspection_address.sql",
+        "sha256": "2aa8318e77e732adbd340ab464aab65c7cb5edfea5a7f9c65d1ec04017a60d9e"
+      },
+      {
+        "path": "database/baseline/050_case.sql",
+        "sha256": "38bcc4fd3483bf2ae2ad65de1b6bfec19323accbb01bbf5019f63e4efe1c7a63"
+      },
+      {
+        "path": "database/baseline/060_evidence.sql",
+        "sha256": "a4537a03b4eb710ba077a2aec60af3a510d77fec56f9c3963f3e7773f100955b"
+      },
+      {
+        "path": "database/baseline/070_field_level_provenance.sql",
+        "sha256": "2945d69986acaf4e595fd05b1b13974c16e991c11fa32749633da8a63fe73830"
+      },
+      {
+        "path": "database/baseline/080_audit_event.sql",
+        "sha256": "21e849c58ce0ffa6d00b4cd50b91bbfaf0415368993ba01fe88d30dbf2452bdf"
+      },
+      {
+        "path": "database/baseline/090_chaser.sql",
+        "sha256": "f8ad896efb19cac5c9e8700e067bcf975f3f5cb2ac558c18c40cf9ff7bd38f5b"
+      },
+      {
+        "path": "database/baseline/100_note.sql",
+        "sha256": "93ce17d9e7b24b265ea844846d12daa20b15ce02f193cc7729da0e21fe5502f5"
+      },
+      {
+        "path": "database/baseline/110_improvement_signal.sql",
+        "sha256": "3a94542b5cd9733119c91f0e6f2586d0a86e5a50820a0af0c089e2300863f9da"
+      },
+      {
+        "path": "database/baseline/120_inbound_email.sql",
+        "sha256": "5a97faa3d01656cc8da8d5fe094516d0f1994dc53170e3139525c5eef6bcefa7"
+      },
+      {
+        "path": "database/baseline/130_repairer_workprovider.sql",
+        "sha256": "49917b23e508277253236e9217354bc5b4383ecc45655bf5ad0a719b1b31041e"
+      },
+      {
+        "path": "database/baseline/140_imagesource_workprovider.sql",
+        "sha256": "5d70959a6364c02ae545c7fbf5d27b16ed58bf2c80acac1cfde8021f7a6f5e9e"
+      },
+      {
+        "path": "database/baseline/150_app_setting.sql",
+        "sha256": "63166757b65329ab14c43e6c69d7395ba59c91d3f3154cb3f0d31b298d9de706"
+      },
+      {
+        "path": "database/baseline/160_ai_suggestion.sql",
+        "sha256": "67a3f64b57e80aa4efcf2d0a2f6d5ae493fde67878f4cea92f31647be318f12d"
+      },
+      {
+        "path": "database/baseline/170_provider_api_key.sql",
+        "sha256": "c200cab94c1d2fd323695592419d1f733aa58742dffb796fe4d28e1b676a83aa"
+      },
+      {
+        "path": "database/baseline/180_case_po_floor.sql",
+        "sha256": "c34134c15c52bccba2206767bcd58990138c6792d95df0a0d7b93cb88397cc8f"
+      },
+      {
+        "path": "database/baseline/185_ai_usage_ledger.sql",
+        "sha256": "21ff1ace9bfbc2f5da1fb3c0de396227209373fcb3711e397ffd9d36d317f3b5"
+      },
+      {
+        "path": "database/baseline/190_archive_mirror_outbox.sql",
+        "sha256": "dbd4d359b9be24279bf707c042f770e374b9867463b571b39b0a7bf387ea5938"
+      },
+      {
+        "path": "database/baseline/195_box_file_request_outbox.sql",
+        "sha256": "b19f18950906f45ddb9310eb8a522dfc858c3f1df97688aea7d38885f4976369"
+      },
+      {
+        "path": "database/baseline/195_staff_evidence_upload.sql",
+        "sha256": "2737692f99186d30a9c2833993ded7a02ebb0f00b3f930c00c701ad6e6256ff6"
+      },
+      {
+        "path": "database/baseline/196_capture_session.sql",
+        "sha256": "ad78be775a8bc0c51798fc334dc613d1dfde4776b764d514279ebeae1dbc8dd5"
+      },
+      {
+        "path": "database/baseline/196_manual_intake_case_create.sql",
+        "sha256": "a7364b2c93b85032eef9c31ed1dcdfef174c616ba2829cc9c5838edb9373b63d"
+      },
+      {
+        "path": "database/baseline/196_mcp_image_ingest_rate_limit.sql",
+        "sha256": "70748a1a726670305a87b9bee69df273751c5c6ede24c19f3e8f182b089ff969"
+      },
+      {
+        "path": "database/baseline/197_archive_holding.sql",
+        "sha256": "253013d208df087ed99fba5c05dc43aad9dbbf9695823bf96142bf0f419bae10"
+      },
+      {
+        "path": "database/baseline/197_mcp_http_session.sql",
+        "sha256": "dd9ec444043922fd8228a4e38dade066f2db0e01cd60dafbf7b4ab8ea83b1549"
+      },
+      {
+        "path": "database/baseline/198_provider_intake_operation.sql",
+        "sha256": "dfd5a812bbb573dd269c71c4276ccb6539bca4aefd7658abad848ea51227db41"
+      },
+      {
+        "path": "database/baseline/200_vehicle_data.sql",
+        "sha256": "b1c788981555853c544d953f8588fde922dd0fecceabf9c92fc44f64b366a70e"
+      },
+      {
+        "path": "database/baseline/205_evidence_deletion.sql",
+        "sha256": "fec0f68a430f50303421f2929f94af8032adbd6ff5803a8ee194f99d9e81a427"
+      },
+      {
+        "path": "database/baseline/205_outlook_link_backfill.sql",
+        "sha256": "1ae550cfac57533a11b4f5b4aae7b0382772eceb16ef8d2a575fd8035507ddd8"
+      },
+      {
+        "path": "database/baseline/900_constraints.sql",
+        "sha256": "83fccdb9c22901fcc76ced6ef804863875c069ba0a0500ecbc3f7647c83df21e"
+      }
+    ],
+    "tables": [
+      {
+        "name": "ai_suggestion",
+        "columns": [
+          "id",
+          "case_id",
+          "evidence_id",
+          "inbound_email_id",
+          "suggestion_type",
+          "suggested_value",
+          "rationale",
+          "confidence",
+          "model_version",
+          "review_state",
+          "created_at",
+          "reviewed_by",
+          "reviewed_at",
+          "embedding"
+        ],
+        "source": "database/baseline/160_ai_suggestion.sql"
+      },
+      {
+        "name": "ai_usage_ledger",
+        "columns": [
+          "id",
+          "usage_day",
+          "actor",
+          "surface",
+          "model",
+          "calls",
+          "input_tokens",
+          "output_tokens",
+          "updated_at"
+        ],
+        "source": "database/baseline/185_ai_usage_ledger.sql"
+      },
+      {
+        "name": "app_setting",
+        "columns": [
+          "key",
+          "value",
+          "updated_at",
+          "updated_by"
+        ],
+        "source": "database/baseline/150_app_setting.sql"
+      },
+      {
+        "name": "archive_holding_deferred_intake",
+        "columns": [
+          "id",
+          "source_message_id",
+          "normalized_vrm",
+          "root_folder_id",
+          "file_manifest",
+          "state",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_file",
+        "columns": [
+          "id",
+          "holding_folder_id",
+          "source_message_id",
+          "file_name",
+          "content_type",
+          "size_bytes",
+          "blob_path",
+          "sha256",
+          "box_file_id",
+          "box_file_url",
+          "box_sha1",
+          "canonical_box_file_id",
+          "canonical_box_file_url",
+          "state",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "evidence_id",
+          "source_retired",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_folder",
+        "columns": [
+          "id",
+          "normalized_vrm",
+          "root_folder_id",
+          "box_folder_id",
+          "box_folder_url",
+          "state",
+          "adoption_mode",
+          "adopted_case_id",
+          "canonical_folder_id",
+          "candidate_case_ids",
+          "candidate_folder_ids",
+          "resolved_case_id",
+          "resolved_by",
+          "resolved_at",
+          "claim_token",
+          "claim_expires_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_error",
+          "retired_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_holding_intake",
+        "columns": [
+          "id",
+          "holding_folder_id",
+          "source_message_id",
+          "inbound_email_id",
+          "created_at"
+        ],
+        "source": "database/baseline/197_archive_holding.sql"
+      },
+      {
+        "name": "archive_mirror_outbox",
+        "columns": [
+          "evidence_id",
+          "case_id",
+          "requested_generation",
+          "completed_generation",
+          "requested_at",
+          "completed_at",
+          "attempt_count",
+          "next_attempt_at",
+          "last_attempt_at",
+          "last_error",
+          "dead_lettered_at",
+          "dead_letter_reason",
+          "updated_at"
+        ],
+        "source": "database/baseline/190_archive_mirror_outbox.sql"
+      },
+      {
+        "name": "audit_event",
+        "columns": [
+          "id",
+          "name",
+          "case_id",
+          "actor",
+          "action_code",
+          "severity_code",
+          "before",
+          "after",
+          "occurred_at",
+          "created_at"
+        ],
+        "source": "database/baseline/080_audit_event.sql"
+      },
+      {
+        "name": "box_file_request_outbox",
+        "columns": [
+          "case_id",
+          "folder_id",
+          "template_id",
+          "requested_generation",
+          "completed_generation",
+          "requested_at",
+          "completed_at",
+          "attempt_count",
+          "next_attempt_at",
+          "claim_token",
+          "claimed_at",
+          "claim_expires_at",
+          "last_error",
+          "repair_reason",
+          "updated_at"
+        ],
+        "source": "database/baseline/195_box_file_request_outbox.sql"
+      },
+      {
+        "name": "capture_asset",
+        "columns": [
+          "id",
+          "session_id",
+          "shot_id",
+          "idempotency_key",
+          "state",
+          "selected",
+          "file_name",
+          "declared_content_type",
+          "declared_size_bytes",
+          "declared_sha256",
+          "server_content_type",
+          "server_size_bytes",
+          "server_sha256",
+          "width",
+          "height",
+          "blob_path",
+          "upload_expires_at",
+          "validation_attempt",
+          "validation_lease_expires_at",
+          "validation_code",
+          "client_quality",
+          "server_quality",
+          "evidence_id",
+          "materialised_at",
+          "staging_deleted_at",
+          "blob_deleted_at",
+          "cleanup_code",
+          "cleanup_attempt_count",
+          "cleanup_next_attempt_at",
+          "cleanup_last_error_category",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session_resume_token",
+        "columns": [
+          "token_hash",
+          "session_id",
+          "token_generation",
+          "expires_at",
+          "created_at",
+          "last_used_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session_shot",
+        "columns": [
+          "session_id",
+          "shot_id",
+          "role",
+          "evidence_role",
+          "label",
+          "prompt",
+          "required",
+          "sequence",
+          "guidance_profile"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_session",
+        "columns": [
+          "id",
+          "case_id",
+          "status",
+          "shot_plan_id",
+          "shot_plan_label",
+          "guidance_mode",
+          "rules_version",
+          "model_version",
+          "bootstrap_token_hash",
+          "token_generation",
+          "expires_at",
+          "created_by",
+          "submitted_at",
+          "submit_idempotency_key",
+          "revoked_at",
+          "locked_at",
+          "expired_at",
+          "last_exchanged_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "case_",
+        "columns": [
+          "id",
+          "name",
+          "vrm",
+          "case_ref",
+          "case_po",
+          "on_hold",
+          "on_hold_reason",
+          "archive_holding_pending",
+          "source_message_id",
+          "payload_hash",
+          "finalized_payload_hash",
+          "submit_requested",
+          "submit_payload_hash",
+          "eva_payload12",
+          "case_link_state_code",
+          "duplicate_keys",
+          "status_code",
+          "case_type_code",
+          "intake_channel_kind_code",
+          "intake_channel_manual",
+          "source_mailbox",
+          "action_reason_code",
+          "date_due",
+          "inspection_date",
+          "submitted_at",
+          "inspection_decision_code",
+          "work_provider_id",
+          "image_source_id",
+          "inspection_address_id",
+          "box_folder_id",
+          "box_file_request_id",
+          "box_file_request_url",
+          "box_synced_at",
+          "box_folder_url",
+          "closed_at",
+          "retention_expires_at",
+          "legal_hold",
+          "legal_hold_reason",
+          "held_by",
+          "status_recompute_requested_generation",
+          "status_recompute_completed_generation",
+          "status_recompute_requested_at",
+          "provider_archive_requested_generation",
+          "provider_archive_completed_generation",
+          "provider_archive_requested_at",
+          "provider_archive_completed_at",
+          "provider_archive_attempt_count",
+          "provider_archive_next_attempt_at",
+          "provider_archive_last_attempt_at",
+          "provider_archive_last_error",
+          "eva_work_provider",
+          "eva_vehicle_model",
+          "eva_claimant_name",
+          "eva_claimant_telephone",
+          "eva_claimant_email",
+          "eva_date_of_loss",
+          "eva_date_of_instruction",
+          "eva_accident_circumstances",
+          "eva_inspection_address",
+          "eva_vat_status",
+          "eva_mileage",
+          "eva_mileage_unit",
+          "ov_insured_name",
+          "ov_claimant_name",
+          "ov_third_party_name",
+          "ov_claim_number",
+          "ov_policy_reference",
+          "ov_incident_date",
+          "ov_claim_type",
+          "ov_insurer_name",
+          "ov_repairer_name",
+          "eva_claimant_address",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/050_case.sql"
+      },
+      {
+        "name": "case_po_floor",
+        "columns": [
+          "prefix",
+          "floor_seq",
+          "note",
+          "updated_at"
+        ],
+        "source": "database/baseline/180_case_po_floor.sql"
+      },
+      {
+        "name": "chaser",
+        "columns": [
+          "id",
+          "name",
+          "case_id",
+          "target_type_code",
+          "target_name",
+          "channel_code",
+          "template_used",
+          "box_file_request_id",
+          "box_file_request_url",
+          "suggested",
+          "status_code",
+          "sent_by",
+          "sent_at",
+          "drafted_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/090_chaser.sql"
+      },
+      {
+        "name": "choice_action_reason",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_audit_action",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_audit_severity",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_case_link_state",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_case_status",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_case_type",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_chaser_channel",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_chaser_status",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_chaser_target_type",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_evidence_kind",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_field_provenance_source_type",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_image_role",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_image_source_channel",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_image_source_kind",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_improvement_signal_class",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_inbound_category",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_inbound_subtype",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_inspection_decision_mode",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_inspection_location_policy",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_intake_channel_kind",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_provider_automation_mode",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "choice_review_state",
+        "columns": [
+          "code",
+          "name",
+          "label"
+        ],
+        "source": "database/baseline/000_enums_lookups.sql"
+      },
+      {
+        "name": "evidence_deletion",
+        "columns": [
+          "id",
+          "evidence_id",
+          "case_id",
+          "file_name",
+          "kind_code",
+          "storage_path",
+          "source_message_id",
+          "box_file_id",
+          "box_folder_id",
+          "requested_by",
+          "state",
+          "blob_outcome",
+          "box_outcome",
+          "attempt_count",
+          "claim_token",
+          "claim_expires_at",
+          "last_failure_code",
+          "requested_at",
+          "last_attempt_at",
+          "completed_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/205_evidence_deletion.sql"
+      },
+      {
+        "name": "evidence",
+        "columns": [
+          "id",
+          "file_name",
+          "case_id",
+          "kind_code",
+          "image_role_code",
+          "image_role_source",
+          "registration_visible",
+          "registration_visible_source",
+          "accepted_for_eva",
+          "accepted_for_eva_source",
+          "excluded",
+          "exclusion_reason",
+          "exclusion_decision_source",
+          "person_reflection",
+          "reflection_dismissed",
+          "sequence_index",
+          "sha256",
+          "content_type",
+          "size_bytes",
+          "storage_path",
+          "source_message_id",
+          "source_label",
+          "box_file_id",
+          "box_file_url",
+          "box_classify_attempt_count",
+          "box_classify_next_attempt_at",
+          "box_classify_claim_token",
+          "box_classify_claim_expires_at",
+          "box_classify_last_failure_code",
+          "box_classify_dead_lettered_at",
+          "box_classify_dead_letter_reason",
+          "archive_mirror_decision_generation",
+          "archive_mirror_claim_token",
+          "archive_mirror_claimed_at",
+          "archive_mirror_claim_expires_at",
+          "deletion_operation_id",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/060_evidence.sql"
+      },
+      {
+        "name": "field_level_provenance",
+        "columns": [
+          "id",
+          "name",
+          "case_id",
+          "field_name",
+          "value",
+          "source_type_code",
+          "source_label",
+          "source_reference",
+          "confidence",
+          "review_state_code",
+          "reviewed_by",
+          "reviewed_at",
+          "notes",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/070_field_level_provenance.sql"
+      },
+      {
+        "name": "image_source",
+        "columns": [
+          "id",
+          "name",
+          "kind_code",
+          "channel_code",
+          "email_domain",
+          "whatsapp_group",
+          "whatsapp_number",
+          "contact_name",
+          "repairer_id",
+          "default_inspection_address_id",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/030_image_source.sql"
+      },
+      {
+        "name": "imagesource_workprovider",
+        "columns": [
+          "image_source_id",
+          "work_provider_id",
+          "created_at"
+        ],
+        "source": "database/baseline/140_imagesource_workprovider.sql"
+      },
+      {
+        "name": "improvement_signal",
+        "columns": [
+          "id",
+          "name",
+          "case_id",
+          "work_provider_id",
+          "field_name",
+          "original_value",
+          "corrected_value",
+          "original_provenance",
+          "actor",
+          "occurred_at",
+          "affects_eva_readiness",
+          "classification_code",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/110_improvement_signal.sql"
+      },
+      {
+        "name": "inbound_email",
+        "columns": [
+          "id",
+          "name",
+          "source_message_id",
+          "graph_message_id",
+          "outlook_web_link",
+          "conversation_id",
+          "subject",
+          "from_address",
+          "sender_domain",
+          "source_mailbox",
+          "received_on",
+          "has_attachments",
+          "category_code",
+          "subtype_code",
+          "suggested_category_code",
+          "suggested_subtype_code",
+          "confidence",
+          "classifier_mode",
+          "signals",
+          "triage_state",
+          "body_vrm",
+          "body_caseref",
+          "body_jobref",
+          "body_preview",
+          "case_id",
+          "work_provider_id",
+          "outlook_move_state",
+          "outlook_moved_folder",
+          "outlook_moved_at",
+          "attention_reason",
+          "evidence_backfill_report_outcome",
+          "evidence_backfill_reported_at",
+          "evidence_backfill_requested_generation",
+          "evidence_backfill_enqueued_generation",
+          "evidence_backfill_completed_generation",
+          "evidence_backfill_completed_result",
+          "evidence_backfill_reported_generation",
+          "evidence_backfill_requested_at",
+          "evidence_backfill_enqueued_at",
+          "evidence_backfill_completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/120_inbound_email.sql"
+      },
+      {
+        "name": "inspection_address",
+        "columns": [
+          "id",
+          "label",
+          "repairer_id",
+          "decision_mode_code",
+          "decision_reason",
+          "source_label",
+          "source_note",
+          "provider_code",
+          "address_line1",
+          "address_line2",
+          "address_line3",
+          "address_line4",
+          "address_line5",
+          "address_line6",
+          "postcode",
+          "latitude",
+          "longitude",
+          "suggestion_frequency",
+          "last_seen_on",
+          "suggestion_rank",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/040_inspection_address.sql"
+      },
+      {
+        "name": "manual_intake_case_create_operation",
+        "columns": [
+          "idempotency_key",
+          "actor",
+          "request_hash",
+          "case_id",
+          "upload_idempotency_key",
+          "expected_file_count",
+          "evidence_completed_at",
+          "instruction_file_index",
+          "side_effects_completed_at",
+          "response_loss_recovery_audited_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_manual_intake_case_create.sql"
+      },
+      {
+        "name": "mcp_http_session",
+        "columns": [
+          "session_id",
+          "principal_id",
+          "protocol_version",
+          "phase",
+          "initialized_at",
+          "last_seen_at",
+          "expires_at",
+          "created_at"
+        ],
+        "source": "database/baseline/197_mcp_http_session.sql"
+      },
+      {
+        "name": "mcp_image_ingest_rate_limit",
+        "columns": [
+          "principal_id",
+          "window_started_at",
+          "request_count",
+          "updated_at"
+        ],
+        "source": "database/baseline/196_mcp_image_ingest_rate_limit.sql"
+      },
+      {
+        "name": "mileage_estimate_result",
+        "columns": [
+          "lookup_run_id",
+          "result_status",
+          "method",
+          "odometer_meaning",
+          "target_date",
+          "observed_mileage",
+          "estimated_mileage",
+          "annual_rate_miles",
+          "range_low_mileage",
+          "range_high_mileage",
+          "interval_coverage",
+          "calibration_profile_kind",
+          "calibration_version",
+          "cohort_prior_profile_kind",
+          "cohort_prior_version",
+          "warnings",
+          "evidence",
+          "created_at"
+        ],
+        "source": "database/baseline/200_vehicle_data.sql"
+      },
+      {
+        "name": "mileage_model_profile",
+        "columns": [
+          "version",
+          "profile_kind",
+          "dataset_digest",
+          "profile",
+          "created_at"
+        ],
+        "source": "database/baseline/200_vehicle_data.sql"
+      },
+      {
+        "name": "mot_odometer_observation",
+        "columns": [
+          "id",
+          "lookup_run_id",
+          "provider_snapshot_id",
+          "observation_id",
+          "raw_index",
+          "data_source",
+          "mot_test_number",
+          "completed_date_raw",
+          "test_date",
+          "test_result",
+          "odometer_value_raw",
+          "odometer_unit_raw",
+          "odometer_result_type_raw",
+          "registration_at_test",
+          "stable_vehicle_identity",
+          "normalized_miles",
+          "episode_number",
+          "segment_number",
+          "selected_for_event",
+          "included_for_rate",
+          "decision_codes",
+          "warning_codes",
+          "created_at"
+        ],
+        "source": "database/baseline/200_vehicle_data.sql"
+      },
+      {
+        "name": "note",
+        "columns": [
+          "id",
+          "name",
+          "case_id",
+          "author",
+          "text",
+          "source_key",
+          "occurred_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/100_note.sql"
+      },
+      {
+        "name": "outlook_link_backfill_ledger",
+        "columns": [
+          "attempt_id",
+          "inbound_email_id",
+          "source_mailbox",
+          "source_message_id",
+          "outcome",
+          "reason",
+          "graph_message_id",
+          "outlook_web_link",
+          "attempted_at"
+        ],
+        "source": "database/baseline/205_outlook_link_backfill.sql"
+      },
+      {
+        "name": "provider_api_key",
+        "columns": [
+          "id",
+          "work_provider_id",
+          "label",
+          "key_prefix",
+          "key_hash",
+          "created_at",
+          "created_by",
+          "revoked_at",
+          "last_used_at"
+        ],
+        "source": "database/baseline/170_provider_api_key.sql"
+      },
+      {
+        "name": "provider_intake_operation",
+        "columns": [
+          "work_provider_id",
+          "idempotency_key",
+          "request_hash",
+          "case_id",
+          "case_po",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/198_provider_intake_operation.sql"
+      },
+      {
+        "name": "repairer_workprovider",
+        "columns": [
+          "repairer_id",
+          "work_provider_id",
+          "created_at"
+        ],
+        "source": "database/baseline/130_repairer_workprovider.sql"
+      },
+      {
+        "name": "repairer",
+        "columns": [
+          "id",
+          "name",
+          "address_line1",
+          "address_line2",
+          "address_line3",
+          "address_line4",
+          "address_line5",
+          "address_line6",
+          "postcode",
+          "email",
+          "phone",
+          "figures_expected",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/020_repairer.sql"
+      },
+      {
+        "name": "staff_evidence_upload_item",
+        "columns": [
+          "id",
+          "idempotency_key",
+          "item_index",
+          "case_id",
+          "sha256",
+          "file_name",
+          "content_type",
+          "blob_path",
+          "state",
+          "evidence_id",
+          "upload_claim_token",
+          "upload_claim_expires_at",
+          "cleanup_claim_token",
+          "cleanup_claim_expires_at",
+          "cleanup_attempt_count",
+          "cleanup_next_attempt_at",
+          "cleanup_last_error",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/195_staff_evidence_upload.sql"
+      },
+      {
+        "name": "staff_evidence_upload",
+        "columns": [
+          "idempotency_key",
+          "case_id",
+          "actor",
+          "source",
+          "registration",
+          "manifest_hash",
+          "attempt_count",
+          "last_attempt_at",
+          "completed_at",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/195_staff_evidence_upload.sql"
+      },
+      {
+        "name": "vehicle_lookup_run",
+        "columns": [
+          "id",
+          "case_id",
+          "contract_version",
+          "algorithm_version",
+          "requested_registration",
+          "canonical_registration",
+          "target_date",
+          "lookup_status",
+          "retrieved_at",
+          "idempotency_key",
+          "request_sha256",
+          "response_sha256",
+          "response_envelope",
+          "request_context",
+          "created_at"
+        ],
+        "source": "database/baseline/200_vehicle_data.sql"
+      },
+      {
+        "name": "vehicle_provider_snapshot",
+        "columns": [
+          "id",
+          "lookup_run_id",
+          "provider",
+          "provider_status",
+          "retrieved_at",
+          "payload_sha256",
+          "raw_payload",
+          "error_class",
+          "error_code",
+          "created_at"
+        ],
+        "source": "database/baseline/200_vehicle_data.sql"
+      },
+      {
+        "name": "work_provider",
+        "columns": [
+          "id",
+          "display_name",
+          "principal_code",
+          "known_email_domains",
+          "known_email_addresses",
+          "default_mailbox",
+          "inspection_location_policy_code",
+          "provider_automation_mode_code",
+          "instruction_notes",
+          "images_source_notes",
+          "report_return_notes",
+          "drag_into_eva",
+          "ai_allowed",
+          "eva_submit_allowed",
+          "enrichment_allowed",
+          "outbound_allowed",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "source": "database/baseline/010_work_provider.sql"
+      }
+    ],
+    "sha256": "260a964b81c716eab1132b0f278fe98e8d8685e81b67d947c1473bcf21c5fd90"
+  },
+  "numericCodes": {
+    "tableCount": 22,
+    "optionCount": 181,
+    "sha256": "b9becc00d5dc0c75a9e865e74b7f6e214abada66152464c2de5fbb570c5bf069",
+    "tables": [
+      {
+        "id": "action_reason",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "missing_images"
+          },
+          {
+            "value": 100000001,
+            "name": "missing_instructions"
+          },
+          {
+            "value": 100000002,
+            "name": "duplicate"
+          },
+          {
+            "value": 100000003,
+            "name": "conflict"
+          },
+          {
+            "value": 100000004,
+            "name": "needs_review"
+          }
+        ]
+      },
+      {
+        "id": "audit_action",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "graph_message_ingested"
+          },
+          {
+            "value": 100000001,
+            "name": "graph_message_ingest_failed"
+          },
+          {
+            "value": 100000002,
+            "name": "attachment_classified"
+          },
+          {
+            "value": 100000003,
+            "name": "case_created"
+          },
+          {
+            "value": 100000004,
+            "name": "case_attached"
+          },
+          {
+            "value": 100000005,
+            "name": "duplicate_dropped"
+          },
+          {
+            "value": 100000006,
+            "name": "duplicate_flagged"
+          },
+          {
+            "value": 100000007,
+            "name": "provider_matched"
+          },
+          {
+            "value": 100000008,
+            "name": "provider_unmatched"
+          },
+          {
+            "value": 100000009,
+            "name": "parser_called"
+          },
+          {
+            "value": 100000010,
+            "name": "parser_failed"
+          },
+          {
+            "value": 100000011,
+            "name": "enrichment_called"
+          },
+          {
+            "value": 100000012,
+            "name": "enrichment_failed"
+          },
+          {
+            "value": 100000013,
+            "name": "status_changed"
+          },
+          {
+            "value": 100000014,
+            "name": "jobsheet_imported"
+          },
+          {
+            "value": 100000015,
+            "name": "eva_submitted"
+          },
+          {
+            "value": 100000016,
+            "name": "box_synced"
+          },
+          {
+            "value": 100000017,
+            "name": "corpus_record_changed"
+          },
+          {
+            "value": 100000018,
+            "name": "inspection_override"
+          },
+          {
+            "value": 100000019,
+            "name": "box_folder_created"
+          },
+          {
+            "value": 100000020,
+            "name": "box_file_request_copied"
+          },
+          {
+            "value": 100000021,
+            "name": "box_upload_received"
+          },
+          {
+            "value": 100000022,
+            "name": "location_assist_confirmed"
+          },
+          {
+            "value": 100000023,
+            "name": "chaser_sent"
+          },
+          {
+            "value": 100000024,
+            "name": "inbound_classified"
+          },
+          {
+            "value": 100000025,
+            "name": "inbound_routed"
+          },
+          {
+            "value": 100000026,
+            "name": "case_disposed"
+          },
+          {
+            "value": 100000027,
+            "name": "inbound_dismissed"
+          },
+          {
+            "value": 100000028,
+            "name": "inbound_actioned"
+          },
+          {
+            "value": 100000029,
+            "name": "inbound_reopened"
+          },
+          {
+            "value": 100000030,
+            "name": "case_removed"
+          },
+          {
+            "value": 100000031,
+            "name": "inbound_reclassified"
+          },
+          {
+            "value": 100000032,
+            "name": "ai_suggestion_created"
+          },
+          {
+            "value": 100000033,
+            "name": "ai_suggestion_accepted"
+          },
+          {
+            "value": 100000034,
+            "name": "ai_suggestion_rejected"
+          },
+          {
+            "value": 100000035,
+            "name": "inbound_link_suggested"
+          },
+          {
+            "value": 100000036,
+            "name": "inbound_linked"
+          },
+          {
+            "value": 100000037,
+            "name": "inbound_detached"
+          },
+          {
+            "value": 100000038,
+            "name": "cancellation_proposed"
+          },
+          {
+            "value": 100000039,
+            "name": "outlook_move_requested"
+          },
+          {
+            "value": 100000040,
+            "name": "outlook_moved"
+          },
+          {
+            "value": 100000041,
+            "name": "outlook_move_failed"
+          },
+          {
+            "value": 100000042,
+            "name": "api_key_created"
+          },
+          {
+            "value": 100000043,
+            "name": "api_key_revoked"
+          },
+          {
+            "value": 100000044,
+            "name": "provider_api_case_created"
+          },
+          {
+            "value": 100000045,
+            "name": "provider_api_case_rejected"
+          },
+          {
+            "value": 100000046,
+            "name": "retro_case_created"
+          },
+          {
+            "value": 100000047,
+            "name": "retro_case_linked"
+          },
+          {
+            "value": 100000048,
+            "name": "retro_reconstruction_failed"
+          },
+          {
+            "value": 100000049,
+            "name": "evidence_added"
+          },
+          {
+            "value": 100000050,
+            "name": "agent_read"
+          },
+          {
+            "value": 100000051,
+            "name": "agent_write"
+          },
+          {
+            "value": 100000052,
+            "name": "image_analysis_generated"
+          },
+          {
+            "value": 100000053,
+            "name": "report_delivered"
+          },
+          {
+            "value": 100000054,
+            "name": "chaser_suggested"
+          },
+          {
+            "value": 100000055,
+            "name": "evidence_upload_result"
+          },
+          {
+            "value": 100000056,
+            "name": "capture_session_created"
+          },
+          {
+            "value": 100000057,
+            "name": "capture_session_rotated"
+          },
+          {
+            "value": 100000058,
+            "name": "capture_session_revoked"
+          },
+          {
+            "value": 100000059,
+            "name": "capture_asset_validated"
+          },
+          {
+            "value": 100000060,
+            "name": "capture_session_completed"
+          },
+          {
+            "value": 100000061,
+            "name": "capture_session_retargeted"
+          },
+          {
+            "value": 100000062,
+            "name": "capture_session_locked"
+          },
+          {
+            "value": 100000063,
+            "name": "image_deletion_requested"
+          },
+          {
+            "value": 100000064,
+            "name": "image_deletion_failed"
+          },
+          {
+            "value": 100000065,
+            "name": "image_deleted"
+          }
+        ]
+      },
+      {
+        "id": "audit_severity",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "info"
+          },
+          {
+            "value": 100000001,
+            "name": "warning"
+          },
+          {
+            "value": 100000002,
+            "name": "error"
+          }
+        ]
+      },
+      {
+        "id": "case_link_state",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "none"
+          },
+          {
+            "value": 100000001,
+            "name": "pending"
+          },
+          {
+            "value": 100000002,
+            "name": "linked"
+          }
+        ]
+      },
+      {
+        "id": "case_status",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "new_email"
+          },
+          {
+            "value": 100000001,
+            "name": "ingested"
+          },
+          {
+            "value": 100000002,
+            "name": "needs_review"
+          },
+          {
+            "value": 100000003,
+            "name": "missing_required_fields"
+          },
+          {
+            "value": 100000004,
+            "name": "missing_images"
+          },
+          {
+            "value": 100000005,
+            "name": "duplicate_risk"
+          },
+          {
+            "value": 100000006,
+            "name": "linked_to_instruction"
+          },
+          {
+            "value": 100000007,
+            "name": "ready_for_eva"
+          },
+          {
+            "value": 100000008,
+            "name": "eva_submitted"
+          },
+          {
+            "value": 100000009,
+            "name": "box_synced"
+          },
+          {
+            "value": 100000010,
+            "name": "error"
+          },
+          {
+            "value": 100000011,
+            "name": "removed"
+          },
+          {
+            "value": 100000012,
+            "name": "done"
+          }
+        ]
+      },
+      {
+        "id": "case_type",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "standard"
+          },
+          {
+            "value": 100000001,
+            "name": "audit"
+          },
+          {
+            "value": 100000002,
+            "name": "audit_total_loss"
+          },
+          {
+            "value": 100000003,
+            "name": "diminution"
+          }
+        ]
+      },
+      {
+        "id": "chaser_target_type",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "image_source"
+          },
+          {
+            "value": 100000001,
+            "name": "repairer"
+          },
+          {
+            "value": 100000002,
+            "name": "work_provider"
+          }
+        ]
+      },
+      {
+        "id": "chaser_channel",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "email"
+          },
+          {
+            "value": 100000001,
+            "name": "whatsapp"
+          }
+        ]
+      },
+      {
+        "id": "chaser_status",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "drafted"
+          },
+          {
+            "value": 100000001,
+            "name": "sent"
+          },
+          {
+            "value": 100000002,
+            "name": "responded"
+          },
+          {
+            "value": 100000003,
+            "name": "overdue"
+          }
+        ]
+      },
+      {
+        "id": "evidence_kind",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "image"
+          },
+          {
+            "value": 100000001,
+            "name": "video"
+          },
+          {
+            "value": 100000002,
+            "name": "instruction"
+          },
+          {
+            "value": 100000003,
+            "name": "email"
+          },
+          {
+            "value": 100000004,
+            "name": "valuation"
+          },
+          {
+            "value": 100000005,
+            "name": "eva_payload"
+          },
+          {
+            "value": 100000006,
+            "name": "other"
+          },
+          {
+            "value": 100000007,
+            "name": "engineer_report"
+          }
+        ]
+      },
+      {
+        "id": "field_provenance_source_type",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "staff"
+          },
+          {
+            "value": 100000001,
+            "name": "pdf_extraction"
+          },
+          {
+            "value": 100000002,
+            "name": "email_text"
+          },
+          {
+            "value": 100000003,
+            "name": "corpus"
+          },
+          {
+            "value": 100000004,
+            "name": "ai"
+          },
+          {
+            "value": 100000005,
+            "name": "dvla_dvsa"
+          },
+          {
+            "value": 100000006,
+            "name": "document_ai"
+          },
+          {
+            "value": 100000007,
+            "name": "azure_vision"
+          },
+          {
+            "value": 100000008,
+            "name": "web_lookup"
+          },
+          {
+            "value": 100000009,
+            "name": "whatsapp"
+          },
+          {
+            "value": 100000010,
+            "name": "manual_upload"
+          },
+          {
+            "value": 100000011,
+            "name": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "image_role",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "overview"
+          },
+          {
+            "value": 100000001,
+            "name": "damage_closeup"
+          },
+          {
+            "value": 100000002,
+            "name": "additional"
+          },
+          {
+            "value": 100000003,
+            "name": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "image_source_kind",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "provider_direct"
+          },
+          {
+            "value": 100000001,
+            "name": "repairer"
+          },
+          {
+            "value": 100000002,
+            "name": "intermediary"
+          },
+          {
+            "value": 100000003,
+            "name": "individual"
+          }
+        ]
+      },
+      {
+        "id": "image_source_channel",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "email"
+          },
+          {
+            "value": 100000001,
+            "name": "whatsapp"
+          }
+        ]
+      },
+      {
+        "id": "improvement_signal_classification",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "parser_rule_candidate"
+          },
+          {
+            "value": 100000001,
+            "name": "corpus_update_candidate"
+          },
+          {
+            "value": 100000002,
+            "name": "provider_policy_candidate"
+          },
+          {
+            "value": 100000003,
+            "name": "enrichment_issue"
+          },
+          {
+            "value": 100000004,
+            "name": "one_off_case_issue"
+          }
+        ]
+      },
+      {
+        "id": "inbound_category",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "receiving_work"
+          },
+          {
+            "value": 100000001,
+            "name": "query"
+          },
+          {
+            "value": 100000002,
+            "name": "other"
+          },
+          {
+            "value": 100000003,
+            "name": "billing"
+          },
+          {
+            "value": 100000004,
+            "name": "non_actionable"
+          },
+          {
+            "value": 100000005,
+            "name": "case_update"
+          },
+          {
+            "value": 100000006,
+            "name": "cancellation"
+          },
+          {
+            "value": 100000007,
+            "name": "pre_instruction"
+          },
+          {
+            "value": 100000008,
+            "name": "website_enquiry"
+          }
+        ]
+      },
+      {
+        "id": "inbound_subtype",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "existing_provider_instruction"
+          },
+          {
+            "value": 100000001,
+            "name": "existing_provider_audit"
+          },
+          {
+            "value": 100000002,
+            "name": "new_client_work"
+          },
+          {
+            "value": 100000003,
+            "name": "query_existing_work"
+          },
+          {
+            "value": 100000004,
+            "name": "query_new_enquiry"
+          },
+          {
+            "value": 100000005,
+            "name": "other"
+          },
+          {
+            "value": 100000006,
+            "name": "existing_provider_diminution"
+          },
+          {
+            "value": 100000007,
+            "name": "billing_request"
+          },
+          {
+            "value": 100000008,
+            "name": "case_summary"
+          },
+          {
+            "value": 100000009,
+            "name": "acknowledgement"
+          },
+          {
+            "value": 100000010,
+            "name": "images_received"
+          },
+          {
+            "value": 100000011,
+            "name": "cancellation_notice"
+          },
+          {
+            "value": 100000012,
+            "name": "update_general"
+          },
+          {
+            "value": 100000013,
+            "name": "payment_remittance"
+          },
+          {
+            "value": 100000014,
+            "name": "pre_instruction_directions"
+          },
+          {
+            "value": 100000015,
+            "name": "website_general_enquiry"
+          }
+        ]
+      },
+      {
+        "id": "inspection_decision_mode",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "confirmed_physical"
+          },
+          {
+            "value": 100000001,
+            "name": "manual"
+          },
+          {
+            "value": 100000002,
+            "name": "image_based"
+          },
+          {
+            "value": 100000003,
+            "name": "unknown"
+          }
+        ]
+      },
+      {
+        "id": "inspection_location_policy",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "always_image_based"
+          },
+          {
+            "value": 100000001,
+            "name": "prefer_address"
+          },
+          {
+            "value": 100000002,
+            "name": "required_address"
+          }
+        ]
+      },
+      {
+        "id": "intake_channel_kind",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "email"
+          },
+          {
+            "value": 100000001,
+            "name": "whatsapp"
+          },
+          {
+            "value": 100000002,
+            "name": "provider_api"
+          },
+          {
+            "value": 100000003,
+            "name": "retro"
+          }
+        ]
+      },
+      {
+        "id": "provider_automation_mode",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "manual"
+          },
+          {
+            "value": 100000001,
+            "name": "review_auto"
+          },
+          {
+            "value": 100000002,
+            "name": "full_auto"
+          }
+        ]
+      },
+      {
+        "id": "review_state",
+        "options": [
+          {
+            "value": 100000000,
+            "name": "not_required"
+          },
+          {
+            "value": 100000001,
+            "name": "needs_review"
+          },
+          {
+            "value": 100000002,
+            "name": "reviewed"
+          },
+          {
+            "value": 100000003,
+            "name": "conflict"
+          }
+        ]
+      }
+    ]
+  }
+}

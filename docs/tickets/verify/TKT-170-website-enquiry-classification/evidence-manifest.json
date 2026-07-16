@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-170",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/website-general-enquiry.eml",
+      "originalFilename": "website-general-enquiry.eml",
+      "sha256": "05ce90469b8ae0b8207d04640b2920dd2bf96b33e025444509b3dba8a8c8ba36",
+      "storagePath": "tests/fixtures/evidence/sha256/05/05ce90469b8ae0b8207d04640b2920dd2bf96b33e025444509b3dba8a8c8ba36.eml"
+    }
+  ]
+}

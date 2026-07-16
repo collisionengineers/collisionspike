@@ -4,7 +4,7 @@
 TESTED (offline)
 
 ## Evidence
-- SPA build + unit suite green (`npm --prefix mockup-app test`; `node verify-all.mjs` SPA gate).
+- SPA build + unit suite green (`npm --prefix apps/web test`; `node verify-all.mjs` SPA gate).
 
 ## Pending / gaps
 - **Not deployed.** Live proof is an operator click-through on the deployed SPA (`cespk-spa-dev`): open the
@@ -12,7 +12,7 @@ TESTED (offline)
   No feature gate — it ships when the SPA is next deployed.
 
 ## How to re-verify
-Offline: `npm --prefix mockup-app run dev`, open the assistant drawer, exercise New chat. Live: same, on
+Offline: `npm --prefix apps/web run dev`, open the assistant drawer, exercise New chat. Live: same, on
 the deployed SPA after the next SWA deploy.
 
 ## Verdict update — 2026-07-09 (ticket-verifier dispatch)

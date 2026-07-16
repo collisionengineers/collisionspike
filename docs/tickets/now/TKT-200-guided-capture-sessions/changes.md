@@ -2,9 +2,10 @@
 
 ## Status
 
-Ticket authority allocated and normalized by PR #90. The implementation candidate remains on PR #83
-(`codex/guided-capture-server`) and must update this ticket with its final exact-head evidence before
-review. No database, cloud, Archive or live application change is part of this allocation commit.
+The PR #83 implementation was merged into the PR #100 reconciliation and deployed on 2026-07-16. Its
+schema, staff/API routes and SPA are present, but public capture and cleanup remain default-off pending
+abuse-control, designated-test-session and physical-device evidence. No Archive write or live public
+cutover was used as deployment proof.
 
 TKT-200 replaces the conflicting provisional TKT-171 number. TKT-171 belongs exclusively to the
 four-digit Case/PO sequence ticket in the contiguous TKT-171–199 operator drop.

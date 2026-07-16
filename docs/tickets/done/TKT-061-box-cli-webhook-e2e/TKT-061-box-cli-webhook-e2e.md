@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: integration
 tickets-it-relates-to: [TKT-003, TKT-002]
-research-link: docs/plans/go-live/README.md
+research-link: docs/tickets/done/TKT-061-box-cli-webhook-e2e/TKT-061-box-cli-webhook-e2e.md
 ---
 
 # Box CLI + FILE.UPLOADED webhook + sandboxed E2E
@@ -23,7 +23,7 @@ evidence row / status re-eval.
 ## Change
 
 Create the `FILE.UPLOADED` webhook via our own facade — `POST box/webhooks`
-(`create_webhook`, `functions/box-webhook/function_app.py:342`) — with target folder
+(`create_webhook`, `services/functions/box-webhook/function_app.py:342`) — with target folder
 `392761581105` and address pointing at the `box-webhook` receiver
 (`POST /api/box-webhook`, `function_app.py:395`). Then run a sandboxed end-to-end test:
 upload a test image via the facade (`POST box/folders/{folderId}/files`,
@@ -49,3 +49,8 @@ id remains an operator item (hand-built in the Box UI).
   its `case_po`, and folder contents match the evidence rows.
 - [ ] All sandbox writes confined to root `392761581105`.
 - [ ] File Request template id left as an operator (Box-UI hand-build) item, noted not blocked.
+
+## Delivery record
+
+See [changes.md](./changes.md) for the implementation record and
+[verification.md](./verification.md) for the retained verification evidence.

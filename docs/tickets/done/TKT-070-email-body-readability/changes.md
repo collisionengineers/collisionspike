@@ -14,8 +14,8 @@ not started
   to their host; the signature tail cut after the sign-off + one short name line; legal boilerplate
   markers (registered office / authorised-and-regulated / disclaimer / "reserves copyright" /
   "proud members of" …) truncate outright. Exported from the @cs/domain barrel.
-- **Wired in**: `orchestration/src/functions/activities/fetchMessage.ts` (the `replace(/\s+/g,' ')`
-  collapse REPLACED; `BODY_PREVIEW_CAP` unchanged) and `orchestration/src/lib/retro-envelope.ts`
+- **Wired in**: `services/orchestration/src/workflows/intake/fetchMessage.ts` (the `replace(/\s+/g,' ')`
+  collapse REPLACED; `BODY_PREVIEW_CAP` unchanged) and `services/orchestration/src/workflows/retro/retro-envelope.ts`
   (same recipe). **PREVIEW ONLY** — the full `body` still feeds `extractVrm` and the parser
   (acceptance's regression guard; the sniff call sites are untouched).
 - **Tests (14, all passing first run)** — pinned on the verbatim QDOS garbage shape from the

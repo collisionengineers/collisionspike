@@ -2,7 +2,7 @@
 
 ## Status
 
-Removal implemented; merge/default-branch verification pending.
+Removal implemented and verified on the default branch.
 
 ## Changes
 
@@ -13,5 +13,7 @@ Removal implemented; merge/default-branch verification pending.
 - Removed `test:pr-review-hooks` from `package.json` and from the default test chain.
 - Retired the active guard guide and reciprocal-marker requirements in PLAN-004 and dependent ticket
   verification text.
+- Canonical adapter generation omits the removed hooks and parity checks reject a tool-specific copy that
+  attempts to reintroduce them.
 
 No Azure runtime, database, EVA, Outlook, Graph subscription or Archive state was changed.

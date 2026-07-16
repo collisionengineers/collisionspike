@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-162",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/source-evidence/LtrtoEngineerIn.pdf",
+      "originalFilename": "LtrtoEngineerIn.pdf",
+      "sha256": "b3cd973fd94bd52e1c8d78ab314aad251a47353cb83af8ffbf830e53900eb6b0",
+      "storagePath": "tests/fixtures/evidence/sha256/b3/b3cd973fd94bd52e1c8d78ab314aad251a47353cb83af8ffbf830e53900eb6b0.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/source-evidence/sample-instruction.eml",
+      "originalFilename": "sample-instruction.eml",
+      "sha256": "c49e5c6e793f9829328aef02a81bedb026a30b290334c1de70ab98b3cf692bc1",
+      "storagePath": "tests/fixtures/evidence/sha256/c4/c49e5c6e793f9829328aef02a81bedb026a30b290334c1de70ab98b3cf692bc1.eml"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ status: now
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-060, TKT-066]
-research-link: docs/tickets/now/TKT-067-assistant-new-chat/evidence/followup-2026-07-13/1.png
+research-link: docs/tickets/now/TKT-067-assistant-new-chat/evidence-manifest.json
 plan: PLAN-001
 ---
 
@@ -21,7 +21,7 @@ client-side; there is no explicit, discoverable "start again" affordance.
 ## Evidence
 
 - `evidence/operator-note.md` — plan § 2 (2026-07-06 planning session).
-- `mockup-app/src/components/AssistantDrawer.tsx` — drawer state is client-side `turns` +
+- `apps/web/src/features/assistant/AssistantDrawer.tsx` — drawer state is client-side `turns` +
   `input`; the header currently has only a close button. No API involvement in history.
 
 ## Proposed change
@@ -44,7 +44,7 @@ PROPOSED (not built):
 
 ## Verification requirements (proof standard)
 
-1. **Offline** — SPA build passes (`npm --prefix mockup-app run build`); a component-level test
+1. **Offline** — SPA build passes (`npm --prefix apps/web run build`); a component-level test
    or typed render check if the suite covers the drawer.
 2. **Gate** — `node verify-all.mjs` green; SPA deploy recorded in [changes.md](./changes.md).
 3. **Live click-through** — on the deployed SPA: open the assistant, exchange ≥2 turns, press

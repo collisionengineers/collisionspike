@@ -20,9 +20,9 @@ fixed:
   all-image KIND fast-path **before** the signature filter, so a signature-logo-only reply could read as
   `images_received`. **Fix:** drop signatures first, require ≥1 non-signature file before the fast-path —
   `triagePolicy.ts` + vendored `email_classifier.py`, kept in lockstep. Tests added both sides.
-- **Finding A (VALID as a proof-gap, not a wiring bug):** the live relabel is `decideTriage`'s job (the
-  open-case lookup is flow-side, ADR-0019), so the classifier's `open_case_ref_match` is dormant/
-  forward-compatible — the eval proved the classifier layer, not the live path. The real live correctness
+- **Finding A (VALID as a proof-gap, not a wiring bug):** the live relabel is `decideTriage`'s job
+  (orchestration owns the open-case lookup, ADR-0019), so the classifier's `open_case_ref_match` is dormant/
+  forward-supported — the eval proved the classifier layer, not the live path. The real live correctness
   is Finding B's fix; the domain triage-policy tests + orch tests are the proof. (No orchestrator Durable
   test harness exists in the repo — a candidate follow-up.)
 - **Finding D (VALID):** the sibling `engine-v2.8`/`engine-v2.9` refs are now **pushed** to
@@ -45,31 +45,31 @@ behavioural live proof (a real open-case-ref chaser attaches with no mint) remai
   here (ADR-0018 edit-in-sibling-first). *Committed locally; push before relying on it in CI.*
 
 ## Files touched
-- `functions/parser/cedocumentmapper_v2/rules/email_classifier.py` — re-vendored from
+- `services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py` — re-vendored from
   engine-v2.8: (a) new `open_case_ref_match` (one|none|ambiguous) request field — a
-  FLOW-RESOLVED context signal the classifier is told exactly like `provider_match_state`
-  (the open-Case lookup stays on the flow side, ADR-0019); when one/ambiguous + an existing
+  ORCHESTRATION-RESOLVED context signal the classifier is told exactly like `provider_match_state`
+  (the open-Case lookup stays in orchestration, ADR-0019); when one/ambiguous + an existing
   ref + new non-report evidence, the fresh-work promotion (Rules 1-3) is suppressed so a
-  work-shaped delivery on a ref the flow resolved to an OPEN case routes to the `case_update`
+  work-shaped delivery on a ref resolved to an OPEN case routes to the `case_update`
   lane. Default absent = today's behaviour EXACTLY. (b) `_delivered_images_only` (factored
   `_is_image_evidence_file`) gains a FILENAME tier so a photos-in-a-PDF (`images - cvd.pdf`)
   the extension-derived kind reads as `instruction` is still `images_received`.
-- `functions/parser/cedocumentmapper_v2/PROVENANCE.md` — engine-v2.8 pin + history entry.
-- `functions/parser/tests/test_email_classifier.py` — 3 pins (flip on `one`; kill-switch on
+- `services/functions/parser/cedocumentmapper_v2/PROVENANCE.md` — engine-v2.8 pin + history entry.
+- `services/functions/parser/tests/test_email_classifier.py` — 3 pins (flip on `one`; kill-switch on
   default/`none`; `ambiguous` suppresses fresh work).
-- `scripts/eval-email/run_eval.py` — pass `open_case_ref_match` through `_FIELD_TO_PARAM`.
-- `scripts/eval-email/manifest.json` — `tkt043-images-existing-case` gains
+- `scripts/evaluation/email/run_eval.py` — pass `open_case_ref_match` through `_FIELD_TO_PARAM`.
+- `scripts/evaluation/email/manifest.json` — `tkt043-images-existing-case` gains
   `context.open_case_ref_match: "one"` + rationale; `sample-p1-5-bakercoleman` label
   reconciled to `images_received` (image-advertising PDF; untracked/unscored).
-- `scripts/eval-email/baseline-v2.json` — regenerated; only the tkt043 row moved (`--check` clean).
+- `scripts/evaluation/email/baseline-v2.json` — regenerated; only the tkt043 row moved (`--check` clean).
 - `packages/domain/src/domain/triage-policy.test.ts` — 2 assertions on the real tkt043 shape:
   `suggest_attach`/`attach_case` → `case_update`/`images_received`, `case_link`, targetCaseId
   (the TKT-093 reversible-attach lane; no decideTriage code change — it already did this).
-- `orchestration/src/functions/activities/triagePolicy.ts` (+ `.test.ts`) —
+- `services/orchestration/src/workflows/intake/triagePolicy.ts` (+ `.test.ts`) —
   `deriveAttachmentSignals` `imagesOnly` gains a FILENAME tier (`deliveredImagesOnly`), kept
   in lockstep with the classifier's `_delivered_images_only`, so the LIVE path yields
   `images_received` for a photos-in-a-PDF. No new function trigger (orch count 67 unchanged).
-- `deploy/orch/main.cjs` — rebuilt esbuild bundle deployed to `cespk-orch-dev`.
+- `.artifacts/deploy/orchestration/main.cjs` — rebuilt esbuild bundle deployed to `cespk-orch-dev`.
 
 ## Summary
 The sample is a report chaser delivering damage photos (as `images - cvd.pdf`) on the

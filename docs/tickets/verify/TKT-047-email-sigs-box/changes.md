@@ -9,8 +9,8 @@ offline-tested; NOT yet deployed (deploy + live proof owned by the dispatching s
   floor shipped earlier as `de7991d` feat(orch): non-inline signature-image raster floor)
 
 ## Files touched
-- `orchestration/src/lib/image-sniff.ts` (+ `image-sniff.test.ts`)
-- `orchestration/src/lib/graph.ts` (skip-trace wording only)
+- `services/orchestration/src/platform/image-sniff.ts` (+ `image-sniff.test.ts`)
+- `services/orchestration/src/adapters/graph.ts` (skip-trace wording only)
 
 ## Summary
 Root cause of the 2026-07-08 operator report ("signatures still being picked up and filed to Box
@@ -22,7 +22,7 @@ the 8KB byte-floor could catch them, so any padded/large-byte GIF banner escaped
 ## 2026-07-09 — above-floor banner heuristic + GIF/BMP dimension sniff
 
 - **Banner-shape rung** in `isLikelySignatureImage`/`assessSignatureImage`
-  (`orchestration/src/lib/image-sniff.ts`): an image whose dimensions sniff ABOVE the area floor is
+  (`services/orchestration/src/platform/image-sniff.ts`): an image whose dimensions sniff ABOVE the area floor is
   still flagged when **aspect ratio >= 3.5:1 (either orientation) AND short side <= 240 px** — new
   exported constants `BANNER_ASPECT_RATIO = 3.5`, `BANNER_MAX_SHORT_SIDE = 240`, mirroring the
   engine's `is_decorative_raster` (sibling `engine-v2.11`, TKT-089 — the two filters are documented
@@ -45,7 +45,7 @@ the 8KB byte-floor could catch them, so any padded/large-byte GIF banner escaped
 - **Tests** (`image-sniff.test.ts`): banner cases flagged (600x150 PNG + JPEG, 900x180 GIF, 150x800
   BMP tall strip, 840x240 boundary), photo shapes kept (list above), GIF/BMP sniff found + malformed
   matrices (zeroed dims, truncations, unrecognised DIB, negative width), verdict-envelope assertions,
-  and all pre-existing cases unchanged. Suites: `npm --prefix orchestration test` → **203 passed
+  and all pre-existing cases unchanged. Suites: `npm --prefix services/orchestration test` → **203 passed
   (13 files)**; `tsc -b` clean; `node verify-all.mjs` → 11 passed / 1 failed (the parser pytest
   FAIL is the known-environmental ALS_doc failure on this Windows box, pre-existing).
 

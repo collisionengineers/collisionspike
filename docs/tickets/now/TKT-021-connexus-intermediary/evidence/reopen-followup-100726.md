@@ -4,7 +4,7 @@
 
 The 2026-07-10 verify-sweep ruled **PENDING with one real shortfall**: acceptance line 3 requires an
 unresolved-principal Connexus case to be "held for review with an **explicit unresolved-principal
-reason**", but the deployed Held lane (`api/src/functions/internal.ts` new-client branch) writes the
+reason**", but the deployed Held lane (`services/data-api/src/features/` new-client branch) writes the
 **generic** note *"New client — no work provider matched for sender @connexus.co.uk"* — branding a
 known-intermediary sender as a **new client**, which is exactly the misframing this ticket exists to
 remove (line 1: "no longer flagged as a new enquiry/customer").

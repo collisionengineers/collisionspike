@@ -1,14 +1,15 @@
-# Verification — TKT-019: Build the Markdown ticket system + board + validator
+# Verification — TKT-019
 
 ## Verdict
-TESTED (offline)
+
+TESTED (offline). This repository-management ticket requires deterministic repository proof, not a live
+system mutation.
 
 ## Evidence
-- `node scripts/check-tickets.mjs` validates all tickets with 0 errors (frontmatter present, enums valid, `research-link` resolves, ids unique).
-- The ticket system is reachable from the docs index and CLAUDE.md; `BOARD.md` mirrors each ticket's column.
 
-## Pending / gaps
-None for the system itself — it is an offline docs/tooling deliverable. Individual ticket content is audited per-ticket.
+- `node scripts/maintenance/ticket-generate.mjs --check`
+- `node scripts/checks/check-tickets.mjs`
+- `node scripts/checks/check-doc-links.mjs --only=links`
 
-## How to re-verify
-- Run `node scripts/check-tickets.mjs` → expect 0 errors.
+The checks prove exact board/index membership, status-folder parity, plan backlinks, required artifacts
+and valid research/evidence references. PLAN-006 reruns them after every path and content change.

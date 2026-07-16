@@ -20,6 +20,6 @@ leave a permanent terminal status with no corresponding activity record and no r
 - The staff EVA-submitted route, staff report-delivered route and service-authenticated detector route
   all use that helper. A failed audit insert rolls back the status; a successful replay is a guarded
   no-op rather than a second audit.
-- `api/src/lib/terminal-transition.test.ts` injects an audit failure into both transitions, proves the
+- `services/data-api/src/features/cases/terminal-transition.test.ts` injects an audit failure into both transitions, proves the
   rollback, retries the same signal and proves exactly one final audit. The repaired API suite is green
   offline; deployment and a new live transition remain pending.

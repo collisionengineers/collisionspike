@@ -11,9 +11,9 @@ evade the deployed heuristics by tiny margins:
 The repo-vendored engine (v2.14) carries the SAME thresholds — no undeployed fix is waiting.
 
 ## Compounding storage gap ("stored on Box")
-`orchestration/src/functions/activities/extractImages.ts:120-208` persists every parser-returned
+`services/orchestration/src/workflows/evidence/extractImages.ts` persists every parser-returned
 image (blob + evidence row); the Box mirror selection
-(`api/src/functions/internal.ts:2727-2736`, `GET internal/cases/{id}/archive-evidence`) filters only
+(`services/data-api/src/features/`, `GET internal/cases/{id}/archive-evidence`) filters only
 `storage_path IS NOT NULL AND box_file_id IS NULL` — **no `excluded` filter** — so even
 classifier-stamped non-vehicle crops still mirror into the Box case folder. The classifier lanes
 (TKT-131/146) mitigate the evidence view + EVA flow, not Box storage.

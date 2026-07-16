@@ -17,7 +17,7 @@ The `collision_engineers` archive (folder `4077648161`) is now **fully readable*
 facade — `BOX_READONLY_ROOT_IDS=4077648161` set + the service-account **Viewer grant confirmed**
 (2026-07-07). The **auto-reconstruction rung (R2)** stays dark because `retroCreatePersist` creates a
 case with the archive folder's own Case/PO (`discoveredPo`), which collides with the restarted ~001
-live sequence until the **Case/PO sequence-alignment** (gated.md D11 step 1) is decided.
+live sequence until the **Case/PO sequence-alignment** (ticket board D11 step 1) is decided.
 
 **But that blocker is specific to *minting*.** Read-only USES of the archive create nothing, so they
 carry **no numbering risk** and can ship now — extracting value from the archive while the

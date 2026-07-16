@@ -1,0 +1,8 @@
+# Runtime dependencies for the location-assist service. Vision and Maps are
+# reached over bounded REST clients; photo bytes arrive from the Data API.
+
+# Azure Functions Python worker API (the worker also bundles this; pin for parity).
+azure-functions>=1.21.0
+
+# REST client for the Vision and Maps wrappers.
+httpx>=0.27.0

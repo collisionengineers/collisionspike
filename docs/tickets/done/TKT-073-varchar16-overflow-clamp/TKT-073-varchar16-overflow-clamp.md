@@ -24,7 +24,7 @@ or retried. The exact field must be identified from the 03/07 stack trace before
 - `evidence/operator-note.md` — plan diagnostic + § 8 (2026-07-06 planning session).
 - Live telemetry: 03/07 App Insights exceptions,
   `value too long for type character varying(16)`, internal route.
-- Schema candidates (`migration/assets/schema/`): `120_inbound_email.sql` `body_vrm
+- Schema candidates (`database/baseline/`): `120_inbound_email.sql` `body_vrm
   varchar(16)`; `050_case.sql` `vrm varchar(16)`; postcode columns elsewhere.
 - A junk over-length "VRM" candidate is exactly what TKT-071's loose-shape false positives can
   produce — the two fixes are complementary (this one is the safety net).

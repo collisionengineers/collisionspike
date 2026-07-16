@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "ticket": "TKT-081",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-1/RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
+      "originalFilename": "RE Mr Abu Zaid Rasool - PE19UDH - 06_10_2025.eml",
+      "sha256": "6b79d92d674285e5c3d1e1cc061557eeb37df548fcd6b6b12f6a5c0f7e379cb2",
+      "storagePath": "tests/fixtures/evidence/sha256/6b/6b79d92d674285e5c3d1e1cc061557eeb37df548fcd6b6b12f6a5c0f7e379cb2.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-2/Thank you for your email.eml",
+      "originalFilename": "Thank you for your email.eml",
+      "sha256": "98375ee5b154433ca40ec6d64d13235212c0c84907a191b90bb30712b1fec147",
+      "storagePath": "tests/fixtures/evidence/sha256/98/98375ee5b154433ca40ec6d64d13235212c0c84907a191b90bb30712b1fec147.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-3/RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
+      "originalFilename": "RE RE Re RE RTA135600.001  -  Mr G Pashapour - WG19 SFU.eml",
+      "sha256": "59b77175075ed38e911ff6d0ceeaab74377e06d942548ac9b5eefa0df70dc258",
+      "storagePath": "tests/fixtures/evidence/sha256/59/59b77175075ed38e911ff6d0ceeaab74377e06d942548ac9b5eefa0df70dc258.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-4/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "originalFilename": "RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "sha256": "b2c94d43f777c0770aaf1011583b34df3945a4df43b65ed3b7c1e60a62febf77",
+      "storagePath": "tests/fixtures/evidence/sha256/b2/b2c94d43f777c0770aaf1011583b34df3945a4df43b65ed3b7c1e60a62febf77.eml"
+    }
+  ]
+}

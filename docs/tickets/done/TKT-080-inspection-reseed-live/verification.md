@@ -47,9 +47,9 @@ inspection_address_reseed_backup_2026_07_06;` (confirmed rows are never touched 
 
 ## 5. Docs / registry
 `LIVE_FACTS.json` (`inspection_address` count refreshed — the confirmed/suggested split lives only in the
-registry [live-environment.md](../../../architecture/live-environment.md); new `verifiedBy` entry;
+registry [live-environment.md](../../../operations/live-environment.md); new `verifiedBy` entry;
 `lastVerified` bumped) + the `live-environment.md` mirror updated. `inspection-address-corpus.md` +
-ADR-0016 note + gated.md updated (LOCATION_ASSIST_AI E2 + the AZURE_MAPS_KEY follow-up for proximity).
+ADR-0016 note + ticket board updated (LOCATION_ASSIST_AI E2 + the AZURE_MAPS_KEY follow-up for proximity).
 
 ## 6. Proximity key wired (2026-07-06, post-reseed follow-up)
 `AZURE_MAPS_KEY` is now live on `cespk-api-dev` as a **versioned Key Vault reference**

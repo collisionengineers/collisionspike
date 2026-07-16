@@ -19,9 +19,8 @@ directed that the workflow be removed.
 ## Evidence
 - [Current operator ruling](./evidence/operator-retirement-2026-07-14.md) — remove the workflow because it
   makes delivery slower than necessary.
-- [Superseded operator note](./evidence/operator-note.md) — retained as historical provenance only.
 
-## Proposed change
+## Implemented change
 Remove the GitHub marker workflow, evaluator, shared runner, both agent hook adapters and their hook-config
 entries. Remove the reciprocal suite from `npm test`, delete the active guard guide, and remove reciprocal
 markers as a PLAN-004 or ticket acceptance requirement. Preserve unrelated Azure and Box safety hooks and
@@ -34,8 +33,9 @@ the normal repository checks.
 - The runner, evaluator, adapters and dedicated tests are removed, and `npm test` no longer invokes them.
 - Creating, updating, readying or merging a PR never automatically launches Claude plus Codex and never
   waits for `reciprocal-pr-review/head`.
-- Active plans/tickets no longer require reciprocal markers. Historical review evidence may remain clearly
-  historical and does not reinstate the workflow.
+- Active plans, tickets and generated agent adapters contain no reciprocal marker requirement.
+- Adapter generation has an explicit parity check so removed hook definitions cannot be copied back from
+  a tool-specific directory.
 - JSON, ticket, link and normal repository tests pass after removal.
 
 ## Research
@@ -46,4 +46,3 @@ requested.
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Current operator ruling](./evidence/operator-retirement-2026-07-14.md)
-- [Superseded operator note](./evidence/operator-note.md)

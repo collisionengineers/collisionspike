@@ -10,8 +10,9 @@ corroborated:
   +890…+3,592, all HIGH confidence, **no ~10k systematic overshoot on any real case**;
   ENRICHMENT_ENABLED=true both apps (the probed path is the live one).
 - **No calculation bug (second branch's substance):** verified against source —
-  functions/enrichment/analysis.py:326-442 (MOT-anchored projection,
-  last_known + annual_rate × days_since/365.25, rounded to 100) and the ADR-0006 guard intact
+  `services/functions/vehicle-enrichment/vehicle_data/mileage.py::estimate_displayed_mileage`
+  (MOT-anchored projection, last_known + annual_rate × days_since/365.25, rounded to 100) and the
+  ADR-0006 guard intact
   (document_has_mileage defaults True → estimate skipped).
 - **Pin test re-run by the verifier:** 30/30 passed incl.
   test_estimate_projects_forward_from_last_mot_by_design_tkt044.
@@ -32,11 +33,13 @@ Queued SQL (informational, next data pass): mileage provenance distribution (exp
 pdf_extraction); the stored-mileage comparison set (newest 20).
 
 ## Evidence (so far)
-- Code audit of `functions/enrichment/analysis.py` `current_mileage_estimate` (see changes.md):
+- Code audit of
+  `services/functions/vehicle-enrichment/vehicle_data/mileage.py::estimate_displayed_mileage`
+  (see changes.md):
   no arithmetic bug found; the "~10,000 over" is the DESIGNED projection-to-today term
   (annual_rate × time-since-last-MOT) sitting on top of the last MOT odometer reading.
 - Pin test `test_estimate_projects_forward_from_last_mot_by_design_tkt044` green
-  (functions/enrichment: 30 passed) — reproduces the overshoot exactly and would fail on any
+  (services/functions/vehicle-enrichment: 30 passed) — reproduces the overshoot exactly and would fail on any
   future double-count/rate regression.
 - ADR-0006 precedence confirmed intact: a document-extracted mileage suppresses the estimate
   (`document_has_mileage` default true; guard tests pre-existing + green).
@@ -49,7 +52,7 @@ pdf_extraction); the stored-mileage comparison set (newest 20).
   vs photographed odometer) — determines whether follow-up 1/2/3 in changes.md is raised.
 
 ## How to re-verify
-- `cd functions/enrichment && python -m pytest tests/test_enrich.py -q` → 30 passed.
+- `cd services/functions/vehicle-enrichment && python -m pytest tests/test_enrich.py -q` → 30 passed.
 - Live (read-only): call the enrichment Function for one known VRM with MOT history and check
   `current_mileage ≈ last MOT reading + annual_rate × years-since-MOT` (basis via DVSA MOT
   history for that VRM).
@@ -92,7 +95,7 @@ PENDING
   +3,500 / +890 and independently recomputed consistently with the documented projection formula. That
   proves arithmetic consistency, not the required operator/manual expectation.
 - Fresh offline regression run: `python -B -m pytest -p no:cacheprovider
-  functions/enrichment/tests/test_enrich.py -q` → **31 passed**. This includes the TKT-044 projection pin;
+  services/functions/vehicle-enrichment/tests/test_enrich.py -q` → **31 passed**. This includes the TKT-044 projection pin;
   no calculation defect was found to satisfy the ticket's alternate "bug identified and fixed" branch.
 - Repository-wide targeted search found no later operator clarification. The sole operator evidence remains
   `evidence/operator-note.md:1` ("potentially 10,000 over expected values"), while

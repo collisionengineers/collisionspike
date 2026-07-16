@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "ticket": "TKT-041",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Claim Cancelled - SBL-B0521876.eml",
+      "originalFilename": "Claim Cancelled - SBL-B0521876.eml",
+      "sha256": "b73256c86a5565587fb106f9cf2d1c3025f2fbc76f0507d73062105128bf9c73",
+      "storagePath": "tests/fixtures/evidence/sha256/b7/b73256c86a5565587fb106f9cf2d1c3025f2fbc76f0507d73062105128bf9c73.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Claim Cancelled - SBL-B0649696.eml",
+      "originalFilename": "Claim Cancelled - SBL-B0649696.eml",
+      "sha256": "a30f8da43536814428ce18d822e895638ede2c26ca7e569bb6fc57d661afe0a4",
+      "storagePath": "tests/fixtures/evidence/sha256/a3/a30f8da43536814428ce18d822e895638ede2c26ca7e569bb6fc57d661afe0a4.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Claim closed notification  AX REF - 1062608.eml",
+      "originalFilename": "Claim closed notification  AX REF - 1062608.eml",
+      "sha256": "f55cfd4505b2bd68429622ae83b2f57b49d4457d424cfeb02f6a35eda254907d",
+      "storagePath": "tests/fixtures/evidence/sha256/f5/f55cfd4505b2bd68429622ae83b2f57b49d4457d424cfeb02f6a35eda254907d.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Claim closed notification  AX REF - 1069305.eml",
+      "originalFilename": "Claim closed notification  AX REF - 1069305.eml",
+      "sha256": "cbf54445941a1bbb54ae49be96af7ecc4452b49d29ceda6c91d91a6f80738fe6",
+      "storagePath": "tests/fixtures/evidence/sha256/cb/cbf54445941a1bbb54ae49be96af7ecc4452b49d29ceda6c91d91a6f80738fe6.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Claim closed notification  AX REF - 1070680.eml",
+      "originalFilename": "Claim closed notification  AX REF - 1070680.eml",
+      "sha256": "6c7991adf2d998204b80a227516baa8f11e32608b9108bdbd1172b26def8ddc2",
+      "storagePath": "tests/fixtures/evidence/sha256/6c/6c7991adf2d998204b80a227516baa8f11e32608b9108bdbd1172b26def8ddc2.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
+      "originalFilename": "Client Mr Shah Zaib  __ Engineer Instruction - VRN BR19 OTA __ Attention Required.eml",
+      "sha256": "c0c320b16b573b6c0d6c3a4e90f39b99ddab4f767085aba0f33b1e74caccff6f",
+      "storagePath": "tests/fixtures/evidence/sha256/c0/c0c320b16b573b6c0d6c3a4e90f39b99ddab4f767085aba0f33b1e74caccff6f.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/FW New Instruction - Lisa McKinney - RJP_81547.eml",
+      "originalFilename": "FW New Instruction - Lisa McKinney - RJP_81547.eml",
+      "sha256": "5f48ed43840e9d8ffa5835428746136152d54dd23ed0301e82f8e979c70770cd",
+      "storagePath": "tests/fixtures/evidence/sha256/5f/5f48ed43840e9d8ffa5835428746136152d54dd23ed0301e82f8e979c70770cd.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
+      "originalFilename": "RE (EREF10) RTA on 08_09_2025  Mr Benjamin Fernando Hannington (Our Ref _39569_1, Vehicle BW21WOD).eml",
+      "sha256": "98cf6ac5782a576380618bf6c9b9d38b3eb66c24bd0016a59d8b4176e6b0d1b1",
+      "storagePath": "tests/fixtures/evidence/sha256/98/98cf6ac5782a576380618bf6c9b9d38b3eb66c24bd0016a59d8b4176e6b0d1b1.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
+      "originalFilename": "RE (EREF8) RTA on 25_06_2026  Mr Viv Richards (Our Ref _46407_1, Vehicle WH19NXW).eml",
+      "sha256": "b0a3ccd531c604e40f750432fa6f83fea45f37695de472b12e8c6d6af06ec0c9",
+      "storagePath": "tests/fixtures/evidence/sha256/b0/b0a3ccd531c604e40f750432fa6f83fea45f37695de472b12e8c6d6af06ec0c9.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
+      "originalFilename": "RE Client Mr Bilal Hafeez  __ Engineer Instruction - VRN T3L JN.eml",
+      "sha256": "a74b8be40d9d9940e3b60fb66c647d742f51e8ab6cc223ca02ea3ce3e31ac62a",
+      "storagePath": "tests/fixtures/evidence/sha256/a7/a74b8be40d9d9940e3b60fb66c647d742f51e8ab6cc223ca02ea3ce3e31ac62a.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE Engineer Instruction - SBL-A1216630.eml",
+      "originalFilename": "RE Engineer Instruction - SBL-A1216630.eml",
+      "sha256": "154d043bce65241d29e32bd8e29e3e5eabf8854f702c66c877daa7abb1f1324e",
+      "storagePath": "tests/fixtures/evidence/sha256/15/154d043bce65241d29e32bd8e29e3e5eabf8854f702c66c877daa7abb1f1324e.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE Estimate please.eml",
+      "originalFilename": "RE Estimate please.eml",
+      "sha256": "d7089b8e61ad5757ebcc9ed0aa2b4c7a78b1e96ce7b0c6bbd5a6c0f6896fafd9",
+      "storagePath": "tests/fixtures/evidence/sha256/d7/d7089b8e61ad5757ebcc9ed0aa2b4c7a78b1e96ce7b0c6bbd5a6c0f6896fafd9.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "source-emails/cancelled-cases/RE Inspection Request Fax Sent - Claim ID 1069534.eml",
+      "originalFilename": "RE Inspection Request Fax Sent - Claim ID 1069534.eml",
+      "sha256": "defa23c84be08e57a81b13d57ba39bd4a79030c0c03b8a6c5daedba8e8b80989",
+      "storagePath": "tests/fixtures/evidence/sha256/de/defa23c84be08e57a81b13d57ba39bd4a79030c0c03b8a6c5daedba8e8b80989.eml"
+    }
+  ]
+}

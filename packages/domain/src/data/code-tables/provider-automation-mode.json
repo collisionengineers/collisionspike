@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "provider_automation_mode",
+  "displayName": "Provider Automation Mode",
+  "description": "WorkProvider.providerAutomationMode — how much automation a provider's intake is trusted with. Only `review_auto` is honored in M1 (others modeled but inert; per-provider toggles deferred to global env-var kill switches). `manual` = no auto-pipeline; `review_auto` = auto-parse/enrich but human review before EVA; `full_auto` = reserved/deferred.",
+  "default": "review_auto",
+  "options": [
+    { "value": 100000000, "name": "manual",       "label": "Manual" },
+    { "value": 100000001, "name": "review_auto",  "label": "Review Auto" },
+    { "value": 100000002, "name": "full_auto",    "label": "Full Auto (deferred)" }
+  ]
+}

@@ -39,7 +39,7 @@ The 13th sample (`tkt041-06-hold-request`) is a **hold**, not a cancellation —
 work on a specific job while the case stays open. The plan defines no `hold` category distinct from
 `cancellation`, so the eval harness scores it `query` (not a taxonomy miss). This is a genuine operator
 taxonomy decision, recorded here and in the manifest's own rationale — see the spec's "Flagged taxonomy gap"
-and [scripts/eval-email/manifest.json](../../../../scripts/eval-email/manifest.json).
+and [scripts/evaluation/email/manifest.json](../../../../scripts/evaluation/email/manifest.json).
 
 ## Reopened scope — 2026-07-13
 

@@ -7,7 +7,7 @@ PENDING
 (implementer-gathered, 2026-07-08 — awaiting the independent verifier)
 - A.QDOS26029 on the deployed SPA: inspection field = "Image Based Assessment", readiness item
   "Inspection: Image Based Assessment" ✓ Done, no manual entry —
-  [evidence/aqdos26029-case-page-live-2026-07-08.png](./evidence/aqdos26029-case-page-live-2026-07-08.png)
+  [evidence/aqdos26029-case-page-live-2026-07-08.png](./evidence-manifest.json)
 - Delta apply output (seed no-op + 224 prefilled + provenance) —
   [evidence/delta-apply-output-2026-07-08.txt](./evidence/delta-apply-output-2026-07-08.txt)
 - Counts + ADR-0013 amendment: changes.md.
@@ -52,13 +52,13 @@ proof do not exist. The 2026-07-09 `VERIFIED-LIVE` block predates and cannot sat
   Its compiled component conditionally renders address controls only for the address choice. This proves
   the reopened presentation is at least partially deployed even though its release provenance was not
   recorded.
-- Current source matches that bundle: `mockup-app/src/components/InspectionChoice.tsx:33-39` never infers
+- Current source matches that bundle: `apps/web/src/shared/ui/InspectionChoice.tsx:33-39` never infers
   image-based assessment from a missing address; `:62-87` renders one radio choice and hides address
   controls on the image-based path.
 - Offline interaction coverage exists: `InspectionChoice.test.tsx:39-77` covers ordinary address-first
   behavior, saved image-based truth, hidden address controls and reversible switching;
   `case-edit-session.test.ts:75-84,109-154,177-257` covers Cancel/no-op, physical-address and image-based
-  Save bodies, switching, validation and restored drafts; `api/src/lib/inspection-prefill.test.ts:77-153`
+  Save bodies, switching, validation and restored drafts; `services/data-api/src/features/cases/inspection-prefill.test.ts`
   covers explicitly configured versus ordinary providers, fill-if-empty, audit/provenance and race-safe
   no-op. The ticket records 16/16 focused tests, 515 SPA tests and a successful build/string scan
   (`changes-regression-12-07-26.md:22-27`).
@@ -79,7 +79,7 @@ proof do not exist. The 2026-07-09 `VERIFIED-LIVE` block predates and cannot sat
 - Test coverage is split across component, edit-session and server-prefill suites; there is no recorded
   end-to-end component/browser matrix covering configured-provider load, ordinary-provider load, Save,
   Cancel and reload together.
-- `.azure/deployment-plan.md` has no release record for PR 85/merge `9bbab2e7`; the live bundle proves
+- `docs/operations/live-environment.md` has no release record for PR 85/merge `9bbab2e7`; the live bundle proves
   deployment of the UI code but its exact release commit and deployment time are undocumented.
 
 ## How to re-verify

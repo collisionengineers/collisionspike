@@ -25,7 +25,7 @@ VERIFIED-LIVE — all acceptance criteria satisfied on 2026-07-12.
    values `570 / 199 / 141 / 673`, no failed dashboard request, and no console warning/error. The
    independent `app.role=staff` query returned the same values. After the read, only
    `AllowAzureServices` remained in the server firewall.
-8. **Runbook — TESTED.** `docs/azure/postgres.md#inbound-dashboard-count-health-probe` records the
+8. **Runbook — TESTED.** `docs/operations/database.md#inbound-dashboard-count-health-probe` records the
    protected probe, parity query, RLS/firewall rules, KQL and exact route-collision signature; the
    Azure router links it. Documentation validation passed.
 

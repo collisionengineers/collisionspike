@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "baseline": {
+    "commit": "70a3bb57",
+    "description": "PLAN-006 pre-reorganization contract capture"
+  },
+  "approvals": [
+    {
+      "id": "TKT-215-remove-unused-validation-route",
+      "authority": "TKT-215",
+      "category": "http-route",
+      "operation": "remove",
+      "reason": "The repository implementation was removed after the separately recorded read-only no-use audit.",
+      "evidence": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/verification.md",
+      "before": {
+        "runtime": "python",
+        "functionName": "validate_case_endpoint",
+        "methods": [
+          "POST"
+        ],
+        "publicPath": "/api/validate-case",
+        "authLevel": null,
+        "source": "functions/evavalidation/function_app.py"
+      },
+      "after": null
+    },
+    {
+      "id": "PLAN-006-remove-close-case-compatibility-alias",
+      "authority": "PLAN-006",
+      "category": "domain-dto-member",
+      "operation": "remove",
+      "reason": "The duplicate compatibility name was intentionally removed while the current Archive acknowledgement field remains authoritative.",
+      "evidence": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
+      "declaration": "RemoveCaseInput",
+      "source": "packages/domain/src/dto/index.ts",
+      "before": {
+        "member": "acknowledgeBoxFolderHandled?: boolean;"
+      },
+      "after": {
+        "member": "acknowledgeArchiveFolderHandled?: boolean;"
+      }
+    }
+  ]
+}

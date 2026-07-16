@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-097",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Oakwood Scotland Soliciutors- Instructions.eml",
+      "originalFilename": "RE Oakwood Scotland Soliciutors- Instructions.eml",
+      "sha256": "413c75231080c0b485e48b652b30faa3bc05fe4eefc0c6b027964e40e77062c7",
+      "storagePath": "tests/fixtures/evidence/sha256/41/413c75231080c0b485e48b652b30faa3bc05fe4eefc0c6b027964e40e77062c7.eml"
+    }
+  ]
+}

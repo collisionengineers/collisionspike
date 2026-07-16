@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-088",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/evidence-images-all-unclassified.png",
+      "originalFilename": "evidence-images-all-unclassified.png",
+      "sha256": "3228306cb66969083d5a548689bdf7f05d53964bd5a5e89bbfd9ffa1b1ee19a7",
+      "storagePath": "tests/fixtures/evidence/sha256/32/3228306cb66969083d5a548689bdf7f05d53964bd5a5e89bbfd9ffa1b1ee19a7.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/role-dropdown-options.png",
+      "originalFilename": "role-dropdown-options.png",
+      "sha256": "4c9e6a4579d38d199acdbcd15ec8a4a2295bb60c2bae0848b815db7bd90093c6",
+      "storagePath": "tests/fixtures/evidence/sha256/4c/4c9e6a4579d38d199acdbcd15ec8a4a2295bb60c2bae0848b815db7bd90093c6.png"
+    }
+  ]
+}

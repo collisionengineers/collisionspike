@@ -19,8 +19,8 @@ Verified by: ticket-verifier dispatch, 10-07-26. Key findings of the certificati
   (re-derives the BOARD's "191" figure, which has no repo source artifact); Q-087-2 fix-holding
   check (reopen if post-07-09 shared box_file_ids appear beyond deliberate TKT-133 merge links);
   Q-087-3 per-message rows distinctness; Q-087-4 attribution-case listing → drives the
-  **historical-mis-link backfill decision, still to record** (the pre-fix mis-link class is
-  historical data debt; a re-archive self-heals a case when it re-runs — observed live on
+  **prior-mis-link backfill decision, still to record** (the pre-fix mis-link class is
+  prior data debt; a re-archive self-heals a case when it re-runs — observed live on
   QDOS26029).
 - Watch-item (outside this ticket, already logged under TKT-142): sporadic per-file upload 502s
   (1 on 07-09, 5 on 07-10), warn-level per-file skips, no archive stranded 0/N.
@@ -74,8 +74,8 @@ per-file skip by design, which is what stranded `ae1c0c84`.
 ## Acceptance mapping
 - [x] Each of the 18 conflicts attributed to a case + file cluster with a stated cause (above).
 - [x] Upload path treats 409 as "already exists" — NOW HARDENED: sha1-verified reuse; mismatch →
-      content-disambiguated re-upload; unverifiable → warn-level legacy reuse. Unit tests green
-      (`functions/box-webhook/tests/test_box_client.py`, 30 passed).
+      content-disambiguated re-upload; unverifiable → warn-level earlier reuse. Unit tests green
+      (`services/functions/box-webhook/tests/test_box_client.py`, 30 passed).
 - [x] Written verdict: NOT benign-in-full — idempotency worked mechanically but the generic
       filenames (`message.eml`/`email-body.txt`) made "reuse" WRONG on multi-email cases
       (mis-linkage, later bytes never mirrored); duplication vector (TKT-092) ruled out for

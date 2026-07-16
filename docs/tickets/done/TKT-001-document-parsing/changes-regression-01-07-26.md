@@ -14,7 +14,7 @@ in the email body but the rule never matched.
 - `config/migration.py` — `parse_alternate_two_label_configs()` + `label_pairs` on migrated rules.
 - `rules/engine.py` — `_extract_between_labels` tries each pair; `clean_val` strips leading table `|`.
 
-## Root cause B — legacy `.doc` binary scrape drops table-cell text
+## Root cause B — earlier `.doc` binary scrape drops table-cell text
 The DOC reader's embedded-text scrape returned early with PNG garbage (`IHDR`/`IDAT`) and **no narrative**
 between the labels (table content is not in the binary streams). LibreOffice conversion extracts the full
 table row correctly when available.
@@ -29,7 +29,7 @@ install LibreOffice without a custom container, so table-heavy `.doc` files stil
 live FC1 even after the scrape gate.
 
 ### Fix (live path)
-- `orchestration/src/lib/supplement-parse.ts` — when parser returns empty `accident_circumstances`, extract
+- `services/orchestration/src/platform/supplement-parse.ts` — when parser returns empty `accident_circumstances`, extract
   from `inbound.body` using the same label window.
 - `intakeOrchestrator.ts` — wires the supplement into `parserEvaFields`.
 
@@ -46,10 +46,11 @@ See [Microsoft Q&A — Flex Consumption system packages](https://learn.microsoft
 ## Files touched
 - Sibling: `cedocumentmapper_v2.0` — `providers.json`, `rules/engine.py`, `config/migration.py`,
   `readers/doc.py`, `application/service.py`, `tests/test_rules.py`, `tests/test_extraction_targeted.py`,
-  `tests/fixtures/instructions/QDOS_TRIAGE_01.doc`, `tests/fixtures/expected/QDOS_TRIAGE_01.expected.json`
-- Vendored: `functions/parser/cedocumentmapper_v2/` — same engine modules + `providers.json`
-- Orchestration: `src/lib/supplement-parse.ts`, `src/lib/supplement-parse.test.ts`,
-  `src/functions/intakeOrchestrator.ts`, `vitest.config.ts`, `package.json`
+  and its `QDOS_TRIAGE_01` instruction/expected-result fixtures.
+- Vendored: `services/functions/parser/cedocumentmapper_v2/` — same engine modules + `providers.json`
+- Orchestration: `services/orchestration/src/platform/supplement-parse.ts`,
+  `services/orchestration/src/platform/supplement-parse.test.ts`,
+  `services/orchestration/src/workflows/intake/intakeOrchestrator.ts`, `vitest.config.ts`, `package.json`
 
 ## Status
 Deployed 2026-07-01 (`cespike-parser-dev` + `cespk-orch-dev`). Live `/api/parse` probe on follow-up `.eml`

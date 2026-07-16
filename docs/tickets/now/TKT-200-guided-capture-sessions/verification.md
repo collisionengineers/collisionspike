@@ -2,8 +2,8 @@
 
 ## Verdict
 
-PENDING — PR #83 was rebased onto post-#73 `main` and **merged 2026-07-15** (shipped DARK — all four
-capture gates default-off, nothing deployed). A four-lane offline review (security, DB/schema,
+PENDING — PR #83 was rebased onto post-#73 `main`, merged 2026-07-15, and its schema, API and SPA were
+deployed on 2026-07-16 with public capture and cleanup default-off. A four-lane offline review (security, DB/schema,
 integration, docs) found **no BLOCKER and no code must-fix**: the security-critical design was verified
 solid (256-bit hashed secrets, `__Host-` HttpOnly cookie, 15-min generation-revocable JWTs, MI-only
 create/write exact-object SAS, TOCTOU-safe raster-only capped-before-decode validation, content-addressed
@@ -44,7 +44,7 @@ upload, physical camera behaviour or canonical evidence materialisation.
 
 ## Pending / gaps
 
-No production database, public hostname, storage policy, app setting, Archive content or live case was
-changed by this merge — the feature is dark. All live proof above (schema apply, deploy, gate flips,
-end-to-end session under the Archive test root, physical-device camera proof, security review, rollback
-rehearsal) remains outstanding before this ticket can leave `now`.
+The schema and deployables are live, but no public gate, Archive content or live case was changed — the
+feature is dark. End-to-end session proof under the Archive test root, physical-device camera proof,
+security review, rollback rehearsal and safe abuse control remain outstanding before this ticket can leave
+`now`.

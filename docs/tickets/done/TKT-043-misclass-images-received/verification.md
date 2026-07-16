@@ -88,7 +88,7 @@ PENDING (implementer cannot self-certify — offline proof is green; live proof 
 by the ticket-verifier).
 
 ## Evidence (offline — done)
-- `scripts/eval-email/baseline-v2.json` (regenerated, `--taxonomy v2 --check` clean): eval item
+- `scripts/evaluation/email/baseline-v2.json` (regenerated, `--taxonomy v2 --check` clean): eval item
   `tkt043-images-existing-case` flipped `receiving_work`/`existing_provider_instruction` →
   `case_update`/`images_received` (`category_correct` + `subtype_correct` both true) driven by a
   genuine `open_case_ref_match: "one"` context signal, not a hard-code (kill-switch: absent/`none`
@@ -102,7 +102,7 @@ by the ticket-verifier).
   `deriveAttachmentSignals` pins). `verify-all.mjs` green on Orchestration (tsc + vitest) and
   Domain (vitest) — the only FAIL is the known-environmental `test_multiformat_extraction`
   (`No module named 'fitz'`/PyMuPDF absent), unrelated to classification.
-- Deployed: `deploy/orch/main.cjs` published to `cespk-orch-dev` (Windows func 4.12); live
+- Deployed: `.artifacts/deploy/orchestration/main.cjs` published to `cespk-orch-dev` (Windows func 4.12); live
   function count re-verified **67** (unchanged — no new trigger), `triagePolicy` present.
 
 ## Pending / gaps (live proof for the verifier)
@@ -151,8 +151,8 @@ Two live prerequisites the verifier should confirm hold on the target case:
 
 ## Notes for the dispatcher
 - No new gate; no DDL (the `case_update`/`images_received` codes were already live per the
-  engine-v2.3 deploy-order note). The live relabel is `decideTriage`'s (the open-case lookup is
-  flow-side, ADR-0019), so the classifier's `open_case_ref_match` stays dormant/forward-compatible;
+  engine-v2.3 deploy-order note). The live relabel is `decideTriage`'s (orchestration owns the
+  open-case lookup, ADR-0019), so the classifier's `open_case_ref_match` stays dormant/forward-supported;
   Stage A still returns `receiving_work` live and Stage B relabels + attaches.
 - **PR #45 review fix (2026-07-08):** the first pass had a BLOCKING bug — the orchestrator minted on
   `classification.category`, so an `attach_case` email attached to the matched case AND minted a

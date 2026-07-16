@@ -25,7 +25,7 @@ because `TRIAGE_REF_GATE_ENABLED` is unset and its DDL prerequisite (D7) is not 
 ## 2026-07-09 — chaser hook (PLAN-003 intake wave; the ticket's remaining acceptance line)
 
 **"The outstanding-document chaser for that case is marked satisfied"** is now wired at every
-attach seam: new `markOutstandingChasersResponded(caseId, via)` in `api/src/functions/internal.ts`
+attach seam: new `markOutstandingChasersResponded(caseId, via)` in `services/data-api/src/features/`
 flips a case's outstanding chasers (drafted 100000000 / sent 100000001 / overdue 100000003 →
 **responded** 100000002) with a chaser-family audit row ("Chaser marked responded — the requested
 item arrived (…)"), and is called on:
@@ -33,9 +33,9 @@ item arrived (…)"), and is called on:
 - `internalCasesResolve` attach resolution (dedup attach),
 - the suggest-link `autoAttach` self-accept (TKT-093 lane),
 - `promoteAcceptedSuggestion`'s case_link accept (staff accepting a suggestion —
-  `api/src/functions/ai-suggestions.ts`).
+  `services/data-api/src/features/assistant/register-suggestion-routes.ts`).
 No-op when the case has no outstanding chaser; best-effort (a chaser bookkeeping failure can never
-block the attach). Unit tests: `api/src/functions/internal-guards.test.ts` (flip set + params,
+block the attach). Unit tests: `services/data-api/src/features/` (flip set + params,
 no-op, failure tolerance). Deployed 2026-07-09 (api 89 fns). Live state: exactly 1 drafted chaser
 exists — the flip fires on that case's next attached reply (verifier item).
 
@@ -44,11 +44,11 @@ exists — the flip fires on that case's next attached reply (verifier item).
 The list above claimed `promoteAcceptedSuggestion`'s case_link accept called the hook — **it did
 not** (the intake-wave build wired the three internal.ts seams only; `ai-suggestions.ts` never
 imported it). Fixed this wave: the `case_link` accept branch in
-`api/src/functions/ai-suggestions.ts` now calls `markOutstandingChasersResponded(targetCaseId,
+`services/data-api/src/features/assistant/register-suggestion-routes.ts` now calls `markOutstandingChasersResponded(targetCaseId,
 'suggestion accepted')` immediately after the successful FILL-IF-EMPTY attach + `inbound_linked`
 audit (imported from `./internal.js` — reused, not duplicated; still best-effort inside the hook,
 and NOT called when the attach was a no-op or the suggestion was rejected). Unit tests added in
-`api/src/functions/ai-suggestions.test.ts` (hook called with the target case on a successful
+`services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` (hook called with the target case on a successful
 promotion; not called on a FILL-IF-EMPTY miss; not called on rejection — `./internal.js` mocked so
 the route module stays isolated). api suite 352 green; redeployed 2026-07-09 (api 94 fns,
 final wave D1). All four attach seams now call the ONE hook.

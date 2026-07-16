@@ -1,0 +1,376 @@
+{
+  "$comment": [
+    "Labelled corpus for the deterministic email classifier, governed by ADR-0015.",
+    "Single manifest used by services/functions/parser/tests/test_email_classifier.py.",
+    "",
+    "Tier 1 (tier_1_existing_cases): 12 real case examples retained by evidence SHA-256.",
+    "  Each entry records the request the intake workflow produces for that case (an instruction document",
+    "  is attached, the provider domain matched, audit phrases fire for the A. cases) plus",
+    "  the ground-truth label. All 12 are receiving_work.",
+    "",
+    "Tier 2 (tier_2_synthetic): plain-text .eml fixtures catalogued by SHA-256 under the named bucket,",
+    "  for the gaps Tier 1 has none of (queries, enquiries, body-only instruction, auto-reply,",
+    "  bounce). The test parses each .eml (subject/body/from), supplies provider_match_state",
+    "  here (domain matching belongs to orchestration), and HTML-strips the body the way the route does.",
+    "  An entry may optionally carry attachment_filenames (wired through alongside",
+    "  attachment_kinds) for fixtures that depend on filename-based report detection.",
+    "",
+    "Taxonomy v2 (rules-engine-v2 Phase 2, collisionspike TKT-041/034/043): the cancellation/",
+    "  and case_update/ buckets exercise the two new additive categories. case_update's",
+    "  fixtures deliberately use the reachable shapes only (a fresh, non-reply email whose",
+    "  hint is the looser body_jobref, or whose attachment kind sits outside both the",
+    "  instruction and image vocabularies) -- Rule 4b already claims almost every non-bare-ack",
+    "  REPLY naming a reference, and Rule 1/Rule 2 already claim a fresh email carrying a",
+    "  formal Case/PO the moment it also carries an instruction- or image-kind attachment; see",
+    "  services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py Rule 4d for the full",
+    "  reachability note, including the TKT-038 bare-acknowledgement exclusion.",
+    "",
+    "Tier 3 (real, PII-scrubbed sample mail) is operator-gated [RESERVED-FOR-USER]: the operator",
+    "  drops real samples into this folder and the suite consumes them. Not fabricated here."
+  ],
+  "tier_1_existing_cases": [
+    {
+      "case": "A.PCH261269",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_audit" },
+      "request": {
+        "subject": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)",
+        "body": "Please find enclosed our inspection request. An audit report is required of the original engineer's findings.",
+        "sender_domain": "pchfinance.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction", "image"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "A.PCH261272",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_audit" },
+      "request": {
+        "subject": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)",
+        "body": "Inspection request enclosed. Please audit the original report produced by the original engineer.",
+        "sender_domain": "pchfinance.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction", "image"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "ALS26066",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction - please inspect",
+        "body": "We instruct you to carry out an inspection and prepare a report.",
+        "sender_domain": "als.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "AX26353",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection instruction",
+        "body": "Please inspect the vehicle and provide a report.",
+        "sender_domain": "ax.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "BLACK26112",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "We are instructing you on a new matter. Please inspect.",
+        "sender_domain": "blackandwhite.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "DFD26088",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Instruction to inspect",
+        "body": "Please carry out an inspection and prepare a report.",
+        "sender_domain": "dfd.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "FW26251",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "Please inspect the vehicle for inspection and report on the damage.",
+        "sender_domain": "fw.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "KERR26028",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection request",
+        "body": "We instruct you to assess the vehicle and prepare a report.",
+        "sender_domain": "kerr.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "MP26071",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction - please inspect",
+        "body": "Please inspect and provide an engineer's report.",
+        "sender_domain": "mp.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "QDOS261253",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Inspection instruction",
+        "body": "We instruct you to carry out an inspection and prepare a report.",
+        "sender_domain": "qdoslegal.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "QDOS261530",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "New instruction",
+        "body": "Please inspect the vehicle and prepare a report on the damage.",
+        "sender_domain": "qdoslegal.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    },
+    {
+      "case": "SBL26149",
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" },
+      "request": {
+        "subject": "Instruction",
+        "body": "We instruct you to inspect and provide a report.",
+        "sender_domain": "sbl.example.co.uk",
+        "provider_match_state": "one",
+        "attachment_kinds": ["instruction"],
+        "has_attachments": true
+      }
+    }
+  ],
+  "tier_2_synthetic": [
+    {
+      "eml": "query_existing_work/where-is-my-report.eml",
+      "evidence_sha256": "fcf7f3334962a82e842d0bc7a23eb6195d527470d3db15a37e444fe6c418b592",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "eml": "query_existing_work/chase-by-caseref.eml",
+      "evidence_sha256": "76fc3a0151375022c5e40a292d03a6ee95f9ebe891195a1aed17f1e7547483f3",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "$comment": "Phase-8 regression (ADR-0015): a provider chasing a report who RE-ATTACHES the original vehicle photo. Query phrasing + a body Case/PO, an image, and a known provider — but NO work phrase and no instruction doc. Pre-fix this hit Rule 2 (images_with_work_signal) and was wrongly labelled receiving_work, which would create/touch a work Case. Must now fall through to the query rules.",
+      "eml": "query_existing_work/chase-with-reattached-photo.eml",
+      "evidence_sha256": "eaeca54e4e3f90077ee62944e5bf4d87b623b6deacadc1e6fd7906512bd851f5",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "eml": "query_new_enquiry/cold-quote-enquiry.eml",
+      "evidence_sha256": "fc7326072e4791edfb32b3e65f31491794e1a87e77526281aa15bec9b2a7dbb0",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "query", "subtype": "query_new_enquiry" }
+    },
+    {
+      "eml": "new_client_work/unknown-domain-instruction.eml",
+      "evidence_sha256": "f2c395bff4a03de269d2ea2a8f8bddec855e1e10eb419574419af54d68644b9f",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "receiving_work", "subtype": "new_client_work" }
+    },
+    {
+      "eml": "receiving_work_body/body-only-instruction.eml",
+      "evidence_sha256": "99b5c1e43c2844c6e8981fd4be4c945c328f2907bb36f2ee9566a43b4967f870",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
+      "$comment": "PR #24 review (finding #3): a legitimate automated provider instruction — instruction PDF attached, with a polite 'please do not reply' automated footer. Pre-fix Rule 0 (auto-reply/bounce abstain) fired on the footer marker ABOVE Rule 1 and forced this to 'other', so the Case was never created. An attached instruction doc must OVERRIDE the auto-reply abstain so Rule 1 wins.",
+      "eml": "receiving_work_body/instruction-doc-with-do-not-reply-footer.eml",
+      "evidence_sha256": "1b7166619e07a1444111d18b743c2bfeb54b06418180f72f5bda6c7f5e148b16",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
+      "eml": "other/out-of-office.eml",
+      "evidence_sha256": "a276d9374dd34ab93e259b194a2c94c8cdca5209a778e1c107584cd2116efd61",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "Phase-8 regression (ADR-0015): an out-of-office auto-reply that CARRIES an image (a signature logo / bounced-back photo) from a known provider. Pre-fix Rule 0 only fired when there was no attachment, so this skipped the auto-reply abstain and hit Rule 2 -> receiving_work. Rule 0 must now fire on the auto-reply marker regardless of attachments.",
+      "eml": "other/out-of-office-with-image.eml",
+      "evidence_sha256": "1ccdc1283c84a724c10d18ccb0abc9247fa92fadc06552c68ad670ed7c5c2611",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "eml": "other/delivery-bounce.eml",
+      "evidence_sha256": "9b4b62eb0edf198703ac43ca588f5ddf8ea1a663867bb760cee8e2d457d3c854",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "Over-promotion fix (2026-06-29): a spam flyer that carries a PDF brochure. The PDF's kind is derived from the file extension alone (.pdf -> 'instruction'), but there is NO provider match, NO work phrase and NO Case/PO or VRM. Pre-fix Rule 1 promoted ANY instruction-kind attachment to receiving_work/new_client_work unconditionally, minting a blank Case. The new-client arm now requires corroboration, so this abstains to other (flagged uncorroborated_instruction_doc).",
+      "eml": "other/instruction-doc-spam-flyer.eml",
+      "evidence_sha256": "6dca0bdc96954db10328e4be30c6168b276f2acaf134940cf1ef7173834470e2",
+      "provider_match_state": "none",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "Over-promotion fix (2026-06-29): a forwarded email from a known provider domain carrying a bare image and no other context — no work phrase, no Case/PO, no VRM, no query phrasing. Pre-fix Rule 2 promoted it on the provider-domain match alone (provider_known was a trigger), minting a blank Case. The provider match now only selects the subtype once another signal corroborates, so a bare provider image abstains to other (flagged uncorroborated_provider_image).",
+      "eml": "other/provider-image-no-context.eml",
+      "evidence_sha256": "6ceececea3379ca4630f44970f4ee4deaf2b10361e54f2fc20669e8550ecae1f",
+      "provider_match_state": "one",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "eml": "other/newsletter.eml",
+      "evidence_sha256": "c052bc5a74466ee557e75a619cffbbc37e744a82fdd79cced08635311ef80460",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "other", "subtype": "other" }
+    },
+    {
+      "$comment": "TKT-105 (taxonomy v3): a remittance advice routes to billing/payment_remittance — this fixture was the deliberate other/other abstain ('unrelated-admin') before the payments lane existed; relabelled + moved when Rule 0d shipped.",
+      "eml": "billing/remittance-advice.eml",
+      "evidence_sha256": "96021d0009455654121adfcf7d9686f63580003903896b31db51a6c1cb42264e",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "billing", "subtype": "payment_remittance" }
+    },
+    {
+      "$comment": "TKT-084 (taxonomy v3): pre-instruction directions — the sender says what to do WHEN the official instruction later arrives ('when you receive an instruction from RJ … please hold off'), identified by a VRM, no attachments. No case is minted; the workflow service holds the row and correlates it onto the later instruction's case (gated TRIAGE_PRE_INSTRUCTION_ENABLED — the pure classifier just proposes the lane). Modelled on the real TKT-084 evidence sample.",
+      "eml": "pre_instruction/hold-directions.eml",
+      "evidence_sha256": "d7c98285f159d09f115795f2d2f7981f8362defa2cde7b04fab2318b54f02ecb",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "pre_instruction", "subtype": "pre_instruction_directions" }
+    },
+    {
+      "$comment": "collisionspike #3 (is_reply) — the ST04VRX live failure: a client REPLY after our total-loss report went out, re-attaching OUR OWN report (RE: subject, an instruction-kind PDF, a known provider). The sender writes no new work phrase and no query keyword; the only work phrase ('engineer's report') sits in the QUOTED cover note. Pre-fix Rule 1 promoted on the provider + doc and would mint a DUPLICATE Case. is_reply now suppresses the promotion (keying on sender-written text, not the quoted thread); the quoted Case/PO makes it query_existing_work so the orchestrator can link the existing Case.",
+      "eml": "query_existing_work/reply-reattached-report.eml",
+      "evidence_sha256": "4f4819845e7bce6883a986e81715575e4f3a105c138cea8b899fc68d3c5f4378",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "$comment": "collisionspike #3 (is_reply) precision guard: a provider who REPLIES on an existing thread with a genuinely NEW instruction — a fresh instruction doc, a new Case/PO, and real work language the SENDER wrote ('please inspect', 'prepare a report'). The new work phrase is the discriminator, so is_reply does NOT suppress it: it must STILL be receiving_work. (The quoted thread also contains a chase phrase, proving work wins over both query and reply.)",
+      "eml": "receiving_work_reply/new-instruction-as-reply.eml",
+      "evidence_sha256": "3166d326a0cf66ca71239b67d444f7a8d0aa6d0042216a331b14e973d1007f57",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "has_attachments": true,
+      "expected": { "category": "receiving_work", "subtype": "existing_provider_instruction" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041): a claim-system 'claim cancelled' notice naming a Case/PO in the subject. No attachment, no reply — the phrase alone is enough to fire; the Case/PO raises the confidence band to GOOD.",
+      "eml": "cancellation/claim-cancelled-with-ref.eml",
+      "evidence_sha256": "3d9643c3a2f94ffd65661cd2ed05e94c4587128e0fab5da42db92f09c0841c78",
+      "provider_match_state": "one",
+      "has_attachments": false,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041): a short 'please cancel this inspection' request naming only a VRM (no Case/PO, no job ref, not a reply) — fires at the WEAK confidence band.",
+      "eml": "cancellation/cancel-instruction-vrm-only.eml",
+      "evidence_sha256": "313cffacbe656197a36088a92b6de5afbd06e266d462b3f67cbf7cd0ae4ddaed",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-041), real eval item tkt041-07: a FORWARDED 'please close this one off' email with the ORIGINAL instructions quoted below it (an attached instruction doc, a known provider — which would otherwise promote strongly at Rule 1) must classify cancellation, never receiving_work. Cancellation is checked before the instruction-doc promotion for exactly this reason.",
+      "eml": "cancellation/cancellation-trumps-instruction-doc.eml",
+      "evidence_sha256": "6527ce580713d310eede29a7a272ab75a993a7fd3003d7d1b882793549ea08ba",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "attachment_filenames": ["instruction-form.pdf"],
+      "has_attachments": true,
+      "expected": { "category": "cancellation", "subtype": "cancellation_notice" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043): a fresh (non-reply) email naming only a looser job reference (not a formal Case/PO — Rule 1/Rule 2 do not treat body_jobref as corroboration) plus a NEW image attachment and no query phrase — case_update/images_received at the WEAK confidence band.",
+      "eml": "case_update/jobref-images-received.eml",
+      "evidence_sha256": "fdcca5b694a7bf3d2994124d6211cce9d67dd8961ac645105b3153253e3b7c28",
+      "provider_match_state": "none",
+      "attachment_kinds": ["image"],
+      "has_attachments": true,
+      "expected": { "category": "case_update", "subtype": "images_received" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043): a fresh (non-reply) email naming a formal Case/PO plus a NEW attachment whose kind sits outside both the instruction and image vocabularies (so neither Rule 1 nor Rule 2 considers it) — case_update/update_general at the GOOD confidence band (a Case/PO corroborates).",
+      "eml": "case_update/caseref-other-attachment-update-general.eml",
+      "evidence_sha256": "bc9c2b9e660948bb17a4ecc96ace9174b14e70cebe0cac70f17a08622f5e1515",
+      "provider_match_state": "one",
+      "attachment_kinds": ["other"],
+      "has_attachments": true,
+      "expected": { "category": "case_update", "subtype": "update_general" }
+    },
+    {
+      "$comment": "Taxonomy v2 (TKT-034/043) regression guard: Rule 4c must keep winning — a report-shaped attachment (filename-detected) plus a reference is a query about existing work, never case_update, even with no query phrase in the body.",
+      "eml": "case_update/report-attachment-stays-query.eml",
+      "evidence_sha256": "c0c7919f4ab3002e59eeb88cbdfd27a63c48747c5bbf5a5286bae361acd1d9e4",
+      "provider_match_state": "one",
+      "attachment_kinds": ["instruction"],
+      "attachment_filenames": ["Engineer Report.pdf"],
+      "has_attachments": true,
+      "expected": { "category": "query", "subtype": "query_existing_work" }
+    },
+    {
+      "$comment": "Taxonomy v4 (TKT-170), exact operator-supplied email: CE website general-enquiry form. The infrastructure sender is internal-looking but the business sender is the visitor; this is a non-minting Website enquiry and must outrank reference/update detection.",
+      "eml": "website_enquiry/website-general-enquiry.eml",
+      "evidence_sha256": "64bbc1196a8625e1581b6c723692d33d595fdabc77c9e27d41421777bd4c40e1",
+      "provider_match_state": "none",
+      "has_attachments": false,
+      "expected": { "category": "website_enquiry", "subtype": "website_general_enquiry" }
+    }
+  ]
+}

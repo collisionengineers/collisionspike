@@ -8,7 +8,7 @@ Done — calendar/date-picker bound to both date fields; SPA build passes.
   "Date of Incident" and "Date of Instruction" fields and kept the stored value EVA-compliant.
 
 ## Files touched
-- `mockup-app/src/components/date-format.test.ts` (date-format unit tests).
+- `apps/web/src/shared/ui/date-format.test.ts` (date-format unit tests).
 - DateField component + the two case-page date fields (within the `94902ce` change set).
 
 ## Summary

@@ -5,9 +5,9 @@ PENDING
 
 ## Evidence
 
-PR #87 was rebased onto post-#83 `main` and **merged 2026-07-15** (shipped DARK — the destructive
-delete route is behind the new default-off `DELETE_CASE_IMAGE_ENABLED` gate; the Box leg is behind
-`BOX_API_ENABLED`; nothing deployed). A four-lane offline review (security, DB/schema, integration,
+PR #87 was rebased onto post-#83 `main` and **merged 2026-07-15**. The schema, Box façade, API and SPA
+were deployed on 2026-07-16 with the destructive `DELETE_CASE_IMAGE_ENABLED` gate absent/default-off;
+the Box leg remains test-root locked. A four-lane offline review (security, DB/schema, integration,
 docs) found **no BLOCKER**; the security-critical design was verified solid:
 
 - Authenticated `withRole('CollisionSpike.User')` route; wrong-case / non-image guards refuse before any
@@ -20,9 +20,10 @@ docs) found **no BLOCKER**; the security-critical design was verified solid:
 - Replay suppression is keyed on per-file identity (not Message-ID / sha256), so a later explicit re-upload
   stays valid; merge-vs-deletion fail-fast (409) precedes the mutating merge helpers.
 
-Offline suites pass on the merged head: api **962** (incl. the gated-off no-op test and the cross-store /
-partial-failure / replay suite), box-webhook pytest **267** (the `delete_file` scope-lock covered), domain,
-SPA. Audit codes were renumbered to **100000063/64/65** at rebase (TKT-200 took 56–62).
+Offline suites pass on the reconciled 2026-07-15 review head: Data API **993** (including the gated-off
+no-op and cross-store / partial-failure / replay suite), Archive function **274** (including the restored
+`delete_file` scope lock), domain **559**, orchestration **508**, and web **545**. Audit codes were
+renumbered to **100000063/64/65** at rebase (TKT-200 took 56–62).
 
 ## Review follow-ups (offline, non-blocking — ship dark)
 
@@ -40,14 +41,14 @@ SPA. Audit codes were renumbered to **100000063/64/65** at rebase (TKT-200 took 
 
 ## Pending / gaps
 
-No production database, app-setting, deployment, Box write or live case was changed by this merge — the
-feature is dark. Live proof outstanding: apply `2026-07-13-tkt160-evidence-deletion.sql`, deploy Box
-Function → API → SPA in that order, flip `DELETE_CASE_IMAGE_ENABLED` (operator), then delete one test image
+The additive schema and deployables are live, but the feature is dark and no Box write or live case was
+changed. Live proof outstanding: flip `DELETE_CASE_IMAGE_ENABLED` only for an approved test window, then
+delete one test image
 inside Box root `392761581105` and read back Blob, Box, database, UI, readiness and audit state; prove
 partial-failure retry and replay suppression. This ticket cannot leave `now` until an independent verifier
 records that live proof.
 
 ## How to re-verify
-Follow `docs/runbooks/delete-case-image.md` in deploy order. Run cross-store deletion/retry/replay tests,
+Follow `docs/operations/delete-case-image.md` in deploy order. Run cross-store deletion/retry/replay tests,
 then delete one test image inside Box root `392761581105` and read back every store, the UI, readiness and
 audit state.

@@ -43,10 +43,10 @@ session.
 
 - `packages/domain/src/contracts/{case-status,image-rules}.ts`
 - `packages/domain/src/model/{case-readiness,queues}.ts`
-- `api/src/functions/{cases,internal,provider-intake}.ts`
-- `api/src/lib/mappers.ts`
-- `mockup-app/src/components/readiness.ts`
-- `mockup-app/src/screens/{CaseDetail,CaseList,EvaSubmitDialog}.tsx`
+- `services/data-api/src/features/{cases,inbound,providers}/`
+- `services/data-api/src/shared/mapping/`
+- `apps/web/src/shared/ui/readiness.ts`
+- `apps/web/src/features/cases/{CaseDetail,CaseList,EvaSubmitDialog}.tsx`
 - focused domain/API/SPA parity, matrix, queue, dashboard, mapper and submission tests.
 
 ## Offline proof
@@ -68,12 +68,12 @@ session.
   QDOS26079 and every incomplete former-Review case moved to Not ready or Held with its checklist reason.
 - Record the live evidence in `verification.md` only in the orchestrating/verifier loop.
 
-## Historical first pass — 2026-07-08 (superseded by the reopened acceptance)
+## prior first pass — 2026-07-08 (superseded by the reopened acceptance)
 
 The material below records the earlier implementation and live proof. Its `needs_review -> Review` rule
 is deliberately retained as history but is no longer the specification.
 
-## What changed (historical)
+## What changed (prior)
 
 ## What changed
 
@@ -84,10 +84,10 @@ is deliberately retained as history but is no longer the specification.
 - `statusToStage` changed **in lockstep** (`needs_review` → the `review` funnel stage) so the
   dashboard pipeline strip, the queue tabs, and the dashboard tiles agree — they are all
   single-sourced through `statusToQueue`/`statusToStage`/`filterQueue` (TKT-012 contract held;
-  `api/src/functions/dashboard.ts` needed **no change** by construction).
+  `services/data-api/src/features/cases/dashboard-routes.ts` needed **no change** by construction).
 - SPA copy updated to match: Review empty-state hint + Held action label
-  (`mockup-app/src/screens/CaseList.tsx`), the dashboard quick-action label ("Check cases waiting
-  for review") + stale stage-route comment (`mockup-app/src/screens/Dashboard.tsx`). The Review
+  (`apps/web/src/features/cases/CaseList.tsx`), the dashboard quick-action label ("Check cases waiting
+  for review") + stale stage-route comment (`apps/web/src/features/dashboard/Dashboard.tsx`). The Review
   queue now spans two statuses, so the existing status filter appears on it automatically.
 
 **Readiness starvation** — fixed by the TKT-129/109 prefill (see those changes.md): the inspection
@@ -97,9 +97,9 @@ item on image-based-provider cases no longer blocks `fieldsValid`.
 - **New** `packages/domain/src/model/queues.test.ts`: needs_review → review (queue + stage),
   ready_for_eva stays review, the Not-ready set, Held/terminals, the no-status-in-two-queues
   partition invariant, and queue↔funnel lockstep.
-- `api/src/functions/dashboard.test.ts` pipeline expectations updated (not_ready 2 / review 2 /
+- `services/data-api/src/features/cases/dashboard-routes.test.ts` pipeline expectations updated (not_ready 2 / review 2 /
   submitted 1 for the fixture set).
-- Suites green: domain 962 / api 279 / mockup-app 312 / orch 170.
+- Suites green: domain 962 / api 279 / @cs/web 312 / orch 170.
 
 ## Live re-evaluation summary (2026-07-08, delta `2026-07-08-image-based-provider-prefill.sql`)
 
@@ -129,8 +129,8 @@ and [TKT-129 evidence/delta-apply-output-2026-07-08.txt](../../verify/TKT-129-im
 
 ## Live proof (deployed SPA, staff session)
 - A `needs_review` case (**QDOS26029**, YT13UTV) renders **in the Review queue**:
-  [evidence/review-queue-needs-review-case-2026-07-08.png](./evidence/review-queue-needs-review-case-2026-07-08.png)
-  (queue page + tab counts: [evidence/review-queue-live-2026-07-08.png](./evidence/review-queue-live-2026-07-08.png)).
+  [evidence/review-queue-needs-review-case-2026-07-08.png](./evidence-manifest.json)
+  (queue page + tab counts: [evidence/review-queue-live-2026-07-08.png](./evidence-manifest.json)).
 - **A.QDOS26029-shaped acceptance**: 23 cases (all-required-fields + image-rule-passing, image-based
   providers among them — e.g. A.QDOS26001, A.PCH26001, AX26010, QDOS26050) evaluate **ready_for_eva**
   after TKT-129. **A.QDOS26029 itself** evaluates `missing_images` HONESTLY: its 7 required fields

@@ -28,19 +28,19 @@ access token for the API audience must carry `roles: ["CollisionSpike.Superuser"
 verifier sightings of `["CollisionSpike.Admin"]` were therefore **stale pre-rename token
 artifacts** (a cached/recorded token, not a fresh mint) — Entra recomputes role values at
 every issuance, so a 12-day-old value cannot appear on a genuinely fresh token.
-**There is no directory fix to run**, hence **no gated.md operator entry is needed** for
-this ticket (the parent instruction's "document what to run in gated.md" branch does not
+**There is no directory fix to run**, hence **no ticket board operator entry is needed** for
+this ticket (the parent instruction's "document what to run in ticket board" branch does not
 apply — nothing is wrong in the directory).
 
 ## Files touched
-- `api/src/lib/auth.ts` — the `SUPERUSER_VALUES` legacy-accept comment now carries the
+- `services/data-api/src/platform/auth/staff-auth.ts` — the `SUPERUSER_VALUES` earlier-accept comment now carries the
   full TKT-138 root-cause record (app + SP + assignment enumeration, the stale-artifact
-  conclusion, and that the legacy-accept is DELIBERATE belt-and-braces, kept).
-- `LIVE_FACTS.json` `verifiedBy` + `docs/architecture/live-environment.md` header — the
+  conclusion, and that the earlier-accept is DELIBERATE belt-and-braces, kept).
+- `LIVE_FACTS.json` `verifiedBy` + `docs/operations/live-environment.md` header — the
   registry record of the finding (acceptance line: "recorded in the auth lib + registry").
 
 ## Summary
 Mismatch root-caused as a stale-token observation, not directory or code drift; the
-legacy-accept in `auth.ts` stays (no staff authorization regression — both values
+earlier-accept in `auth.ts` stays (no staff authorization regression — both values
 authorize as superuser). The remaining proof is trivially operator-side: decode ONE fresh
 token from the live SPA session and read `roles`.

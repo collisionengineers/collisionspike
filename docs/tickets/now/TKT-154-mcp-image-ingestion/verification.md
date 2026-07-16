@@ -5,6 +5,15 @@ PENDING
 
 ## Evidence
 
+### 2026-07-16 deployment update
+
+- `mcp_http_session` and `mcp_image_ingest_rate_limit` were present live with forced RLS and policies.
+- The Box façade, Data API and orchestration were deployed and registered their reviewed routes/functions.
+- `MCP_IMAGE_INGEST_ENABLED` and `MCP_IMAGE_INGEST_BOX_ROOT_ID` remained absent, so the lane stayed dark.
+  The Box façade remained locked to test root `392761581105`.
+- No dedicated `CollisionSpike.ImageIngest` principal was created or assigned, no standard-client upload was
+  run, and no Box or Outlook mutation was used as proof. The verdict therefore remains PENDING.
+
 Offline implementation evidence on the ticket branch (PR #73, `codex/tkt-154-mcp-image-ingestion`).
 The branch was rebased onto post-#99 `main` (base `ae3bdb48`) on 2026-07-15, its five rebase conflicts
 resolved, and the four review lanes below remediated; the counts in this file are from a full offline
@@ -74,13 +83,10 @@ Review-hardening evidence included in the full-suite totals above:
 
 ## Pending / gaps
 
-- Apply `2026-07-12-tkt165-staff-evidence-upload.sql`, then
-  `2026-07-13-tkt154-mcp-image-ingestion.sql` to live Postgres and prove table/RLS/grants as `cespk_app`.
-- Deploy the Box façade, Data API and orchestration builds from the reviewed/merged commit.
 - Create/read back the API role and one client assignment carrying exactly
   `CollisionSpike.ImageIngest`, with no delegated scope, staff/general-Agent role or Graph permission.
-- Read back the API gates/Box façade host+key/root settings and the Box Function's
-  `BOX_ALLOWED_ROOT_ID=392761581105`; prove unset/wrong/out-of-root failures.
+- Prove the API gate/Box host+key/root configuration and unset/wrong/out-of-root failures with the dedicated
+  principal; current readback proves only that the gate is dark and the Box Function is test-root locked.
 - Read back orchestration `IMAGE_ROLE_CLASSIFY_ENABLED=true`, `BOX_API_ENABLED=true` and
   `BOX_FOLDER_AT_INTAKE_ENABLED=true`.
 - Use a standard MCP client for initialize→initialized→tools/list→lookup→upload, then read back the

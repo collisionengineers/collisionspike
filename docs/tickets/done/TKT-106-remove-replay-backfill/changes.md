@@ -9,24 +9,20 @@ re-verify pending (deploy phase).
 - (uncommitted on `feat/lifecycle-wave` — the dispatching loop owns commits)
 
 ## Removed
-- `orchestration/src/functions/gated/replay-backfill.ts` — the whole Durable driver (the keyed
-  `POST /api/replay-backfill` starter + the replay orchestrator + its collect/classify/process
-  activities). Orch function count will DROP by the driver's registrations at redeploy.
-- `orchestration/src/lib/replay-manifest.ts` + `replay-manifest.test.ts` — the driver was the
-  ONLY consumer (verified: `compareByReceived`/`mergeChronological`/`tallyByCategory` grep-clean
-  outside the lib + its test).
-- `orchestration/src/lib/graph.ts` — the driver-only windowed pager `listMessagesSince` + its
+- The whole replay driver: keyed HTTP starter, replay orchestrator and collect/classify/process
+  activities. The orchestration function count drops by the driver's registrations at redeploy.
+- The driver's private manifest helpers and tests; the driver was their only consumer.
+- `services/orchestration/src/adapters/graph.ts` — the driver-only windowed pager `listMessagesSince` + its
   `ReplayPageItem` projection (grep-verified single consumer); a pointer comment marks the
   removal. The retro `$search` machinery (ADR-0022 R3) is untouched.
-- `orchestration/src/index.ts` — the `./functions/gated/replay-backfill.js` import (replaced by
-  a removal-note comment).
+- `services/orchestration/src/index.ts` — removed the driver's entry-point registration.
 - `packages/domain/src/gates.ts` — the `replayBackfill` gate accessor (replaced by a removal-note
   comment; no other `REPLAY_BACKFILL_ENABLED` reader remains in code).
 
 ## Docs scrubbed (finding preserved)
-- `docs/plans/go-live/readiness-matrix.md` — the gate row now records the REMOVAL (strikethrough)
+- `docs/tickets/README.md` — the gate row now records the REMOVAL (strikethrough)
   and the Reprocess row cites the removal; the in-place-reprocess plan wording is retained.
-- TKT-059's spec/changes/verification are deliberately LEFT INTACT — they are the historical
+- TKT-059's spec/changes/verification are deliberately LEFT INTACT — they are the prior
   record of the non-viability finding (mailboxes retain only ~88/390 source emails; the DB is
   the system of record) that this removal preserves.
 - `LIVE_FACTS.json` gates block: the `REPLAY_BACKFILL_ENABLED` entry is removed at the deploy
@@ -41,5 +37,5 @@ re-verify pending (deploy phase).
 1. `az functionapp config appsettings delete -g rg-collisionspike-dev -n cespk-orch-dev --setting-names REPLAY_BACKFILL_ENABLED`
 2. Redeploy orch; `az functionapp function list … | wc -l` — count drops (~5 registrations);
    update `LIVE_FACTS.json` functionCounts + gates + the live-environment mirror.
-3. Grep-clean re-check: `REPLAY_BACKFILL_ENABLED` remains only in the TKT-059/TKT-106 historical
+3. Grep-clean re-check: `REPLAY_BACKFILL_ENABLED` remains only in the TKT-059/TKT-106 prior
    records + LIVE_FACTS changelog narrative.

@@ -1,4 +1,4 @@
-# Verification — TKT-140: Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items
+# Verification — TKT-140: Bulk retro backlog drain — reconstitute prior un-cased emails from Deleted Items
 
 ## Verdict
 VERIFIED-LIVE
@@ -85,5 +85,5 @@ confirmatory data-pass SQL was queued and has since been run — results below; 
 ## How to re-verify
 Ledger recounts over the two JSONL files; the KQL bundle in the verifier block (99/0 starter
 requests, refusal timestamps); re-run evidence/verifier-confirmatory-w2c.sql in a read-only window;
-`grep -n "method: 'POST'" orchestration/src/lib/graph.ts` → token mint + the two move-lane helpers
+`grep -n "method: 'POST'" services/orchestration/src/adapters/graph.ts` → token mint + the two move-lane helpers
 only.

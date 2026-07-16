@@ -28,31 +28,31 @@ A `cancellation` triage category (taxonomy v2): match the email to its open case
 
 - `source-emails/cancelled-cases/` — 13 real `.eml` samples (a mix of cancellation, closure, instruction
   and estimate mails — useful as both positives and near-miss negatives for the eval corpus). They stay at
-  this path because the eval harness references them by exact path in `scripts/eval-email/manifest.json`;
+  this path because the eval harness references them by exact path in `scripts/evaluation/email/manifest.json`;
   the `evidence/` pointer to them is [evidence/README.md](./evidence/README.md).
 
 ## Delivery
 
-Phase 2 of the [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md) (taxonomy v2
+Phase 2 of the [Rules Engine v2 plan](TKT-041-cancelled-case.md) (taxonomy v2
 + triage policy). The old `TKT-041-merge-fix` note that shared this id was split out to
 [TKT-052](../../verify/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md).
 
 ## Status update — 2026-07-02 (next — built + eval-proven; needs D7 + the parser deploy)
 
 Built: the `cancellation` category ships in the taxonomy-v2 DDL delta (`84fb102`, operator-gated —
-[docs/gated.md](../../../gated.md) §D7) and the re-cut parser engine (`ec45970`, engine-v2.3, cancellation +
+[docs/tickets/BOARD.md](../../BOARD.md) §D7) and the re-cut parser engine (`ec45970`, engine-v2.3, cancellation +
 `case_update` rules); the propose-close/hold action (never auto-close) rides the same triage-policy +
 `ai_suggestion` machinery as TKT-023 (`7bac2ee`/`00980d5`/`9fb16cf`), with a cancellation banner + "Open
 case" affordance in the SPA (`69ec02e`). **Eval-proven**: 12/13 of this ticket's own 13-email corpus score
 correctly as `cancellation` in the committed harness (`category_correct`/`subtype_correct` both `true`,
-100% recall on the 12 true-cancellation samples — [baseline-v2.json](../../../../scripts/eval-email/baseline-v2.json)).
+100% recall on the 12 true-cancellation samples — [baseline-v2.json](../../../../scripts/evaluation/email/baseline-v2.json)).
 
 **Flagged taxonomy gap (operator decision needed):** the 13th sample (`tkt041-06-hold-request`) is a
 **hold**, not a cancellation — a sender asking us to pause work on a specific job until further notice,
 case explicitly stays open. The plan does not define a `hold` category/subtype distinct from
 `cancellation`; the eval harness deliberately does not invent one (it scores that item as `query` in both
 v1 and v2, not as a taxonomy miss) — see the manifest's own rationale for `tkt041-06-hold-request` in
-[scripts/eval-email/manifest.json](../../../../scripts/eval-email/manifest.json). This is a genuine gap for
+[scripts/evaluation/email/manifest.json](../../../../scripts/evaluation/email/manifest.json). This is a genuine gap for
 the operator to decide, not something built or guessed at in this pass.
 
 **Now active (updated 2026-07-09):** D7 (the taxonomy-v2 DDL delta) landed, the taxonomy-v2 parser is

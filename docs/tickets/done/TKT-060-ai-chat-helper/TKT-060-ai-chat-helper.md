@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-015]
-research-link: docs/plans/go-live/README.md
+research-link: docs/tickets/done/TKT-060-ai-chat-helper/TKT-060-ai-chat-helper.md
 plan: PLAN-001
 ---
 
@@ -29,13 +29,13 @@ A gated, read-only Q&A assistant, distinct from the TKT-015 suggestion layer.
 - **Backend.** New Data API route `POST /api/assistant/chat` on `cespk-api-dev`, streamed to the
   SPA via a **fetch-reader** (a `ReadableStream` read loop over the response body) — **not**
   `EventSource`, which cannot carry the MSAL `Authorization: Bearer` header. The SPA CSP already
-  allows the API origin (`mockup-app/staticwebapp.config.json` — `connect-src` includes
+  allows the API origin (`apps/web/staticwebapp.config.json` — `connect-src` includes
   `https://cespk-api-dev.azurewebsites.net`), so no CSP edit is needed.
 - **Model.** Calls the existing AOAI **`gpt-5`** deployment on **`digital-3339-resource`**
   ( `AI_MODEL_ENDPOINT` / `AI_MODEL_DEPLOYMENT` ) **keyless** via managed identity — this requires a
   **new `cespk-api-dev` managed-identity `Cognitive Services OpenAI User` grant** on the Foundry
   account (only `cespk-orch-dev` holds that grant today; see
-  [live-environment.md](../../../architecture/live-environment.md)).
+  [live-environment.md](../../../operations/live-environment.md)).
 - **Tools (read-only only).** Case lookup by Case/PO, VRM, or claimant; case summary; queue counts;
   inbound-email search. No write tool is exposed and the system prompt **refuses mutations**
   ("I can look things up but can't change anything").
@@ -46,7 +46,7 @@ A gated, read-only Q&A assistant, distinct from the TKT-015 suggestion layer.
   every tool query runs **RLS-scoped** to the staff caller (via the existing `app.role=staff` DB
   seam); each exchange is **audited** (prompt + tool calls + answer); and the route is
   **rate-limited** per principal.
-- **SPA.** A **global drawer** opened from the AppShell header (`mockup-app/src/components/AppShell.tsx`
+- **SPA.** A **global drawer** opened from the AppShell header (`apps/web/src/shared/ui/AppShell.tsx`
   `<header className={styles.topbar}>`), triggered by a **Sparkles** glyph (lucide-react, matching
   `AiAssistPanel.tsx`), built from **Fluent v9** primitives (`@fluentui/react-components`). The
   drawer streams tokens as they arrive and renders the model's answer.
@@ -64,8 +64,13 @@ A gated, read-only Q&A assistant, distinct from the TKT-015 suggestion layer.
 - [ ] `AI_CHAT_ENABLED` defaults **off** — with it unset the route fail-closes and the drawer trigger
       is hidden/inert; the drawer only functions when the gate is on (both apps' registered value in
       [`LIVE_FACTS.json`](../../../../LIVE_FACTS.json) / the registry, per
-      [MAINTENANCE.md](../../../MAINTENANCE.md)).
+      [documentation governance](../../../governance/documentation.md)).
 - [ ] The Sparkles drawer opens from the AppShell header, uses Fluent v9 primitives, and renders the
       streamed answer.
 - [ ] System prompt is grounded in the CONTEXT.md glossary + status-machine (spot-check: it names the
       canonical statuses and Case/PO shape correctly).
+
+## Delivery record
+
+See [changes.md](./changes.md) for the implementation record and
+[verification.md](./verification.md) for the retained verification evidence.

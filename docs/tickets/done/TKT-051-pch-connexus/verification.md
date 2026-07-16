@@ -16,7 +16,7 @@
   ("Instruction content names a different work provider … kept the existing provider"; dc7abde2 ×3,
   aed3fe30 ×1) — content never auto-flips an existing FK. Corroborated offline against this ticket's
   own `Inspection Request - Audit Report.DOC` (detector extracts PCH at confidence 1.0) + the pinned
-  mapping tests (`api/src/functions/apply-parser-fields.test.ts`).
+  mapping tests (`services/data-api/src/features/inbound/internal/parser-fields.test.ts`).
 - **Arm B — `@pch-ltd.com` joins PCH's own match domains:** Q-051-4:
   `PCH | known_email_domains = pch-ltd.com | active = t` (D8 proven at the DB layer). Live resolution
   at volume: KQL (orch component, fresh this dispatch) `providerMatch matched pch-ltd.com` =

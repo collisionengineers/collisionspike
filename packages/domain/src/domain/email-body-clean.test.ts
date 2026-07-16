@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { cleanEmailBodyForPreview } from './email-body-clean';
 
 /* The QDOS signature-garbage shape from the 2026-07-08 operator re-report
-   (docs/tickets/now/TKT-070-email-body-readability/evidence/operator-note-2026-07-08.md):
+   (docs/tickets/done/TKT-070-email-body-readability/evidence/operator-note-2026-07-08.md):
    logo/phone/email/web image URLs in brackets, an association link, then the legal
    block — all of which used to fill the whole preview. */
 const QDOS_BODY = [

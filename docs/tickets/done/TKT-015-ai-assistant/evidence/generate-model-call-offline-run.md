@@ -1,8 +1,8 @@
 # Offline run — TKT-015 generic `callModelForSuggestions` wiring (2026-07-08)
 
 Build-dark, offline proof for the case/damage-assessment consumer (`callModelForSuggestions`,
-`api/src/functions/ai-suggestions.ts`) now delegating to a real keyless AOAI structured-output call
-(`api/src/lib/aoai-suggestions.ts`). No live deploy, no gate flip, no DDL. All model calls in tests
+`services/data-api/src/features/assistant/register-suggestion-routes.ts`) now delegating to a real keyless AOAI structured-output call
+(`services/data-api/src/features/assistant/suggestion-client.ts`). No live deploy, no gate flip, no DDL. All model calls in tests
 use injected fakes (no network) — the optional live G5 smoke was not run (live model reachability
 from the build env is not guaranteed; the offline mocked test is the required proof).
 
@@ -10,7 +10,7 @@ from the build env is not guaranteed; the offline mocked test is the required pr
 
 ```
 # the two new suites (api package, Windows/native)
-$ npx vitest run src/lib/aoai-suggestions.test.ts src/functions/ai-suggestions.test.ts
+$ npx vitest run src/features/assistant/suggestion-client.test.ts src/features/assistant/suggestion-generation-routes.test.ts
   Test Files  2 passed (2)
        Tests  18 passed (18)
 
@@ -71,4 +71,4 @@ $ node verify-all.mjs
 
 `AI_ASSIST_ENABLED` is absent from live app-settings — the route front-gates on it, so the wired
 model call never fires live. Flipping it is a Phase-4 operator step behind the DPIA/capacity/
-residency sign-off (docs/gated.md §F / §D6). This change is additive and dark.
+residency sign-off (docs/tickets/BOARD.md §F / §D6). This change is additive and dark.

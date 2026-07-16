@@ -9,18 +9,18 @@ deployed by this implementation agent.
 - Branch: `codex/tkt-152-canonical-mileage-adapter`
 - Reviewed head: `03c7b35ce94b379c6e0fa6efca2e1c61a0d6f008` (PR 3), including
   `1cb7da9`/`dbb57d5` retirement, fail-closed startup configuration,
-  compatibility-field handling, explicit not-requested provider snapshots and
+  continuity-field handling, explicit not-requested provider snapshots and
   calendar-aware canonical and public tool-input date validation.
 - Removed both direct provider clients, embedded provider credential defaults,
   Firestore/cache/snapshot/evidence-pack/workspace surfaces, all local mileage and
-  plausibility rules, and the complete historical Cloudflare runtime.
+  plausibility rules, and the complete prior Cloudflare runtime.
 - The remaining six-tool MCP delegates to `vehicle-data.v1`, validates every
   constrained nested field and exposes raw provider payloads only from canonical
   captured snapshots without inference.
 - Deleted the tracked `.mcpb` package, retired `.env` example, Cloudflare deploy/test
   scripts and stale Firestore retention policy. A retained-tree scan found no
   plaintext credential patterns. `SECURITY_ROTATION_REQUIRED.md` records the exact
-  historical DVSA application/tenant identifiers and the DVSA/DVLA key names that
+  prior DVSA application/tenant identifiers and the DVSA/DVLA key names that
   the delivery owner must revoke/rotate without reproducing secret values.
 - `npm run typecheck`, `npm test` (2 files / 6 tests), `npm run build`, and
   `npm run build:stdio` pass.

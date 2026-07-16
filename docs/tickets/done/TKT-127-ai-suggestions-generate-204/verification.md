@@ -10,7 +10,7 @@ PENDING
 - 5 pending `ai_suggestion` rows + 5 `ai_suggestion_created` audit rows in Postgres —
   [evidence/ai-suggestion-rows-postgres-2026-07-08.txt](./evidence/ai-suggestion-rows-postgres-2026-07-08.txt)
 - Suggestions rendered with Accept/Reject on the deployed SPA —
-  [evidence/live-generate-5-suggestions-2026-07-08.png](./evidence/live-generate-5-suggestions-2026-07-08.png)
+  [evidence/live-generate-5-suggestions-2026-07-08.png](./evidence-manifest.json)
 - Root cause (the "204" was the CORS preflight; empty input → honest empty) — changes.md §Root cause.
 
 ## Pending / gaps

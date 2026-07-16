@@ -1,15 +1,15 @@
-# Changes — TKT-019: Build the Markdown ticket system + board + validator
+# Changes — TKT-019
 
 ## Status
-done
 
-## Commits
-- `94902ce` — work-todo-spike mega-commit → introduced the atomic Markdown ticket system: one `.md` per ticket with YAML frontmatter, the Kanban-style `BOARD.md` tracker, and the zero-dependency `scripts/check-tickets.mjs` validator (frontmatter present, enums valid, `research-link` resolves, ids unique).
-- (2026-06-30 restructure) — moved every ticket into its own per-ticket folder with `changes.md` / `verification.md` / `evidence/`, and made `scripts/check-tickets.mjs` recurse into those folders.
+Implemented. PLAN-006 replaces the hand-maintained views with generated output while retaining the
+status-folder lifecycle established by this ticket.
 
-## Files touched
-- `docs/tickets/` (per-ticket folders, `README.md`, `BOARD.md`)
-- `scripts/check-tickets.mjs`
+## Current files
 
-## Summary
-Replaced the unindexed `work-todo-spike` stub/research drop-zone with an atomic ticket system: one file per ticket with structured frontmatter, a board mirroring each ticket's column, and a dependency-free validator. A later restructure gave each ticket its own folder (spec + changes + verification + evidence) and made the validator recurse.
+- `scripts/maintenance/ticket-system.mjs` — shared discovery, frontmatter and rendering rules.
+- `scripts/maintenance/ticket-generate.mjs` — board, index, plan-membership and progress generation.
+- `scripts/maintenance/ticket-move.mjs` — guarded lifecycle transitions and atomic regeneration.
+- `scripts/checks/check-tickets.mjs` — complete ticket-system validator.
+
+No ticket status was changed while reconciling the generated views.

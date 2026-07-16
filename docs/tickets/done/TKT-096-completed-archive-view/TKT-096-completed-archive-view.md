@@ -12,8 +12,8 @@ plan: PLAN-002
 # Completed/Archive view + dashboard drill-through + terminal-scope search fold-in
 
 > Phase D of the case-done-lifecycle cluster. Depends on **TKT-094** (`done` status) + **TKT-095**
-> (detectors) for cases to reach `eva_submitted`/`done`. The full plan lives in
-> [TKT-094/evidence/PLAN-case-done-lifecycle.md](../../verify/TKT-094-case-done-status-model/evidence/PLAN-case-done-lifecycle.md).
+> (detectors) for cases to reach `eva_submitted`/`done`. The enduring status decision lives in
+> [TKT-094](../../verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md).
 
 ## Problem
 

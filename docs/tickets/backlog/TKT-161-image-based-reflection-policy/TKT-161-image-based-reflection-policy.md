@@ -36,7 +36,7 @@ PROPOSED (not built): make reflection handling depend on the persisted inspectio
 - Live proof uses a designated test case and records the image decision, accepted-image count, queue state, chaser availability and audit before and after the exception.
 
 ## Research
-Distilled 2026-07-12 from `docs/tickets/to-distill/image-based-reflections.txt`; the raw note is preserved in this ticket's evidence folder.
+Distilled 2026-07-12 from the supplied operator note, now preserved in this ticket's evidence folder.
 
 ## Artifacts
 - [Changes made](./changes.md)

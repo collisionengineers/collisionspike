@@ -5,7 +5,7 @@ status: now
 priority: P1
 area: ai
 tickets-it-relates-to: [TKT-060, TKT-066, TKT-048, TKT-003]
-research-link: docs/tickets/now/TKT-068-assistant-attach-evidence/evidence/followup-2026-07-13/2.png
+research-link: docs/tickets/now/TKT-068-assistant-attach-evidence/evidence-manifest.json
 plan: PLAN-001
 ---
 
@@ -22,8 +22,8 @@ intake pipeline.
 ## Evidence
 
 - `evidence/operator-note.md` — plan § 3 (2026-07-06 planning session).
-- `mockup-app/src/components/AssistantDrawer.tsx` — no attach control; turns are text-only.
-- `api/src/functions/assistant.ts` — tools are SELECT-only; no write tool exists (by design).
+- `apps/web/src/features/assistant/AssistantDrawer.tsx` — no attach control; turns are text-only.
+- `services/data-api/src/features/assistant/chat-routes.ts` — tools are SELECT-only; no write tool exists (by design).
 - Evidence landing path: intake activities upload to Blob `cespkevidstdev01` and insert
   `case_evidence` + audit rows — the pattern this endpoint mirrors.
 

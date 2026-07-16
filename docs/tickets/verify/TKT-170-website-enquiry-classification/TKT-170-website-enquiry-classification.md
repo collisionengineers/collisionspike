@@ -5,7 +5,7 @@ status: verify
 priority: P1
 area: email
 tickets-it-relates-to: [TKT-006, TKT-029, TKT-034, TKT-081, TKT-082, TKT-120]
-research-link: docs/tickets/verify/TKT-170-website-enquiry-classification/evidence/website-general-enquiry.eml
+research-link: docs/tickets/verify/TKT-170-website-enquiry-classification/evidence-manifest.json
 plan: PLAN-004
 ---
 
@@ -15,7 +15,7 @@ plan: PLAN-004
 A prospective-customer message submitted through the Collision Engineers website was classified as a Case update. The message legitimately arrives from Collision Engineers' mail infrastructure, so sender identity alone makes it look internal, but it is a new general enquiry with no existing case and must never enter the existing-case update lane.
 
 ## Evidence
-- [Supplied website enquiry email](./evidence/website-general-enquiry.eml) — exact original message retained as a classifier fixture.
+- [Supplied website enquiry email](./evidence-manifest.json) — exact original message retained as a classifier fixture.
 - Deterministic fingerprint in the sample: sender `mail@noreply.collisionengineers.co.uk`, subject beginning `New General Enquiry -`, body heading `General Enquiry from the Website`, and footer `Submitted via the Collision Engineers website contact form.`
 - The sample is addressed to `info@collisionengineers.co.uk`, contains the visitor's Name/Email/Phone/Message fields, and has no provider instruction or established-case meaning.
 - The live screenshot shows it labelled as a case-related query/update path and unable to locate a case.

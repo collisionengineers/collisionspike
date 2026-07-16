@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-117",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-queue-last-update-column.png",
+      "originalFilename": "live-queue-last-update-column.png",
+      "sha256": "1e6c09b5ae8275e63da5145bc414abfb1f15651686273ef0fd6739f4bffc7550",
+      "storagePath": "tests/fixtures/evidence/sha256/1e/1e6c09b5ae8275e63da5145bc414abfb1f15651686273ef0fd6739f4bffc7550.png"
+    }
+  ]
+}

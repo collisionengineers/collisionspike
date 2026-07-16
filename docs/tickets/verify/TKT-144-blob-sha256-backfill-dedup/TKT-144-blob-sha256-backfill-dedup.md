@@ -13,7 +13,7 @@ plan: PLAN-003
 
 ## Problem
 
-214 blob-lane same-name evidence pairs remain undeduplicated because historic blob rows lack sha256 — a byte-hash backfill is needed to distinguish re-sends from genuinely distinct photos before dedup.
+214 blob-lane same-name evidence pairs remain undeduplicated because prior blob rows lack sha256 — a byte-hash backfill is needed to distinguish re-sends from genuinely distinct photos before dedup.
 
 ## Evidence
 
@@ -21,11 +21,11 @@ plan: PLAN-003
 
 ## Proposed change
 
-PROPOSED (not built): MI-read each historic blob, compute sha256, stamp the rows, then run the TKT-133 dedup pass over the newly-hashed pairs (audited, backup-first).
+PROPOSED (not built): MI-read each prior blob, compute sha256, stamp the rows, then run the TKT-133 dedup pass over the newly-hashed pairs (audited, backup-first).
 
 ## Acceptance
 
-- Historic blob evidence rows carry sha256.
+- prior blob evidence rows carry sha256.
 - True duplicates among the 214 pairs deduplicated with audit; distinct photos untouched.
 
 ## Research

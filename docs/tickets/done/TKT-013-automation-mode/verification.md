@@ -7,7 +7,7 @@ VERIFIED-LIVE
 - The orchestrator genuinely branches on provider automation mode (not a stub).
 - Live providers were flipped to `review_auto`.
 - e2e orchestration trace (2026-06-30) logged: `provider automation mode = manual for case …; record-keeping (Box folder/archive/images) runs, enrichment deferred` — proving the decoupled branch executes on the live stack.
-Live provider/mode state: ../../architecture/live-environment.md.
+Live provider/mode state: ../../operations/live-environment.md.
 
 ## Pending / gaps
 Mode coverage is per-provider config; ongoing operator task is to set the intended mode per live provider. No automated regression test pins the branch — it is confirmed by the live trace.

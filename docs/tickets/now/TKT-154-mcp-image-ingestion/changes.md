@@ -1,7 +1,8 @@
 # Changes — TKT-154: Add a constrained MCP path for registration-based image ingestion
 
 ## Status
-Code-complete on the ticket branch; deliberately dark and not deployed.
+Deployed to the development database, Box façade, Data API and orchestration on 2026-07-16, deliberately
+dark pending the dedicated principal and standard-client live proof.
 
 Rebased onto post-#99 `main` (base `ae3bdb48`) on 2026-07-15 and remediated against a four-lane review
 (see "Rebase + review remediation" below). Head/base bind to the actual PR #73 branch tip and base
@@ -108,8 +109,8 @@ because `main` already retired it (TKT-149). A four-lane review then drove these
 - **Schema/migration hygiene.** The tkt154 delta was renamed to `2026-07-13-…` so it sorts after its
   `tkt165` dependency; canonical `195` CHECK constraints are named to match the delta; the per-row
   `case_` registration advisory-lock budget is documented beside the trigger and in the architecture
-  doc (bulk-writer batching follow-up **TKT-207**), with an API-before-orchestration deploy-order note
-  (**TKT-208**).
+  doc (bulk-writer batching follow-up **TKT-217**), with an API-before-orchestration deploy-order note
+  (**TKT-218**).
 - **Ticket-evidence integrity.** Removed the reciprocal-marker head/base binding and the phantom
   reciprocal-review test suite from the evidence, and refreshed every count against a full offline
   gate re-run on the rebased-and-remediated head.
@@ -121,7 +122,8 @@ observability change to existing staff uploads, not scoped narrowly.
 ## Deliberately not done here
 
 - No Entra role/client/service-principal creation or assignment.
-- No live DDL, app-setting change, deployment, Box write or Outlook mutation.
+- The implementation/review branch made no live change. The later PR #100 release applied the already-
+  reviewed additive schema and deployed the services dark; it made no Box write or Outlook mutation.
 - No real authenticated standard-client/Box/classification/readiness proof. Those remain the live
   verification gate and are recorded in `verification.md`.
 - No live-model prompt-injection proof; only the deterministic raster/seam regression was run offline.

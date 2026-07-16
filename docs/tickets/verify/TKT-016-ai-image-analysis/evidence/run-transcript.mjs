@@ -1,12 +1,12 @@
 /**
  * run-transcript.mjs — offline evidence runner for TKT-016 (G5 repo-data / no network).
  *
- * Runs the SHIPPED pure pipeline (api/dist/lib/image-analysis.js) over the TKT-040-derived
+ * Runs the shipped pure pipeline (services/data-api/dist/features/assistant/image-analysis.js) over the TKT-040-derived
  * sample image set with SCRIPTED fake adapters, and prints the staged observations + the ranked
  * address suggestion exactly as the route would persist them (all review_state 'pending'). Proves
- * the acceptance offline. Regenerate: `node docs/tickets/now/TKT-016-ai-image-analysis/evidence/run-transcript.mjs`.
+ * the acceptance offline. Regenerate: `node docs/tickets/verify/TKT-016-ai-image-analysis/evidence/run-transcript.mjs`.
  */
-import { runImageAnalysis } from '../../../../../api/dist/lib/image-analysis.js';
+import { runImageAnalysis } from '../../../../../services/data-api/dist/features/assistant/image-analysis.js';
 
 const images = [
   { evidenceId: 'ev-1', filename: '2_CLVDamage4-V1.jpg', imageBase64: 'AAAA', contentType: 'image/jpeg' },
