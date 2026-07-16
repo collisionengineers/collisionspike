@@ -113,3 +113,18 @@ engineering terms are acceptable in code comments and developer documentation.
   packages.
 - Prefer `rg` for search and `apply_patch` for file edits. Preserve unrelated user changes in a dirty
   worktree.
+
+<!-- suite-context:v1 — standardized block, verified by suite.mjs audit; do not edit by hand -->
+## Collision Suite Context
+
+This repository is part of the Collision Engineers suite workspace
+(`github.com/collisionengineers/collisionsuite`). In a full workspace checkout the suite root is a
+few directories above this repo — read its `AGENTS.md` for cross-repo rules (guidance policy, git
+boundaries, live-site protection) and use `node <suite-root>/tools/suite.mjs status|audit` for
+cross-repo state.
+
+Guidance policy: `AGENTS.md` + `.agents/` are canonical; `CLAUDE.md`, `.claude/<sub>` and
+`.codex/<sub>` are symlinked views — edit only the canonical files. Windows checkouts need
+Developer Mode + `git config core.symlinks true`, or the symlinks degrade to text files
+(`suite.mjs links` repairs).
+<!-- /suite-context:v1 -->

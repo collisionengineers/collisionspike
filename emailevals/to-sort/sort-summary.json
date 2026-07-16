@@ -1,0 +1,89 @@
+{
+  "batch_size": 8,
+  "classified": 8,
+  "unclassified": 8,
+  "results": [
+    {
+      "filename": "(EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "category": "received/in-progress-cases/case-update/additional-info-received",
+      "sender": "Joseph Moseley <jmoseley@qdosassist.co.uk>",
+      "subject": "(EREF13) RTA on 10/07/2026 : Mr Sayed Madani (Our Ref: AKH/JMO/46805/1, Vehicle:"
+    },
+    {
+      "filename": "(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR) (2).eml",
+      "category": "received/post-report-emails/dispute/pav-dispute",
+      "sender": "Samuel Berlyne <sberlyne@qdosassist.co.uk>",
+      "subject": "(EREF14) RTA on 03/07/2026 : Mrs Caroline Reynolds (Our Ref: SAB/46737/1, Vehicl"
+    },
+    {
+      "filename": "(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR).eml",
+      "category": "received/post-report-emails/dispute/pav-dispute",
+      "sender": "Samuel Berlyne <sberlyne@qdosassist.co.uk>",
+      "subject": "(EREF14) RTA on 03/07/2026 : Mrs Caroline Reynolds (Our Ref: SAB/46737/1, Vehicl"
+    },
+    {
+      "filename": "(EREF17) RTA on 11_04_2026  Mr Peter Hutchin (Our Ref SCL_44636_1).eml",
+      "category": "received/in-progress-cases/case-update/additional-info-received",
+      "sender": "Sophie Clark <sclark@qdosassist.co.uk>",
+      "subject": "(EREF17) RTA on 11/04/2026 : Mr Peter Hutchin (Our Ref: SCL/44636/1)"
+    },
+    {
+      "filename": "(EREF9) RTA on 07_07_2026  Miss Lauren Speight (Our Ref MFI_ND_46736_1).eml",
+      "category": "received/in-progress-cases/case-update/additional-info-received",
+      "sender": "Neil Duncombe <nduncombe@qdosassist.co.uk>",
+      "subject": "(EREF9) RTA on 07/07/2026 : Miss Lauren Speight (Our Ref: MFI/ND/46736/1)"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489 (2).eml",
+      "category": "received/in-progress-cases/case-update/case-images-received",
+      "sender": "Settlement Claims <SettlementClaims@ax-uk.com>",
+      "subject": "RE: AX26158  // SG20KNR  //   AXREF - 1054489"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489 (3).eml",
+      "category": "received/in-progress-cases/case-update/case-images-received",
+      "sender": "Settlement Claims <SettlementClaims@ax-uk.com>",
+      "subject": "RE: AX26158  // SG20KNR  //   AXREF - 1054489"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489.eml",
+      "category": "received/in-progress-cases/case-update/case-images-received",
+      "sender": "Settlement Claims <SettlementClaims@ax-uk.com>",
+      "subject": "RE: AX26158  // SG20KNR  //   AXREF - 1054489"
+    }
+  ],
+  "unclassified_details": [
+    {
+      "filename": "(EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR) (2).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "(EREF17) RTA on 11_04_2026  Mr Peter Hutchin (Our Ref SCL_44636_1).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "(EREF9) RTA on 07_07_2026  Miss Lauren Speight (Our Ref MFI_ND_46736_1).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489 (2).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489 (3).eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    },
+    {
+      "filename": "RE AX26158  __ SG20KNR  __   AXREF - 1054489.eml",
+      "error": "'charmap' codec can't encode character '\\u2713' in position 0: character maps to <undefined>"
+    }
+  ]
+}

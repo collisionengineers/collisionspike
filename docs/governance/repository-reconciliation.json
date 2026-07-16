@@ -7,18 +7,18 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4020
+    "entries": 4295
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3087,
-    "finalDirectories": 933,
+    "finalFiles": 3293,
+    "finalDirectories": 1002,
     "dispositions": {
       "delete": 1297,
-      "keep": 1125,
+      "keep": 1124,
       "move": 920,
-      "rewrite": 702
+      "rewrite": 703
     },
     "unexplained": 0
   },
@@ -14370,9 +14370,9 @@
       "category": "source",
       "owner": "repository",
       "lifecycle": "active",
-      "disposition": "keep",
+      "disposition": "rewrite",
       "finalPath": ".vscode/extensions.json",
-      "reason": "Path and bytes are retained.",
+      "reason": "The retained authority was rewritten for the current repository.",
       "ticket": "TKT-209"
     },
     {
@@ -60663,6 +60663,958 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "emailevals",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/general",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/general/internal",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/acknowledgement",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/automatic",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/automatic/autoreply",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/automatic/out-of-office",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/invoice-request-from-provider",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/payment-received-email",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/remittance",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/acknowledgement",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/autoreply",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/cancellation",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/additional-info-received",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/case-images-received",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/client-chasing-for-update",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/client-chasing-for-update/report-chase",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/out-of-office",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/undeliverable",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/acknowledgement",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/audatex",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/audit",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/audit/inspectionandaudit",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/autoreply",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/diminution",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/inspection",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/new-client",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/out-of-office",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/undeliverable",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/website-work",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/box-internal",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/claude",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/m365",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/acknowledgement",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/amendment-request",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/autoreply",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/pav-dispute",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/third-party-insurer-dispute",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/out-of-office",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/query",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/report-chase",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/undeliverable",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/acknowledgement",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/autoreply",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/images-received",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/out-of-office",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/pre-instruction-info",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/triage",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/undeliverable",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/undeliverable",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/additional-image-request",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/case-rejected",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/image-chase",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/query-sent",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/query-sent/additional-info-request",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/report-sent",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/work-logs",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
       "path": "infrastructure",
       "kind": "directory",
       "size": 0,
@@ -65661,6 +66613,20 @@
       "ticket": "TKT-209"
     },
     {
+      "path": "workingspace/ai-realignment-plans",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
       "path": ".agents/agents/roles.json",
       "kind": "file",
       "size": 6790,
@@ -68911,15 +69877,15 @@
     {
       "path": ".vscode/extensions.json",
       "kind": "file",
-      "size": 158,
-      "sha256": "0ae947733e8df613d94d24524258b8600855213822b1d8b458f5b3ba0898258e",
+      "size": 127,
+      "sha256": "39ba0f9655aa26caf08091705b506cacba73d619be940683978904d75452ee22",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active",
       "origin": [
         ".vscode/extensions.json"
       ],
-      "state": "retained",
+      "state": "rewritten",
       "ticket": "TKT-209"
     },
     {
@@ -68939,8 +69905,8 @@
     {
       "path": "AGENTS.md",
       "kind": "file",
-      "size": 6799,
-      "sha256": "2a3ab52558ef011fa9e54ecff577f16e88a8b2d383a13f23066ae5b561ece8f6",
+      "size": 7634,
+      "sha256": "2a7c880cdd3ecba0437f70541d8879ab05b3d2a11ead8804cd8aff8cd239eebb",
       "category": "documentation",
       "owner": "agent-governance",
       "lifecycle": "active",
@@ -89667,6 +90633,3552 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "emailevals/AGENTS.md",
+      "kind": "file",
+      "size": 10363,
+      "sha256": "ca5998f767570ba46935febca837c57304f8b671e4198568251009dffed176f6",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/PLAN.md",
+      "kind": "file",
+      "size": 17169,
+      "sha256": "bc797739e6f37a14c81472cb64efb4a11d71c84151d94787d51089a8b6adb400",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/README.md",
+      "kind": "file",
+      "size": 7922,
+      "sha256": "6e1b921dfaee0bceeec913461a64f7c69692829013de28f888d7a851615bcfa9",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/general/internal/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/acknowledgement/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/automatic/autoreply/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/automatic/out-of-office/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/invoice-request-from-provider/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/payment-received-email/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/billing/remittance/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/acknowledgement/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/autoreply/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/cancellation/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/additional-info-received/(EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "kind": "file",
+      "size": 18590042,
+      "sha256": "39f64ed3a51c0a98c9c3e9a5646457b85457d9943265e4078a7693c949809999",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/additional-info-received/(EREF17) RTA on 11_04_2026  Mr Peter Hutchin (Our Ref SCL_44636_1).eml",
+      "kind": "file",
+      "size": 1722748,
+      "sha256": "a5332f941640c8c936ea90a845d80935a045657aac2835b93bd1ba12e9003d2c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/additional-info-received/(EREF9) RTA on 07_07_2026  Miss Lauren Speight (Our Ref MFI_ND_46736_1).eml",
+      "kind": "file",
+      "size": 1276937,
+      "sha256": "3707de4cd73f539722f3e7ba7cc4d48b3fea69c2c987590dcfed61f7c7611afc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/additional-info-received/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/case-images-received/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/case-images-received/RE AX26158  __ SG20KNR  __   AXREF - 1054489 (2).eml",
+      "kind": "file",
+      "size": 178636,
+      "sha256": "fd94ecb8f1f1a8e65a09fac9b9bb6837d12c54e28d7d0b24068c8b474ae5f1bf",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/case-images-received/RE AX26158  __ SG20KNR  __   AXREF - 1054489 (3).eml",
+      "kind": "file",
+      "size": 178636,
+      "sha256": "fd94ecb8f1f1a8e65a09fac9b9bb6837d12c54e28d7d0b24068c8b474ae5f1bf",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/case-update/case-images-received/RE AX26158  __ SG20KNR  __   AXREF - 1054489.eml",
+      "kind": "file",
+      "size": 178636,
+      "sha256": "fd94ecb8f1f1a8e65a09fac9b9bb6837d12c54e28d7d0b24068c8b474ae5f1bf",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/client-chasing-for-update/report-chase/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/out-of-office/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/in-progress-cases/undeliverable/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/acknowledgement/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/audatex/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/audit/inspectionandaudit/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/autoreply/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/diminution/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/inspection/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/new-client/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/out-of-office/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/undeliverable/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/new-work-received/website-work/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/box-internal/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/claude/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/non-client-related/m365/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/acknowledgement/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/amendment-request/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/autoreply/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/pav-dispute/(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR) (2).eml",
+      "kind": "file",
+      "size": 4038945,
+      "sha256": "f708161135e54885745558928ec4d5a70d675de0a63691a4994512afee80b663",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/pav-dispute/(EREF14) RTA on 03_07_2026  Mrs Caroline Reynolds (Our Ref SAB_46737_1, Vehicle L100 YDR).eml",
+      "kind": "file",
+      "size": 4038945,
+      "sha256": "f708161135e54885745558928ec4d5a70d675de0a63691a4994512afee80b663",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/pav-dispute/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/dispute/third-party-insurer-dispute/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/out-of-office/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/query/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/report-chase/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/post-report-emails/undeliverable/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/acknowledgement/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/autoreply/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/images-received/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/out-of-office/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/pre-instruction-info/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/triage/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/pre-instruction-emails/undeliverable/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/received/undeliverable/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/additional-image-request/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/case-rejected/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/image-chase/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/query-sent/additional-info-request/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/sent/report-sent/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF17) RTA on 19_05_2026  Mr Scott Hadley (Our Ref AMA_ND_8331_2).eml",
+      "kind": "file",
+      "size": 5506812,
+      "sha256": "69164c12cca00d4829776068492215fc302cddfde77235cfe48776152f98c8f8",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF22) Client Mr Garry Mackenzie, Vehicle NISSAN QASHQAI N-TEC + SH61WDY, Our Ref 45858_1.eml",
+      "kind": "file",
+      "size": 166820,
+      "sha256": "362bbff1091282c20e6c574b08bcdf48fcd0a87e83db011f24f2daa1df3be09a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF23) Client Mr Mani Takhtshahi, Vehicle LEVC TX VISTA COMFORT PLUS N700 KEE, Our Ref 40019_2.eml",
+      "kind": "file",
+      "size": 36977,
+      "sha256": "dee3432589dce5c5bcf75eb8d264ebce100c7e4039b7fcfcafaef3d0c9f84435",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF23) RTA on 06_06_2026  Mr Graham Goodwin-Freeman (Our Ref KAD_45975_1, Vehicle M15GGF).eml",
+      "kind": "file",
+      "size": 51215,
+      "sha256": "7250338722bbf96884b238dedd78868c2fc1b4f6281bf2329137fb1d6d60f402",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF25) Client Mr Arsen Partsei, Vehicle AUDI Q7 SLN VOR 55 TFSI MHEV QUAT A OW72GWM, Our Ref 46314_1.eml",
+      "kind": "file",
+      "size": 37114,
+      "sha256": "72abfe7b9d4e777c1da0f91d09ff04e975b15e6f15c9eb3da67fbbbbb03d2622",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "kind": "file",
+      "size": 5856236,
+      "sha256": "e75b46cca7e7e6fbe34564aace242ac10528630226e90efbb346e9e312c8a51c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF31) RTA on 09_04_2026  Mr Mark Streatfield (Our Ref SCL_44599_1, Vehicle BG55GYU).eml",
+      "kind": "file",
+      "size": 48738,
+      "sha256": "58897e65d99c11ed349830358110bcf1047c4a3b20ed4ac26a9c824384878466",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF34) RTA on 16_05_2026   Lynn Bleasdale (Our Ref MCO_45539_1, Vehicle SC12 JKY).eml",
+      "kind": "file",
+      "size": 1578751,
+      "sha256": "1eaab289e4828fbaab8b4f2b4176a5d2a4fc34424abf7912a7fbe05a69b4c0a2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF36) Client Mr Ionut Ocroteala, Vehicle FORD TRANSIT COURIER ACTVE ECOBST A WR74YBD, Our Ref 45379_1.eml",
+      "kind": "file",
+      "size": 4959217,
+      "sha256": "09e91bd47b80a5df53a9d636aa7bfd7ede30011499466bbb3972e85d88e019d9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF36) RTA on 31_05_2026  Mr Jacob Newman - 45811_1.eml",
+      "kind": "file",
+      "size": 669307,
+      "sha256": "d10fc46433cb77fe6413036abb48fdf81d37e3c994cd51d18a206dd93d905fcb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/(EREF37) Client Mr Jose Caires, Vehicle BMW IX XDRIVE45 M SPORT LP25KXE, Our Ref 41451_1.eml",
+      "kind": "file",
+      "size": 36216,
+      "sha256": "77f75646a3a4943b3d9ca121c0a5da813d14be2e332a49f4bde1b58b976f69ee",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/00858- Kardo.Hassan (2).eml",
+      "kind": "file",
+      "size": 219771,
+      "sha256": "53e6e07d4a3b2fb6944b87aba1209b26b7a86ce6781f5f16e951fb3d0008aecc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/00858- Kardo.Hassan.eml",
+      "kind": "file",
+      "size": 219771,
+      "sha256": "53e6e07d4a3b2fb6944b87aba1209b26b7a86ce6781f5f16e951fb3d0008aecc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/01272- Asjad.Khan.eml",
+      "kind": "file",
+      "size": 2724413,
+      "sha256": "1d53544ff4b0a771cbd9c3298ba23000e0d1a63b4dfc54177d090f7fcec5814e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/101309B.002_Mr N Kandiah.eml",
+      "kind": "file",
+      "size": 109314,
+      "sha256": "6ca15084d0d5b5a3dde39983742ec774e8ec25725ee7815b299c334ef5c69111",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/30211-01   Mr Cumar Xersi    WF69NDX  .eml",
+      "kind": "file",
+      "size": 92266,
+      "sha256": "09b57a3bb2db2a57bc15f750b0e704123ba6e4715a6ce6d7a5bd0984a80d52c3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/303736 - Muzaffar Hussain.eml",
+      "kind": "file",
+      "size": 551583,
+      "sha256": "54f8c30688dd0d4f090057810e8b24201fd4f25c07d9fad669aefa0819a3bab4",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/575155 - SBL-B0489768.eml",
+      "kind": "file",
+      "size": 32489,
+      "sha256": "2d76654236eb26e244c3ad531a5a99a9269d58235475e63e728b85767b6dafdc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (2).eml",
+      "kind": "file",
+      "size": 56101,
+      "sha256": "62a4b9714051103fb5cdbebee471e29963f0e731f911b298bc52a6eba95792ff",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (3).eml",
+      "kind": "file",
+      "size": 56172,
+      "sha256": "45f17e9ce649d9b46ceb09cc273f0e6b3de74da5b2fccac0dd00ffb193b35091",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣.eml",
+      "kind": "file",
+      "size": 56111,
+      "sha256": "61d58aabd521d82eca9948a56f5f575158a9ed7eb3620b65e384ff4425265697",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/AXREF - 1066265 - PF24HFR.eml",
+      "kind": "file",
+      "size": 441767,
+      "sha256": "b3b22ee0937d09d3628dd06406852a871b9fcb93055d73ff5fdc367e4d679505",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Automatic reply 128294.001_Mr M J H Begum.eml",
+      "kind": "file",
+      "size": 16195,
+      "sha256": "00f756c7896ac4dbf5f2eeceffb850af979ac0fd46e114548a21fcf7f21b3bd6",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Automatic reply New Inspection Instruction.eml",
+      "kind": "file",
+      "size": 16663,
+      "sha256": "e7055f6ae13cc187e2b801762d19677c9905a599f4f592a07510d9b879836b5a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "kind": "file",
+      "size": 16776,
+      "sha256": "77a6d9c09d10d2ed0b73e6b88f290c19a13e3b328c92f6c413d4d1264e1d669b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Claim 1070847 - Mr Suresh Bandaru - L200OMA.eml",
+      "kind": "file",
+      "size": 65147,
+      "sha256": "63fa521f1de0ebfa12cf57e75213eb069ec34745ff0d75c9d007397ceb25df34",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "kind": "file",
+      "size": 5569308,
+      "sha256": "4314f285875811bc7cdb667a0f587d3c130c0aac07632b99e0e74783d82bce3b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Collision Engineers's consent request for M365 MCP Client for Claude has expired.eml",
+      "kind": "file",
+      "size": 92753,
+      "sha256": "06995ddf9fc7f3d3a2118fd8e0113f6e5f00f4ecea90b0790b6cd664611bb044",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Direct Travel Stoke Ltd __ 506062.eml",
+      "kind": "file",
+      "size": 316180,
+      "sha256": "ad4c01847e5470a655cdbddc97c551f43f43ca9a697a576f78d19fa6806dad5f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW (EREF19) RTA on 21_06_2026  Mr Terence William Bean (Our Ref KAD_ND_46269_1, Vehicle DP14XPE).eml",
+      "kind": "file",
+      "size": 7678138,
+      "sha256": "b91f5bbc622041b088d6f55e7a949caec945f476bdb18c489d0756d797552fb0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW Danny Feeley Ford Transit images XY68 RDU.eml",
+      "kind": "file",
+      "size": 1421804,
+      "sha256": "cf9c6e31f63beed2407fc57b7b37949a4935c5367c1fef0627bdedfad95a5b77",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW Emailing t12fog estimate.eml",
+      "kind": "file",
+      "size": 166752,
+      "sha256": "6f81e783893a8a6a91d3efbec96e363f8cc69e251e348e51ea7d472b47ff3d52",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW LETTER OF INSTRUCTION - HD4021.eml",
+      "kind": "file",
+      "size": 3436458,
+      "sha256": "0fc086bb3480a614f93b68efb555074d2fdc94b95ea8c5c77f629d05801759d3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW Letter from Somerset Bridge Limited. Claim MR976068 Your Ref 31502.eml",
+      "kind": "file",
+      "size": 157371,
+      "sha256": "e889083f7dc299a3e6d3c20f5380a7231567e2dedc79b31b9ce2e0fdfa96acbe",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW Reg LF25YJM - Our Ref 29326.eml",
+      "kind": "file",
+      "size": 15043048,
+      "sha256": "7f4b9dc302be5527b77ea4852e696de203736fe47fc77a8b09275b401d2fc500",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/FW Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "kind": "file",
+      "size": 438480,
+      "sha256": "a42c8433051a0fc4708e22c46d4f656ba5aaefac7c7353b7065df2879d5c1392",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Incomplete Payment - FL26ONW.eml",
+      "kind": "file",
+      "size": 14700,
+      "sha256": "3738428bac3e6b65c6c53422c8e582cdb34821b0b108c7a584cc0e1c45d68ef9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Mr Imran Zafar - Our Ref 303789 .eml",
+      "kind": "file",
+      "size": 37557,
+      "sha256": "b9275dae3cb79bf03c69827dc0cf8a66b73fd83db73b4001d7e26c709c81a495",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Mr Mohammad Suhail Sharif - RF55 KWG.eml",
+      "kind": "file",
+      "size": 109359,
+      "sha256": "9f72ed8451243cea17c9568f161d1a750a90bcfb229fa1fa9f91e1e9b44d9eab",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New General Enquiry - Andrew Kelly.eml",
+      "kind": "file",
+      "size": 12353,
+      "sha256": "d72d5b48fe58e681a4bfc3b8725317016380f7925c5aa0f410e449fe2615e9c4",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New Inspection Instruction.eml",
+      "kind": "file",
+      "size": 2089194,
+      "sha256": "46de51472636f9220cd77e2a96d9d9ff72ec95cac8b762fa0006138f4a452c30",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New Instruction - David Oxley - RJP_81577.eml",
+      "kind": "file",
+      "size": 124424,
+      "sha256": "a233105ba0442b25260e122d5a14a329a5018c16b4241f3457128352ee95288c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New Instruction - ML16 LDN - RA6458599.eml",
+      "kind": "file",
+      "size": 4652263,
+      "sha256": "3f8690f2876746ec66e8a167cc8ea493ed3752a208329acfb3a250765c08c7b9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New Repair Estimate Request - FL26ONW.eml",
+      "kind": "file",
+      "size": 14237,
+      "sha256": "53834ea0d8b2251b99e0f6eb8d4c9fe9b618041ca4b2be0d4e9e082ffbfde93b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New claim - Mr Nagendran Kandiah - LG06 FPD.eml",
+      "kind": "file",
+      "size": 125433,
+      "sha256": "80c5835ca846e06f506a643fc89ad4234129cacc93a4b6645e20878c3e43e220",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "kind": "file",
+      "size": 125641,
+      "sha256": "c308fe91a36737ec0895c178c81be47afe84270cc836cb984d56809520badf3e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA (2).eml",
+      "kind": "file",
+      "size": 125241,
+      "sha256": "2be400e464723943f5bbe292f61be09c441d6f88731a9315e63ae1b7ec483c64",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA.eml",
+      "kind": "file",
+      "size": 125267,
+      "sha256": "ceb57797e0def2794250fda18c830430487bee0618504d27c940e5fd21ec83b2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Oakwood Scotland Solicitors- Instructions.eml",
+      "kind": "file",
+      "size": 171659,
+      "sha256": "3851646ba77d875f4ad6e2520eb22ccccf51b1ca1e1da2e1547571aef3777c09",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our Ref 148347. Notification of payment of Fee(s).eml",
+      "kind": "file",
+      "size": 591742,
+      "sha256": "4e3b4117ec19a41d4da89de2c3ae8a0dcdc4ad46f532c806324ee14a82c212e2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our Ref 30288-01 ; Name Mr Rashid Ahmed ; Vehicle Registration Number LP17BDF  .eml",
+      "kind": "file",
+      "size": 74653,
+      "sha256": "dd17d3732f9040df2492090f63d43d9423b526975ca5f20b55d766348973f10a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our Ref 30320-01 ; Name Mr Samson Redei Mehari ; Vehicle Registration Number KV59LLX  .eml",
+      "kind": "file",
+      "size": 41437,
+      "sha256": "809d4f1bd7977c2282b685c2aea55d8d8b22344bf8a1e44b6137c0d644eee83d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "kind": "file",
+      "size": 1101850,
+      "sha256": "e990f818ee954613f94fbad7ce468ad3e0dd01d966c85181c48fab208873b1d4",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our ref 574741.eml",
+      "kind": "file",
+      "size": 10901545,
+      "sha256": "bb697d8ac0668bc045147727be719a2d22afd826c3051145c16e85d521e157e6",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Our ref ELM_NAK0011 - Mutual Client Rehema Nakasujja - Vehicle Reg; LT17 UCU.eml",
+      "kind": "file",
+      "size": 16622412,
+      "sha256": "7428da2b6b536ad3f41731877cac617917a6ffa7700b4817a11b95b4f418f4d3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/PCR100253.001_Mrs S Khanam.eml",
+      "kind": "file",
+      "size": 254274,
+      "sha256": "2bd99b5b90b9ffaf490dc1e44d608aa02e460879059af53a1ee0a0d5624e1e56",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/PCR100254A.001_Mrs W Jan.eml",
+      "kind": "file",
+      "size": 254119,
+      "sha256": "ab2553a00df167af57101b779d6c8e9db34a81075f7a399475b8c274ecb2526b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/PCR100259.001_Mr Z Ahmed.eml",
+      "kind": "file",
+      "size": 253443,
+      "sha256": "ef78b78aa97b4eaf0055d2084a3fe4ee1962128cbc2e5f5af7a01872fc852984",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/PCR205717.002_Mr M Khan.eml",
+      "kind": "file",
+      "size": 32068,
+      "sha256": "5ceed052d33f47e83836a4aab85475e350c8200594473cd172b6f8e656558612",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Private Report AF20 HJG - Mr A Mohammad.eml",
+      "kind": "file",
+      "size": 109562,
+      "sha256": "dabb359906f9b3ac1e01d2385f86d719d8a583c48b7331c94e4aa5232e903cd5",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Private Report AF20 HJG A Mohammad (2).eml",
+      "kind": "file",
+      "size": 315738,
+      "sha256": "6eb9f6eb8077d73a94829fb5809099e25ecc72704a2140ded8f0807b7bbd8e6d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Private Report AF20 HJG A Mohammad.eml",
+      "kind": "file",
+      "size": 109359,
+      "sha256": "768068e6872e564b7af3325819fee73cece338c73d5e768943e3052ce54d7f8d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF11) RTA on 04_07_2026  Mr Joel Vachalukkal (Our Ref MFI_MR_46659_1, Vehicle EJ17FPX).eml",
+      "kind": "file",
+      "size": 52097,
+      "sha256": "f19bb58f16a95519bb4c2ae1d89fbd105f47c311e322fe63403f0fd049061f52",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF11) RTA on 09_07_2026  Mr Michael Collier (Our Ref REB_ND_46764_1).eml",
+      "kind": "file",
+      "size": 54485,
+      "sha256": "2b3324e5adc2456c409f34b597edc1f8fbc7ff2a090a492dcc53b53888271eb2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF12) RTA on 01_07_2026  Dynes Vehicle Solutions (Our Ref AMA_46561_1, Vehicle GF72VNE).eml",
+      "kind": "file",
+      "size": 64604,
+      "sha256": "cc83aed2a74fe5dcc31eef4bbe82a656fc6127642d0bf69d7e8a66839d2c0866",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF13) RTA on 08_07_2026  Mr Lee Bullock (Our Ref AKH_ND_46725_1).eml",
+      "kind": "file",
+      "size": 2115634,
+      "sha256": "01165467ce0233f5452aa20aa7a016b25402f25026e0957b8a4e13eb34e6ec5b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "kind": "file",
+      "size": 2840789,
+      "sha256": "a53c23f1b1e1372e0f0e8751fe712e110580ad7e1985b7094b88bb98a50aa56b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF13) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_ND_46402_1, Vehicle LP69FJF).eml",
+      "kind": "file",
+      "size": 2299970,
+      "sha256": "e4a512b31f8964e5ac16ad6d7fa85a62b5d301b813af72a6a147d956308af9bc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF14) PL on 10_06_2026  Ms Debbie Holtham (Our Ref JF_46522_1, Vehicle KW23DAA).eml",
+      "kind": "file",
+      "size": 65207,
+      "sha256": "4ecb4130b7ed405bc1225f03d82855c2791a1b8ea82982f742ff952bc3810c2f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF14) RTA on 29_06_2026  Mr Eric Hadley (Our Ref SAB_46468_1, Vehicle VN54JOJ).eml",
+      "kind": "file",
+      "size": 2131145,
+      "sha256": "aa1314773d9b632f7ac4ca78aea54410a49b280acbc93bc6f787053423ca14a9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF15) RTA on 11_07_2026  Miss Agatha Lnya (Our Ref LEB_46829_1, Vehicle EF14BUE) TOTAL LOSS REPORTS.eml",
+      "kind": "file",
+      "size": 1572642,
+      "sha256": "e8fe9b43efed2e2b0be98158086cad21ec7cb0972786da4fde64a388112af3fd",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF15) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_46402_1, Vehicle LP69FJF).eml",
+      "kind": "file",
+      "size": 67177,
+      "sha256": "5cc81cd84954164d7784f87fe5a800b64bf8c4d6c6b6832113f29af0b3754db9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF15) RTA on 27_06_2026  Mr Colin Wright (Our Ref SAB_46523_1, Vehicle HJ58HLV).eml",
+      "kind": "file",
+      "size": 2106924,
+      "sha256": "88d1b10074d715672eebfcc20ff528c9902f20e5a4ce0d645c94905ec5a14dbb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF16) RTA on 05_06_2026  Mr Myles Smith (Our Ref AKH_ND_46029_1).eml",
+      "kind": "file",
+      "size": 114234,
+      "sha256": "86e90e65bbe604c48b13d77cf22e6fd5c81820197d77524bc2063a241a91e24a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF16) RTA on 26_06_2026  Mr Mohammed Qasim (Our Ref SCL_ND_46424_1).eml",
+      "kind": "file",
+      "size": 2005513,
+      "sha256": "d5d2fe96e2836dfc44027421a269ad1ad61416d453e0d5568001486eb63d53be",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF17) RTA on 15_06_2026  Mr David Reid (Our Ref JF_46155_1, Vehicle T18 HAO).eml",
+      "kind": "file",
+      "size": 66569,
+      "sha256": "071d6fc05fef0a5b3bdb5f97e74712fba84aae89d7c2607dea4fd4f90b6cee66",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (2).eml",
+      "kind": "file",
+      "size": 99251,
+      "sha256": "834729ce004f9da5b387e729434cf98ca022239ec85356c597ef0547696ba43f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (3).eml",
+      "kind": "file",
+      "size": 117834,
+      "sha256": "fa7b8a2e7f4111b454b299a715adb9e038f54f2c3fde014f0a60a12a94528ef7",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV).eml",
+      "kind": "file",
+      "size": 125236,
+      "sha256": "8d9e8088bd96b8a9bb1835fd1d71a293ddfebf47ccbf520c405dea8915959ba3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF25) Client Mr Joginder Singh Thiara, Vehicle MERCEDES CL500 AUTO JST305, Our Ref 44960_1.eml",
+      "kind": "file",
+      "size": 411324,
+      "sha256": "16122d20f9c6f2f471e53007caa262a879dadc5d59ef6804ca55f3dba5b066ec",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "kind": "file",
+      "size": 81912,
+      "sha256": "725bbc9df351801fdf854769dce47f0a2f0e5658c73322ae8e60c2f4fbed6d0e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF25) RTA on 01_05_2026  Mr Timothy Lewis (Our Ref TG_RLS_45078_1) FINAL AUDIT.eml",
+      "kind": "file",
+      "size": 2523352,
+      "sha256": "ba13051323362cdbfbc89ab083314e91147005b5daa4f4b3bb3e197fc1c622f8",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF29) RTA on 18_05_2026  Ms Laura Davies (Our Ref KAD_ND_46039_1).eml",
+      "kind": "file",
+      "size": 51610,
+      "sha256": "8e06e8f64853a4936fea43675ff08f99cc0d9d49acf2e581931f8d2e8b782388",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (2).eml",
+      "kind": "file",
+      "size": 335015,
+      "sha256": "97b70ead59436089cc5c28e5a03ba313b4a5cc1f14676f10b15dc7d876d1dee8",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (3).eml",
+      "kind": "file",
+      "size": 303006,
+      "sha256": "71df3333b8f439a5acec7c4aa038b8df53ed9c7aea001c259096ac430bf51a91",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "kind": "file",
+      "size": 364402,
+      "sha256": "3da7a6fed29d20fb28593d61e340059625b5acf04fb125ac69b5311ae0f62d21",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1) (2).eml",
+      "kind": "file",
+      "size": 1489991,
+      "sha256": "5eca44ecaaef0a44609326cfeacf300c92dc6aa011669eefd3c05ecd4c8eab72",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF37) RTA on 20_01_2026  Miss Jemma Webster (Our Ref MCO_43131_1, Vehicle AB61JEM).eml",
+      "kind": "file",
+      "size": 292091,
+      "sha256": "21aaec36268792301c0325594162e81c2de57d305555b92d010406d4ffe4f984",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "kind": "file",
+      "size": 42258,
+      "sha256": "9fa30ad747c720486365390af52296bb471cf9a27c1d0a515d6a0a6f240d3125",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF7) RTA on 08_07_2026  Mr Stewart Johnson (Our Ref SAB_46742_1, Vehicle RX11LEU).eml",
+      "kind": "file",
+      "size": 68193,
+      "sha256": "8064ca3370e5c280bcc6fae432a1ffd916dc62ffcc09d45a27a01dd903e134f1",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF8) RTA on 08_07_2026  Mr Lewis Robertson (Our Ref JF_ND_46848_1, Vehicle GX68 TWL).eml",
+      "kind": "file",
+      "size": 2118990,
+      "sha256": "779b7d05f7f446e52c57e93f7a09152d3855417de951298d87ae8dbc47c63e8e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (2).eml",
+      "kind": "file",
+      "size": 66662,
+      "sha256": "c2e1ef353b4c148bc1b53ea7b33d769f3154ecd7ab7f7d7c59a673d55b3364b9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (3).eml",
+      "kind": "file",
+      "size": 86387,
+      "sha256": "b78eee7f53c99205f76642b508912e0bc491f9e0a589692406641d76a8ac4431",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF).eml",
+      "kind": "file",
+      "size": 88643,
+      "sha256": "dadc870ef60c3b8f64b24939fb8437889c6d3b0ea4c130394e98a8338e379741",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE (EREF9) RTA on 08_07_2026  Mr Matt Baker (Our Ref REB_46771_1, Vehicle KP71OXH).eml",
+      "kind": "file",
+      "size": 41753,
+      "sha256": "93778ff5e88e3049f2cea559fcfe075c46ef2ac306400f55b963dad38f432320",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE 128121.001_Mrs P Begum.eml",
+      "kind": "file",
+      "size": 82574,
+      "sha256": "526740b136a36ac448092757bfb63ae33d23bbba8cb96a366a042f80bc6a0c9a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE 160657_Mrs C L B T d Conceicao - additional images.eml",
+      "kind": "file",
+      "size": 4494644,
+      "sha256": "6eeba5f743194acfe9528e94dc1c65c989668962eadee3939c52d5e557808d23",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE 46909_1 - ACHL .eml",
+      "kind": "file",
+      "size": 52337,
+      "sha256": "ea426bcfc60de48227b5c0a0106232909da1cac58bd38cb0bc8d16a2657118bf",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE NEW INSTRUCTIONS - trailer in Ayrshire - Logan Knox-  Our ref AD_SR_VRL_1_5337   .eml",
+      "kind": "file",
+      "size": 1455233,
+      "sha256": "7a08ec3492ff0b1758c9c9a5778d7a66816b4e94a2ad54ed21ed35d193d6d45c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE New Instruction - MJ72 PYD - RA6458894.eml",
+      "kind": "file",
+      "size": 4109830,
+      "sha256": "6e93dd02c70898e9382cd0d3dbe70e3928635264a398b0b12c7dd59653b5c434",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE New Instruction - RJP_81570.eml",
+      "kind": "file",
+      "size": 86658,
+      "sha256": "c2427ea4d877efd8595edac264361fd41704188a1d845616515b9c96b43dde73",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE New instructions, Mr Yasin Mehtab - 303373.eml",
+      "kind": "file",
+      "size": 6729072,
+      "sha256": "95744260d6550eb1230fd078ed3ace6a80b9f46ab85ffb895bd21611f32f2e38",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Oakwood Scotland Solicitors- Instructions.eml",
+      "kind": "file",
+      "size": 4947785,
+      "sha256": "e6ebd62b1a6033cbf46f7fcfa2d18949ad41d07eeb0f9068aa2902ce59c95d38",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Client - Dawit Ocbamichael _  Our Reference - 261622SA.eml",
+      "kind": "file",
+      "size": 88479,
+      "sha256": "9c0f83d87022c832be0b84a7e22591196ae783eca6d005db1e7899b99732b1c7",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Client - Elias Ekram Ahmad  _  Our Reference - 261643SA.eml",
+      "kind": "file",
+      "size": 88443,
+      "sha256": "055ce93a790cc9b7ef0f58f77105789b588352188c31d683580d4a13469bb1a7",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Client - Julius Petik _  Our Reference - 261614HU.eml",
+      "kind": "file",
+      "size": 88384,
+      "sha256": "071c3223d050462ee4a4b6729dc60617b8a8cbe3a3ef06fee4f79d86f577a9a9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Client - Muhammad Suliman Khan _  Our Reference - 261638SA.eml",
+      "kind": "file",
+      "size": 88741,
+      "sha256": "c24b1b8cbf0d9b779bbae8b0159fe08c476b10539bd1a1d5d7f294468cdf4363",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "kind": "file",
+      "size": 80185,
+      "sha256": "7b57613966ed838f110296be282db1765b27eda3a4220318b93d24f8a8754aa9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Ref 572238 - Your Ref a.pch26427.eml",
+      "kind": "file",
+      "size": 184682,
+      "sha256": "4bb4324502282ee7f1c531ea03d66720917e9cbeb8807ae8380da4b98838b4fc",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Ref 576480 - Your Ref a.och261154.eml",
+      "kind": "file",
+      "size": 2986353,
+      "sha256": "ddaabe6aa64c30df130a7283913b1d1997193d02799b43d5066c6cdfee838c59",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Our Ref TL.AM.FARUQUE.10621  Client Mrs Saima Naz Faruque .eml",
+      "kind": "file",
+      "size": 3605371,
+      "sha256": "dbbd12659ab7f74939ac453d2668abb6569b95673d037301a882a39578f81e3a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE REQUIRE TOTAL LOSS REVIEW - Shelley Barron  -  Our ref SR_VRL_1_5308.eml",
+      "kind": "file",
+      "size": 255178,
+      "sha256": "e7172bb2fdd5b89e64c3744aa80563d6a6759f6b8478c2b0e7255018f5064723",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE RTA135277.001  -  Mr A Ali - YL65 FMY.eml",
+      "kind": "file",
+      "size": 151473,
+      "sha256": "b4b2aa29864ba042b0bb947f9851a5a8424c55f3366a363016f6c5c61f7773b1",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Ref160753_SP23MOA_Mercedes-Benz V 220 D Amg Line Auto_Mr Colin Ness - Chaser for engineers report.eml",
+      "kind": "file",
+      "size": 958913,
+      "sha256": "b6a753196466835ed960ba0d7ddd18a72955f7c08a98f4c70c73aa326ca56c10",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE Request for Clarification on Vehicle Roadworthiness Assessment - Our Claim Reference 46841_1 - Vehicle Registration DG12ZTH.eml",
+      "kind": "file",
+      "size": 57558,
+      "sha256": "6ea17ee73ff1c5fb5abe4fec0e243efc3c32e6ee172997df77276d90149479eb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/RE YG26 OSF. More pics.eml",
+      "kind": "file",
+      "size": 69792,
+      "sha256": "a7308abb7b4b20036ff03005c92e05d91d7e7215be2924410418d3d20f305c63",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/REALLY URGENT - RE Our Ref 224962.TA Client Mr Rizwan Liaquat Ali Akhtar __ Engineer Instruction __ VRN CK19XAP.eml",
+      "kind": "file",
+      "size": 29790,
+      "sha256": "90ff5281c8e47df0cfdb9d72e9f2d84bba3c00eed35a626625958ab90a1a6597",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1).eml",
+      "kind": "file",
+      "size": 114573,
+      "sha256": "ba78696e530df81a6e6548031d7d277ab68a3c2a1bcd279f18132c779e967f4e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re Case Update - 160470_Mr Iqtader Ali.eml",
+      "kind": "file",
+      "size": 68223,
+      "sha256": "224267523ce7385e18ff69c4fb7bf71ce404ce06da0a40072d46df78df49053f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re New claim Instructions PHA 5013 - YH08 MWS.eml",
+      "kind": "file",
+      "size": 2104203,
+      "sha256": "e753429166af312b577e6de512c8f41c4b1a31b81dc377a8ad043085ba1432e5",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re Vehicle - N7 BDU.eml",
+      "kind": "file",
+      "size": 2757772,
+      "sha256": "6ab578ccaf5028a5175decb4f8f3166ad82362de1eb92a7b8da6e6be76bba5b0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re100290.012_The Car Hire Specialists.eml",
+      "kind": "file",
+      "size": 89657,
+      "sha256": "980922c9f48e5b40ab1e882ddfc97261bbbbd77de74613f2b1a00d71bb5eb8bd",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re128196.001_Ms R Westwood.eml",
+      "kind": "file",
+      "size": 20179,
+      "sha256": "ff837240c32b7f7b8d54f6c8058c3c323f08767145ac93d3e7f31e6e295ce9dd",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re128199.001_Ms S Khurshid (2).eml",
+      "kind": "file",
+      "size": 78060,
+      "sha256": "d8c251a76d74dab7346327a695ceb8fcca76aff57de0568fc0154fdb2b113ca9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re128199.001_Ms S Khurshid.eml",
+      "kind": "file",
+      "size": 2339154,
+      "sha256": "39cc87db19fa48b271c377dd8d519f9b5b67b81013162142b3b6c73d29ee224f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Re128295.001_Mr M Kashif.eml",
+      "kind": "file",
+      "size": 81018,
+      "sha256": "2f6d09861d3fda7cf3fc58c82149f32afb2f493de88817f1b3aa8640834665d2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Tradeston ID 55211 _ Farrukh Bhatti.eml",
+      "kind": "file",
+      "size": 67158,
+      "sha256": "b19b73f69e1d6b0783947ad1904c41fd4c32f93e5375111d8b397b0a2162aeaa",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/Your Ref A.pch26171, Our ref 570306.eml",
+      "kind": "file",
+      "size": 309057,
+      "sha256": "f0e1e29dd223c3b298fc10b45d2ec34026601df95fce8f8a6cf3c4b81f6b37d4",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/kn22xkd.eml",
+      "kind": "file",
+      "size": 3083212,
+      "sha256": "1271bf867f270b76ebae5482a39d78f2736904d0eb7b7d67ea92e070d770b550",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/pk20yhr.eml",
+      "kind": "file",
+      "size": 17663,
+      "sha256": "3b44ac0fce79647ec0eac130b3a02989e90eceac6d9ca21124237948b025b38e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/to-sort/sort-summary.json",
+      "kind": "file",
+      "size": 4528,
+      "sha256": "225da1f76e1c6a3002826132506bd73aaad9587d8ad4728eb85227e9b9989a15",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/work-logs/.gitkeep",
+      "kind": "file",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "docs/plans/work-todo-spike/ai-assistant/ai-assistant.md",
+        "docs/plans/work-todo-spike/dashboard-logic/dashboard-logic.md",
+        "docs/plans/work-todo-spike/docs-cleanup/root-roadmap.md",
+        "docs/plans/work-todo-spike/ui-changes/casepage.md",
+        "docs/tickets/backlog/TKT-175-archive-deletion-resilience-investigation/evidence/operator-source-original/issue.md",
+        "docs/tickets/done/TKT-022-docx-extraction-fail/evidence/operator-note.md",
+        "docs/tickets/done/TKT-082-misclass-query-as-new-work/evidence/sample-2/info.md",
+        "docs/tickets/done/TKT-091-outlook-move-fail/evidence/outlook-move-fail-original-empty.md",
+        "docs/tickets/next/.gitkeep",
+        "packages/domain/src/contracts/.gitkeep",
+        "packages/domain/src/domain/.gitkeep",
+        "packages/domain/src/dto/.gitkeep",
+        "packages/domain/src/model/.gitkeep",
+        "scripts/eval-email/local/matrix-run.stderr.log",
+        "scripts/eval-email/local/matrix-run.stdout.log",
+        "test-cases-and-data/test-cases/ALS26066/ALS26066/___ Keep repairable ___.boxnote",
+        "test-cases-and-data/test-cases/SBL26149/SBL26149/AUDA - add images to EVA and BOX.boxnote"
+      ],
+      "state": "moved",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/work-logs/task-1.md",
+      "kind": "file",
+      "size": 4177,
+      "sha256": "ea01ad6d35b85f41b171802a53c9eb2576142e5aa609287492ad0c9c004c8825",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "emailevals/work-logs/work-logs - Shortcut.lnk",
+      "kind": "file",
+      "size": 1471,
+      "sha256": "977bf325897114a7a70e3d4162ff44a2405958a8c4ab77533e4198344910aa6f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
       "path": "infrastructure/README.md",
       "kind": "file",
       "size": 659,
@@ -91279,8 +95791,8 @@
     {
       "path": "scripts/checks/check-repository-layout.mjs",
       "kind": "file",
-      "size": 3273,
-      "sha256": "a1f301ec29e1e8d67fb5abfba994924767c091c159774b68de0a2656b5359ffd",
+      "size": 3289,
+      "sha256": "c310a6b99a095bac732c1bfdd0a906b9c2b46eb0bbeb24f3238508ae5c89b2d8",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",
@@ -108901,6 +113413,146 @@
       "ticket": "TKT-214"
     },
     {
+      "path": "workingspace/README.md",
+      "kind": "file",
+      "size": 1314,
+      "sha256": "105d4ad41c6023a7d7c01f5ef42fe9871bb8d48e45f299200140abaaad024b1b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/00-ai-estate-inventory.md",
+      "kind": "file",
+      "size": 13015,
+      "sha256": "d77491d4de276ece8bc92e02bd4eac9e762c98b3767b4a1719ec147dd3ec2b01",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/01-doctrine-and-invariants.md",
+      "kind": "file",
+      "size": 11727,
+      "sha256": "b85d8c5f1354a56fab4f0fddf33e32b6b80d926e27cc6514f0f2be03431dadc8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/02-agent-harness-architecture.md",
+      "kind": "file",
+      "size": 13682,
+      "sha256": "3a6e8b6e04430f1fb903b80eb83a89f2d7e66b24d99f6d08d52e860177fea0f8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/03-agent-tool-contracts.md",
+      "kind": "file",
+      "size": 9015,
+      "sha256": "c14a0c684a0e6b74821cfc70e0cb56b948f0c5ee7c4cff8c1978d7df7e46a4c4",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/04-triage-decision-model.md",
+      "kind": "file",
+      "size": 13614,
+      "sha256": "3abd14fc67eef7a73cd04ae884507ea86c596bdbfc04a770cc152d3577b72cfb",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/05-sweep-notes-agent-log.md",
+      "kind": "file",
+      "size": 7027,
+      "sha256": "d2fc85c26921e38993e0a518d2837a079ed6e9f14ab3d72305a15989544c2fac",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/06-evals-and-rollout.md",
+      "kind": "file",
+      "size": 9707,
+      "sha256": "d13956102fee2c9c5d12c45dd695cf73b4323c5a2a0905b025a7cde2b63032ca",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/07-extensions.md",
+      "kind": "file",
+      "size": 4303,
+      "sha256": "9a688c57e7d5e6e28fed589718bbd15a1c21834152d60199e4b5945cede36e1b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/ai-realignment-plans/README.md",
+      "kind": "file",
+      "size": 6232,
+      "sha256": "70e421bcf713a6c302d24fb597cb7e0f473321f750a0617e8710949a71692f31",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
       "path": "workingspace/aifirstplan.txt",
       "kind": "file",
       "size": 10932,
@@ -108926,6 +113578,20 @@
         "docs/workingspace/model-evaluation-plan.md"
       ],
       "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/pr89-box-facade-resolution-plan.md",
+      "kind": "file",
+      "size": 14131,
+      "sha256": "00ca4318021dde8249749804812b37717353b44b0792b570ac3068971c5e1617",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-208"
     },
     {

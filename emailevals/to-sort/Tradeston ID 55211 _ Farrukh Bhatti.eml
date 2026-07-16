@@ -1,0 +1,1177 @@
+Received: from CWLP123MB4084.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:8e::10)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Tue, 7 Jul 2026
+ 12:06:39 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=u2UAx4dS9JYa6yJYmnmMAB3BpoXflCztCKaTWSR9jh+4f9y5XawEOViyff5PFC3O3VWQA7ZQft2FTQMGIueRnCqQUahTXYWOBSQx3coVU6HDvL27Xms57Psig4oydiFguAIHXyR1WrbY6phpxNrXesB7situHWKerVLoGt+Sl2GwY1y/4bfosXn2lpB8IW8tMlOW+8SXXGjI6A+wME4Vgv3/AbJMrO6/glIHPbsmkYRZR4zlLfGWRVS9g8/SU8kU951diqlpz4QdGWZiCVqC6OB1kC5U2oPtfkBW0sUdoUqM4sq3OzyzvLuNSQjzpd5g9Kn24gSfl3m2aszGhi0BzA==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=Zn2FLWRTQ9H9m3DqUZguFlT04ro8BpxlQl/E7yTazkk=;
+ b=gQnY2b5GJCLo+gVs/+v39Nqaes05vRCo4mlNLXkOt3+e+YFPNhfTJIPW3uJIlECYUlSa273vYKHrBlXs1a9dp9p7Jlul3TEQROmTHv/I51ham08NKCmoiKuIq7fnhjhq7Lz9+65QgE6rqPHblDAL4bFEp//ZIMc/POpOtAGgnkcsKZsfR9mdjUlNoqAqjfCXZMA+9ByblkFQVgNwW3igPcHcWT/Sn81C0T5bRUfDsdfJRGPmJawV1UoxB7+6w0hp8uO79p2LfOYi5Qw8ePhMJ3WfI1Oa2+DyuUIGmXgj4LqKBiM+AJ6MTz2mkwlX8GPNVaTtl37VAHZrNbaWJRiTPQ==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c205::1) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=oakwoodscotland.co.uk; dmarc=pass (p=none sp=none pct=100)
+ action=none header.from=oakwoodscotland.co.uk; dkim=pass (signature was
+ verified) header.d=oakwoodscotland.co.uk; arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=oakwoodscotland.co.uk]
+ dmarc=[1,1,header.from=oakwoodscotland.co.uk])
+Received: from LO4P123CA0397.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:189::6)
+ by CWLP123MB4084.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:8e::10) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.14; Tue, 7 Jul
+ 2026 12:06:37 +0000
+Received: from CW2PEPF000056BA.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:189:cafe::22) by LO4P123CA0397.outlook.office365.com
+ (2603:10a6:600:189::6) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.13 via Frontend Transport; Tue, 7
+ Jul 2026 12:06:37 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c205::1)
+ smtp.mailfrom=oakwoodscotland.co.uk; dkim=pass (signature was verified)
+ header.d=oakwoodscotland.co.uk;dmarc=pass action=none
+ header.from=oakwoodscotland.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of oakwoodscotland.co.uk
+ designates 2a01:111:f403:c205::1 as permitted sender)
+ receiver=protection.outlook.com; client-ip=2a01:111:f403:c205::1;
+ helo=LO3P265CU004.outbound.protection.outlook.com; pr=C
+Received: from LO3P265CU004.outbound.protection.outlook.com
+ (2a01:111:f403:c205::1) by CW2PEPF000056BA.mail.protection.outlook.com
+ (2603:10a6:408:1::5) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.6 via Frontend Transport; Tue, 7
+ Jul 2026 12:06:36 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=t+2z+oiVjxvmR5ujm8sphL6HRaZN7sIZ5eNIvJC2BQJ6r7d38NbUXF4QDoJbarfgmba2sq5VKR1f8KsOwS0AAt8DDsfZRHhdWIcoQ3cVG7HD+PtiAbGsUqlaT5DZ3xlyOaBTLtS6N+UdZRIeR23tKcSxArz8F8qOzOb+KfDOgJeCKe1Ab065LqePzik86J3ZXUidlXbrGtVLHFuwmfZPdYIHF/BGWBNFv6SQ/C7QLiL62gXnzpWIt2R9YSAxhmuHlvQF+rjKUGzyXVu4vr7YQhCH/gb5H22JCmzzc3IjnLOJIOYi/mURM5hdB0HdBR2B1uK4qBkpIFj5zrdxpOVcCg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=Zn2FLWRTQ9H9m3DqUZguFlT04ro8BpxlQl/E7yTazkk=;
+ b=yV+cMGMc9QQlvkW4nr5RpWhK6cMJHj5S+UYsa6TKu1mXVomqeOHHEabX9qSZ1opU745l6a1TrBh7538CFDNC4QIGUUtkCJSnObK1fK8R2CDKNH313NLAJaFrlzaxrTRzPX3JWiMv9XwxobdQuoqHazP69LGwRvKN0t0lj2rZniVts9U31uhPmipLOdA9dXH3I1M5eCQK8Kbs0jhiEo4akBbkgSDURw5alVgiXuEFMXBBoGGOte/V5ItXpadHnVUR+0TVI/DP99ld536DB5DdbiQDwZEW4u9LsGqfAsA3YpUhus4qnh/eHZuIiouDsD63/CHDgKlYXgqnnLLNV3Mh4A==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass (sender ip is
+ 51.140.37.132) smtp.rcpttodomain=ax-uk.com
+ smtp.mailfrom=oakwoodscotland.co.uk; dmarc=pass (p=none sp=none pct=100)
+ action=none header.from=oakwoodscotland.co.uk; dkim=none (message not
+ signed); arc=none (0)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=oakwoodscotland.co.uk;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=Zn2FLWRTQ9H9m3DqUZguFlT04ro8BpxlQl/E7yTazkk=;
+ b=qUmkfCOWn7tn4khf84reXCp7X2rmrnZFWCPIIivhwfRKjkhgyIm0FiLtPdAMis+NA/Xx9aZCoWiE674HbYm+Gt2K/jveNi9p9hHSvecR+58ORwGfeqUVZ5uq33D6frHoW9A0WWaDZ0HMt3zSjDmNZ4Xc3fAVKVnmZ08E2//fB9M=
+Received: from LO4P265CA0015.GBRP265.PROD.OUTLOOK.COM (2603:10a6:600:2ad::18)
+ by LO7P123MB7516.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:40d::15) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.11; Tue, 7 Jul
+ 2026 12:06:32 +0000
+Received: from LO1PEPF000028CE.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:2ad:cafe::64) by LO4P265CA0015.outlook.office365.com
+ (2603:10a6:600:2ad::18) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.9 via Frontend Transport; Tue, 7
+ Jul 2026 12:06:32 +0000
+X-MS-Exchange-Authentication-Results: spf=pass (sender IP is 51.140.37.132)
+ smtp.mailfrom=oakwoodscotland.co.uk; dkim=none (message not signed)
+ header.d=none;dmarc=pass action=none header.from=oakwoodscotland.co.uk;
+Received-SPF: Pass (protection.outlook.com: domain of oakwoodscotland.co.uk
+ designates 51.140.37.132 as permitted sender)
+ receiver=protection.outlook.com; client-ip=51.140.37.132;
+ helo=uk1.smtp.exclaimer.net; pr=C
+Received: from uk1.smtp.exclaimer.net (51.140.37.132) by
+ LO1PEPF000028CE.mail.protection.outlook.com (10.167.240.38) with Microsoft
+ SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.21.181.6 via Frontend Transport; Tue, 7 Jul 2026 12:06:32 +0000
+Received: from LO2P265CU024.outbound.protection.outlook.com (40.93.67.24) by
+	 uk1.smtp.exclaimer.net (51.140.37.132) with Exclaimer Signature Manager
+	 ESMTP Proxy uk1.smtp.exclaimer.net (tlsversion=TLS12,
+	 tlscipher=TLS_DIFFIEHELLMAN_WITH_AES256_NONE); Tue, 7 Jul 2026 12:06:32
+	 +0000
+X-ExclaimerHostedSignatures-MessageProcessed: true
+X-ExclaimerProxyLatency: 5099448
+X-ExclaimerImprintLatency: 2689485
+X-ExclaimerImprintAction: 066abda19d2b4eff9ba5188553d21e07
+Received: from CWXP123MB3511.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:7c::9) by
+ LO7P123MB7628.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:414::21) with Microsoft
+ SMTP Server (version=TLS1_2, cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id
+ 15.21.181.11; Tue, 7 Jul 2026 12:06:29 +0000
+Received: from CWXP123MB3511.GBRP123.PROD.OUTLOOK.COM
+ ([fe80::e1fe:2afb:ad07:6ab8]) by CWXP123MB3511.GBRP123.PROD.OUTLOOK.COM
+ ([fe80::e1fe:2afb:ad07:6ab8%3]) with mapi id 15.21.0181.012; Tue, 7 Jul 2026
+ 12:06:29 +0000
+From: Paul Mandy <P.Mandy@oakwoodscotland.co.uk>
+To: New Claims Inbound Team <newclaimsinboundteam@ax-uk.com>
+CC: CARS <cars@ax-uk.com>, Tradeston Performance
+	<tradestonperformance@outlook.com>, Engineers
+	<engineers@collisionengineers.co.uk>
+Subject: Tradeston ID: 55211 / Farrukh Bhatti
+Thread-Topic: Tradeston ID: 55211 / Farrukh Bhatti
+Thread-Index: AQHdDgkKFv35KpF2a0eTkMBuaJP9EQ==
+Date: Tue, 7 Jul 2026 12:06:29 +0000
+Message-ID: <CWXP123MB3511B2CA838A6CA4C70A857AB3F02@CWXP123MB3511.GBRP123.PROD.OUTLOOK.COM>
+References: <E1wh4Uq-FnQW0hPy3JR-N4CJ@message-id.smtpcorp.com>
+In-Reply-To: <E1wh4Uq-FnQW0hPy3JR-N4CJ@message-id.smtpcorp.com>
+Accept-Language: en-GB, en-US
+Content-Language: en-GB
+X-MS-Has-Attach:
+X-MS-TNEF-Correlator:
+x-ms-reactions: allow
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=oakwoodscotland.co.uk;
+x-ms-traffictypediagnostic: CWXP123MB3511:EE_|LO7P123MB7628:EE_|LO1PEPF000028CE:EE_|LO7P123MB7516:EE_|CW2PEPF000056BA:EE_|CWLP123MB4084:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: 2bb2a70a-50f2-4d63-f345-08dedc203207
+X-MS-Exchange-SenderADCheck: 1
+X-MS-Exchange-AntiSpam-Relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|23010399003|376014|1800799024|366016|10070799003|38070700021|18002099003|22082099003|8096899003|3023799007|56012099006;
+X-Microsoft-Antispam-Message-Info-Original: 9GuSAOyhuN67F5yuXCi4qc05tYm1K30QaxtiyFcQ8JvtNED3LTYzIib5PZlrzR6I63OwbJ0l4+9VDP5eoyG5omq46xnKui9b+f512uXJvBG1s/n/WQIjvgqMEGaiTeEMe4VdbIl5Mkrtstrg70XCeDTpcMWQALW1e4Y018Kb5Xe4kKbPW3YKEEmhPaiATmTrKVX6P7H+K33DadKqdLR0DW2kRKDQOwkhE6ezslKe76xs57H62usT7p5GjW9rc1mVYcqARaZJ/JaABx6QTQpcNlgqgbLc+XbcxR3c9Agy2qNN0bKlhY12Ls8pfSRUOd+9OHUlYsSQ8VaSa8q9ClGMlNl1h0t126jG4GcFf72O4cOBfO7JiW8mEMwco5UP+NOQFRNt1EF+d2l+ZJ+MooGSfqi7AFIuq6ZrUxw4wWGnaU+CDtI14f6J7CLsZjd00McWYJkeSpEnIJOwNzWFgS24tgl4L04BVgU2IoRomG4w0djs4GFppaO3TTnzPvoOzGqq08Zf7mQVQeaEavsc5uYnL+NEquLpVO6LNq70rL5x3jTfHkRaXg9bnWICnlpquGD2r9RyP+/QeqGq7ie5X8sK0SzVnTGOFVtMxbt1MCnN36tfbyF+TfEsbRv2XXB1tTGvB8LP+akKmYzX9IolnALapbgfW+EoNGvE+EPCxpSO8PM=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:CWXP123MB3511.GBRP123.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(23010399003)(376014)(1800799024)(366016)(10070799003)(38070700021)(18002099003)(22082099003)(8096899003)(3023799007)(56012099006);DIR:OUT;SFP:1102;
+Content-Type: multipart/alternative;
+	boundary="_000_CWXP123MB3511B2CA838A6CA4C70A857AB3F02CWXP123MB3511GBRP_"
+X-Exchange-RoutingPolicyChecked: jmRmWw50C47CcVZ8q6V20JNX83uSPwiHdYvCcH8UU7fEuya0YTCeE2zaFqXCaBno4bQCoMwFA4H/w2YyVNRqC25YVtMRquiTywplE0iiFMvpJd5h4bQmMeIXHA3LD4nb2g7fgax+Rwm5IQSWUCm0S9rarDxg8YaKjnpzehQdYPZGSmy2G6lJthOFpEtr1yJUztJeCXfju8ma9Nu+HRIkaZT5yEbxEMQs26kc2/16ocbarPpud3mE6h/vEizMPkWI0nv9AbyfUDt/dzHpygMcIeqLpY/796mQohqhdXxDntG86wkVYZxx3dy5mLimVH6R8rGYn427FJFhJ6WuREYNmg==
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO7P123MB7628
+Return-Path: P.Mandy@oakwoodscotland.co.uk
+X-EOPAttributedMessage: 1
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: LO1PEPF000028CE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 3dd46a49-c5e4-4f65-12a7-08dedc202d6d
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|30052699003|3109299003|82310400026|23010399003|376014|1800799024|32650700020|35042699022|14060799003|7049299003|69100299015|36860700016|8096899003|3023799007|13003099007|18002099003|22082099003|56012099006;
+X-Microsoft-Antispam-Message-Info-Original: yBsDTOrIP2ux50mFu2p5EUEyGEo3ePsRqVdQ688tR75BNdp8JFB2mOiWLhyY77iJxk5k5ZEBKIq3Hk7ACCg/aA7WSbBhTpJkkneudJGaulf5NgjXRnkMGYmHglcJw6JjXonBwfu0jKeIeO1r7pKeETbHV87Ah0mmzTgeKQDrTnD3GQhhF1ljsCWjuvPYTuTATn6kLMqK9Sthh1UbM1dsUQgF5VaD/ZfXHAWvtUlItxZYisR3V5eQ8W9OOXUCYHoRWMDzxxBH9JXGeGNR5oDL1Nyy3lErWnQJkOOvaLj6BE1qxJQFLnMMsJEe8V7Nu1QC/h3Q7kjiQO5/U203h07vvQcKRFcfMhjp3VAX8Q0iMPjQ+qVwc37MjBZi+fEP85wScT0tzSnq6ElgreEe+tWyeE9v4wUY7nHTviPmxwA17IEjyz25E/WaNJLVlnOqcqj5VFxcOCKphVk3yW39S8HQ6qHlzeSbrJO4ujZCSJkXnDPKcLcaWOKgPgs63hr32CSi6rcALKvWM66zfWlwXgz5tjd5AjMJsyiP5P/O74kp6iPaRq2kYAUSbqrOvziq3lUZkDrrvxjv5w2su1A2f3nxG6/5BDFm9rVeXT4r4ZbJG3AF8AgiXDrbZyW3wf2YP56rGDwzEl0Dh4ElWdM8ORXXeg==
+X-Forefront-Antispam-Report-Untrusted: CIP:51.140.37.132;CTRY:GB;LANG:en;SCL:1;SRV:;IPV:CAL;SFV:NSPM;H:uk1.smtp.exclaimer.net;PTR:uk1.smtp.exclaimer.net;CAT:NONE;SFS:(13230040)(30052699003)(3109299003)(82310400026)(23010399003)(376014)(1800799024)(32650700020)(35042699022)(14060799003)(7049299003)(69100299015)(36860700016)(8096899003)(3023799007)(13003099007)(18002099003)(22082099003)(56012099006);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: ttFm5aRXdRSVjRtVF9cFAPoai5QOv63oIeoGaYNQWn3jwDsR2T1veo3+G/WthBeyzHdvD1gENjJXfL6+gyXYlEhDUSUEADKs+5Khgc1gDjwHLxWSZuUFAejvYkp4Bre8wDfnHkaQO1bb7cq+2fqZ781hQxgumQq5Hxwdxs5QaxZY2wvP/OVrjks52t3lGFV7bQnvjfb5KnrqS/iYaX6AT4Drp3xcQb6Po21BCXHFh58CcP57I2GUbfrEE0ELWNkOCaUWjnzJkNdT58W7UuWYTPVli6hh0oIBg5mFv1ns/Iq/YzgzedTv9N62KWNABy4AipomR5gEZCLiC+qW1hRDEnyONjd94IS3Pf8xjrc3mUHQIVPBd5t2G5ettw4S5JXz38LzgIwj7Enb8gHWxqOgKUxj2nDg7vtN7eWj+oxF/rsWQj1yYxDSlBOtMC6VX0XI
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO7P123MB7516
+X-MS-Exchange-Organization-ExpirationStartTime: 07 Jul 2026 12:06:36.9635
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 2bb2a70a-50f2-4d63-f345-08dedc203207
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: CW2PEPF000056BA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: CW2PEPF000056BA.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: CW2PEPF000056BA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 0dbf1e71-ba32-4d6d-169d-08dedc202f75
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704160611799003|35042699022|12012899012|7049299003|3109299003|69100299015|6073799003|13003099007|18002099003|22082099003|16102099003|57112099003|8096899003|5063699009|19002099009|3023799007;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c205::1;CTRY:;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:LO3P265CU004.outbound.protection.outlook.com;PTR:mail-uksouthazlp170100001.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704160611799003)(35042699022)(12012899012)(7049299003)(3109299003)(69100299015)(6073799003)(13003099007)(18002099003)(22082099003)(16102099003)(57112099003)(8096899003)(5063699009)(19002099009)(3023799007);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 07 Jul 2026 12:06:36.8979
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 2bb2a70a-50f2-4d63-f345-08dedc203207
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-OriginalAttributedTenantConnectingIp: TenantId=d9ff9aca-2a84-43e8-8f03-3095ee6b9e67;Ip=[51.140.37.132];Helo=[uk1.smtp.exclaimer.net]
+X-MS-Exchange-CrossTenant-AuthSource: CW2PEPF000056BA.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CWLP123MB4084
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:02.5147051
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.011
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?utf-8?B?dUtVNytoSmcrZWVUd0ZsZWdjbndMWTZ6K2RyclloMUhiUGFlbUFNd3JLTUFm?=
+ =?utf-8?B?K2ZtSjJFK2NqamdZUDk4UE16dHc3d2U5SGhjcDVSNTl2RHZLYW93M2h1ZU1N?=
+ =?utf-8?B?Zk8rUzFxUC9ZeFppc3VvSmo4dnlZQzMxQXpJdWRka1pVUCt2Zm5TQ3c4Znky?=
+ =?utf-8?B?ZmJDR2RwUUxncTBaanRtaTVZaTRScEQxa0RHY1ZESFRhei84dS9uZnVKbmNR?=
+ =?utf-8?B?VVE3Vi8wUG0zUHZ2bHd0cE9RS1ZVWTVSYlA3WG56UWxTWFp3ZGdsWW9YaG9I?=
+ =?utf-8?B?N29DcDhrZDE3R2dCMkhtTVVDdENOTEEzYlpIclNCS1JweGVkd1N3cXYyWEc1?=
+ =?utf-8?B?VUxQeVJodjlpZVFxTVlUbTgvSGRyMlozTzR1d1NmdG5uQXQ3N3ZublV3T3pE?=
+ =?utf-8?B?cE5WK1kwL2taU3ZiNzJpQlE0R2I0TUtNZ2xJbGQ5NWFkelBKTmZFaXQxclJ3?=
+ =?utf-8?B?UHdQeW5McG9sQVhxaXJEcEUweGVpblpDNVBtcG03UmlNQjdlT09PcUNPVUxF?=
+ =?utf-8?B?d29VMUdFUzVia3VmTWp5bFUwaklKNE45UUtZelhRS1RiM0ZOckdoK003clNa?=
+ =?utf-8?B?NGJvb2MvSUNyWnd0aWlmTUZrWUU4UXB2Z1I5a3htUXh0Z29WR2xPYzdEY1k1?=
+ =?utf-8?B?cXl2OHd5MzM2aFVzcTJZUEFTQlpQaTV1M1Roc1NQS0xNKzRlbWdyckJXWCtY?=
+ =?utf-8?B?N2E3bmoxY05RMXYrZWRBS0lZL0pLU3IyUkc1cHdaK2U1eTNhSjYzSDBtTVJr?=
+ =?utf-8?B?ajR0bWhTVU95VU1uV2FmZzV3dkJBWG44VWRjUWprNUl4UGFBRHlONnVNWWtJ?=
+ =?utf-8?B?cU5LZWxDbFpPZURoOXhDZnl2cXBGU1hJMGFQMWZJcXVZQUhacnVGUW8xT2w5?=
+ =?utf-8?B?cDhxQUdablZ4dXhENC9RbGpDOGxObkFBUzZ0MWVwaEVZWVI0b2FIU3ZJV0Yy?=
+ =?utf-8?B?SmViU2ZjY2dVZ2k2NXl3RXgzVENjQVpjcUNuT1dmUThMWUxaK1BHWVFQbU1u?=
+ =?utf-8?B?aEIzRkN0Ykc0TWxNNy9RZEV4OHk3UFBJSlNmRzFFcWZGc2VJSGF5ajZUaEY5?=
+ =?utf-8?B?VHRjeTZzbkRGaDhNTDNRS0ZaK2N6Z2d1ZWxMbUJzdFQxL1FhVGlzdTBVbWFo?=
+ =?utf-8?B?MTk4WVAreXQ3V05LMVJwajFxc25aczdMdDJNSm82ckZyYU5xV1ZBcnEyR1NH?=
+ =?utf-8?B?T2s0aHNhRURvK29KYWlrWXI4d0lsR2hBUmZjdjJRVE1qVklHMG9GR0FKNDZh?=
+ =?utf-8?B?bE56ZUREKzhNbkVWVHRqTkI0eXF1cVJNQTVSWkdlSjlxbC94V0t1bW9HeUgz?=
+ =?utf-8?B?RmdJbHEzZWhJcTFkOGtzQ0dzWVF6K2hpVWp0cGt0bTdVRktGcW1wSDlzNVU5?=
+ =?utf-8?B?SGZYdXhVOEVwamsxNlhlWkFvWWVGV096Tlp2eGdZancwSUtYQ0NyNWlTQkhz?=
+ =?utf-8?B?a1A5UVRCUUhpblBEbHlCVG5kN1Y5eFFnKzNSR1lpMFN2cGdlM1hrZGQ2QTRO?=
+ =?utf-8?B?VlBrazJxSjBaaGIzNWxZSWZVUFBmNzhMb25LeUtyaDY3dklNbkFXNlBCNE5J?=
+ =?utf-8?B?dlV1SFFqdWh0czFObWFuTEl3bFJaN1Exc3BRS21OTDU3djd3WGIvQXplVTZY?=
+ =?utf-8?B?WmVJQ3o3eGVuN1FxSWFCcGUyMi9aQ0p1Y1U4aTF3OFpuckR0V0VVbFRJaFEx?=
+ =?utf-8?B?WjZpRlJ6OXR1UWU1SFJQSll3UEptS3hMN1RvOTBDNHVYZ1VxZUpoOGJjQ0ha?=
+ =?utf-8?B?N2FGTmRLZHdkQUxpVzkyZ1lXTWhxRERabU5qS3NlT2ppVFY2VDlyQVJka1pU?=
+ =?utf-8?B?UW1qMzkvVENUQ0E2N0trTWprR1VKZ2N4MUFYRnR3a1ZLOHdqbVJmSnI2eVhp?=
+ =?utf-8?B?Yi9SbFBBT084RnV3cnpJb09ITHRyM3ExYXR4MlV4VCtNK0haaC9nM096T2pr?=
+ =?utf-8?B?WkFLcHh3Q1VmRFluek41enJwei9KUFRMSnZHY0hwMUFFMHlHMG5vS1hMdFh4?=
+ =?utf-8?B?Z1VIZk84NW5zWFZoSjZ5MGVGcloxcG5CWk9mK0l6VzcyTFc2VXo2UXZxbHht?=
+ =?utf-8?B?SnBZSmRhNHltQjl6YWg1YUxiSTNDUFU4RFR0MFdIUWVYNW5jSjJBVm12TVVr?=
+ =?utf-8?B?cTRCcXd0dUhvSHpva1pPNTVUSktMWDU5RlBGMXM4YUhGTjduNlJ2a3NsaHVU?=
+ =?utf-8?B?bTdJbysybHRiY1gxeHVXODlIWXpNZ29vVnhTRlRma2pybThiMzdWU2hiS1lO?=
+ =?utf-8?B?MWU4Q2JseU1CdHFJQ2swQ3YxazdlRkorM2NKdFRhbjlyek4vSm9ta1lSUkZi?=
+ =?utf-8?B?dHNhS2xOVEZJc0ZMZkFtQzNvZzhPYkJWN2hCTUwvaFVOSGJGUDYzUGJKdk1Y?=
+ =?utf-8?B?WWFMTVJzR1kwTFVWVGtLZm5yWXJUQi83LzM5UkRCdTNLODRJQWt4L0EyOU1C?=
+ =?utf-8?B?UndKM081SXA3eXp0ekVoNnBhRGoyaHU4MWJrUzNUSGZuUENKbW9RYy95YjFn?=
+ =?utf-8?B?TmVDS1NGbHNnLzZDTlkrMzRjRVd5VzVZZ3NHRXdIM1NYdHJsbStNSkRQM0pw?=
+ =?utf-8?B?bHlteGt5T2tnUEpLdGdIVE1lU3F2NHVPZzNOQjVWUW5jcnRxQkUvT3VldnlS?=
+ =?utf-8?B?RGRNdlBsamxtN01jTVpGVjBVcEx0ZTZwNTVRK1lDd1ROWHJXVjlJekZWVXJ2?=
+ =?utf-8?B?eW5LSU9BUGs4VjFub3NLUmxEV01kcldZYVdGdEU2SDVzSGh5RnVSQWpmU3E2?=
+ =?utf-8?B?cDI1MW1FM0JuSWJmSTZXZlduRjFRTGM0Y3JxVmVHUlhjcXpzNW0zYW5HcnpB?=
+ =?utf-8?B?dGNoSEhiUlEyYnlDUEVQYzB5YmpzeldaVy9rZmovRGJvcWZNZkFQcFB2MHFD?=
+ =?utf-8?B?cmM2YVNZOHNkcGFtcVN2NVhYaDh2c3B0S3JGUjF2SDNuSmVLMVJJWHJrZ1R2?=
+ =?utf-8?B?ajJnbnBSeWk5S0hJa2pMbmNDbk1ZaUJ2QkRJVHppTEphaW5ETGFUZ29rOC9X?=
+ =?utf-8?B?d2NlM2diNEZUdmNRaFVLcDJ0cDBRaXZob1Vub2s3Y3htV01rWFVLaGpxWXdT?=
+ =?utf-8?Q?6dAV9cG/d5yCgIW8DVOLemAr49hxgn5Ro=3D?=
+MIME-Version: 1.0
+
+--_000_CWXP123MB3511B2CA838A6CA4C70A857AB3F02CWXP123MB3511GBRP_
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+URGENT possibly UNDRIVABLE
+
+Client would like a taxi but will take a normal car to get back on the road=
+ quickly.
+
+@ Collision - please can this be given priority once it lands from AX
+
+Sent from Outlook for iOS<https://aka.ms/o0ukef>
+
+Paul Mandy
+*** Please note our address is: Suite 303A The Pentagon Centre Washington S=
+treet Glasgow G3 8AZ ***
+  =20
+Switchboard: 0141 406 3324
+Email: P.Mandy@oakwoodscotland.co.uk
+ Registered: No SC552979
+ Registered Office: Suite 303A, The Pentagon Centre, Washington Street, Gla=
+sgow, G3 8AZ
+ Directors: Abbie Keech | Alastair Cameron
+Authorised and Regulated by the Law Society of Scotland number 53382
+ This email carries a disclaimer, a copy of which may be read at http://www=
+.oakwoodscotland.co.uk/email-disclaimer
+A copy of our privacy notice may be read at www.oakwoodscotland.co.uk/priva=
+cy-notice/
+________________________________
+From: Oakwood Solicitors - Introduction Notifications - Scottish RTA <enqui=
+ries@oakwoodsolicitors.co.uk>
+Sent: Tuesday, 07 July 2026 13:01:52
+To: Rob Crompton <r.crompton@oakwoodsolicitors.co.uk>; Paul Mandy <P.Mandy@=
+oakwoodscotland.co.uk>; John Murrey <j.murrey@oakwoodsolicitors.co.uk>
+Subject: New Scottish RTA Introduction Submitted - 16424 - Mr Farrukh Bhatt=
+i
+
+New Scottish RTA Introduction Submitted - 16424 - Mr Farrukh Bhatti
+
+
+
+Prospective Client
+User
+Paul Mandy
+Client Type
+Driver
+Client Name
+Mr Farrukh Bhatti
+Client Address
+1/2, 2 Sandiholes Street
+Glasgow
+., . PA1 2EQ
+Client Tel - Mobile
+07776480686
+Client Email Address
+farukfari@hotmail.com
+Client Vehicle Registration Number
+RV70 VYE
+Accident Details
+Accident Date
+06/07/2026
+Accident Time
+18:20
+Accident Location - Street Name(s)
+Kinning Park Road / Shield Road
+Accident Location - Town/City/Area
+Glasgow
+Accident Description
+Client waiting to turn right ( stationary )
+
+When the TP drove into the rear passenger side
+Police Details
+Reported To Police?
+Unknown
+Defendant Details
+Defendant - Name
+Mr David McNair
+Defendant - Tel - Mobile
+07950663384
+Defendant - Vehicle Registration Number
+SD22 PGX
+Passenger Details
+Number of Passengers
+3
+Passenger 1 Details
+Passenger 1 - Name
+Mrs Wishah Javaid
+Passenger 1 - Address
+1/2, 2 Sandiholes Street
+Glasgow
+., . PA1 2EQ
+Passenger 1 - Tel - Mobile
+07841620149
+Passenger 1 - Email Address
+wishahbhatti@gmail.com
+Passenger 2 Details
+Passenger 2 - Name
+Ms Anzish Bhatti
+Passenger 2 - Address
+1/2, 2 Sandiholes Street
+Glasgow
+., . PA1 2EQ
+Passenger 2 - Tel - Mobile
+07776480686
+Passenger 2 - Email Address
+farukfari@hotmail.com
+Passenger 3 Details
+Passenger 3 - Name
+Ms Fazeen Salad
+Passenger 3 - Address
+220 Carntynehall Road
+Glasgow
+., . G32 6HL
+Passenger 3 - Tel - Mobile
+07776480686
+Passenger 3 - Email Address
+farukfari@hotmail.com
+Other Details
+Any Other Details
+There was another child in the car Farrukh=E2=80=99s other daughter but is =
+only 16 months so no PI
+
+Fazeen 7/5/2016 is Farrukh=E2=80=99s niece so he will be lit friend already=
+ ok=E2=80=99d with his sister.
+
+Anzish 17/11/22
+Call Back Instructions
+Please call at 2pm today for PI as Farrukh will be with Wishah he is at wor=
+k at 3pm
+Source/Repairer
+Tradeston Performance
+Oakwood Handling Vehicle Damage?
+No
+Repairable or Total Loss
+N/A
+Vehicle Mobility
+N/A
+Engineer To Instruct
+N/A
+HIre Company
+Accident Exchange
+File & Image Upload
+
+  *   2793e734-c380-4230-be01-33a4405ac285.jpeg<https://www.dropbox.com/scl=
+/fi/72k2zkzkywiav0zg71z0e/2793e734-c380-4230-be01-33a4405ac285.jpeg?rlkey=3D=
+hq599ng8s6anl0zt9qu32nvdb&dl=3D0>
+  *   0b1519e8-74a3-4761-be16-84faf8de6d85.jpeg<https://www.dropbox.com/scl=
+/fi/cmitcmlrazdm67q6u11rk/0b1519e8-74a3-4761-be16-84faf8de6d85.jpeg?rlkey=3D=
+38k1dr2etab1081ukznwq4sl2&dl=3D0>
+  *   920f3074-ecf2-4046-9a30-5433e9df38e5.jpeg<https://www.dropbox.com/scl=
+/fi/99d44jozzpcuo5y5a54bl/920f3074-ecf2-4046-9a30-5433e9df38e5.jpeg?rlkey=3D=
+0bvwuyke7ay62o2uh6zaljewi&dl=3D0>
+  *   18746433-1ed1-40e9-b368-02f490414269.mov<https://www.dropbox.com/scl/=
+fi/6krz0ld0cr1kgazdmqer4/18746433-1ed1-40e9-b368-02f490414269.mov?rlkey=3Dx=
+6uyqg405hnuz1tb898fro87a&dl=3D0>
+  *   dc179b2d-7c98-453b-b9a7-782bfd70bf71.mov<https://www.dropbox.com/scl/=
+fi/cyaka22eqrbfyy7b9qp4v/dc179b2d-7c98-453b-b9a7-782bfd70bf71.mov?rlkey=3Dh=
+t8x8h40dis1fzq3kj8smrn5j&dl=3D0>
+  *   b385c087-ed5a-4403-9641-e843471a7074.mov<https://www.dropbox.com/scl/=
+fi/taivcwqdrq6mybgam5ais/b385c087-ed5a-4403-9641-e843471a7074.mov?rlkey=3Da=
+n6u55icn7ykb0zmpgho3adbd&dl=3D0>
+  *   db90d4d1-0f75-4dda-bb1b-ab316139ade2.mov<https://www.dropbox.com/scl/=
+fi/2c0r67i99cpuyn7ex7z3w/db90d4d1-0f75-4dda-bb1b-ab316139ade2.mov?rlkey=3D6=
+7nx3mdf0ys499az4iewxde77&dl=3D0>
+
+--_000_CWXP123MB3511B2CA838A6CA4C70A857AB3F02CWXP123MB3511GBRP_
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8">
+</head>
+<body>
+<div dir=3D"ltr" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-s=
+ystem, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0,=
+ 0, 0);">
+URGENT possibly UNDRIVABLE&nbsp;</div>
+<div dir=3D"ltr" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-s=
+ystem, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0,=
+ 0, 0);">
+<br>
+</div>
+<div dir=3D"ltr" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-s=
+ystem, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0,=
+ 0, 0);">
+Client would like a taxi but will take a normal car to get back on the road=
+ quickly.</div>
+<div dir=3D"ltr" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-s=
+ystem, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0,=
+ 0, 0);">
+<br>
+</div>
+<div dir=3D"ltr" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-s=
+ystem, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0,=
+ 0, 0);">
+@ Collision - please can this be given priority once it lands from AX</div>
+<div id=3D"ms-outlook-mobile-body-separator-line" data-applydefaultfontstyl=
+es=3D"true" style=3D"font-family: Aptos, Aptos_MSFontService, -apple-system=
+, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt;" dir=3D"ltr">
+<div style=3D"font-family: Aptos, Aptos_MSFontService, -apple-system, Robot=
+o, Arial, Helvetica, sans-serif; font-size: 12pt;" dir=3D"ltr">
+<br>
+</div>
+</div>
+<div style=3D"font-family: Aptos, Aptos_MSFontService, -apple-system, Robot=
+o, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);" id=
+=3D"ms-outlook-mobile-signature">
+<span style=3D"font-family: Aptos, Aptos_MSFontService, -apple-system, Robo=
+to, Arial, Helvetica, sans-serif; font-size: 12pt; color: rgb(0, 0, 0);">Se=
+nt from
+</span><span style=3D"font-family: Aptos, Aptos_MSFontService, -apple-syste=
+m, Roboto, Arial, Helvetica, sans-serif; font-size: 12pt;"><a href=3D"https=
+://aka.ms/o0ukef">Outlook for iOS</a></span></div>
+<div dir=3D"ltr" style=3D"mso-line-height-rule:exactly;-webkit-text-size-ad=
+just:100%;font-size:1px;direction:ltr;"><table dir=3D"ltr" role=3D"presenta=
+tion" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"width:100%;=
+direction:ltr;border-collapse:collapse;font-size:1px;"><tr style=3D"font-si=
+ze:0;"><td align=3D"left" style=3D"vertical-align:top;"><table role=3D"pres=
+entation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"width:4=
+50px;border-collapse:collapse;font-size:0;"><tr style=3D"font-size:0;"><td =
+align=3D"left" style=3D"padding:0;vertical-align:top;"><table role=3D"prese=
+ntation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"width:10=
+0%;border-collapse:collapse;font-size:0;"><tr style=3D"font-size:0;"><td al=
+ign=3D"left" style=3D"padding:0 0 10px;vertical-align:top;"><table role=3D"=
+presentation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"wid=
+th:450px;border-collapse:collapse;font-size:0;color:#000001;font-style:norm=
+al;font-weight:400;white-space:nowrap;"><tr style=3D"font-size:14.67px;"><t=
+d align=3D"left" style=3D"vertical-align:top;font-family:Calibri,Arial,sans=
+-serif;">Paul&nbsp;Mandy</td><td style=3D"font-size:0;"><span style=3D"font=
+-family:remialcxesans;font-size:1px;color:#FFFFFF;line-height:1px;">=E2=80=
+=8B<span style=3D"font-family:'template-Qx3-AKahEeu1ZigYeMM9KA';">=E2=80=8B=
+</span><span style=3D"font-family:'zone-1';">=E2=80=8B</span><span style=3D=
+"font-family:'zones-AQ';">=E2=80=8B</span></span></td></tr></table></td></t=
+r></table></td></tr><tr style=3D"font-size:0;"><td align=3D"left" style=3D"=
+padding:8px 0 0;vertical-align:top;"><table role=3D"presentation" cellpaddi=
+ng=3D"0" cellspacing=3D"0" border=3D"0" style=3D"width:100%;border-collapse=
+:collapse;font-size:0;"><tr style=3D"font-size:0;"><td align=3D"left" style=
+=3D"vertical-align:top;"><table role=3D"presentation" cellpadding=3D"0" cel=
+lspacing=3D"0" border=3D"0" style=3D"border-collapse:collapse;font-size:0;c=
+olor:#000001;font-style:normal;font-weight:700;white-space:nowrap;"><tr sty=
+le=3D"font-size:13px;"><td align=3D"left" style=3D"padding:0;border-style:s=
+olid;border-width:1px;border-color:#000001;vertical-align:top;font-family:A=
+rial;">***&nbsp;Please&nbsp;note&nbsp;our&nbsp;address&nbsp;is:&nbsp;<span =
+style=3D"background-color:transparent;">Suite&nbsp;303A&nbsp;The&nbsp;Penta=
+gon&nbsp;Centre&nbsp;Washington&nbsp;Street&nbsp;Glasgow&nbsp;G3&nbsp;8AZ&n=
+bsp;</span>***</td></tr></table></td></tr><tr style=3D"font-size:14.67px;co=
+lor:#000001;font-style:normal;font-weight:400;white-space:nowrap;"><td alig=
+n=3D"left" style=3D"vertical-align:top;font-family:Calibri,Arial,sans-serif=
+;">&nbsp;&nbsp;&nbsp;</td></tr><tr style=3D"font-size:0;"><td align=3D"left=
+" style=3D"vertical-align:top;"><table role=3D"presentation" cellpadding=3D=
+"0" cellspacing=3D"0" border=3D"0" style=3D"border-collapse:collapse;font-s=
+ize:0;"><tr style=3D"font-size:0;"><td align=3D"left" style=3D"padding:0 0 =
+10px;vertical-align:top;"><table role=3D"presentation" cellpadding=3D"0" ce=
+llspacing=3D"0" border=3D"0" style=3D"width:450px;border-collapse:collapse;=
+font-size:0;"><tr style=3D"font-size:0;"><td align=3D"left" style=3D"vertic=
+al-align:top;"><table role=3D"presentation" cellpadding=3D"0" cellspacing=
+=3D"0" border=3D"0" style=3D"border-collapse:collapse;font-size:0;"><tr sty=
+le=3D"font-size:0;"><td align=3D"left" style=3D"padding:0 0 0 2px;border-to=
+p:none;border-right:none;border-bottom:none;border-left:solid 2px #000001;v=
+ertical-align:top;"><table role=3D"presentation" cellpadding=3D"0" cellspac=
+ing=3D"0" border=3D"0" style=3D"width:200px;border-collapse:collapse;font-s=
+ize:0;color:#000001;font-style:normal;font-weight:400;white-space:nowrap;">=
+<tr style=3D"font-size:0;"><td align=3D"left" style=3D"padding:0 0 0 4px;ve=
+rtical-align:top;"></td><td align=3D"left" style=3D"padding:0;vertical-alig=
+n:top;"></td></tr><tr style=3D"font-size:14.67px;"><td align=3D"left" style=
+=3D"padding:0 0 0 4px;vertical-align:top;font-family:Calibri,Arial,sans-ser=
+if;">Switchboard:&nbsp;</td><td align=3D"left" style=3D"padding:0;vertical-=
+align:top;font-family:Calibri,Arial,sans-serif;">0141&nbsp;406&nbsp;3324</t=
+d></tr><tr style=3D"font-size:14.67px;"><td align=3D"left" style=3D"padding=
+:0 0 0 4px;vertical-align:top;font-family:Calibri,Arial,sans-serif;">Email:=
+&nbsp;</td><td align=3D"left" style=3D"padding:0;vertical-align:top;font-fa=
+mily:Calibri,Arial,sans-serif;"><a href=3D"mailto:P.Mandy@oakwoodscotland.c=
+o.uk" target=3D"_blank" id=3D"LPlnk689713" style=3D"text-decoration:none;co=
+lor:#000001;">P.Mandy@oakwoodscotland.co.uk</a></td></tr></table></td></tr>=
+</table></td></tr></table></td></tr></table></td></tr></table></td></tr><tr=
+ style=3D"font-size:0;"><td align=3D"left" style=3D"padding:8px 0 0;vertica=
+l-align:top;"></td></tr><tr style=3D"font-size:0;"><td align=3D"left" style=
+=3D"padding:8px 0 0;vertical-align:top;"><table role=3D"presentation" cellp=
+adding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"border-collapse:collap=
+se;font-size:0;"><tr style=3D"font-size:0;"><td align=3D"left" style=3D"pad=
+ding:0 0 0 2px;border-top:none;border-right:none;border-bottom:none;border-=
+left:solid 2px #000001;vertical-align:top;"><table role=3D"presentation" ce=
+llpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"white-space:nowrap;=
+color:#000001;font-size:14.67px;font-family:Calibri,Arial,sans-serif;font-w=
+eight:400;font-style:normal;text-align:left;width:250px;border-collapse:col=
+lapse;"><tr style=3D"font-size:10px;"><td style=3D"font-family:Arial,sans-s=
+erif;">&nbsp;Registered:&nbsp;No&nbsp;SC552979<br>&nbsp;Registered&nbsp;Off=
+ice:&nbsp;Suite&nbsp;303A,&nbsp;The&nbsp;Pentagon&nbsp;Centre,&nbsp;Washing=
+ton&nbsp;Street,&nbsp;Glasgow,&nbsp;<span style=3D"font-family:Arial;">G3&n=
+bsp;8AZ</span><br>&nbsp;Directors:&nbsp;Abbie&nbsp;Keech&nbsp;|&nbsp;Alasta=
+ir&nbsp;Cameron<br></td></tr></table></td></tr></table></td></tr><tr style=
+=3D"font-size:10px;color:#000001;font-style:normal;font-weight:400;white-sp=
+ace:normal;"><td align=3D"left" style=3D"padding:8px 0 0;vertical-align:top=
+;font-family:Arial,sans-serif;">Authorised&nbsp;and&nbsp;Regulated&nbsp;by&=
+nbsp;the&nbsp;Law&nbsp;Society&nbsp;of&nbsp;Scotland&nbsp;number&nbsp;53382=
+<br></td></tr><tr style=3D"font-size:0;"><td align=3D"left" style=3D"paddin=
+g:8px 0 0;vertical-align:top;"><table role=3D"presentation" cellpadding=3D"=
+0" cellspacing=3D"0" border=3D"0" style=3D"white-space:nowrap;color:#7A7979=
+;font-size:14.67px;font-family:Calibri,Arial,sans-serif;font-weight:400;fon=
+t-style:normal;text-align:left;width:450px;border-collapse:collapse;"><tr s=
+tyle=3D"font-size:9px;"><td style=3D"font-family:Arial;"><a href=3D"https:/=
+/oakwoodscotland.co.uk/privacy-notice/" target=3D"_blank" id=3D"LPlnk689713=
+" style=3D"text-decoration:none;color:#7A7979;">&nbsp;This&nbsp;email&nbsp;=
+carries&nbsp;a&nbsp;disclaimer,&nbsp;a&nbsp;copy&nbsp;of&nbsp;which&nbsp;ma=
+y&nbsp;be&nbsp;read&nbsp;at&nbsp;http://www.oakwoodscotland.co.uk/email-dis=
+claimer<br>A&nbsp;copy&nbsp;of&nbsp;our&nbsp;privacy&nbsp;notice&nbsp;may&n=
+bsp;be&nbsp;read&nbsp;at&nbsp;</a>www.oakwoodscotland.co.uk/privacy=E2=80=
+=91notice/<br></td></tr></table></td></tr><tr style=3D"font-size:0;"><td al=
+ign=3D"center" style=3D"padding:9px 0 0;vertical-align:top;"><table role=3D=
+"presentation" cellpadding=3D"0" cellspacing=3D"0" border=3D"0" style=3D"bo=
+rder-collapse:collapse;font-size:0;line-height:normal;"><tr style=3D"font-s=
+ize:0;"><td align=3D"center" style=3D"vertical-align:top;"><img src=3D"http=
+s://www.oakwoodsolicitors.co.uk/wp-content/uploads/2025/09/Oakwood-Scotland=
+-Email-Banner-2025-top-2.png" width=3D"800" border=3D"0" alt=3D"" style=3D"=
+width:800px;min-width:800px;max-width:800px;font-size:0;"></td></tr><tr sty=
+le=3D"font-size:0;"><td align=3D"left" style=3D"vertical-align:top;"><img s=
+rc=3D"https://oakwoodscotland.co.uk/wp-content/uploads/2026/06/Sig.png" wid=
+th=3D"800" border=3D"0" alt=3D"" style=3D"width:800px;min-width:800px;max-w=
+idth:800px;font-size:0;"></td></tr></table></td></tr></table></td></tr></ta=
+ble></div><hr style=3D"display:inline-block;width:98%" tabindex=3D"-1">
+<div id=3D"divRplyFwdMsg" dir=3D"ltr"><font face=3D"Calibri, sans-serif" st=
+yle=3D"font-size:11pt" color=3D"#000000"><b>From:</b> Oakwood Solicitors - =
+Introduction Notifications - Scottish RTA &lt;enquiries@oakwoodsolicitors.c=
+o.uk&gt;<br>
+<b>Sent:</b> Tuesday, 07 July 2026 13:01:52<br>
+<b>To:</b> Rob Crompton &lt;r.crompton@oakwoodsolicitors.co.uk&gt;; Paul Ma=
+ndy &lt;P.Mandy@oakwoodscotland.co.uk&gt;; John Murrey &lt;j.murrey@oakwood=
+solicitors.co.uk&gt;<br>
+<b>Subject:</b> New Scottish RTA Introduction Submitted - 16424 - Mr Farruk=
+h Bhatti</font>
+<div>&nbsp;</div>
+</div>
+<div>New Scottish RTA Introduction Submitted - 16424 - Mr Farrukh Bhatti<br=
+>
+<br>
+&nbsp;<br>
+<br>
+<table style=3D"width:99%; border:1px solid #eeeeee; border-collapse:collap=
+se; background-color:rgb(234,234,234)">
+<tbody style=3D"display:table-row-group; vertical-align:middle">
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Prospective Client</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>User</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Paul Mandy</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Type</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Driver</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Name</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Mr Farrukh Bhatti</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Address</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">1/2, 2 Sandiholes Street<br>
+Glasgow<br>
+., . PA1 2EQ</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Tel - Mobile</strong></font></t=
+d>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">07776480686</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Email Address</strong></font></=
+td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">farukfari@hotmail.com</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Client Vehicle Registration Number</st=
+rong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">RV70 VYE</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Accident Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Accident Date</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">06/07/2026</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Accident Time</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">18:20</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Accident Location - Street Name(s)</st=
+rong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Kinning Park Road / Shield Road</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Accident Location - Town/City/Area</st=
+rong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Glasgow</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Accident Description</strong></font></=
+td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Client waiting to turn right ( stationary )<br>
+<br>
+When the TP drove into the rear passenger side</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Police Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Reported To Police?</strong></font></t=
+d>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Unknown</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Defendant Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Defendant - Name</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Mr David McNair</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Defendant - Tel - Mobile</strong></fon=
+t></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">07950663384</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Defendant - Vehicle Registration Numbe=
+r</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">SD22 PGX</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Passenger Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Number of Passengers</strong></font></=
+td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">3</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Passenger 1 Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 1 - Name</strong></font></td=
+>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Mrs Wishah Javaid</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 1 - Address</strong></font><=
+/td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">1/2, 2 Sandiholes Street<br>
+Glasgow<br>
+., . PA1 2EQ</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 1 - Tel - Mobile</strong></f=
+ont></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">07841620149</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 1 - Email Address</strong></=
+font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">wishahbhatti@gmail.com</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Passenger 2 Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 2 - Name</strong></font></td=
+>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Ms Anzish Bhatti</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 2 - Address</strong></font><=
+/td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">1/2, 2 Sandiholes Street<br>
+Glasgow<br>
+., . PA1 2EQ</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 2 - Tel - Mobile</strong></f=
+ont></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">07776480686</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 2 - Email Address</strong></=
+font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">farukfari@hotmail.com</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Passenger 3 Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 3 - Name</strong></font></td=
+>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Ms Fazeen Salad</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 3 - Address</strong></font><=
+/td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">220 Carntynehall Road<br>
+Glasgow<br>
+., . G32 6HL</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 3 - Tel - Mobile</strong></f=
+ont></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">07776480686</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Passenger 3 - Email Address</strong></=
+font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">farukfari@hotmail.com</font></td>
+</tr>
+<tr style=3D"padding:5px; background-color:#eeeeee; border:none; color:rgb(=
+34,34,34); direction:ltr; display:table-row; height:25px; vertical-align:mi=
+ddle">
+<td style=3D"padding:5px; border-bottom:1px solid #cdcdcd; border-top:1px s=
+olid #cdcdcd">
+<font style=3D"font-family:sans-serif; font-size:12px; font-weight:bold"><s=
+trong>Other Details</strong></font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Any Other Details</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">There was another child in the car Farrukh=E2=80=99s other daug=
+hter but is only 16 months so no PI<br>
+<br>
+Fazeen 7/5/2016 is Farrukh=E2=80=99s niece so he will be lit friend already=
+ ok=E2=80=99d with his sister.<br>
+<br>
+Anzish 17/11/22</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Call Back Instructions</strong></font>=
+</td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Please call at 2pm today for PI as Farrukh will be with Wishah =
+he is at work at 3pm</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Source/Repairer</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Tradeston Performance</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Oakwood Handling Vehicle Damage?</stro=
+ng></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">No</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Repairable or Total Loss</strong></fon=
+t></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">N/A</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Vehicle Mobility</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">N/A</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>Engineer To Instruct</strong></font></=
+td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">N/A</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>HIre Company</strong></font></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">Accident Exchange</font></td>
+</tr>
+<tr style=3D"padding-left:5px; background-color:rgb(234,242,250); border:no=
+ne; color:rgb(34,34,34); direction:ltr; display:table-row; height:25px; ver=
+tical-align:middle">
+<td style=3D"padding-left:5px"><font style=3D"font-family:sans-serif; font-=
+size:12px; font-weight:bold"><strong>File &amp; Image Upload</strong></font=
+></td>
+</tr>
+<tr style=3D"display:table-row; direction:ltr; display:table-cell; vertical=
+-align:inherit; border:none; background-color:rgb(255,255,255); width:100%;=
+ padding:5px 5px 5px 25px">
+<td style=3D"padding-left:20px"><font style=3D"font-family:sans-serif; font=
+-size:12px">
+<ul>
+<li><a href=3D"https://www.dropbox.com/scl/fi/72k2zkzkywiav0zg71z0e/2793e73=
+4-c380-4230-be01-33a4405ac285.jpeg?rlkey=3Dhq599ng8s6anl0zt9qu32nvdb&amp;dl=
+=3D0" originalsrc=3D"https://www.dropbox.com/scl/fi/72k2zkzkywiav0zg71z0e/2=
+793e734-c380-4230-be01-33a4405ac285.jpeg?rlkey=3Dhq599ng8s6anl0zt9qu32nvdb&=
+amp;dl=3D0" target=3D"_blank" aria-label=3D"Click to view">2793e734-c380-42=
+30-be01-33a4405ac285.jpeg</a></li><li><a href=3D"https://www.dropbox.com/sc=
+l/fi/cmitcmlrazdm67q6u11rk/0b1519e8-74a3-4761-be16-84faf8de6d85.jpeg?rlkey=
+=3D38k1dr2etab1081ukznwq4sl2&amp;dl=3D0" originalsrc=3D"https://www.dropbox=
+.com/scl/fi/cmitcmlrazdm67q6u11rk/0b1519e8-74a3-4761-be16-84faf8de6d85.jpeg=
+?rlkey=3D38k1dr2etab1081ukznwq4sl2&amp;dl=3D0" target=3D"_blank" aria-label=
+=3D"Click to view">0b1519e8-74a3-4761-be16-84faf8de6d85.jpeg</a></li><li><a=
+ href=3D"https://www.dropbox.com/scl/fi/99d44jozzpcuo5y5a54bl/920f3074-ecf2=
+-4046-9a30-5433e9df38e5.jpeg?rlkey=3D0bvwuyke7ay62o2uh6zaljewi&amp;dl=3D0" =
+originalsrc=3D"https://www.dropbox.com/scl/fi/99d44jozzpcuo5y5a54bl/920f307=
+4-ecf2-4046-9a30-5433e9df38e5.jpeg?rlkey=3D0bvwuyke7ay62o2uh6zaljewi&amp;dl=
+=3D0" target=3D"_blank" aria-label=3D"Click to view">920f3074-ecf2-4046-9a3=
+0-5433e9df38e5.jpeg</a></li><li><a href=3D"https://www.dropbox.com/scl/fi/6=
+krz0ld0cr1kgazdmqer4/18746433-1ed1-40e9-b368-02f490414269.mov?rlkey=3Dx6uyq=
+g405hnuz1tb898fro87a&amp;dl=3D0" originalsrc=3D"https://www.dropbox.com/scl=
+/fi/6krz0ld0cr1kgazdmqer4/18746433-1ed1-40e9-b368-02f490414269.mov?rlkey=3D=
+x6uyqg405hnuz1tb898fro87a&amp;dl=3D0" target=3D"_blank" aria-label=3D"Click=
+ to view">18746433-1ed1-40e9-b368-02f490414269.mov</a></li><li><a href=3D"h=
+ttps://www.dropbox.com/scl/fi/cyaka22eqrbfyy7b9qp4v/dc179b2d-7c98-453b-b9a7=
+-782bfd70bf71.mov?rlkey=3Dht8x8h40dis1fzq3kj8smrn5j&amp;dl=3D0" originalsrc=
+=3D"https://www.dropbox.com/scl/fi/cyaka22eqrbfyy7b9qp4v/dc179b2d-7c98-453b=
+-b9a7-782bfd70bf71.mov?rlkey=3Dht8x8h40dis1fzq3kj8smrn5j&amp;dl=3D0" target=
+=3D"_blank" aria-label=3D"Click to view">dc179b2d-7c98-453b-b9a7-782bfd70bf=
+71.mov</a></li><li><a href=3D"https://www.dropbox.com/scl/fi/taivcwqdrq6myb=
+gam5ais/b385c087-ed5a-4403-9641-e843471a7074.mov?rlkey=3Dan6u55icn7ykb0zmpg=
+ho3adbd&amp;dl=3D0" originalsrc=3D"https://www.dropbox.com/scl/fi/taivcwqdr=
+q6mybgam5ais/b385c087-ed5a-4403-9641-e843471a7074.mov?rlkey=3Dan6u55icn7ykb=
+0zmpgho3adbd&amp;dl=3D0" target=3D"_blank" aria-label=3D"Click to view">b38=
+5c087-ed5a-4403-9641-e843471a7074.mov</a></li><li><a href=3D"https://www.dr=
+opbox.com/scl/fi/2c0r67i99cpuyn7ex7z3w/db90d4d1-0f75-4dda-bb1b-ab316139ade2=
+.mov?rlkey=3D67nx3mdf0ys499az4iewxde77&amp;dl=3D0" originalsrc=3D"https://w=
+ww.dropbox.com/scl/fi/2c0r67i99cpuyn7ex7z3w/db90d4d1-0f75-4dda-bb1b-ab31613=
+9ade2.mov?rlkey=3D67nx3mdf0ys499az4iewxde77&amp;dl=3D0" target=3D"_blank" a=
+ria-label=3D"Click to view">db90d4d1-0f75-4dda-bb1b-ab316139ade2.mov</a></l=
+i></ul>
+</font></td>
+</tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>
+
+--_000_CWXP123MB3511B2CA838A6CA4C70A857AB3F02CWXP123MB3511GBRP_--
