@@ -21,7 +21,7 @@ const reportMismatch = (message) => {
 if (lock.sourceRepository !== 'collisionengineers/collisionspike') {
   reportMismatch('Capture contract source repository is not canonical.');
 }
-if (lock.sourcePath !== 'api/openapi/capture.v1.yaml') {
+if (lock.sourcePath !== 'contracts/capture.v1.yaml') {
   reportMismatch('Capture contract source path is not canonical.');
 }
 if (lock.sourceCommit !== pendingCommit && !/^[0-9a-f]{40}$/.test(lock.sourceCommit)) {

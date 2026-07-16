@@ -73,7 +73,9 @@ describe('CaptureFlow submission', () => {
   const authorization: CaptureAuthorization = {
     sessionId: 'session-1',
     accessToken: 'memory-only-token',
-    accessTokenExpiresAt: '2026-07-14T12:00:00.000Z'
+    // Always in the future: a wall-clock literal here silently expires and
+    // reroutes authorizedFetch through renewal (the 2026-07-14 time bomb).
+    accessTokenExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString()
   };
   const api = {} as CaptureApi;
 
@@ -236,7 +238,9 @@ describe('CaptureApp upload-session closure', () => {
     const authorization: CaptureAuthorization = {
       sessionId: 'capture-session-demo',
       accessToken: 'memory-only-token',
-      accessTokenExpiresAt: '2026-07-14T12:00:00.000Z'
+      // Must outlive the renewal skew or getManifest renews first and consumes
+      // the mocked manifest response as an exchange payload.
+      accessTokenExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString()
     };
     const jsonResponse = (body: unknown): Response => new Response(JSON.stringify(body), {
       status: 200,

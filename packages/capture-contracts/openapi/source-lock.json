@@ -1,6 +1,6 @@
 {
   "sourceRepository": "collisionengineers/collisionspike",
-  "sourceCommit": "PENDING_COLLISIONSPIKE_SERVER_COMMIT",
-  "sourcePath": "api/openapi/capture.v1.yaml",
-  "specSha256": "6bdf1f66b63e9c55098dd8c884751a679df816ad36499b6c8b576724872ebd11"
+  "sourceCommit": "4af8878be0ec64e7dfe459a8610b59b78d01179c",
+  "sourcePath": "contracts/capture.v1.yaml",
+  "specSha256": "1b0537a72055a0673da38a402e47072b22ac0c8cac3c86e9c5b095d845a1ae17"
 }
