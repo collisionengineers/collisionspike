@@ -19,6 +19,12 @@ export interface FrameQualityAnalysis {
   signals: FrameQualitySignals;
   /** Reuse this value as `previousLuma` for the next frame. */
   currentLuma: Float32Array;
+  /**
+   * Fraction of pixels at or above the clipped-highlight luminance (0..1). Kept
+   * off {@link FrameQualitySignals} so the recorded observation contract is
+   * unchanged; feed it to {@link evaluateFrameQuality} for glare detection.
+   */
+  clippedHighlightFraction: number;
 }
 
 export interface QualityThresholds {
@@ -27,6 +33,13 @@ export interface QualityThresholds {
   minContrast: number;
   minSharpness: number;
   maxMotion: number;
+  /**
+   * Maximum fraction of near-white (clipped) pixels tolerated before the frame
+   * is treated as glared/over-exposed, independent of mean brightness. Specular
+   * highlights blow out registration plates and damage detail even when the
+   * average exposure looks fine, so this is a distinct check.
+   */
+  maxClippedHighlightFraction: number;
 }
 
 /**
@@ -41,8 +54,12 @@ export const DEFAULT_QUALITY_THRESHOLDS: Readonly<QualityThresholds> = Object.fr
   maxBrightness: 0.88,
   minContrast: 0.08,
   minSharpness: 0.025,
-  maxMotion: 0.08
+  maxMotion: 0.08,
+  maxClippedHighlightFraction: 0.06
 });
+
+/** Relative luminance at or above which a pixel counts as a blown-out highlight. */
+const CLIPPED_HIGHLIGHT_LUMA = 0.98;
 
 export type FrameQualityIssue =
   | 'too-dark'
@@ -86,6 +103,7 @@ export function analyseFrameQuality(
   let lumaSum = 0;
   let lumaSquaredSum = 0;
   let motionSum = 0;
+  let clippedHighlightCount = 0;
 
   for (let pixel = 0; pixel < pixelCount; pixel += 1) {
     const rgbaIndex = pixel * 4;
@@ -98,6 +116,9 @@ export function analyseFrameQuality(
     currentLuma[pixel] = luma;
     lumaSum += luma;
     lumaSquaredSum += luma * luma;
+    if (luma >= CLIPPED_HIGHLIGHT_LUMA) {
+      clippedHighlightCount += 1;
+    }
 
     if (previousLuma) {
       motionSum += Math.abs(luma - previousLuma[pixel]!);
@@ -134,20 +155,32 @@ export function analyseFrameQuality(
         neighbourComparisons === 0 ? 0 : neighbourDifferenceSum / neighbourComparisons,
       motion: previousLuma ? motionSum / pixelCount : 0
     },
-    currentLuma
+    currentLuma,
+    clippedHighlightFraction: clippedHighlightCount / pixelCount
   };
 }
 
-/** Return the single highest-priority instruction for the current frame. */
+/**
+ * Return the single highest-priority instruction for the current frame.
+ *
+ * `clippedHighlightFraction` (from {@link analyseFrameQuality}) is an optional
+ * glare/over-exposure signal: a frame with acceptable mean brightness but heavy
+ * specular clipping is still refused. It reuses the existing `too-bright` issue
+ * so the recorded observation contract is unchanged.
+ */
 export function evaluateFrameQuality(
   signals: FrameQualitySignals,
-  thresholds: Readonly<QualityThresholds> = DEFAULT_QUALITY_THRESHOLDS
+  thresholds: Readonly<QualityThresholds> = DEFAULT_QUALITY_THRESHOLDS,
+  clippedHighlightFraction = 0
 ): FrameQualityEvaluation {
   if (signals.brightness < thresholds.minBrightness) {
     return failure('too-dark', 'Move to a brighter position.');
   }
   if (signals.brightness > thresholds.maxBrightness) {
     return failure('too-bright', 'Move away from the bright light.');
+  }
+  if (clippedHighlightFraction > thresholds.maxClippedHighlightFraction) {
+    return failure('too-bright', 'Reduce glare — angle away from bright reflections.');
   }
   if (signals.motion > thresholds.maxMotion) {
     return failure('camera-moving', 'Hold the camera steady.');

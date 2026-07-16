@@ -7,7 +7,7 @@ import {
   analyseFrameQuality,
   containedMediaRect,
   evaluateFrameQuality,
-  insetRect,
+  framingGuideRect,
   type FrameQualityEvaluation,
   type FrameQualitySignals,
   type Rect,
@@ -38,6 +38,8 @@ export interface GuidedCameraProps {
   rulesVersion: string;
   shotLabel: string;
   prompt: string;
+  /** Per-shot framing key from the manifest's guidanceProfile; drives the guide shape. */
+  framing?: string | undefined;
   onAccept(file: File, observation: ClientCaptureObservation): void;
   onClose(): void;
   onFallback(): void;
@@ -48,6 +50,7 @@ export function GuidedCamera({
   rulesVersion,
   shotLabel,
   prompt,
+  framing,
   onAccept,
   onClose,
   onFallback
@@ -123,8 +126,8 @@ export function GuidedCamera({
       video.videoWidth,
       video.videoHeight
     );
-    setGuideRect(insetRect(visible, 0.07));
-  }, []);
+    setGuideRect(framingGuideRect(framing, visible));
+  }, [framing]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -207,7 +210,11 @@ export function GuidedCamera({
         );
         previousLumaRef.current = analysis.currentLuma;
 
-        const evaluation = evaluateFrameQuality(analysis.signals);
+        const evaluation = evaluateFrameQuality(
+          analysis.signals,
+          undefined,
+          analysis.clippedHighlightFraction
+        );
         const stability = advanceGuidanceStability(stabilityRef.current, evaluation);
         stabilityRef.current = stability;
         latestAssessmentRef.current = {

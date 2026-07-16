@@ -31,7 +31,7 @@ export function analyseFallbackPixels(
   };
   return {
     signals,
-    evaluation: evaluateFrameQuality(signals)
+    evaluation: evaluateFrameQuality(signals, undefined, analysed.clippedHighlightFraction)
   };
 }
 

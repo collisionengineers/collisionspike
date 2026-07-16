@@ -177,6 +177,7 @@ export function ShotCaptureCard({
           rulesVersion={manifest.rulesVersion}
           shotLabel={shot.label}
           prompt={shot.prompt}
+          framing={shot.guidanceProfile?.framing}
           onAccept={(file, observation) => {
             setCameraOpen(false);
             void upload(file, observation);

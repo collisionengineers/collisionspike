@@ -27,7 +27,8 @@ const thresholds: QualityThresholds = {
   maxBrightness: 0.8,
   minContrast: 0.1,
   minSharpness: 0.1,
-  maxMotion: 0.1
+  maxMotion: 0.1,
+  maxClippedHighlightFraction: 0.06
 };
 
 describe('analyseFrameQuality', () => {
@@ -42,7 +43,15 @@ describe('analyseFrameQuality', () => {
     expect(analysis.signals.contrast).toBeCloseTo(0.5);
     expect(analysis.signals.sharpness).toBeCloseTo(1);
     expect(analysis.signals.motion).toBe(0);
+    expect(analysis.clippedHighlightFraction).toBeCloseTo(0.5);
     expect([...analysis.currentLuma]).toEqual([0, 1]);
+  });
+
+  it('reports no clipped highlights for a mid-grey frame and full clipping for white', () => {
+    expect(analyseFrameQuality(rgba([128, 128, 128]), 1, 1).clippedHighlightFraction).toBe(0);
+    expect(
+      analyseFrameQuality(rgba([255, 255, 255], [255, 255, 255]), 2, 1).clippedHighlightFraction
+    ).toBe(1);
   });
 
   it('uses relative-luminance channel weighting', () => {
@@ -149,6 +158,20 @@ describe('evaluateFrameQuality', () => {
       instruction,
       passing: false
     });
+  });
+
+  it('flags glare from clipped highlights even when mean brightness passes', () => {
+    expect(
+      evaluateFrameQuality(passingSignals, thresholds, thresholds.maxClippedHighlightFraction + 0.01)
+    ).toEqual({
+      issue: 'too-bright',
+      instruction: 'Reduce glare — angle away from bright reflections.',
+      passing: false
+    });
+    // At or below the threshold the frame still passes.
+    expect(
+      evaluateFrameQuality(passingSignals, thresholds, thresholds.maxClippedHighlightFraction).passing
+    ).toBe(true);
   });
 
   it('uses deterministic issue priority when several checks fail', () => {

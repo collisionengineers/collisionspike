@@ -1,6 +1,6 @@
 {
   "sourceRepository": "collisionengineers/collisionspike",
-  "sourceCommit": "4af8878be0ec64e7dfe459a8610b59b78d01179c",
+  "sourceCommit": "2cfe5fd9a2f5a29f09fe7b8126699ccacf0ffe8f",
   "sourcePath": "contracts/capture.v1.yaml",
-  "specSha256": "1b0537a72055a0673da38a402e47072b22ac0c8cac3c86e9c5b095d845a1ae17"
+  "specSha256": "f01e94fb84094a12dba5001ad4d4c60d1f77799d60b950a8aed99ee0019c03bc"
 }
