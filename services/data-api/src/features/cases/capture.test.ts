@@ -1559,6 +1559,46 @@ describe('capture route foundation', () => {
     expect(response.jsonBody).toMatchObject({ caseReference, vehicleLabel });
   });
 
+  it('emits shaped per-shot guidance on the manifest and drops profile keys outside the contract', async () => {
+    db.query
+      .mockResolvedValueOnce([sessionRow()])
+      .mockResolvedValueOnce([{ case_ref: 'CASE-1', case_po: null, vrm: null, eva_vehicle_model: null }])
+      .mockResolvedValueOnce([
+        {
+          shot_id: 'overview', role: 'overview', evidence_role: 'overview', label: 'Vehicle overview',
+          prompt: 'Take the whole vehicle.', required: true, sequence: 10,
+          guidance_profile: { framing: 'whole_vehicle', registrationExpected: true, internalHint: 'drop-me' },
+        },
+        {
+          shot_id: 'damage', role: 'damage_closeup', evidence_role: 'damage_closeup', label: 'Damage',
+          prompt: 'Take the damage.', required: true, sequence: 20,
+          guidance_profile: { framing: 'damage_closeup' },
+        },
+        {
+          shot_id: 'mystery', role: 'additional', evidence_role: 'additional', label: 'Extra',
+          prompt: 'Take another photo.', required: false, sequence: 30,
+          guidance_profile: { registrationExpected: true },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await registrations.get('captureManifest')!.handler(
+      request({ params: { id: '11111111-1111-4111-8111-111111111111' } }),
+      ctx,
+    );
+
+    const shotsSql = String(db.query.mock.calls[2]?.[0]);
+    expect(shotsSql).toContain('guidance_profile');
+    const shots = (response.jsonBody as { shots: Array<Record<string, unknown>> }).shots;
+    // A known shot carries its framing; unknown profile keys are dropped for additionalProperties:false.
+    expect(shots[0]).toMatchObject({ id: 'overview' });
+    expect(shots[0]!.guidanceProfile).toEqual({ framing: 'whole_vehicle', registrationExpected: true });
+    // registrationExpected is optional and omitted when the profile does not set it.
+    expect(shots[1]!.guidanceProfile).toEqual({ framing: 'damage_closeup' });
+    // A profile without a valid framing is omitted so no guidance leaks to the client.
+    expect(shots[2]).not.toHaveProperty('guidanceProfile');
+  });
+
   it('prefers a selected asset, otherwise exposes the latest rejected or validating attempt safely', async () => {
     db.query
       .mockResolvedValueOnce([sessionRow()])

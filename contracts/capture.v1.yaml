@@ -665,8 +665,30 @@ components:
           type: integer
           minimum: 0
         guidanceProfile:
-          type: string
-          maxLength: 80
+          type: object
+          additionalProperties: false
+          description: >-
+            Optional per-shot capture guidance for the client. Describes how the
+            shot should be framed and whether the vehicle registration is
+            expected to be visible. Omitted when the shot carries no usable
+            guidance profile.
+          required: [framing]
+          properties:
+            framing:
+              type: string
+              enum:
+                - whole_vehicle
+                - damage_closeup
+                - damage_context
+                - front_left
+                - front_right
+                - rear_left
+                - rear_right
+                - vin
+                - odometer
+                - additional
+            registrationExpected:
+              type: boolean
 
     CaptureShotProgressStatus:
       type: string

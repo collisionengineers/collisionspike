@@ -54,6 +54,18 @@ const MAX_UPLOAD_RESERVATIONS_PER_SHOT = 8;
 const MAX_UPLOAD_RESERVATIONS_PER_SESSION = 60;
 const MAX_CLIENT_OBSERVATION_BYTES = 1024;
 const MAX_STABLE_FRAMES = 120;
+const CAPTURE_SHOT_FRAMINGS = new Set([
+  'whole_vehicle',
+  'damage_closeup',
+  'damage_context',
+  'front_left',
+  'front_right',
+  'rear_left',
+  'rear_right',
+  'vin',
+  'odometer',
+  'additional',
+]);
 const CLIENT_CAPTURE_ROUTES = ['guided', 'os_fallback'] as const;
 const CLIENT_CAPTURE_DISPOSITIONS = ['ready', 'take_anyway', 'unassessed'] as const;
 const CLIENT_CAPTURE_ISSUES = [
@@ -142,6 +154,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
   return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function clientGuidanceProfile(
+  raw: unknown,
+): { guidanceProfile: { framing: string; registrationExpected?: boolean } } | Record<string, never> {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return {};
+    }
+  }
+  if (!isRecord(value)) return {};
+  const framing = value.framing;
+  if (typeof framing !== 'string' || !CAPTURE_SHOT_FRAMINGS.has(framing)) return {};
+  return {
+    guidanceProfile: {
+      framing,
+      ...(typeof value.registrationExpected === 'boolean'
+        ? { registrationExpected: value.registrationExpected }
+        : {}),
+    },
+  };
 }
 
 function normalizedClientCaptureObservation(
@@ -923,9 +959,9 @@ app.http('captureManifest', {
     if (!cases[0]) throw new CaptureProblem(410, 'capture_missing', 'This capture session is no longer available.');
     const shots = await query<{
       shot_id: string; role: string; evidence_role: string; label: string; prompt: string;
-      required: boolean; sequence: number;
+      required: boolean; sequence: number; guidance_profile: unknown;
     }>(
-      `SELECT shot_id, role, evidence_role, label, prompt, required, sequence
+      `SELECT shot_id, role, evidence_role, label, prompt, required, sequence, guidance_profile
          FROM capture_session_shot WHERE session_id = $1 ORDER BY sequence`,
       [sessionId],
     );
@@ -978,6 +1014,7 @@ app.http('captureManifest', {
           prompt: shot.prompt,
           required: shot.required,
           sequence: shot.sequence,
+          ...clientGuidanceProfile(shot.guidance_profile),
         })),
         progress,
       },

@@ -253,7 +253,12 @@ export interface components {
             prompt: string;
             required: boolean;
             sequence: number;
-            guidanceProfile?: string;
+            /** @description Optional per-shot capture guidance for the client. Describes how the shot should be framed and whether the vehicle registration is expected to be visible. Omitted when the shot carries no usable guidance profile. */
+            guidanceProfile?: {
+                /** @enum {string} */
+                framing: "whole_vehicle" | "damage_closeup" | "damage_context" | "front_left" | "front_right" | "rear_left" | "rear_right" | "vin" | "odometer" | "additional";
+                registrationExpected?: boolean;
+            };
         };
         /** @enum {string} */
         CaptureShotProgressStatus: "empty" | "draft" | "queued" | "uploading" | "validating" | "accepted" | "pending_review" | "retryable" | "rejected";

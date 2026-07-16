@@ -142,3 +142,37 @@ describe('guided capture schema', () => {
     expect(constraints).not.toMatch(/p_capture_rate_limit_no_delete/u);
   });
 });
+
+describe('guided capture manifest contract', () => {
+  function contract(): string {
+    return readFileSync(
+      fileURLToPath(new URL('../../../../../contracts/capture.v1.yaml', import.meta.url)),
+      'utf8',
+    );
+  }
+
+  it('types per-shot guidanceProfile as an optional shaped object, not a free string', () => {
+    const document = contract();
+    const shot = document.slice(
+      document.indexOf('CaptureShotDefinition:'),
+      document.indexOf('CaptureShotProgressStatus:'),
+    );
+    // guidanceProfile stays optional: it is never added to the shot required list.
+    expect(shot).toContain('required: [id, role, evidenceRole, label, prompt, required, sequence]');
+    expect(shot).not.toMatch(/required:\s*\[[^\]]*guidanceProfile/u);
+    // It is a closed object now, no longer the old free-form string.
+    const guidance = shot.slice(shot.indexOf('guidanceProfile:'));
+    expect(guidance).toContain('type: object');
+    expect(guidance).toContain('additionalProperties: false');
+    expect(guidance).toContain('required: [framing]');
+    expect(guidance).not.toMatch(/guidanceProfile:\s*\n\s*type: string/u);
+    expect(guidance).toContain('registrationExpected:');
+    expect(guidance).toContain('type: boolean');
+    for (const framing of [
+      'whole_vehicle', 'damage_closeup', 'damage_context', 'front_left', 'front_right',
+      'rear_left', 'rear_right', 'vin', 'odometer', 'additional',
+    ]) {
+      expect(guidance).toContain(`- ${framing}`);
+    }
+  });
+});
