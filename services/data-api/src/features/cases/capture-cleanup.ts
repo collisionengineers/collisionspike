@@ -19,7 +19,6 @@ export interface CaptureCleanupResult {
   candidates: number;
   deleted: number;
   failed: number;
-  rateLimitWindowsPurged?: number;
 }
 
 interface CaptureCleanupCandidate extends Record<string, unknown> {
@@ -239,13 +238,6 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     [CLEANUP_BATCH_SIZE],
   )) ?? [];
 
-  let rateLimitWindowsPurged = 0;
-  try {
-    rateLimitWindowsPurged = await purgeStaleCaptureRateLimitWindows();
-  } catch {
-    ctx.warn('[capture-cleanup] rate-limit window purge failed');
-  }
-
   const result: CaptureCleanupResult = {
     enabled: true,
     expiredSessions: expired.length,
@@ -253,11 +245,25 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     candidates: candidates.length,
     deleted,
     failed,
-    rateLimitWindowsPurged,
   };
   // Aggregate-only operational evidence: no case/session/asset ids, filenames or paths.
   ctx.log('[capture-cleanup] completed', result);
   return result;
+}
+
+/**
+ * Purge stale rate-limit windows. Kept OUT of runCaptureCleanup's retention gate: the
+ * `capture_rate_limit` table is populated by public capture (PUBLIC_CAPTURE_ENABLED),
+ * which is independent of CAPTURE_CLEANUP_ENABLED, so its garbage collection must run
+ * whenever the timer fires or the table would grow unbounded while retention is off.
+ */
+export async function purgeCaptureRateLimit(ctx: InvocationContext): Promise<number> {
+  try {
+    return await purgeStaleCaptureRateLimitWindows();
+  } catch {
+    ctx.warn('[capture-cleanup] rate-limit window purge failed');
+    return 0;
+  }
 }
 
 app.timer('capture-retention-cleanup', {
@@ -268,5 +274,7 @@ app.timer('capture-retention-cleanup', {
     } catch {
       ctx.error('[capture-cleanup] timer failed');
     }
+    // Independent of the retention gate — see purgeCaptureRateLimit.
+    await purgeCaptureRateLimit(ctx);
   },
 });

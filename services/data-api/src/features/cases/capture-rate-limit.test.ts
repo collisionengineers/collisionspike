@@ -11,6 +11,7 @@ import {
   captureRateLimitResponse,
   configuredCaptureDecodeConcurrency,
   configuredCaptureRateLimit,
+  configuredTrustedProxyHops,
   consumeCaptureRateLimit,
   purgeStaleCaptureRateLimitWindows,
   sessionRateLimitResponse,
@@ -23,24 +24,45 @@ function request(headers: Record<string, string> = {}): HttpRequest {
 
 beforeEach(() => {
   db.query.mockReset();
+  delete process.env.CAPTURE_TRUSTED_PROXY_HOPS;
   for (const name of Object.keys(process.env)) {
     if (name.startsWith('CAPTURE_RATE_LIMIT_')) delete process.env[name];
   }
 });
 
 describe('capture rate limiting', () => {
-  it('uses only the first forwarded hop and normalizes ports and case', () => {
-    expect(captureCallerKey(request({ 'x-forwarded-for': '203.0.113.9' }))).toBe('203.0.113.9');
-    expect(captureCallerKey(request({ 'x-forwarded-for': '203.0.113.9:4711, 10.0.0.1' }))).toBe('203.0.113.9');
-    expect(captureCallerKey(request({ 'x-forwarded-for': '[2001:DB8::1]:443' }))).toBe('2001:db8::1');
-    expect(captureCallerKey(request({ 'x-forwarded-for': '2001:db8::2' }))).toBe('2001:db8::2');
+  it('prefers the platform X-Azure-SocketIP over any forwarded value', () => {
+    expect(captureCallerKey(request({
+      'x-azure-socketip': '198.51.100.7',
+      'x-forwarded-for': '203.0.113.9, 198.51.100.7',
+    }))).toBe('198.51.100.7');
+    expect(captureCallerKey(request({ 'x-azure-socketip': '[2001:DB8::5]:443' }))).toBe('2001:db8::5');
   });
 
-  it('degrades unusable forwarded values to the shared unknown bucket', () => {
+  it('keys on the trusted appended hop and IGNORES a spoofed leftmost X-Forwarded-For', () => {
+    // The trusted front end appends the real socket IP as the rightmost hop; the client
+    // controls the leftmost. Default trusted-proxy depth is 1 (direct-to-Functions).
+    expect(captureCallerKey(request({ 'x-forwarded-for': '203.0.113.9' }))).toBe('203.0.113.9');
+    expect(captureCallerKey(request({ 'x-forwarded-for': '9.9.9.9, 198.51.100.7' }))).toBe('198.51.100.7');
+    expect(captureCallerKey(request({ 'x-forwarded-for': 'spoofed-value, 198.51.100.7:5555' }))).toBe('198.51.100.7');
+  });
+
+  it('honours CAPTURE_TRUSTED_PROXY_HOPS for a deeper trusted ingress', () => {
+    process.env.CAPTURE_TRUSTED_PROXY_HOPS = '2';
+    // Two trusted proxies: client, real-client-as-seen-by-FD, FD-as-seen-by-app.
+    expect(captureCallerKey(request({ 'x-forwarded-for': 'spoof, 198.51.100.7, 10.0.0.1' }))).toBe('198.51.100.7');
+    expect(configuredTrustedProxyHops()).toBe(2);
+    expect(configuredTrustedProxyHops('0')).toBe(1);
+    expect(configuredTrustedProxyHops('99')).toBe(4);
+    expect(configuredTrustedProxyHops('nope')).toBe(1);
+  });
+
+  it('degrades unusable addresses to the shared unknown bucket', () => {
     expect(captureCallerKey(request())).toBe('unknown');
     expect(captureCallerKey(request({ 'x-forwarded-for': '' }))).toBe('unknown');
     expect(captureCallerKey(request({ 'x-forwarded-for': 'not an address!' }))).toBe('unknown');
     expect(captureCallerKey(request({ 'x-forwarded-for': 'a'.repeat(400) }))).toBe('unknown');
+    expect(captureCallerKey(request({ 'x-azure-socketip': 'garbage', 'x-forwarded-for': 'also bad' }))).toBe('unknown');
   });
 
   it('clamps configured limits into 1..600 and keeps per-scope defaults', () => {
@@ -63,6 +85,20 @@ describe('capture rate limiting', () => {
     expect(sql).toContain("date_trunc('minute', now())");
     expect(params[0]).toBe('exchange:203.0.113.9');
     expect(params[1]).toBe(10);
+  });
+
+  it('is the admission guard itself: the UPSERT only touches a row within the window or under budget', async () => {
+    // The WHERE clause is what enforces the cap — a stale window resets, otherwise the
+    // update happens only while request_count < limit, so an over-budget conflict returns
+    // zero rows. Pinning the exact predicate keeps that guard from silently regressing;
+    // its live behaviour is separately proven by the offline boundary round trip.
+    db.query.mockResolvedValueOnce([{ request_count: 1 }]);
+    await consumeCaptureRateLimit('submit', 'session-1');
+    const [sql] = db.query.mock.calls[0] as [string];
+    const whereClause = sql.slice(sql.lastIndexOf('WHERE'));
+    expect(whereClause).toContain("capture_rate_limit.window_started_at < date_trunc('minute', now())");
+    expect(whereClause).toContain('capture_rate_limit.request_count < $2');
+    expect(whereClause).toMatch(/window_started_at < date_trunc\('minute', now\(\)\)\s*\n?\s*OR\s+capture_rate_limit\.request_count < \$2/u);
   });
 
   it('reports a spent budget when the guarded UPSERT matches no row', async () => {

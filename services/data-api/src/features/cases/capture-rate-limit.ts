@@ -14,8 +14,14 @@
  *    AFTER bearer verification, so an attacker cannot burn a victim session's budget by
  *    spraying its public session id without a valid token.
  *
- * Caller identity is the first `x-forwarded-for` hop (set by the fronting SWA/App Service
- * platform). Requests with no forwarded address share the conservative 'unknown' bucket.
+ * Caller identity comes from a hop the Azure edge controls, NOT a client-settable one.
+ * `X-Forwarded-For` is APPENDED by each proxy (the trusted front end adds the real socket
+ * IP as the RIGHTMOST hop), so the leftmost value is whatever the client sent and must
+ * never be trusted. We prefer `X-Azure-SocketIP` (the App Service / Functions front end
+ * sets it to the real TCP peer) and otherwise take the hop the trusted layer appended,
+ * `CAPTURE_TRUSTED_PROXY_HOPS` positions from the right (default 1 = direct-to-Functions;
+ * raise for an SWA-linked or Front Door ingress). Requests with no usable address share
+ * the conservative 'unknown' bucket.
  */
 
 import type { HttpRequest, HttpResponseInit } from '@azure/functions';
@@ -58,17 +64,39 @@ export function configuredCaptureRateLimit(scope: CaptureRateScope): number {
   return Number.isFinite(configured) ? Math.min(600, Math.max(1, Math.trunc(configured))) : fallback;
 }
 
+/** Bounded, log-safe scrub of one address token: strip a :port / [v6]:port wrapper. */
+function scrubAddress(value: string | undefined): string | undefined {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) return undefined;
+  const withoutPort = /^\[/.test(trimmed)
+    ? trimmed.replace(/^\[([^\]]+)\].*$/u, '$1')
+    : /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/u.exec(trimmed)?.[1] ?? trimmed;
+  const candidate = withoutPort.toLowerCase();
+  return /^[0-9a-f.:]{3,64}$/u.test(candidate) ? candidate : undefined;
+}
+
+/** How many trusted proxies append to X-Forwarded-For; the appended hop is counted from the right. */
+export function configuredTrustedProxyHops(value = process.env.CAPTURE_TRUSTED_PROXY_HOPS): number {
+  const configured = Number(value ?? 1);
+  return Number.isFinite(configured) ? Math.min(4, Math.max(1, Math.trunc(configured))) : 1;
+}
+
 /**
- * Bounded, log-safe caller key. Only the first forwarded hop counts — later hops are
- * appended by intermediaries and would let a caller choose its own bucket.
+ * Spoof-resistant caller key. The client controls the leftmost X-Forwarded-For hop, so
+ * we never key on it: prefer the platform-set `X-Azure-SocketIP`, else the hop the
+ * trusted layer appended (from the right, per CAPTURE_TRUSTED_PROXY_HOPS). Unusable /
+ * absent addresses share the 'unknown' bucket.
  */
 export function captureCallerKey(req: HttpRequest): string {
-  const forwarded = (req.headers.get('x-forwarded-for') ?? '').split(',')[0]?.trim() ?? '';
-  const withoutPort = /^\[/.test(forwarded)
-    ? forwarded.replace(/^\[([^\]]+)\].*$/u, '$1')
-    : /^(\d{1,3}(?:\.\d{1,3}){3}):\d+$/u.exec(forwarded)?.[1] ?? forwarded;
-  const candidate = withoutPort.toLowerCase();
-  return /^[0-9a-f.:]{3,64}$/u.test(candidate) ? candidate : 'unknown';
+  const socketIp = scrubAddress(req.headers.get('x-azure-socketip') ?? undefined);
+  if (socketIp) return socketIp;
+  const hops = (req.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => scrubAddress(hop))
+    .filter((hop): hop is string => hop !== undefined);
+  if (!hops.length) return 'unknown';
+  const index = Math.max(0, hops.length - configuredTrustedProxyHops());
+  return hops[index] ?? 'unknown';
 }
 
 /**
