@@ -95791,8 +95791,8 @@
     {
       "path": "scripts/checks/check-repository-layout.mjs",
       "kind": "file",
-      "size": 3273,
-      "sha256": "a1f301ec29e1e8d67fb5abfba994924767c091c159774b68de0a2656b5359ffd",
+      "size": 3289,
+      "sha256": "c310a6b99a095bac732c1bfdd0a906b9c2b46eb0bbeb24f3238508ae5c89b2d8",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",
