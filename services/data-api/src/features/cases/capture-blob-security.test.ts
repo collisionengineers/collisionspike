@@ -24,6 +24,9 @@ describe('capture blob security boundary', () => {
 
   it('bounds staging downloads and promotes validated bytes outside the SAS path immutably', () => {
     expect(source).toContain('downloadToBuffer(0, maxBytes + 1)');
+    // The emulator 416-fallback must stay allocation-bounded too.
+    expect(source).toContain('Math.min(properties.contentLength ?? 0, maxBytes + 1)');
+    expect(source).toContain('.statusCode !== 416) throw error');
     expect(source).toContain('capture-validated/');
     expect(source).toContain("conditions: { ifNoneMatch: '*' }");
     expect(source).toContain('storageError.statusCode === 412');

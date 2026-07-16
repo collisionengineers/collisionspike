@@ -251,7 +251,18 @@ export async function getCaptureBlobProperties(blobPath: string): Promise<Captur
 export async function downloadCaptureBlobBytes(blobPath: string, maxBytes: number): Promise<Buffer> {
   const { service } = captureBlobBackend();
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
-  return block.downloadToBuffer(0, maxBytes + 1);
+  try {
+    return await block.downloadToBuffer(0, maxBytes + 1);
+  } catch (error) {
+    // Azure tolerates a range that overshoots the blob's end; the local emulator
+    // answers 416 InvalidRange. Retry with the advertised length, still capped at
+    // maxBytes + 1 so untrusted content can never allocate an unbounded buffer.
+    if ((error as { statusCode?: number }).statusCode !== 416) throw error;
+    const properties = await block.getProperties();
+    const bounded = Math.min(properties.contentLength ?? 0, maxBytes + 1);
+    if (bounded <= 0) throw error;
+    return await block.downloadToBuffer(0, bounded);
+  }
 }
 
 /**
