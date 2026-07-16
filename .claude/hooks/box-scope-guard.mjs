@@ -106,12 +106,20 @@ async function main() {
 
     const bad = [...a.ids].filter((id) => !allowed.has(id));
     if (bad.length) {
-      deny(
-        `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
-          `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s).\n` +
-          `  A child created under the root is tracked automatically right after creation.\n` +
-          `  Production work requires TKT-178's separate signed-run exact-object executor.`,
-      );
+      // Operator decision 2026-07-16: ids in readOnlyRoots (the production archive root)
+      // are additionally allowed for READ-ONLY operations — and only when the WHOLE
+      // command classifies as a read (fail-closed classifier in box-scope-lib.mjs).
+      const readOnlyRoots = new Set(cfg.readOnlyRoots);
+      const allBadAreReadOnlyRoots = bad.every((id) => readOnlyRoots.has(id));
+      if (!(allBadAreReadOnlyRoots && lib.isReadOnlyBoxCommand(cmd))) {
+        deny(
+          `Box id(s) [${bad.join(', ')}] are outside the test folder ${root}.\n` +
+            `  In scope: root ${root} + ${cfg.allowedIds.length} tracked descendant id(s) (read+write),\n` +
+            `  plus READ-ONLY access to [${cfg.readOnlyRoots.join(', ') || 'none'}] (archive roots — get/list/items/download only).\n` +
+            `  A child created under the test root is tracked automatically right after creation.\n` +
+            `  Production writes require TKT-178's separate signed-run exact-object executor.`,
+        );
+      }
     }
 
     if (a.webhookCreate) {
