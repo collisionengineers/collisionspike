@@ -168,16 +168,26 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
       name: 'boxFolderCreateOrchestrator',
       input: { caseId: 'case-retro' },
     });
+    // TKT-220 (G3) — the freshly ensured WRITABLE folder gets the case's evidence mirrored.
     expect(nextTask(generator, {
       folderId: 'pinned-test-folder',
       providerRecoveryCompleted: true,
-    })).toMatchObject({
+    })).toMatchObject({ name: 'boxArchiveEvidence', input: { caseId: 'case-retro' } });
+    expect(nextTask(generator, undefined)).toMatchObject({
       kind: 'activity',
       name: 'statusEvaluate',
       input: { caseId: 'case-retro' },
     });
 
-    expect(generator.next({ value: 'not_ready' })).toEqual({
+    // TKT-222 — every successful reconstruction backfills related mailbox emails.
+    expect(nextTask(generator, { value: 'not_ready' })).toMatchObject({
+      name: 'retroLinkRelated',
+      input: expect.objectContaining({
+        caseId: 'case-retro',
+        excludeInternetMessageIds: ['<trigger@example.test>', '<original@example.test>'],
+      }),
+    });
+    expect(generator.next({ linked: 2, scanned: 5 })).toEqual({
       done: true,
       value: {
         outcome: 'created',
@@ -255,8 +265,9 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
     nextTask(generator, undefined); // extractImages
     // NO boxFolderCreate — the ARCHIVE folder was stamped in the create.
     expect(nextTask(generator, undefined)).toMatchObject({ name: 'statusEvaluate' });
+    expect(nextTask(generator, undefined)).toMatchObject({ name: 'retroLinkRelated' });
 
-    expect(generator.next(undefined)).toEqual({
+    expect(generator.next({ linked: 0, scanned: 0 })).toEqual({
       done: true,
       value: {
         outcome: 'created',
@@ -332,7 +343,8 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
     }); // classifyPersist
     nextTask(generator, undefined); // extractImages
     expect(nextTask(generator, undefined)).toMatchObject({ name: 'statusEvaluate' });
-    expect(generator.next(undefined)).toEqual({
+    expect(nextTask(generator, undefined)).toMatchObject({ name: 'retroLinkRelated' });
+    expect(generator.next({ linked: 1, scanned: 3 })).toEqual({
       done: true,
       value: {
         outcome: 'created',

@@ -83,6 +83,10 @@ interface RetroParseResult {
   vrm?: { value?: string };
   reference?: { value?: string };
   extraction?: Record<string, { value?: string } | undefined>;
+  /** TKT-220 (G5) — the instructing provider resolved across ALL parsed docs
+   *  (parse.ts resolveWorkProviderAcrossDocs); preferred over the chosen envelope's
+   *  extraction exactly as live intake does. */
+  resolvedWorkProvider?: string;
   skipped?: boolean;
 }
 
@@ -102,7 +106,10 @@ export function mapRetroParse(
 } {
   const ex = parseResult.extraction ?? {};
   const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
-  const exWorkProvider = exVal('work_provider');
+  // TKT-220 (G5) — mirror intake exactly: prefer the cross-document resolved provider (an
+  // audit-shaped reconstruction's chosen envelope may be the EVA report whose own
+  // extraction.work_provider is blank); fall back to the chosen envelope's value.
+  const exWorkProvider = (parseResult.resolvedWorkProvider ?? '').trim() || exVal('work_provider');
   const claimantInputs = resolveClaimantInputs(
     exVal('claimant_name'),
     supplementClaimantNameFromBody(bodyText),
@@ -236,6 +243,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
 
   let trigger = input.trigger;
   let category = input.category;
+  let subtype = input.subtype;
   let keys = input.keys;
   let providerId = input.providerId;
   let providerPrincipal = input.providerPrincipal;
@@ -298,6 +306,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       matchState: provider.matchState,
     })) as InboundClassification;
     category = classification.category;
+    // TKT-220 — the drain re-classifies live; carry the subtype so decideCaseType keeps its
+    // classifier corroboration exactly as an intake-path run does.
+    subtype = classification.subtype;
 
     // Pure over checkpointed values (replay-safe — the decideCaseType/triage-assist
     // convention). No linkReplyOutcome here: the reply lane never ran on this path; the
@@ -337,7 +348,37 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   })) as { skipped?: string; outcome?: string; caseId?: string; candidateCount?: number };
   if (resolved.skipped) return { outcome: 'skipped', reason: resolved.skipped };
   if (resolved.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
-  if (resolved.outcome === 'linked') return { outcome: 'linked', caseId: resolved.caseId };
+  if (resolved.outcome === 'linked' && resolved.caseId) {
+    // TKT-220 (G7) — a rung-1 link now gets the linked-reply lane's record-keeping too:
+    // the trigger's own attachments become evidence and status realigns (all best-effort;
+    // boxArchiveEvidence stays deliberately absent — a retro-linked case's archive folder
+    // may be under the read-only roots, which refuse uploads by design).
+    const trig = trigger as InboundEnvelope;
+    if (Array.isArray(trig.attachments)) {
+      try {
+        yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+          caseId: resolved.caseId,
+          inbound: trig,
+          ...(searchKeys.vrm ? { caseVrm: searchKeys.vrm } : {}),
+          ...(providerId ? { workProviderId: providerId } : {}),
+        });
+        yield ctx.df.callActivityWithRetry('extractImages', retry, {
+          caseId: resolved.caseId,
+          messageId: trig.messageId,
+          attachments: trig.attachments,
+          ...(searchKeys.vrm ? { caseVrm: searchKeys.vrm } : {}),
+          ...(providerId ? { workProviderId: providerId } : {}),
+          ...(providerPrincipal ? { providerPrincipal } : {}),
+        });
+        yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: resolved.caseId });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[retro] rung-1 link record-keeping failed (additive, non-blocking): ${String(e)}`);
+        }
+      }
+    }
+    return { outcome: 'linked', caseId: resolved.caseId };
+  }
   if (resolved.outcome === 'ambiguous') {
     return { outcome: 'ambiguous', candidateCount: resolved.candidateCount };
   }
@@ -529,12 +570,44 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
           `Provider identity is ready but the Archive folder is still pending for retro case ${caseId}`,
         );
       }
+      // TKT-220 (G3) — the folder just ensured is WRITABLE (created under the pinned root,
+      // unlike the read-only archive of the Box/combined arms), so mirror the linked-reply
+      // lane and archive the case's evidence into it (best-effort).
+      try {
+        yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[retro] boxArchiveEvidence failed (additive, non-blocking): ${String(e)}`);
+        }
+      }
     }
     try {
       yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId });
     } catch (e) {
       if (!ctx.df.isReplaying) {
         ctx.log(`[retro] statusEvaluate failed (additive, non-blocking): ${String(e)}`);
+      }
+    }
+    // TKT-222 (operator directive 2026-07-16) — reconstructing the original is not the whole
+    // job: link EVERY related mailbox email for this case's keys (replies, chasers, our own
+    // sent responses), bounded and corroborated, never re-pointing an email linked elsewhere.
+    // Best-effort: a backfill hiccup never unwinds the created/linked case.
+    try {
+      const excludeInternetMessageIds = [
+        (trigger as { internetMessageId?: string }).internetMessageId,
+        args.original.internetMessageId,
+      ].filter((v): v is string => Boolean(v));
+      const linked = (yield ctx.df.callActivityWithRetry('retroLinkRelated', retry, {
+        caseId,
+        keys: searchKeys,
+        excludeInternetMessageIds,
+      })) as { skipped?: string; linked?: number; scanned?: number };
+      if (!ctx.df.isReplaying && !linked.skipped) {
+        ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked: linked.linked, scanned: linked.scanned }));
+      }
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[retro] retroLinkRelated failed (additive, non-blocking): ${String(e)}`);
       }
     }
     return providerRecoveryOut;
@@ -715,7 +788,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       parserAudit: (prep.parseResult as {
         audit?: { value?: boolean; signals?: string[] };
       }).audit,
-      classifierSubtype: input.subtype,
+      classifierSubtype: subtype,
     });
     const boxIdentity = withBoxIdentity && located.folder && located.discoveredPo;
     // The archive marker stays ground truth when the Box identity is in play (ADR-0021/0022).
@@ -873,7 +946,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         parserAudit: (parseResult as {
           audit?: { value?: boolean; signals?: string[] };
         }).audit,
-        classifierSubtype: input.subtype,
+        classifierSubtype: subtype,
       });
       const caseType = located.marker ? markerToCaseType(located.marker) : contentType.caseType;
       const caseTypeSignals = located.marker
@@ -899,11 +972,13 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         reconstructionSource: effectiveSource,
         providerId,
         intermediary,
-        parserVrm,
-        parserRef,
-        parserMileage,
-        parserMileageUnit,
-        parserEva,
+        // TKT-220 — a contradicted corroboration means the picked folder's material is
+        // suspect: the demoted Held anchor must not carry its parsed fields either.
+        parserVrm: contradicted ? '' : parserVrm,
+        parserRef: contradicted ? '' : parserRef,
+        parserMileage: contradicted ? '' : parserMileage,
+        parserMileageUnit: contradicted ? '' : parserMileageUnit,
+        parserEva: contradicted ? undefined : parserEva,
         caseType,
         caseTypeSignals: [
           ...caseTypeSignals,

@@ -224,6 +224,70 @@ app.http('internalRetroResolveExisting', {
 });
 
 /* ============================================================
+   POST /api/internal/retro/link-related  (TKT-222)
+   ============================================================ */
+app.http('internalRetroLinkRelated', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/retro/link-related',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      if (!gates.retroCase()) {
+        return { status: 200, jsonBody: { outcome: 'gated_off', linked: 0, skipped: 0 } };
+      }
+      const body = (await req.json()) as { caseId?: string; rows?: InboundEnvelope[] };
+      const caseId = (body.caseId ?? '').trim();
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!caseId || rows.length === 0) {
+        return { status: 400, jsonBody: { error: 'invalid_body', message: 'caseId and rows[] required' } };
+      }
+      let linked = 0;
+      let skipped = 0;
+      for (const row of rows.slice(0, 50)) {
+        const imid = (row?.internetMessageId ?? '').trim();
+        if (!imid) {
+          skipped++;
+          continue;
+        }
+        // NEVER RE-POINT: a row already linked anywhere (this case included — idempotent
+        // replays) is left alone.
+        const existing = await currentInboundCaseId(imid);
+        if (existing) {
+          skipped++;
+          continue;
+        }
+        await upsertInboundEmail(
+          row,
+          null,
+          caseId,
+          {
+            category: 'case_update',
+            subtype: 'retro_related',
+            confidence: 0,
+            signals: ['retro_related_linked'],
+            bodyVrm: '',
+            bodyCaseref: '',
+            bodyJobref: '',
+          },
+          undefined,
+          'routed',
+        );
+        linked++;
+      }
+      if (linked > 0) {
+        await writeAudit({
+          action: AUDIT_ACTION.retro_case_linked,
+          caseId,
+          summary: `Retro: ${linked} related email(s) linked from mailbox history`,
+          after: { linked, skipped, seam: 'retro/link-related' },
+        });
+      }
+      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked, skipped }));
+      return { status: 200, jsonBody: { linked, skipped } };
+    }),
+});
+
+/* ============================================================
    POST /api/internal/retro/create
    ============================================================ */
 app.http('internalRetroCreate', {

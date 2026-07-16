@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1002,
-    "files": 3295,
-    "entries": 4297
+    "directories": 1008,
+    "files": 3313,
+    "entries": 4321
   },
-  "totalFileBytes": 701606174,
+  "totalFileBytes": 701713045,
   "entries": [
     {
       "path": ".",
@@ -2036,6 +2036,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/backlog/TKT-220-retro-intake-parity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-222-retro-link-related-emails",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/blocked",
       "mediaType": "inode/directory",
       "size": 0,
@@ -4007,6 +4025,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5196,6 +5223,33 @@
     },
     {
       "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -11173,8 +11227,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 4688,
-      "sha256": "9ad8670fcf62fa8a857929ab80df82936831c15a3152d884016065aa06e44b6a",
+      "size": 5910,
+      "sha256": "3e2778e0c951dcbd45f700b759b2e36695ecae90a0cb5cd4b182468e64b1c46d",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -14027,7 +14081,7 @@
       "path": "docs/adr/0002-vrm-open-case-correlation.md",
       "mediaType": "text/markdown",
       "size": 838,
-      "sha256": "21aab6b21a49ff817d5485895b901e52d1eff41d8bd9aac2696ab2b294ec0048",
+      "sha256": "20ab161477029f4986df43cc0fe4a8ca563fcc8ff78c0960cd133f0b5aab8686",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14206,8 +14260,8 @@
     {
       "path": "docs/adr/0022-retroactive-case-reconstruction.md",
       "mediaType": "text/markdown",
-      "size": 1314,
-      "sha256": "eef2c89739518a4d2e940d839ee5e2709b01eb53ce286d4d2915f7ea627b72b9",
+      "size": 3857,
+      "sha256": "e2cfd65b2203e575e1b48fa1739789afed47aaeb83a90e7bbf7c65c396f59762",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14422,7 +14476,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1343225,
+      "size": 1350766,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -14890,8 +14944,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 38063,
-      "sha256": "c52b16cad2f23033400a02c255bee46ae2bfdc320dd7f7669bc9864907c27986",
+      "size": 39130,
+      "sha256": "47f7c483801d150dda9376f3fb749c296dcdee8f412be70151f4b26eb39157c7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -14899,8 +14953,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 40156,
-      "sha256": "cf920b85e0f10267af8b7c53d5f63718db15f7b8a8c3d01edc39e7a5c29126ba",
+      "size": 41220,
+      "sha256": "841ba524f86dc66f4db2f50090bdae147639713dc830906d384d86d3f5c892f9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16454,6 +16508,60 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/backlog/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md",
+      "mediaType": "text/markdown",
+      "size": 2944,
+      "sha256": "dc0ff88a09a253756026c515a88e428f18e2bef65038b7f2f7e827e195ab4e2f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-220-retro-intake-parity/changes.md",
+      "mediaType": "text/markdown",
+      "size": 78,
+      "sha256": "3b74ab2b7905c885692e38d3e8180340b49aef1d6bda3f3ed900ba76b05dc673",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-220-retro-intake-parity/verification.md",
+      "mediaType": "text/markdown",
+      "size": 80,
+      "sha256": "d8cbc4767cea4bd7e49cd073629d9ce89f896308be5e9be341fa26f1d8fae6bc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md",
+      "mediaType": "text/markdown",
+      "size": 3182,
+      "sha256": "312e416e262db5c744f91483e3c8caf45f2e67965957aca32be81000eff068ca",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-222-retro-link-related-emails/changes.md",
+      "mediaType": "text/markdown",
+      "size": 84,
+      "sha256": "8827620842bb3831526afbf965c7273594f69672faa66a13746ac9a237561b53",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-222-retro-link-related-emails/verification.md",
+      "mediaType": "text/markdown",
+      "size": 86,
+      "sha256": "a3542437075c37c7dc160353107f3dd91d8aa864bc6fc1fd8cba9ae59895e151",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md",
       "mediaType": "text/markdown",
       "size": 2742,
@@ -16708,8 +16816,8 @@
     {
       "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md",
       "mediaType": "text/markdown",
-      "size": 23465,
-      "sha256": "f540305e0a9acd97e4f5e1bc07917c2c4e5ed51652526e35b6b3e37ff6d4d83b",
+      "size": 23596,
+      "sha256": "4238315d9931a953e5186c10222a18f650a32f0aaa7f5a0b6dacb4beb63bc8bc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16737,6 +16845,15 @@
       "mediaType": "text/markdown",
       "size": 1176,
       "sha256": "01efbe9fe81c98f738e327c4a0fbe41af4ee1c158a1609e0cb964122bf096220",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence/retro-po-adoption-flip-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 2204,
+      "sha256": "9826d74881129eb551a2bb7177cbb560e52ee7db48eb0995fe40938827d886c7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20119,8 +20236,8 @@
     {
       "path": "docs/tickets/done/TKT-119-retro-locate-ack-hardening/changes.md",
       "mediaType": "text/markdown",
-      "size": 6066,
-      "sha256": "5203ff25b6e0086f093b201ff594db3d7292f02231e1b74c78add8cec20e30d7",
+      "size": 6839,
+      "sha256": "c3f2b70f811264f17504f3c7b9667c933d8b0e610b790fa98f9923bb3b522252",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21413,6 +21530,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md",
+      "mediaType": "text/markdown",
+      "size": 3411,
+      "sha256": "8acc28b599adef00057aa33e77edca8011ed9f0015f16429142eeb18de4ec586",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1948,
+      "sha256": "cdf71f951fc2ec7871206d1f546d51b5fdcd128959775f3079a654d0d4aeccd2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1302,
+      "sha256": "210d73536c38bf43a105d79b8db110d145e4ef7f3a7c28089b34b62b77cf88d3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -22612,8 +22756,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 11651,
-      "sha256": "d5f2740b68d2ed90310c1904407d0fd4ba0492d7ec0f3e59fd402025ba3ebcb8",
+      "size": 12493,
+      "sha256": "22f4d69e2f7ee26de9606b54a3f8004af72816fc1c24012273fb20601a4e70ac",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24468,6 +24612,78 @@
       "mediaType": "text/markdown",
       "size": 1625,
       "sha256": "f3ae43baec14df169af65ec3c1a3369f822215cac5bb73f996773d10dc768ba5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md",
+      "mediaType": "text/markdown",
+      "size": 6791,
+      "sha256": "77efd86b4b55ed727841388b23a4a56b3d62d55bf397f4af327a99e8aac5ec0c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/changes.md",
+      "mediaType": "text/markdown",
+      "size": 5791,
+      "sha256": "f449de6e6ec7ef3112d6b3f86f6e955afbf76d28d5fd799be28c56b9c4eb649c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/investigation-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 4440,
+      "sha256": "ec8805b6771c98a28c25a32c0c8d92953aa6a08dcd8522bc3c24c7fb83a60074",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 2322,
+      "sha256": "2f85a0d96bcf5987074bac3c1e71a4ca73b82230500bed483506e34fd549c2bb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4265,
+      "sha256": "2626360e73303b3548f283c3d2d8baaa711a7f684fdde2e37b7d5bc910c8fe96",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md",
+      "mediaType": "text/markdown",
+      "size": 1806,
+      "sha256": "70158cef4595a2c348ded4354102b953765c4f556221cd8a7cea061baf0fa086",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/changes.md",
+      "mediaType": "text/markdown",
+      "size": 506,
+      "sha256": "882e8ee526172ea2ab876084cd3adf0472599e9f1dd5ddac9b489dc484d2f09e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/verification.md",
+      "mediaType": "text/markdown",
+      "size": 874,
+      "sha256": "72cf70cbc62e05d26b3ffaf07800a4984f6d74067351984e1d098567a7b4ca75",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26896,8 +27112,8 @@
     {
       "path": "packages/domain/src/domain/retro-case.test.ts",
       "mediaType": "text/typescript",
-      "size": 12279,
-      "sha256": "148d84f5733a548e9cfd6074931fff2fdf6af94e5645ed101bcba06f4fff6792",
+      "size": 18465,
+      "sha256": "044c9082eb3835df20b993771839711d542dce2c54544ab0b0e4371a80278242",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26905,8 +27121,8 @@
     {
       "path": "packages/domain/src/domain/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 17091,
-      "sha256": "cf05d915d6c741ef6f9ee27576550ba9b57f2b7ee1101bf8ea4b4ffb53c37aa8",
+      "size": 25231,
+      "sha256": "6cabc80b8f6745e367d9880cfcabaa0d8434c1c8be2e738f31c61e5680b28192",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -27022,8 +27238,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 17360,
-      "sha256": "16439d8f3e79dd623ab6f49851825c25f0f6c3086a73252d0586e7aa21757ece",
+      "size": 18033,
+      "sha256": "00e1a218328e9eccee1f564f7275a27936685547cf37dded1a87e879c7c9cb51",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -29254,8 +29470,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 8047,
-      "sha256": "50bcda0cb02753690eedec1869436b387edf1ad058ed11b8b16753bb582c4d15",
+      "size": 11863,
+      "sha256": "1813626075d0bda81a6ca407dfaf685808ef70c96a03195260cdb8dc122ee92a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29263,8 +29479,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.ts",
       "mediaType": "text/typescript",
-      "size": 27892,
-      "sha256": "52f427ab14971d2e448aca7305a0cd38402cf42b1f809e50c472b4f00e72f51b",
+      "size": 30038,
+      "sha256": "090cd0b2a04a7ff9927383aba43824998924e2e5418565979ed4a847493fc17a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29272,8 +29488,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.test.ts",
       "mediaType": "text/typescript",
-      "size": 3533,
-      "sha256": "84da7f8774ea5630aaddfb640460f660304834470a92d6a3291d5f978ea7ddeb",
+      "size": 4160,
+      "sha256": "22957f89caaf486719d190817f63051a700775072c36e9cf44c7722377830d00",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29281,8 +29497,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.ts",
       "mediaType": "text/typescript",
-      "size": 7049,
-      "sha256": "b518ade15aaba06628baa7b2b84eefd4085c45b0c2cdfa8951f997967ddaa440",
+      "size": 7410,
+      "sha256": "72c6f7431cf839d8248749b36e811858ae0a2a972290503e38e604facbb91ff7",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31729,8 +31945,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "mediaType": "text/typescript",
-      "size": 38591,
-      "sha256": "6472848c722196d3f1702a34f5785668a43fbf44dea5120e0b443b0e1dc16601",
+      "size": 39008,
+      "sha256": "fbaa6b326614e874032146b9504b27c4836369b0d9c6d2d1512bffbff020c375",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31747,8 +31963,8 @@
     {
       "path": "services/orchestration/src/adapters/graph.test.ts",
       "mediaType": "text/typescript",
-      "size": 13911,
-      "sha256": "2575cd112fe896b80f9a44ca96e1f86dd9b49fa23596335ae80786b8e1548539",
+      "size": 14374,
+      "sha256": "de0f2a870d2514e6d35b6006ba0f1edcc15cbafbf874f74e44a4439680414744",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31756,8 +31972,8 @@
     {
       "path": "services/orchestration/src/adapters/graph.ts",
       "mediaType": "text/typescript",
-      "size": 24182,
-      "sha256": "cd1b7e1931c73fef4601f6d69a46974b73c3f93ab83f610fc27426758f7f0289",
+      "size": 24895,
+      "sha256": "ee34e7dba9feff9eebf0e071a98afeeb6ce1add49c6c39209717dad1d156641d",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32368,8 +32584,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 42775,
-      "sha256": "ad3043509b9bd0d4ef2f724ed5ba13a1ca5cf824ba68f953dc4f7c1beaeca4f3",
+      "size": 44418,
+      "sha256": "57c46a414ef44fc9e56cc2667b513af886c63d7b79fc88780380ce0501318eb9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32638,8 +32854,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-activities.ts",
       "mediaType": "text/typescript",
-      "size": 19100,
-      "sha256": "67837a6accee7fe8b42f449b69177bbd412354dabd1054ea43fdcb63de1ef1e7",
+      "size": 20929,
+      "sha256": "a815634554d137addcddb13791ed937cef76b15709914487bbe269ce0aa18463",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32647,8 +32863,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case-provider-recovery.test.ts",
       "mediaType": "text/typescript",
-      "size": 5373,
-      "sha256": "c406288a10f8263d65d73562022505f19186aa10dd6fe920bd8b8dbd5fc8aac8",
+      "size": 12708,
+      "sha256": "0aaffb76bee234bf7a2ab7b158dbeb5302112b42d8755f3d66b89253e259d9fd",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32656,8 +32872,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 29390,
-      "sha256": "eae1fc9c2cd57d389fbc6ddb21033e114ff575b0fdff9b7fe2f1bce1836af3d8",
+      "size": 44615,
+      "sha256": "3f229c7d80d5359d4166319a34669eb438949521f665f830b788e2c7db61ea67",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

@@ -1,7 +1,7 @@
 ---
 id: TKT-222
 title: Link every related mailbox email to a reconstructed retro case, not just the original instruction
-status: backlog
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-219, TKT-058, TKT-119, TKT-140]

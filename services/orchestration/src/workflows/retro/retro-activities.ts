@@ -12,7 +12,12 @@ import {
   type RetroReconstructionSource,
 } from '@cs/domain';
 import { dataApi, type ParserEvaFields } from '../../adapters/data-api.js';
-import { findMessageByInternetMessageId, kqlPhrase, searchMessages } from '../../adapters/graph.js';
+import {
+  findMessageByInternetMessageId,
+  getMessageIdentity,
+  kqlPhrase,
+  searchMessages,
+} from '../../adapters/graph.js';
 import { intakeMailboxes } from '../../platform/subscriptions.js';
 import { box, callExplodeEml, type ExplodedEml } from '../../adapters/functions-client.js';
 import { uploadEvidenceBytes } from '../../platform/blob.js';
@@ -28,7 +33,7 @@ import {
   type OutlookSearchCandidate,
   type RetroSearchHit,
 } from './retro-envelope.js';
-import type { InboundEnvelope } from '../intake/fetchMessage.js';
+import { hashPayload, type InboundEnvelope } from '../intake/fetchMessage.js';
 
 /* ============================================================
    Activities (gate read INSIDE each — the parse/enrich convention)
@@ -215,6 +220,7 @@ df.app.activity('retroBoxFetchInstruction', {
           contentType: 'message/rfc822',
           blobPath: emlUp.blobPath,
           size: emlUp.size,
+          sha256: emlUp.sha256,
         };
         let exploded: ExplodedEml | undefined;
         try {
@@ -227,7 +233,7 @@ df.app.activity('retroBoxFetchInstruction', {
           for (const a of exploded.attachments) {
             const bytes = Buffer.from(a.content_base64, 'base64');
             const up = await uploadEvidenceBytes(prefix, a.filename, bytes, a.content_type);
-            landed.push({ filename: a.filename, contentType: a.content_type, blobPath: up.blobPath, size: up.size });
+            landed.push({ filename: a.filename, contentType: a.content_type, blobPath: up.blobPath, size: up.size, sha256: up.sha256 });
           }
           envelope = buildRetroEnvelopeFromEml(exploded, landed, rawEmlRef, {
             boxFileId: candidate.entry.id,
@@ -261,7 +267,7 @@ df.app.activity('retroBoxFetchInstruction', {
           const docName = dl.filename || docCandidate.entry.name;
           const up = await uploadEvidenceBytes(prefix, docName, bytes, 'application/octet-stream');
           envelope = buildRetroEnvelopeFromDoc(
-            { filename: docName, contentType: 'application/octet-stream', blobPath: up.blobPath, size: up.size },
+            { filename: docName, contentType: 'application/octet-stream', blobPath: up.blobPath, size: up.size, sha256: up.sha256 },
             {
               boxFileId: docCandidate.entry.id,
               discoveredPo: input.discoveredPo,
@@ -449,6 +455,101 @@ df.app.activity('retroOutlookLocate', {
     }
     ctx.log(JSON.stringify({ evt: 'retroOutlookLocate', found: false }));
     return { found: false };
+  },
+});
+
+/** TKT-222 bounds: per-(mailbox × variant) search top for the related sweep, and the
+ *  per-case link cap (truncation is logged — no silent caps). */
+const RELATED_SEARCH_TOP = 50;
+const RELATED_LINK_CAP = 25;
+
+df.app.activity('retroLinkRelated', {
+  handler: async (
+    input: { caseId: string; keys: RetroKeys; excludeInternetMessageIds?: string[] },
+    ctx,
+  ): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    if (!gates.retroOutlookSearch()) return { skipped: 'outlook_gate_off' };
+    const mailboxes = intakeMailboxes().map((m) => m.mailbox);
+    if (mailboxes.length === 0) return { skipped: 'no_intake_mailboxes' };
+    const keyList = [
+      input.keys.casePo,
+      input.keys.externalRef,
+      input.keys.vrm,
+      input.keys.claimant,
+    ].filter((k): k is string => Boolean(k));
+    if (keyList.length === 0) return { skipped: 'no_keys' };
+
+    const norm = (v: string): string => v.trim().toUpperCase().replace(/\s+/g, '');
+    const exclude = new Set((input.excludeInternetMessageIds ?? []).map((v) => v.trim()));
+
+    // Sweep every key across every mailbox; own-mailbox senders are INCLUDED on purpose —
+    // our filed replies and chasers belong to the case too (ADR-0022, TKT-222 directive).
+    const seen = new Set<string>();
+    const candidates: Array<{ mailbox: string; id: string; subject: string }> = [];
+    for (const key of keyList) {
+      const variants = key === input.keys.claimant ? [key] : refSearchVariants(key);
+      for (const mailbox of mailboxes) {
+        for (const variant of variants) {
+          try {
+            const hits = await searchMessages(mailbox, kqlPhrase(variant), RELATED_SEARCH_TOP);
+            for (const h of hits) {
+              const k = `${mailbox} ${h.id}`;
+              if (seen.has(k)) continue;
+              seen.add(k);
+              // Conservative v1 corroboration: the SUBJECT must carry one of the case keys
+              // ($search relevance alone is not a licence to link).
+              const subjectNorm = norm(h.subject);
+              if (keyList.some((candidateKey) => subjectNorm.includes(norm(candidateKey)))) {
+                candidates.push({ mailbox, id: h.id, subject: h.subject });
+              }
+            }
+          } catch (e) {
+            ctx.warn(
+              `[retroLinkRelated] $search failed on ${mailbox} (variant ${JSON.stringify(variant)}; continuing): ${String(e)}`,
+            );
+          }
+        }
+      }
+    }
+
+    if (candidates.length > RELATED_LINK_CAP) {
+      ctx.warn(
+        `[retroLinkRelated] ${candidates.length} corroborated candidates capped at ${RELATED_LINK_CAP} for case ${input.caseId} — re-run to pick up the remainder`,
+      );
+    }
+    const rows: InboundEnvelope[] = [];
+    for (const c of candidates.slice(0, RELATED_LINK_CAP)) {
+      const identity = await getMessageIdentity(c.mailbox, c.id);
+      if (!identity || exclude.has(identity.internetMessageId.trim())) continue;
+      rows.push({
+        messageId: c.id,
+        internetMessageId: identity.internetMessageId,
+        conversationId: '',
+        subject: identity.subject,
+        senderAddress: identity.from,
+        receivedAt: identity.receivedDateTime,
+        sourceMailbox: c.mailbox,
+        payloadHash: hashPayload(identity.subject, identity.from, []),
+        candidateVrm: '',
+        candidateRef: '',
+        body: '',
+        bodyPreview: '',
+        inReplyTo: '',
+        references: '',
+        attachments: [],
+      } as InboundEnvelope);
+    }
+    if (rows.length === 0) {
+      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId: input.caseId, linked: 0, scanned: candidates.length }));
+      return { linked: 0, scanned: candidates.length };
+    }
+    const persisted = await dataApi.retroLinkRelated({ caseId: input.caseId, rows });
+    ctx.log(JSON.stringify({
+      evt: 'retroLinkRelated', caseId: input.caseId,
+      linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length,
+    }));
+    return { linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length };
   },
 });
 

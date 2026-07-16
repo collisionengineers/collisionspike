@@ -16,12 +16,15 @@ import type { InboundEnvelope } from '../intake/fetchMessage.js';
 import { hashPayload } from '../intake/fetchMessage.js';
 import type { ExplodedEml } from '../../adapters/functions-client.js';
 
-/** A blob-landed attachment ref (uploadEvidenceBytes output + identity). */
+/** A blob-landed attachment ref (uploadEvidenceBytes output + identity). TKT-220 (G6):
+ *  carries the landing sha256 so the TKT-133 (case_id, sha256) email/Box-mirror dedup can
+ *  match Box-rung retro evidence exactly like live-fetched attachments. */
 export interface LandedAttachment {
   filename: string;
   contentType: string;
   blobPath: string;
   size: number;
+  sha256?: string;
 }
 
 /** First RFC-ish address inside a header value ('' when none). */

@@ -311,6 +311,18 @@ export const dataApi = {
   },
 
   /**
+   * TKT-222 — link related mailbox emails (replies, chasers, our own sent responses) to a
+   * reconstructed retro case. Server-side: never re-points a row that already carries a
+   * case_id; rows land 'routed' with retro_related_linked provenance.
+   */
+  retroLinkRelated(payload: {
+    caseId: string;
+    rows: unknown[];
+  }): Promise<{ linked: number; skipped: number }> {
+    return request('POST', '/api/internal/retro/link-related', payload);
+  },
+
+  /**
    * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
    * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
    * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API

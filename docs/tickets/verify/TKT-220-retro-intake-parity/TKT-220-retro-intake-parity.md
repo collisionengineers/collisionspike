@@ -1,7 +1,7 @@
 ---
 id: TKT-220
 title: Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes)
-status: backlog
+status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-219, TKT-058, TKT-119, TKT-133, TKT-021]
@@ -27,7 +27,7 @@ classifier corroboration; a contradicted corroboration still forwards the suspec
 
 ## Evidence
 
-- [Investigation, 2026-07-16](../../verify/TKT-219-retro-parallel-reconstruction/evidence/investigation-2026-07-16.md)
+- [Investigation, 2026-07-16](../TKT-219-retro-parallel-reconstruction/evidence/investigation-2026-07-16.md)
   — parity gaps G1–G7 with file/line references (G1/G2 are implemented by TKT-219).
 
 ## Proposed change

@@ -56,7 +56,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-210](./now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
 | [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 | integration | PLAN-004 |
 
-## Verify (39)
+## Verify (41)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -98,6 +98,8 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-214](./verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 | platform | PLAN-006 |
 | [TKT-215](./verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 | integration | PLAN-006 |
 | [TKT-219](./verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md) | Run Box and Outlook retro locates in parallel and combine findings, widen triggers, and split dev/live Case-PO adoption | P1 | intake | PLAN-004 |
+| [TKT-220](./verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md) | Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes) | P2 | intake | — |
+| [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
 ## Done (109)
@@ -219,7 +221,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (37)
+## Backlog (35)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -258,8 +260,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 | evidence | PLAN-004 |
 | [TKT-217](./backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 | platform | PLAN-004 |
 | [TKT-218](./backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 | integration | PLAN-004 |
-| [TKT-220](./backlog/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md) | Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes) | P2 | intake | — |
-| [TKT-222](./backlog/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 
 ## Blocked (8)
 

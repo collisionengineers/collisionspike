@@ -505,6 +505,38 @@ export async function searchMessages(
   return found;
 }
 
+/**
+ * TKT-222 — minimal identity fetch for a `$search` hit: `$search` responses carry the Graph
+ * id but NOT the RFC Internet-Message-Id the triage table is keyed on. One cheap `$select`
+ * read per candidate; returns null on a vanished message (404) rather than throwing.
+ */
+export async function getMessageIdentity(
+  mailbox: string,
+  messageId: string,
+): Promise<{ internetMessageId: string; subject: string; from: string; receivedDateTime: string } | null> {
+  try {
+    const m = await graphFetch<{
+      internetMessageId?: string;
+      subject?: string;
+      from?: { emailAddress?: { address?: string } };
+      receivedDateTime?: string;
+    }>(
+      `/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}` +
+        `?$select=internetMessageId,subject,from,receivedDateTime`,
+    );
+    if (!m?.internetMessageId) return null;
+    return {
+      internetMessageId: m.internetMessageId,
+      subject: m.subject ?? '',
+      from: (m.from?.emailAddress?.address ?? '').toLowerCase(),
+      receivedDateTime: m.receivedDateTime ?? '',
+    };
+  } catch (e) {
+    if (String(e).includes('404')) return null;
+    throw e;
+  }
+}
+
 /* ---------- Outlook filing (TKT-054 / 020726 E6 — gated by OUTLOOK_MOVE_ENABLED) ---------- */
 
 /** Escape a value for a Graph OData $filter string literal (single quotes double up). */

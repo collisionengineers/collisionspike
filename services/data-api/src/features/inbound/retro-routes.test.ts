@@ -260,6 +260,57 @@ describe('POST /api/internal/retro/create provider completion', () => {
     expect(String(note?.params?.[3] ?? '')).toContain('archive-PO adoption is off');
   });
 
+  // TKT-220 — the refused_category branch exercised with the guard actually deciding.
+  it('refuses to anchor a case on a located non-minting original (guard un-mocked behaviourally)', async () => {
+    internal.mintBlockedByCategory.mockResolvedValue('non_actionable');
+
+    const response = await registrations.get('internalRetroCreate')!.handler(
+      request(retroBody()),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: { outcome: 'refused_category', category: 'non_actionable' },
+    });
+    expect(internal.mintBlockedByCategory).toHaveBeenCalledWith('<original@example.test>');
+    expect(internal.applyParserFields).not.toHaveBeenCalled();
+    expect(dbCalls.some(({ sql }) => sql.includes('INSERT INTO case_'))).toBe(false);
+    expect(audit.writeAudit).toHaveBeenCalledWith(expect.objectContaining({ severity: 'warning' }));
+  });
+
+  // TKT-222 — related-email backfill: link unlinked rows, never re-point linked ones.
+  it('link-related links unlinked rows to the case and skips rows already linked anywhere', async () => {
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      dbCalls.push({ sql, params });
+      if (sql.includes('SELECT case_id FROM inbound_email')) {
+        return params[0] === '<already@example.test>' ? [{ case_id: 'case-other' }] : [];
+      }
+      return [];
+    });
+
+    const row = (id: string) => ({
+      messageId: `graph-${id}`,
+      internetMessageId: `<${id}@example.test>`,
+      sourceMailbox: 'engineers@example.test',
+      senderAddress: 'provider@example.test',
+      subject: 'RE: REF-123',
+      receivedAt: '2026-07-10T10:00:00.000Z',
+      payloadHash: `hash-${id}`,
+      attachments: [],
+    });
+    const response = await registrations.get('internalRetroLinkRelated')!.handler(
+      request({ caseId: 'case-retro', rows: [row('fresh'), row('already'), { subject: 'no id' }] }),
+      context(),
+    );
+
+    expect(response).toEqual({ status: 200, jsonBody: { linked: 1, skipped: 2 } });
+    expect(audit.writeAudit).toHaveBeenCalledWith(expect.objectContaining({
+      caseId: 'case-retro',
+      summary: expect.stringContaining('1 related email'),
+    }));
+  });
+
   it('forwards the trigger sender intermediary match into applyParserFields (TKT-021/TKT-219)', async () => {
     internal.applyParserFields.mockResolvedValue({ providerResolutionSource: 'none' });
     const intermediary = { imageSourceId: 'is-connexus', candidateProviderIds: ['wp-pch', 'wp-sbl'] };

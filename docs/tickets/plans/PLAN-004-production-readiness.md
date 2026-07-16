@@ -47,10 +47,10 @@ or authorization named; they are never treated as complete by plan aggregation.
 | Status | Count |
 |---|---:|
 | Now | 13 |
-| Verify | 10 |
+| Verify | 11 |
 | Done | 3 |
 | Next | 0 |
-| Backlog | 34 |
+| Backlog | 33 |
 | Blocked | 1 |
 
 | Ticket | Status | Title |
@@ -114,6 +114,6 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-218](../backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | backlog | Consolidate the MCP image-ingest Box test-root to a single source of truth |
 | [TKT-219](../verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md) | verify | Run Box and Outlook retro locates in parallel and combine findings, widen triggers, and split dev/live Case-PO adoption |
 | [TKT-221](../done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | done | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates |
-| [TKT-222](../backlog/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | backlog | Link every related mailbox email to a reconstructed retro case, not just the original instruction |
+| [TKT-222](../verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | verify | Link every related mailbox email to a reconstructed retro case, not just the original instruction |
 | [TKT-223](../verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | verify | Re-run retro reconstruction for previously failed drain rows (force restart) |
 <!-- /GENERATED:PROGRESS -->
