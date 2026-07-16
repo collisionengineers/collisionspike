@@ -30,6 +30,7 @@ const allowedRootDirectories = new Set([
   "contracts",
   "database",
   "docs",
+  "emailevals",
   "infrastructure",
   "packages",
   "scripts",
