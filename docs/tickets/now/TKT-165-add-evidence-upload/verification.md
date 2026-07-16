@@ -2,9 +2,8 @@
 
 ## Verdict
 
-PENDING — the individual offline checks below are `TESTED (offline)`, but the database delta,
-deployment and designated-test-case Chrome/Postgres/Blob/Box proof are still outstanding. This is not
-a ticket-level verification verdict.
+PENDING — the database correction and deployables are live, but the designated-test-case
+Chrome/Postgres/Blob/Box proof is still outstanding. This is not a ticket-level verification verdict.
 
 ## Offline evidence
 
@@ -17,11 +16,11 @@ a ticket-level verification verdict.
 - The claim-boundary review regression runs passed API **27** and orchestration **33** focused tests.
   They prove Archive gate-off excludes Box-backed rows before lease/attempt accounting while
   Blob-backed staff rows continue to classify.
-- Production builds passed for `@cs/api`, `@cs/orchestration`, `@cs/domain`, and `mockup-app` (Vite).
+- Production builds passed for `@cs/api`, `@cs/orchestration`, `@cs/domain`, and `@cs/web` (Vite).
 - `node verify-all.mjs`: **8 passed / 0 failed / 13 explicitly skipped**; its compiled suites include
   Domain **1,102**, API **610**, orchestration **399**, and SPA **437** passing tests.
 - Ticket, documentation-link, shared-skill and Postgres migration-parity validators passed.
-- `build-api.cjs` produced a syntax-valid bundle with Sharp externalised. A clean Linux-targeted
+- `scripts/build/build-api.cjs` produced a syntax-valid bundle with Sharp externalised. A clean Linux-targeted
   production install supplied `sharp-linux-x64-0.35.3.node` and `libvips-cpp.so.8.18.3`; `file`
   identified both as x86-64 ELF shared objects.
 
@@ -38,8 +37,8 @@ The focused tests prove:
 - evidence, strict audit, archive outbox and readiness generation roll back together when durable work
   fails; stale-target and rollback paths leave the exact Blob path discoverable for leased,
   reference-checked cleanup;
-- a cached legacy request with no new source/header gets one stable server-derived batch identity and
-  identity-bearing replay response; rollout order is API before orchestration/SPA;
+- a cached earlier request with no new source/header gets one stable server-derived batch identity and
+  identity-bearing replay response; rollout order is API before services/orchestration/SPA;
 - JPG/PNG/WebP/PDF validation rejects MIME/extension disagreement, HEIC/HEIF, masquerades and
   header-only/truncated containers. Real 2×2 JPEG, PNG and WebP fixtures pass a full pixel decode;
   structurally plausible fake containers fail. Decode work is sequential per request file and is
@@ -63,9 +62,12 @@ The focused tests prove:
 
 ## Honest gaps
 
-- `2026-07-12-tkt165-staff-evidence-upload.sql` has not been applied live.
-- API, orchestration and SPA changes have not been deployed.
-- No file, case, Blob object or Box folder was changed during this implementation pass.
+- The TKT-165 upload schema and `2026-07-15-tkt165-evidence-added-audit.sql` correction are live. All 22
+  code tables now match the repository, including `100000049 / evidence_added`.
+- API, orchestration and SPA changes were deployed on 2026-07-16. The API artifact included verified Linux
+  x64/glibc Sharp and libvips binaries and registered `uploadCaseEvidence`.
+- No file, case, Blob object or Box folder was changed during release validation, so the prior successful-
+  upload gap is not represented as closed.
 - TKT-166's New case document/manual upload lifecycle remains pending and is not certified by this
   ticket.
 - Browser accessibility and 200% zoom were implemented with native buttons, labelled inputs,
@@ -75,23 +77,19 @@ The focused tests prove:
 
 ## Live re-verification
 
-1. Apply the TKT-165 delta, then verify `staff_evidence_upload` and
-   `staff_evidence_upload_item` have forced RLS and `uq_evidence_staff_upload_item` exists.
-2. Deploy in the compatibility-safe order: API first, orchestration second, SPA last. Smoke each
-   surface before continuing.
-3. In Chrome, use Add evidence on a designated test case whose archive folder is beneath test root
+1. In Chrome, use Add evidence on a designated test case whose archive folder is beneath test root
    `392761581105`: select Held as well as a normal open case; upload one harmless JPG and one PDF.
-4. Verify the response contains two evidence ids, the case Evidence tab shows both, Postgres has the
+2. Verify the response contains two evidence ids, the case Evidence tab shows both, Postgres has the
    two canonical rows plus understandable `evidence_added` audits, and Blob has the two deterministic
    paths.
-5. Repeat the same request/idempotency key and double-click simulation; prove row, audit, archive
+3. Repeat the same request/idempotency key and double-click simulation; prove row, audit, archive
    generation and Box file counts do not increase.
-6. Verify the PDF archive generation completes beneath the test root. Verify the photo is initially
+4. Verify the PDF archive generation completes beneath the test root. Verify the photo is initially
    pending its image check, then classification stamps the exact row, readiness is recomputed, and an
    eligible photo is mirrored once beneath the same test root.
-7. Repeat with one unsupported/masquerading file and one valid file; confirm the valid identity is
+5. Repeat with one unsupported/masquerading file and one valid file; confirm the valid identity is
    reported, the refused file remains visible for retry, and the page does not navigate.
-8. Probe the endpoint without a bearer token (expect 401), with a stale/removed/merged case (expect
+6. Probe the endpoint without a bearer token (expect 401), with a stale/removed/merged case (expect
    refusal before storage), and at narrow width plus 200% zoom with keyboard-only controls.
 
 ## Independent verification update — 2026-07-14
@@ -155,9 +153,9 @@ FAILED
 
 ### Pending / gaps
 
-- **Blocking live defect:** seed audit action `100000049` (`evidence_added`) through an idempotent,
-  deployable live delta before the API is used again. The canonical bootstrap schema does not update
-  an existing live database.
+- **Blocking live defect:** apply the committed idempotent audit-action delta for `100000049`
+  (`evidence_added`) before the API is used again. The canonical bootstrap schema does not update an
+  existing live database.
 - Then prove live JPG/PDF upload, returned evidence identities, post-navigation rendering, database
   evidence and exact audit, retained Blob, Archive mirror under test root, classification/readiness,
   replay/double-click deduplication, partial failure/retry, stale/merged/auth refusals and accessibility

@@ -2,7 +2,7 @@
 
 2. "The document is base64-encoded in your browser and sent to the live parser." - does not need to be there/explained
 
-3. Parse button (see parsebutton.png) - has a very AI look with the Sparkle Icon 
+3. The parse button has an unnecessarily AI-like sparkle icon.
 
 4. "Upload an instruction document, run it through the live parser, review the extracted fields, then create a case — no inbox required." - Unnecessary explanation
 
@@ -19,7 +19,7 @@ Case types shouldn't be configurable manually, they are a natural identifier bas
 
 Adding additional files: .eml / .msg, images
 
-7. For new-case-afterupload1.png and new-case-afterupload2.png:
+7. After an instruction file is added:
 
 - VRM is not case identity for instructions based. It IS an EVA payload field and is required.
 - Case/PO is separate from Providers Reference. Case/PO is our reference. Generation of that will be covered in a separate review.
@@ -32,7 +32,7 @@ Adding additional files: .eml / .msg, images
 
 10. Inspection address appearing in brackets e.g. : (295 Uttoxeter Road Stoke-On-Trent ST3 5LQ). This is as it would appear in documents, but needs normalizing. Potential to use postcode.io API for enrichment, later moving to Azure Maps
 
-11. Vehicle Model but no make box - can enrich with DVLA/DVSA connector
+11. Vehicle Model but no make box - can enrich through the DVLA/DVSA service
 
 12. Mileage - as per 11 can enrich with DVLA/DVSA
 

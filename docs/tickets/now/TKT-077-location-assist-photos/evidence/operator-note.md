@@ -5,15 +5,15 @@
 > [TKT-075 evidence](../../../done/TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
 
 Root cause this phase closes (verified): **Tier 3 can't actually read photos.**
-`functions/location-suggest/photo_source.py` ships `StubPhotoSource` (no live bytes) and a
+`services/functions/location-assist/photo_source.py` ships `StubPhotoSource` (no live bytes) and a
 `BoxPhotoSource` that deliberately raises. So the live assist runs on **text clues only**. Also
-`functions/location-suggest/maps_client.py` does address search only — OCR'd **business names**
+`services/functions/location-assist/maps_client.py` does address search only — OCR'd **business names**
 (signage) don't geocode; and there is no AI reasoning tier for hard clues.
 
 (Context: Function `cespkloc-fn-a7tzj2` is deployed and gated ON — 03/07:
 `LOCATION_ASSIST_ENABLED`/`AZURE_MAPS_ENABLED`=true, Maps `cespkmaps-dev` + Vision
 `cespkvision-dev` provisioned — invoked via the "Suggest location" button in
-`mockup-app/src/screens/CaseDetail.tsx` through the API proxy `api/src/functions/proxy.ts`.)
+`apps/web/src/features/cases/CaseDetail.tsx` through the API proxy `services/data-api/src/platform/http/proxy-routes.ts`.)
 
 Plan:
 

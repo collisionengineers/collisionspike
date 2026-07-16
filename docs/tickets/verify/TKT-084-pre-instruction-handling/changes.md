@@ -32,7 +32,7 @@ NO instruction doc, <2 work phrases, and no question — a real instruction emai
 `pre_instruction/pre_instruction_directions` (sibling pin + triage-corpus fixture
 `pre_instruction/hold-directions.eml` + eval pin `tkt084-preinstruction-directions` — all green).
 
-**Plumbing:** TS unions/`INBOUND_CATEGORIES`/`InboundCounts` (@cs/domain), choiceset JSON code
+**Plumbing:** TS unions/`INBOUND_CATEGORIES`/`InboundCounts` (@cs/domain), code-table JSON code
 **100000007** (+ subtype 100000014), api name↔code maps + count tally, SPA labels
 ("Pre-instruction", Hourglass icon, subtype under its own dropdown group), AOAI prompt definition.
 `categoryMintsCase` stays receiving_work-only — **no case is ever minted from this lane**.

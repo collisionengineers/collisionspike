@@ -1,0 +1,21 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "field_provenance_source_type",
+  "displayName": "Field Provenance Source Type",
+  "description": "FieldLevelProvenance.sourceType — where a field value came from. Matches the prototype ProvenanceSourceType union (mock/types.ts) 1:1, with cloud_vision normalised to azure_vision (Microsoft stack). Phase-1 writers: parser -> pdf_extraction; email body -> email_text; DVSA -> dvla_dvsa; corpus/domain match -> corpus; staff edit -> staff.",
+  "options": [
+    { "value": 100000000, "name": "staff",          "label": "Staff" },
+    { "value": 100000001, "name": "pdf_extraction", "label": "PDF Extraction" },
+    { "value": 100000002, "name": "email_text",     "label": "Email Text" },
+    { "value": 100000003, "name": "corpus",         "label": "Corpus" },
+    { "value": 100000004, "name": "ai",             "label": "AI" },
+    { "value": 100000005, "name": "dvla_dvsa",      "label": "DVLA / DVSA" },
+    { "value": 100000006, "name": "document_ai",    "label": "Document AI" },
+    { "value": 100000007, "name": "azure_vision",   "label": "Azure Vision" },
+    { "value": 100000008, "name": "web_lookup",     "label": "Web Lookup" },
+    { "value": 100000009, "name": "whatsapp",       "label": "WhatsApp" },
+    { "value": 100000010, "name": "manual_upload",  "label": "Manual Upload" },
+    { "value": 100000011, "name": "unknown",        "label": "Source Not Recorded" }
+  ]
+}

@@ -8,7 +8,7 @@
 **Zero mailbox mutations, zero DB writes, zero deploys, zero app-setting changes.** The
 `POST /api/retro-case` starter was **not** called. Gates observed live at run time:
 `RETRO_CASE_ENABLED=true`, `RETRO_OUTLOOK_SEARCH_ENABLED=true`, `RETRO_BOX_ARCHIVE_ROOT_IDS`
-**absent** (canonical values: the registry, docs/architecture/live-environment.md).
+**absent** (canonical values: the registry, docs/operations/live-environment.md).
 
 ## The numbers
 
@@ -56,7 +56,7 @@ Hit counts are summed across variants + mailboxes, each individual search capped
    originals) has **fired in production**; the orchestrator falls through to the visible
    failure record.
 2. **Link-before-mint proven live:** 22 `retro_case_linked` + 63 `retro_case_created` + 46
-   `retro_reconstruction_failed` events since 2026-07-05 ([`enum-retro-audit-history.csv`](./enum-retro-audit-history.csv)) —
+   `retro_reconstruction_failed` events since 2026-07-05 ([`enum-retro-audit-events.csv`](./enum-retro-audit-events.csv)) —
    the ladder already links/refuses/records on live arrivals; the drain reuses the identical seam.
 3. **Ack keys cannot become case sources:** the 3 ack-only-trigger keys (KAD/41981/1, HW20VOO,
    M238JPE — flagged `mintGuardExposure` in the ledger) may trigger locate, but if the located
@@ -142,7 +142,7 @@ noise amplifier (finding 1).
 
 `enumeration.sql` (the SQL used) · `enum-context.txt` (session transcript: totals, category
 distribution, audit history, mint-guard refusal) · `enum-backlog-rows.csv` (118 rows) ·
-`enum-backlog-keys.csv` (109 key/kind, R1 flags) · `enum-retro-audit-history.csv` ·
+`enum-backlog-keys.csv` (109 key/kind, R1 flags) · `enum-retro-audit-events.csv` ·
 `drive-probe.mjs` (the driver; key sourced via `az functionapp keys list` into a scratchpad
 file outside the repo, deleted after the run) · `probe-run-log.txt` · `probe-raw.jsonl` (15 raw
 probe responses) · `probe-summary.json` · `dryrun-ledger.jsonl` (**107 rows — one per key**:

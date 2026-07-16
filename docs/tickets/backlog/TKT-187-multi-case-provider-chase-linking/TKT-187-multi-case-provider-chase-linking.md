@@ -18,10 +18,10 @@ Each item must be resolved independently. A single ambiguous or missing referenc
 
 ## Evidence
 - [Operator note](./evidence/info.md) — requires singular chases to attach directly and multi-case chases to be associated with every referenced case, by duplication only if the architecture cannot represent shared association safely.
-- [Singular estimate sample](./evidence/ESTIMATE_singular.eml) — one AX reference/registration: 1075364 / S500 THM.
-- [Second singular sample](./evidence/ESTIMATE_singular_2.eml) — one AX reference/registration: 1074146 / NL65 UBY.
-- [Multi-case sample](./evidence/ESTIMATES_multi.eml) — four AX reference, claimant and registration rows.
-- [Second multi-case sample](./evidence/ESTIMATES_multi2.eml) — four rows, including references repeated across another chase.
+- [Singular estimate sample](./evidence-manifest.json) — one AX reference/registration: 1075364 / S500 THM.
+- [Second singular sample](./evidence-manifest.json) — one AX reference/registration: 1074146 / NL65 UBY.
+- [Multi-case sample](./evidence-manifest.json) — four AX reference, claimant and registration rows.
+- [Second multi-case sample](./evidence-manifest.json) — four rows, including references repeated across another chase.
 - TKT-093 owns confident single-case auto-attachment; TKT-186 owns Provider chase classification.
 
 ## Proposed change
@@ -53,7 +53,7 @@ Distilled 2026-07-13 from the [operator note and four original emails](./evidenc
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/info.md)
-- [Singular sample](./evidence/ESTIMATE_singular.eml)
-- [Second singular sample](./evidence/ESTIMATE_singular_2.eml)
-- [Multi-case sample](./evidence/ESTIMATES_multi.eml)
-- [Second multi-case sample](./evidence/ESTIMATES_multi2.eml)
+- [Singular sample](./evidence-manifest.json)
+- [Second singular sample](./evidence-manifest.json)
+- [Multi-case sample](./evidence-manifest.json)
+- [Second multi-case sample](./evidence-manifest.json)

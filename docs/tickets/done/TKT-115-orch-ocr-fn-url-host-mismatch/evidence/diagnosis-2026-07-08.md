@@ -5,13 +5,13 @@ Origin: read-only verification pass on TKT-089. App Insights for **cespk-orch-de
 `[extractImages] plate OCR failed ... fetch failed`.
 
 ## Code path
-- `orchestration/src/functions/activities/extractImages.ts:155-166` — OCR fallback (`callPlateOcr`)
+- `services/orchestration/src/workflows/evidence/extractImages.ts` — OCR fallback (`callPlateOcr`)
   fires only when the gpt-5 image classifier abstains/returns null (`!classified`).
-- `orchestration/src/lib/functions-client.ts` — `OCR = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' }`;
+- `services/orchestration/src/adapters/functions-client.ts` — `OCR = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' }`;
   `callFunction` does `fetch(`${OCR_FN_URL}/api/plate-ocr`, { headers: { 'x-functions-key': … } })`.
   An HTTP non-2xx throws `fn POST plate-ocr → <status>`; the observed `fetch failed` is instead a
   native undici rejection (no HTTP response — DNS/connect layer). The catch logs `e.message` only.
-- Same `OCR` target also used by `callOcrPdf` → `orchestration/src/functions/activities/parse.ts:369-375`
+- Same `OCR` target also used by `callOcrPdf` → `services/orchestration/src/workflows/intake/parse.ts`
   (`OCR_SCANNED_PDF_ENABLED=true`); its `if (!process.env.OCR_FN_URL)` guard passes, then fetch fails.
 
 ## Live probes (WSL `az`, read-only)

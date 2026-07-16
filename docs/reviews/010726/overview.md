@@ -1,9 +1,9 @@
 # Review 010726 — UI/UX reforge decision record (1 July 2026)
 
 This review **records the operator decisions made during the 2026-07-01 UI/UX reforge** of the SPA
-(`mockup-app/`), executed in-place on the live Fluent v9 app by the reforge agent team. Unlike
+(`apps/web/`), executed in-place on the live Fluent v9 app by the reforge agent team. Unlike
 `190626/` (an issue-raising review), this folder is a **decision register**: it states the rulings
-that now bind the UI, so later docs/plans/code reconcile **to it**.
+that now bind the UI, so later documentation, plans, and code reconcile **to it**.
 
 Read [decisions.md](./decisions.md) — one numbered ruling per row, each with its **provenance**:
 

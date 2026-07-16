@@ -29,19 +29,19 @@ built — core lifecycle fixed and unit-tested offline; live create→publish→
 - **CI now actually runs the Python suites.** `.github/workflows/docs.yml` provisions each retained
   function's `.venv` (setup-python + locked-requirements install) before `npm run verify:offline`, so the
   pytest suites execute instead of skipping (A6). The verifier's skip text was corrected accordingly.
-- **A10 tests added.** `scripts/worktree.test.mjs` + `scripts/pre-push.test.mjs` (10 `node:test` cases,
+- **A10 tests added.** `scripts/worktree.test.mjs` + `scripts/pre-push.test.mjs` (12 `node:test` cases,
   isolated git fixtures, offline) cover the guard/rejection matrix, the `mkdirSync` regression, `remove`
   refusal, and the pre-push refspec block; wired in via the new `test:worktree-governance` npm script (which
   the root `test` script — and therefore `verify:offline` — now runs).
-- **`raw/` committed** (separate commit) per the TKT-199 repository-data-authority ruling, which also
-  restores a clean canonical checkout so `assertCanonical()`/hygiene no longer report it as dirty.
+- Repository source evidence formerly under `raw/` is now represented by the content-addressed evidence
+  store and manifests under `tests/fixtures`; the final repository reset does not retain a second raw tree.
 
 ## Validation note
 
 The ticket/documentation checks, authority tests, syntax checks and `worktree doctor TKT-205` pass.
-`npm ci` in this newly-created Windows worktree hit an `ENOTEMPTY` cleanup failure under generated
-`node_modules/@fluentui/react-icons`; therefore the build/test portion remains pending rather than
-being represented as passing.
+The earlier `npm ci` attempt in a newly created Windows worktree hit an `ENOTEMPTY` cleanup failure under
+generated `node_modules/@fluentui/react-icons`. A later clean-install run on 2026-07-15 completed and the
+full four-workspace build/test matrix passed, superseding that environment failure.
 
 The first GitHub Actions run also showed npm omitting Rollup's Linux optional package after the stale
 nested lockfile was removed. The unconditional offline job now installs that platform package explicitly

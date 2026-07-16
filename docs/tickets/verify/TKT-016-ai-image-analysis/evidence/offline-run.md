@@ -5,9 +5,9 @@ gate flip, no DDL apply, no live model call — all deferred to the operator fli
 
 ## What proves it
 
-1. **Unit suite** — `api/src/lib/image-analysis.test.ts` (10 tests, all green). Run:
+1. **Unit suite** — `services/data-api/src/features/assistant/image-analysis.test.ts` (10 tests, all green). Run:
    ```
-   npm --prefix api test -- image-analysis
+   npm --prefix services/data-api test -- image-analysis
    ```
    It injects fake stage adapters + a sample set (the TKT-040 photo filenames; ev-4 carries the
    partially-cropped plate) and asserts the full staged sequence, graceful degradation per stage,
@@ -15,7 +15,7 @@ gate flip, no DDL apply, no live model call — all deferred to the operator fli
    contracts (strict json_schema + parse).
 
 2. **Run transcript** — `evidence/run-transcript.mjs` runs the SHIPPED pure pipeline
-   (`api/dist/lib/image-analysis.js`) over the sample set with scripted fakes. Captured output:
+   (`services/data-api/dist/features/assistant/image-analysis.js`) over the sample set with scripted fakes. Captured output:
    [`offline-run.txt`](./offline-run.txt).
 
 ## The staged sequence returns observations + a ranked address suggestion, all as *pending* suggestions
@@ -47,15 +47,15 @@ or any inspection-address column — the route only ever `INSERT`s `ai_suggestio
 
 ## Non-collision invariant (auditable)
 
-- The route (`api/src/functions/image-analysis.ts`) contains exactly **one** table write path:
+- The route (`services/data-api/src/features/assistant/image-analysis-routes.ts`) contains exactly **one** table write path:
   `INSERT INTO ai_suggestion ...` (in `persistDraft`, NOT-EXISTS-guarded for idempotent re-runs).
-- It does **not** touch `orchestration/src/lib/image-classify.ts` or the intake write path.
+- It does **not** touch `services/orchestration/src/platform/image-classify.ts` or the intake write path.
 - Promotion into evidence/case columns remains the EXISTING human-accept path only
   (`POST /api/ai-suggestions/{id}/review` → `promoteAcceptedSuggestion`, fill-if-empty), unmodified.
 
 ## Deferred to the operator flip (NOT done here)
 
 - `IMAGE_ANALYSIS_ENABLED` stays absent/off; no live model call.
-- `migration/assets/schema/deltas/2026-07-08-image-analysis-suggestion-types.sql` NOT applied live.
+- `database/migrations/2026-07-08-image-analysis-suggestion-types.sql` NOT applied live.
 - Live DB reads / a live deploy / a browser click-through — deferred; the acceptance is
   offline-provable and is proven above.

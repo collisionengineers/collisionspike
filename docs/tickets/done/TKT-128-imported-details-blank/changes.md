@@ -17,23 +17,23 @@ Built + deployed live (2026-07-09, PLAN-003 UI-wave batch). Root cause on BOTH s
    parser DOES carry.
 
 ## What was built
-- **Render** (`mockup-app/src/screens/CaseDetail.tsx`): explicit plain-English empty state —
+- **Render** (`apps/web/src/features/cases/CaseDetail.tsx`): explicit plain-English empty state —
   **"Nothing was imported from the instruction document or email yet."** — whenever no fact is
   present.
-- **Data** (`api/src/functions/internal.ts` `applyParserFields`): the parser's provider reference
+- **Data** (`services/data-api/src/features/` `applyParserFields`): the parser's provider reference
   (`parserRef`) now ALSO fills **ov_claim_number** (fill-if-empty, capped at the column's
   varchar(100)) — the same column manual intake's "Provider's reference / Claim No" writes — so a
   parsed case's panel shows its Claim no. instead of nothing. Tests added in
-  `api/src/functions/apply-parser-fields.test.ts` (fills both columns; never clobbers an existing
+  `services/data-api/src/features/inbound/internal/parser-fields.test.ts` (fills both columns; never clobbers an existing
   value; no-op without a ref).
 
 ## Deploy + live proof
 api + SPA deployed. Empty state verified live on two cases (an image-only case and a parsed QDOS
 case whose ov_* are pre-fix empty). The ov_claim_number fill takes effect for the NEXT parsed
-email intake (fill-if-empty; no backfill of historical rows was attempted).
+email intake (fill-if-empty; no backfill of prior rows was attempted).
 
 ## Remainders
-- Historical parsed cases keep an empty panel (now honestly labelled). If the operator wants the
+- prior parsed cases keep an empty panel (now honestly labelled). If the operator wants the
   panel populated for the wider fact set (insured/insurer/repairer/policy), that needs the PARSER
   to extract those facts (sibling cedocumentmapper_v2.0 change + envelope + ov_* mapping) — suggest
   a new ticket; out of scope here.
@@ -44,7 +44,7 @@ email intake (fill-if-empty; no backfill of historical rows was attempted).
 The first fix covered only the PARSER's reference (`applyParserFields` fill-if-empty). A
 subject-only ref (no parsable document — e.g. the QDOS "46533/1 - …" shape, whose cases carried
 empty `case_ref`/panel) still rendered the empty state. The case-CREATE seam
-(`api/src/functions/internal.ts` `internalCasesResolve`) now writes the subject-sniffed
+(`services/data-api/src/features/` `internalCasesResolve`) now writes the subject-sniffed
 `candidateRef` into **`ov_claim_number`** (capped at varchar(100)) alongside `case_ref` at INSERT
 time, so the Imported-details panel shows a Claim no. for subject-only refs as well;
 `applyParserFields` keeps its own fill-if-empty for the parser ref (never clobbers).

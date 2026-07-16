@@ -11,7 +11,7 @@ The earlier server-owned provider default remains. The Address tab now presents 
 - Replaced the scattered suggestion list plus override checkbox/button with one labelled radio choice.
 - Selecting Image Based Assessment hides search, suggested addresses and address-only actions. Selecting Inspection address reveals them again.
 - A new Image Based Assessment choice joins its required reason to the existing explicit Save changes transaction; it performs no isolated write.
-- An existing saved Image Based Assessment choice remains visible without inventing a new edit or demanding a replacement historical reason.
+- An existing saved Image Based Assessment choice remains visible without inventing a new edit or demanding a replacement prior reason.
 - Returning to that saved choice after briefly selecting Inspection address is a true no-op: no reason, save request or navigation warning is created.
 - Switching away from an unsaved physical-address choice and back restores that draft and its source note.
 - Switching a saved image-based case to Inspection address clears the stale image-based draft and keeps Save blocked until an address is selected.
@@ -21,9 +21,9 @@ The earlier server-owned provider default remains. The Address tab now presents 
 
 ## Offline evidence
 
-- `npm run test --workspace mockup-app -- --run src/components/InspectionChoice.test.tsx src/screens/case-edit-session.test.ts` — 16/16 passed.
-- `npm run test --workspace mockup-app` — 48 files / 515 tests passed after the review corrections.
-- `npm run build --workspace mockup-app` — passed.
+- `npm run test --workspace @cs/web -- --run src/shared/ui/InspectionChoice.test.tsx src/features/cases/case-edit-session.test.ts` — 16/16 passed.
+- `npm run test --workspace @cs/web` — 48 files / 515 tests passed after the review corrections.
+- `npm run build --workspace @cs/web` — passed.
 - Source and built-asset scan found zero copies of the removed paragraph and old override labels.
 
 ## Pending live proof

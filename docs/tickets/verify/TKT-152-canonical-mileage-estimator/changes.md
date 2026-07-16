@@ -17,7 +17,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Canonical ownership and contract
 
-- Added `functions/enrichment/vehicle_data/` as the sole CollisionSpike case-workflow
+- Added `services/functions/vehicle-enrichment/vehicle_data/` as the sole CollisionSpike case-workflow
   owner: provider orchestration (`service.py`), contract/model types (`contracts.py`),
   one provider-boundary registration normaliser (`registration.py`), one handwritten
   MOT cleaner/estimator (`mileage.py`), and chronological evaluation (`backtest.py`).
@@ -26,7 +26,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   a schema-parity test.
 - `function_app.py` now performs one `VehicleDataService.lookup` and returns the nested,
   versioned contract. Existing top-level case-writer fields are a mechanical adapter;
-  `range_only`/`insufficient` results never become legacy point mileage.
+  `range_only`/`insufficient` results never become earlier point mileage.
 - Replaced the copied 551-line `analysis.py` implementation with a deprecated no-maths
   facade. Both DVSA and DVLA transports delegate registration canonicalisation to the
   owner and expose distinct found/not-found/invalid/configuration/temporary outcomes.
@@ -40,7 +40,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   branch `mileagetool:codex/tkt-152-retire-estimator` removes the desktop point estimate;
   its documented blocker is the absence of a staff-authenticated/user-delegated route or
   trusted broker that avoids embedding an internal Function key. The retained Cloudflare
-  source is explicitly historical/non-active and prohibited as a mileage deployment path.
+  source is explicitly prior/non-active and prohibited as a mileage deployment path.
   Exact sibling heads and gates are recorded in the
   [sibling consolidation evidence](./evidence/sibling-consolidation-2026-07-12.md).
 
@@ -65,7 +65,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 - Exact-head PR review additionally hardened at-least-once delivery: request identity
   excludes state the lookup itself mutates, the first response committed for an identical
   caller key wins even if concurrent retrieval timestamps differ, excluded MOT outliers
-  cannot remain selected, and invalid legacy mileage exposes Case Detail retry.
+  cannot remain selected, and invalid earlier mileage exposes Case Detail retry.
 - App-only vehicle lookup now requires the live orchestration identity in
   `VEHICLE_DATA_SERVICE_CLIENT_IDS`; staff retain their normal app-role path. The activity
   forwards its resolved registration as a missing-case fallback and conflicting saved
@@ -75,7 +75,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   Data API and sibling MCP boundaries. A concurrent idempotency loser reloads and
   returns the first committed envelope rather than merely labelling its own response
   as replayed.
-- Machine/provider mileage retains compatibility with an exact standalone unit suffix,
+- Machine/provider mileage retains continuity with an exact standalone unit suffix,
   while case edits and arbitrary surrounding prose remain strict. The remediation client
   verifies the Postgres certificate by default.
 - Invalid oversized registrations now remain fail-soft and schema-valid without truncating
@@ -86,7 +86,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   and subsequent mainline deliveries.
   The semantic merge preserves pending/failed source-evidence readiness, resumable Manual
   Intake uploads, explicit-save behavior, bounded e-mail previews and the new vehicle checks
-  in the same canonical readiness result. Sparse legacy case fixtures remain safe.
+  in the same canonical readiness result. Sparse earlier case fixtures remain safe.
 - Intake vehicle completion is now explicitly advisory: bounded replay keys hash arbitrarily
   long Graph instance identifiers, permanent Data API rejections skip immediately, transient
   faults use the Durable retry window, and an exhausted retry cannot roll back an already
@@ -112,7 +112,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 - Preserves every provider MOT row and original source/test/date/result/value/unit/status,
   registration-at-test and stable identity, then records dedup/retest/rejection decisions.
-- Normalises recognised MI/KM and current `READ` plus documented/example legacy `OK`;
+- Normalises recognised MI/KM and current `READ` plus documented/example earlier `OK`;
   consolidates fail/retest episodes; excludes `<90d`, negative, `>100k/year`, and `>900d`
   intervals from rate estimation without deleting evidence.
 - Deterministically handles isolated keying spikes/dips, persistent lower-reading
@@ -128,7 +128,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   with SHA-256 provenance, at least 30 matching holdouts, and finite ordered residual
   quantiles can emit an empirical prediction interval. Without one, a defensible normal
   point estimate remains visible with a wider explicitly uncalibrated range, but is
-  not exposed to legacy/default case-field writers.
+  not exposed to earlier/default case-field writers.
 - Automatic estimate application additionally requires at least 1,000 empirical
   chronological holdouts, observed coverage at or above the declared target and the
   explicit `MILEAGE_ESTIMATE_AUTOFILL_ENABLED` rollout gate. Synthetic fixtures cannot
@@ -137,7 +137,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Immutable persistence
 
-- Added fresh-build `migration/assets/schema/200_vehicle_data.sql` and idempotent delta
+- Added fresh-build `database/baseline/200_vehicle_data.sql` and idempotent delta
   `deltas/2026-07-12-tkt152-vehicle-data.sql` for model profiles, lookup runs, provider
   snapshots, raw MOT observations and estimate results.
 - All five tables are forced behind RLS and append-only to `cespk_app` (`SELECT, INSERT`;
@@ -161,7 +161,7 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 
 ## Gates run
 
-- `functions/enrichment`: `python -m pytest -q` → **67 passed**.
+- `services/functions/vehicle-enrichment`: `python -m pytest -q` → **67 passed**.
 - Python compile/import gate (`compileall`) → pass.
 - Data API: TypeScript build → pass; Vitest → **70 files / 709 tests passed**.
 - Orchestration: TypeScript build → pass; Vitest → **32 files / 425 tests passed**.
@@ -173,9 +173,10 @@ recorded by the PR marker rather than self-referenced inside its own commit.
 - Sibling Windows tool: direct `dotnet build` → **0 warnings / 0 errors** at reviewed head
   `1e9a00e720a03ed0cf576a4a3c95ae7a0f59178a`.
 - Aggregate `node verify-all.mjs` → **8 passed, 0 failed, 13 expected skips**.
-- `node migration/assets/verify-parity-pg.mjs` → all applicable checks passed.
-- `node scripts/check-doc-links.mjs` → 0 broken links / 0 orphan docs / 0 live-fact leaks.
-- `node scripts/check-tickets.mjs` → 164 tickets / 4 plans / 0 failures / 0 warnings.
+- The branch's one-time PostgreSQL parity runner reported all applicable checks passed; that
+  disposable runner is not retained after the repository reset.
+- `node scripts/checks/check-doc-links.mjs` → 0 broken links / 0 orphan docs / 0 live-fact leaks.
+- `node scripts/checks/check-tickets.mjs` → 164 tickets / 4 plans / 0 failures / 0 warnings.
 - JSON parse validation and `git diff --check` → pass.
 
 ## Honest remaining gates
@@ -194,5 +195,5 @@ recorded by the PR marker rather than self-referenced inside its own commit.
   episode/segment numbers, booleans and the actual contract decision codes.
 - The sibling MCP and Windows changes are committed but not yet merged or deployed. Until those
   delivery units land, their current default branches remain unchanged and suite-wide live
-  consolidation cannot be claimed. The historical Cloudflare runtime and desktop duplicate
+  consolidation cannot be claimed. The prior Cloudflare runtime and desktop duplicate
   implementation are removed from their delivery branches.

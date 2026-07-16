@@ -18,17 +18,17 @@ Name similarity is also unsafe as a primary key. Common surnames and initials ca
 
 ## Evidence
 - [Operator note](./evidence/issue.md) — reports the active-case miss and identifies full-first-name versus initial usage as the likely contributing variation.
-- [Supplied follow-up email](<./evidence/128199.001  Saira Khurshid.eml>) — sender sue@accidentspecialist.co.uk, subject “128199.001 Saira Khurshid” and body “Images have now been sent”.
+- [Supplied follow-up email](./evidence-manifest.json) — sender sue@accidentspecialist.co.uk, subject “128199.001 Saira Khurshid” and body “Images have now been sent”.
 - The sample’s exact provider reference is stronger evidence than the name spelling. TKT-023/TKT-093 own correlation and confident auto-attachment; this ticket makes their identity comparison tolerant without weakening ambiguity safeguards.
 
 ## Proposed change
 PROPOSED (not built): normalize claimant identity into preserved raw text plus comparison tokens for title, given names, initials and surname. Apply a fixed evidence hierarchy in which exact Case/PO, exact provider reference, exact registration and trusted thread relation outrank name evidence.
 
-Full-name/initial compatibility can corroborate a match and must not veto stronger exact evidence. It can never auto-attach on its own. Conflicting strong identifiers or more than one viable case produce an explicit “More than one case matches” decision instead of a guessed link.
+Full-name/initial continuity can corroborate a match and must not veto stronger exact evidence. It can never auto-attach on its own. Conflicting strong identifiers or more than one viable case produce an explicit “More than one case matches” decision instead of a guessed link.
 
 ## Acceptance
-- **A1.** Claimant comparison treats titles, repeated whitespace, punctuation and case as insignificant and recognises Saira Khurshid, S Khurshid and S. Khurshid as compatible initial/full-name variants while preserving every original value for display and audit.
-- **A2.** Matching uses a documented hierarchy: exact Case/PO, exact provider reference, exact normalized registration and trusted message-thread relation are strong evidence; provider identity and normalized claimant name are supporting evidence. A compatible name can never be the sole reason for automatic attachment.
+- **A1.** Claimant comparison treats titles, repeated whitespace, punctuation and case as insignificant and recognises Saira Khurshid, S Khurshid and S. Khurshid as supported initial/full-name variants while preserving every original value for display and audit.
+- **A2.** Matching uses a documented hierarchy: exact Case/PO, exact provider reference, exact normalized registration and trusted message-thread relation are strong evidence; provider identity and normalized claimant name are supporting evidence. A supported name can never be the sole reason for automatic attachment.
 - **A3.** A full-name/initial difference cannot veto a unique case already supported by a strong exact key. The supplied email’s 128199.001 reference must lead to the same active matter even if the case stores S Khurshid.
 - **A4.** A conflicting exact reference, registration or provider scope cannot be overridden by a similar name. Surname-only, initial-only, fuzzy spelling and transposed-name matches remain insufficient without corroboration.
 - **A5.** If two or more cases remain viable after the hierarchy, the email stays unattached and shows every candidate with the evidence for and against it. No arbitrary “best” candidate is selected, and no case is minted to escape ambiguity.
@@ -48,4 +48,4 @@ Distilled 2026-07-13 from the [operator note and original email](./evidence/). T
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/issue.md)
-- [Supplied follow-up email](<./evidence/128199.001  Saira Khurshid.eml>)
+- [Supplied follow-up email](./evidence-manifest.json)

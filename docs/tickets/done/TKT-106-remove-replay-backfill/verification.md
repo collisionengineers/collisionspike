@@ -20,11 +20,11 @@ VERIFIED-LIVE
   removed TKT-106, +6 dark TKT-095 detectors"); today's 74 = 71 +1 (D2/TKT-102) +1 (TKT-145)
   +1 (TKT-146) — trail consistent, no replay registration anywhere in it.
 - **Gate deleted from live app-settings:** appsettings list → **`REPLAY_BACKFILL_ENABLED` absent**.
-- **Code + deployed bundle grep-clean:** `orchestration/src` + `packages/domain` → only removal-note
-  comments (index.ts:61, graph.ts:338, gates.ts:143); `deploy/orch/main.cjs` → only the TKT-106
+- **Code + deployed bundle grep-clean:** `services/orchestration/src` + `packages/domain` → only removal-note
+  comments (index.ts:61, graph.ts:338, gates.ts:143); `.artifacts/deploy/orchestration/main.cjs` → only the TKT-106
   removal comment (line 2152) + Durable `isReplaying` idioms. Repo-wide `REPLAY_BACKFILL_ENABLED`
   (excluding docs/tickets + memory) → only the LIVE_FACTS changelog narrative +
-  readiness-matrix removal rows. CLAUDE.md and docs/gated.md clean.
+  readiness-matrix removal rows. CLAUDE.md and docs/tickets/BOARD.md clean.
 - **TKT-059 finding preserved:** docs/tickets/done/TKT-059-replay-wipe-rebuild/verification.md
   Finding 1 intact ("mailboxes do NOT retain history… 88 messages vs 390 inbound_email…
   non-viable"); BOARD closes TKT-059 citing the TKT-106 removal.
@@ -46,10 +46,10 @@ VERIFIED-LIVE
 - `az functionapp config appsettings list … --query "[].name" -o tsv | grep -i REPLAY` → empty.
 - `rg "REPLAY_BACKFILL_ENABLED" --glob '!docs/tickets/**' --glob '!memory/**'` → registry narrative +
   readiness-matrix removal rows only.
-- `rg -i "replay-backfill|replayBackfill|replay-manifest|listMessagesSince" orchestration/src packages
-  deploy/orch/main.cjs` → removal-note comments only.
+- `rg -i "replay-backfill|replayBackfill|replay-manifest|listMessagesSince" services/orchestration/src packages
+  .artifacts/deploy/orchestration/main.cjs` → removal-note comments only.
 
 ### Confidence + unread surfaces
 High. Unread: no App Insights/KQL (nothing to observe for a removed function); no fresh verify-all
-execution (mutating); the historical −5 drop evidenced by the LIVE_FACTS trail rather than direct
+execution (mutating); the prior −5 drop evidenced by the LIVE_FACTS trail rather than direct
 observation (three later deploys legitimately changed the count).

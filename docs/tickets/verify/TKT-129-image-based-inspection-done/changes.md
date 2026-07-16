@@ -9,26 +9,26 @@ Implemented as ONE coherent change with **TKT-109** (the mechanism ticket — se
 the seam detail); this ticket covers the application, the wording, and the live seed/prefill.
 
 **Auto-complete (server-side, durable — TKT-109 mechanism)**
-- New `api/src/lib/inspection-prefill.ts`: for an `always_image_based` provider's non-terminal case
+- New `services/data-api/src/features/cases/inspection-prefill.ts`: for an `always_image_based` provider's non-terminal case
   with an EMPTY inspection address and NO recorded decision, sets
   `eva_inspection_address = 'Image Based Assessment'` + `inspection_decision_code = image_based`
   (guarded UPDATE — fill-if-empty, never over a staff value), writes a `corpus`/`reviewed`
   provenance row, and audits `inspection_override` with the required reason
   **"Provider policy: image-based assessment"** (the `inspection_address` CHECK's reason discipline
   carried to the case-level record).
-- Wired into every status-evaluation seam: `recomputeStatus` in `api/src/functions/cases.ts` AND
-  `api/src/functions/internal.ts` (intake/orchestration path), plus `createCase` (manual intake).
+- Wired into every status-evaluation seam: `recomputeStatus` in `services/data-api/src/features/cases/` AND
+  `services/data-api/src/features/` (intake/orchestration path), plus `createCase` (manual intake).
 - Result: the readiness item shows **"Inspection: Image Based Assessment" — Done** without manual
   entry; staff can still pick/search a physical address (the picker overwrites the literal and
   records a manual decision; the prefill never re-fires once a decision exists).
 
-**Wording (the inverted note — `mockup-app/src/screens/CaseDetail.tsx`)**
+**Wording (the inverted note — `apps/web/src/features/cases/CaseDetail.tsx`)**
 - Was: "This provider is usually recorded as Image Based Assessment — use the override below if the
   vehicle can't be inspected in person." (inverted logic)
 - Now: **"This provider works from photos, so the inspection is recorded as Image Based Assessment
   for you. Only pick an address below if this vehicle will be inspected in person."** (handler-plain,
   no inverted logic, reflects the auto-complete).
-- Readiness label (`mockup-app/src/components/readiness.ts`): "Inspection address: Image Based
+- Readiness label (`apps/web/src/shared/ui/readiness.ts`): "Inspection address: Image Based
   Assessment (override)" → **"Inspection: Image Based Assessment"** (it is no longer an "override"
   when it is the provider's policy).
 
@@ -53,7 +53,7 @@ the seam detail); this ticket covers the application, the wording, and the live 
   providers after: **0**.
 
 ## Live actions taken
-- Delta **`migration/assets/schema/deltas/2026-07-08-image-based-provider-prefill.sql`** applied live
+- Delta **`database/migrations/2026-07-08-image-based-provider-prefill.sql`** applied live
   (Entra `digital@` → `SET ROLE csadmin`; transient FW rule `tkt129apply` added + REMOVED;
   backup-first: `tkt129_backup_wp_policy_2026_07_08`, `tkt129_backup_case_prefill_2026_07_08`,
   `tkt130_backup_case_status_2026_07_08` kept for rollback). Full psql output:
@@ -65,13 +65,13 @@ the seam detail); this ticket covers the application, the wording, and the live 
 - **A.QDOS26029** (`ac34fae6…`): inspection field populated **"Image Based Assessment"**, provenance
   chip **Reviewed**, readiness item **"Inspection: Image Based Assessment" ✓ Done** — with NO manual
   entry. Screenshot:
-  [evidence/aqdos26029-case-page-live-2026-07-08.png](./evidence/aqdos26029-case-page-live-2026-07-08.png).
+  [evidence/aqdos26029-case-page-live-2026-07-08.png](./evidence-manifest.json).
 - The corrected note renders on the Address tab for QDOS cases (same build).
 
 ## Tests
-- `api/src/lib/inspection-prefill.test.ts` (new, 7): applicability matrix (policy/empty/undecided/
+- `services/data-api/src/features/cases/inspection-prefill.test.ts` (new, 7): applicability matrix (policy/empty/undecided/
   non-terminal only), guarded fill + provenance + audited reason, race-lost no-op.
-- Suites green: domain 962 / api 279 / mockup-app 312 / orch 170.
+- Suites green: domain 962 / api 279 / @cs/web 312 / orch 170.
 
 ## Honest remaining
 - A.QDOS26029 itself evaluates `missing_images` (honest: 20 accepted images, none classified

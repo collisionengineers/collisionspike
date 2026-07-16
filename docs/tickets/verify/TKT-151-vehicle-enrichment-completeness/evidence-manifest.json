@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "ticket": "TKT-151",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/followup-2026-07-13/(EREF15) Client Mr Michael Deakin, Vehicle MINI JOHN COOPER WORKS AUTO AY15EWU, Our Ref 46591_1.eml",
+      "originalFilename": "(EREF15) Client Mr Michael Deakin, Vehicle MINI JOHN COOPER WORKS AUTO AY15EWU, Our Ref 46591_1.eml",
+      "sha256": "0e6cd4270029dc05bd70481ee6d31f78ccdcb5d6778ef714025c97def855bc8f",
+      "storagePath": "tests/fixtures/evidence/sha256/0e/0e6cd4270029dc05bd70481ee6d31f78ccdcb5d6778ef714025c97def855bc8f.eml"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/followup-2026-07-13/1.png",
+      "originalFilename": "1.png",
+      "sha256": "cc19701f3b6570b04f888a6f4cc788ad854c1cd3b2a8d3d75a695ee9e936c9b1",
+      "storagePath": "tests/fixtures/evidence/sha256/cc/cc19701f3b6570b04f888a6f4cc788ad854c1cd3b2a8d3d75a695ee9e936c9b1.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/followup-2026-07-13/2.png",
+      "originalFilename": "2.png",
+      "sha256": "573da5a7cd6efb7da7713359c81e7d1188e7fa37181e7c792effc2625ebeb0d1",
+      "storagePath": "tests/fixtures/evidence/sha256/57/573da5a7cd6efb7da7713359c81e7d1188e7fa37181e7c792effc2625ebeb0d1.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/followup-2026-07-13/3.png",
+      "originalFilename": "3.png",
+      "sha256": "d9848a09563f6bedaed046b3fc61871655edf6a93afab9f94b79455b73203f6e",
+      "storagePath": "tests/fixtures/evidence/sha256/d9/d9848a09563f6bedaed046b3fc61871655edf6a93afab9f94b79455b73203f6e.png"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/followup-2026-07-13/LtrtoEngineerInstructionCollisionEngineersLtd-V1.doc",
+      "originalFilename": "LtrtoEngineerInstructionCollisionEngineersLtd-V1.doc",
+      "sha256": "b250e50e0e915a343b57b386dff1e7d8f001c237a60cd19186a2e7e39eceb535",
+      "storagePath": "tests/fixtures/evidence/sha256/b2/b250e50e0e915a343b57b386dff1e7d8f001c237a60cd19186a2e7e39eceb535.doc"
+    }
+  ]
+}

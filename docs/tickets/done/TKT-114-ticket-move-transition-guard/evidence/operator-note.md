@@ -1,7 +1,7 @@
 # Operator note — ticket-move transition guard (distilled 2026-07-08)
 
 Context: while building the ticket-orchestration layer (the `ticket-orchestrate` skill + the
-`ticket-verifier` / `ticket-implementer` agents), we confirmed that `scripts/ticket-move.mjs` allows
+`ticket-verifier` / `ticket-implementer` agents), we confirmed that `scripts/maintenance/ticket-move.mjs` allows
 **any** status→status move — the lifecycle graph documented in `docs/tickets/README.md` (§ Lifecycle)
 is not enforced anywhere: not by the mover, not by `check-tickets.mjs`. A wrong move (e.g.
 `backlog → done`, skipping the verify evidence gate) succeeds silently and only a human reading the

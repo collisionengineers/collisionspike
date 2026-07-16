@@ -1,18 +1,16 @@
 #!/bin/sh
-# pre-commit — documentation-freshness guard for collisionspike.
+# pre-commit — repository contract guard for collisionspike.
 #
 # Activation (one-time, per clone — .git/hooks is NOT tracked):
 #     git config core.hooksPath scripts/hooks
-# See docs/MAINTENANCE.md → "Activate the hook".
+# See docs/governance/repository-map.md.
 #
 # What it does:
-#   1. BLOCKS the commit if a staged path contains a ':' — NTFS-invalid on Windows
-#      (see docs/plans/runbooks/ntfs-path-history-purge.md for why this is a hard block).
-#   2. BLOCKS the commit if `node scripts/check-doc-links.mjs` fails
-#      (broken relative links, orphaned docs, or live-number leakage).
-#   3. BLOCKS the commit if ticket placement/BOARD/plans/manifest validation fails.
-#   4. BLOCKS the commit if shared .agents/.claude skills drift.
-#   5. WARNS (does NOT block) if docs/architecture/live-environment.md is staged
+#   1. BLOCKS the commit if a staged path contains a ':' (invalid on Windows).
+#   2. BLOCKS broken documentation links or an inconsistent ticket system.
+#   3. BLOCKS generated agent-adapter drift and tracked generated output.
+#   4. BLOCKS forbidden terminology, paths, and repository artifacts.
+#   5. WARNS (does NOT block) if docs/operations/live-environment.md is staged
 #      but LIVE_FACTS.json is not — a possible un-mirrored live edit. The registry
 #      mirror and LIVE_FACTS.json should move together.
 #
@@ -34,46 +32,47 @@ if [ -n "$BAD_PATHS" ]; then
   exit 1
 fi
 
-# --- 2. Link / orphan / leakage gate (BLOCKING) ---
+# --- 2. Documentation and ticket gates (BLOCKING) ---
 if command -v node >/dev/null 2>&1; then
-  if ! node scripts/check-doc-links.mjs --quiet; then
+  if ! node scripts/checks/check-doc-links.mjs --quiet; then
     echo ""
     echo "pre-commit: doc-links check FAILED — commit blocked."
     echo "  Fix the issues above, or bypass once with:  git commit --no-verify"
     exit 1
   fi
-else
-  echo "pre-commit: node not found — skipping doc-links check (install Node to enable)."
-fi
-
-# --- 3. Ticket-system gate (BLOCKING) ---
-if command -v node >/dev/null 2>&1; then
-  if ! node scripts/check-tickets.mjs --quiet; then
+  if ! node scripts/checks/check-tickets.mjs --quiet; then
     echo ""
     echo "pre-commit: ticket-system check FAILED — commit blocked."
     echo "  Fix the issues above, or bypass once with:  git commit --no-verify"
     exit 1
   fi
+else
+  echo "pre-commit: node not found — skipping documentation and ticket checks (install Node to enable)."
 fi
 
-# --- 4. Skill sync gate (BLOCKING) ---
+# --- 3. Generated-adapter and output gates (BLOCKING) ---
 if command -v node >/dev/null 2>&1; then
-  if ! node scripts/check-skills-sync.mjs; then
+  if ! node scripts/maintenance/generate-agent-adapters.mjs --check; then
     echo ""
-    echo "pre-commit: skill sync check FAILED — commit blocked."
-    echo "  Keep shared .agents/.claude skill files byte-identical."
+    echo "pre-commit: generated adapter check FAILED — commit blocked."
     exit 1
   fi
+  node scripts/checks/check-tracked-outputs.mjs || exit 1
+fi
+
+# --- 4. Repository terminology and artifact gate (BLOCKING) ---
+if command -v node >/dev/null 2>&1; then
+  node scripts/checks/check-forbidden-references.mjs || exit 1
 fi
 
 # --- 5. Registry-mirror co-staging WARNING (non-blocking) ---
-echo "$STAGED" | grep -qx "docs/architecture/live-environment.md"
+echo "$STAGED" | grep -qx "docs/operations/live-environment.md"
 MIRROR_STAGED=$?
 echo "$STAGED" | grep -qx "LIVE_FACTS.json"
 FACTS_STAGED=$?
 if [ "$MIRROR_STAGED" -eq 0 ] && [ "$FACTS_STAGED" -ne 0 ]; then
   echo ""
-  echo "pre-commit WARNING: docs/architecture/live-environment.md is staged but LIVE_FACTS.json is NOT."
+  echo "pre-commit WARNING: docs/operations/live-environment.md is staged but LIVE_FACTS.json is NOT."
   echo "  The registry mirror and LIVE_FACTS.json should change together. If you edited a live"
   echo "  number, update LIVE_FACTS.json (bump lastVerified) too. (Warning only — commit allowed.)"
 fi

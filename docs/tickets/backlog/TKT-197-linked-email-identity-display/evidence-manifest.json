@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-197",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/1.png",
+      "originalFilename": "1.png",
+      "sha256": "70c551d1af4e47520d1f0cb14781a30256fc841fbde083ce5c79b36eaf58952e",
+      "storagePath": "tests/fixtures/evidence/sha256/70/70c551d1af4e47520d1f0cb14781a30256fc841fbde083ce5c79b36eaf58952e.png"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/New Instruction - RA6458909.eml",
+      "originalFilename": "New Instruction - RA6458909.eml",
+      "sha256": "41ecfe80c13ef1f77bba8a4aeb07301d5cc7283c2b1d49f38cc506aa64dd602b",
+      "storagePath": "tests/fixtures/evidence/sha256/41/41ecfe80c13ef1f77bba8a4aeb07301d5cc7283c2b1d49f38cc506aa64dd602b.eml"
+    }
+  ]
+}

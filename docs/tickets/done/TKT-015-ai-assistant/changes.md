@@ -12,13 +12,13 @@ for the full detail.
   `triageClassify` stub with a real, never-throw AOAI structured-output call (PII-scrubbed,
   suggestion-only, keyless via the orch managed identity); wired for abstain/`uncorroborated_*` rows
   only; results ride this ticket's `ai_suggestion` lifecycle (`suggestion_type: 'triage_category'`).
-  `EMAIL_AI_ENABLED` stays absent — dead until the operator flips it (gated.md §D6).
+  `EMAIL_AI_ENABLED` stays absent — dead until the operator flips it (ticket board §D6).
 
 ## Files touched
 - AI suggestion-layer foundation scaffolding (gated OFF).
-- `orchestration/src/functions/gated/triage-classify.ts`, `orchestration/src/lib/aoai.ts` (new),
-  `orchestration/src/functions/intakeOrchestrator.ts`, `api/src/functions/ai-suggestions.ts`,
-  `api/src/functions/internal.ts`, `scripts/eval-email/run_ab.py` (new) — the 2026-07-02 wiring.
+- `services/orchestration/src/workflows/intake/triage-classify.ts`, `services/orchestration/src/adapters/aoai.ts` (new),
+  `services/orchestration/src/workflows/intake/intakeOrchestrator.ts`, `services/data-api/src/features/assistant/register-suggestion-routes.ts`,
+  `services/data-api/src/features/`, `scripts/evaluation/email/run_ab.py` (new) — the 2026-07-02 wiring.
 
 ## Summary
 A foundation for the observation-first AI suggestion layer was committed, deliberately gated OFF; Phase 4
@@ -31,11 +31,11 @@ consumers (TKT-016/017/018) remain unbuilt.
 ## 2026-07-08 — generic generate route model call WIRED (case/damage-assessment consumer, still gated OFF)
 
 Closed the one remaining gap on the generic path: `callModelForSuggestions`
-(`api/src/functions/ai-suggestions.ts`) was a dormant `return []` stub — the case/damage-assessment
+(`services/data-api/src/features/assistant/register-suggestion-routes.ts`) was a dormant `return []` stub — the case/damage-assessment
 consumer behind `POST /api/cases/{id}/ai-suggestions/generate`. It now delegates to a real **keyless
 managed-identity** AOAI structured-output call.
 
-- **New:** `api/src/lib/aoai-suggestions.ts` — the model-call mechanics, REUSING the established repo
+- **New:** `services/data-api/src/features/assistant/suggestion-client.ts` — the model-call mechanics, REUSING the established repo
   pattern (not a new HTTP client): `mintCognitiveToken` from `aoai-chat.ts` (the API MI's Cognitive
   Services token — the MI holds *Cognitive Services OpenAI User* on `digital-3339-resource`, granted
   2026-07-05) + the LIVE email-triage lane's strict-JSON structured-output shape (AOAI GA v1
@@ -48,17 +48,17 @@ managed-identity** AOAI structured-output call.
   stub" comments corrected (gpt-5 IS deployed; the route stays a no-op only because `AI_ASSIST_ENABLED`
   is OFF). The persist/audit code is unchanged.
 - **Edited:** `packages/domain/src/dto/index.ts` — added the three kinds to the `AiSuggestionType` open
-  vocabulary (documented, additive; open vocab so it was already type-compatible).
+  vocabulary (documented, additive; open vocab so it was already type-supported).
 - **Failure posture:** a hard model failure (non-2xx / timeout / transport / unparsable-or-blocked 2xx)
   THROWS → the route's existing catch degrades to `{ generated: 0, reason: 'error' }` with no partial
   write; a clean-but-empty run resolves `[]` → `{ generated: 0 }`.
-- **Tests (offline, mocked model — no network):** `api/src/lib/aoai-suggestions.test.ts` (10) +
-  `api/src/functions/ai-suggestions.test.ts` (8) prove acceptance (a)–(d). Full api suite 269 pass;
+- **Tests (offline, mocked model — no network):** `services/data-api/src/features/assistant/suggestion-client.test.ts` (10) +
+  `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` (8) prove acceptance (a)–(d). Full api suite 269 pass;
   `api` + `packages/domain` typecheck clean; `node verify-all.mjs` green except the pre-existing
   Windows-env parser-pytest FAIL (Python Function untouched). Evidence:
   [evidence/generate-model-call-offline-run.md](./evidence/generate-model-call-offline-run.md).
 - **Still gated OFF / build-dark:** `AI_ASSIST_ENABLED` absent from live app-settings — no live deploy,
-  no gate flip, no DDL. Flipping it is a Phase-4 operator step (DPIA/capacity/residency, docs/gated.md
+  no gate flip, no DDL. Flipping it is a Phase-4 operator step (DPIA/capacity/residency, docs/tickets/BOARD.md
   §F / §D6).
 
 ## 2026-07-08 (later) — reopened live failure resolved via TKT-127 (live-proven end-to-end)

@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table",
+  "codeTableId": "case_type",
+  "displayName": "Case Type",
+  "description": "Case.caseType — the work type, orthogonal to status. standard is a normal instruction; audit is a second, independent CE inspection of a third-party engineer's original report on a repairable vehicle (ADR-0014), using an A. Case/PO marker and engineer_report evidence; audit_total_loss is the same work where the vehicle is a total loss, refined during review with an AP. marker (ADR-0021); diminution is a Diminution in Value engagement using a D. marker. The parser or staff review sets the value. Default: standard.",
+  "options": [
+    { "value": 100000000, "name": "standard",         "label": "Standard" },
+    { "value": 100000001, "name": "audit",            "label": "Audit" },
+    { "value": 100000002, "name": "audit_total_loss", "label": "Audit (Total Loss)" },
+    { "value": 100000003, "name": "diminution",       "label": "Diminution" }
+  ]
+}

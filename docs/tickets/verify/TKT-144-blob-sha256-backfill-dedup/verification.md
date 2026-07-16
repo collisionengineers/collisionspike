@@ -38,7 +38,7 @@ soft_merged **108** ✓ · 5. status_changed audits **0** ✓ · 6. rows at run 
 
 ## Pending / gaps
 Independent verifier pass (read-only SQL below) not yet run — the implementer must not
-self-certify. Expected acceptance mapping: line 1 (historic blob rows carry sha256) →
+self-certify. Expected acceptance mapping: line 1 (prior blob rows carry sha256) →
 check 1; line 2 (true duplicates deduplicated with audit; distinct photos untouched) →
 checks 2–5 (note the "distinct" bucket is honestly empty — all 106 groups proved
 byte-identical; see changes.md).
@@ -91,9 +91,9 @@ of sampled collapsed groups, and diff any touched row against
 **Verdict: TESTED (offline) — deployment pending.**
 
 This block supersedes the stale live/done verdict for the PR 55 reusable-script repair. The original
-hash/backfill results remain historical evidence; the one-off write window will not be rerun live.
+hash/backfill results remain prior evidence; the one-off write window will not be rerun live.
 
-- `evidence/run/write-window.sql` now safely parses legacy `duplicate_keys`, applies a valid nonblank
+- `evidence/run/write-window.sql` now safely parses earlier `duplicate_keys`, applies a valid nonblank
   string `mergedInto` retirement rung before every readiness branch, and excludes terminals as before.
   A merge-retired affected case therefore remains `linked_to_instruction`; unrelated cases follow the
   existing readiness calculation.
@@ -101,19 +101,19 @@ hash/backfill results remain historical evidence; the one-off write window will 
   marker behaviour. The SQL is also included in release syntax/contract validation.
 - No new live mutation is required or claimed. Before retaining the script as a reusable artifact,
   release validation must run its status fragment against a scratch merged row and an ordinary
-  control row; production deployment must not re-execute the historical TKT-144 data correction.
+  control row; production deployment must not re-execute the prior TKT-144 data correction.
 
 ## Verdict update — 2026-07-14 (independent PLAN-005 sweep; transcribed verbatim)
 
 ## Verdict
 
 **TESTED (offline) — release validation pending.** The original 2026-07-10 production correction remains
-historically **VERIFIED-LIVE**, but the 2026-07-11 reusable-script regression block explicitly supersedes
+previously **VERIFIED-LIVE**, but the 2026-07-11 reusable-script regression block explicitly supersedes
 the ticket-level live/done verdict until its scratch-row release check is recorded.
 
 ## Evidence
 
-- Original acceptance 1 (historic blob evidence carries SHA-256): the 2026-07-10 W2 evidence records
+- Original acceptance 1 (prior blob evidence carries SHA-256): the 2026-07-10 W2 evidence records
   `null_sha=0` across 3,434 blob-lane rows; all 477 worklist rows matched their computed hash and 586 rows
   shared the exact correction timestamp.
 - Original acceptance 2 (true duplicates only): the evidence pack records 106 same-name groups as
@@ -130,7 +130,7 @@ the ticket-level live/done verdict until its scratch-row release check is record
 
 - No artifact shows the required release validation of the SQL status fragment against both a scratch
   merge-retired row and an ordinary control row.
-- The historical data correction must **not** be rerun in production merely to prove this repair.
+- The prior data correction must **not** be rerun in production merely to prove this repair.
 - Raw-ledger unread surface: because the verifier concluded after tool-output truncation, it did not
   independently inspect every remaining row of `backup-before.csv` (roughly lines 101–692) or
   `hash-run-log.csv` (1–478). It did read the full ticket/changes/regression/verification narrative, all
@@ -148,6 +148,6 @@ Do not execute the TKT-144 hash/dedup correction against production.
 ## Confidence + unread surfaces
 
 **Medium-high** on the verdict: the missing scratch-control artifact is explicit in the binding
-verification block. Confidence in the historical live correction relies partly on its verifier transcript
+verification block. Confidence in the prior live correction relies partly on its verifier transcript
 and summarized ledgers; the unread raw-ledger ranges are listed above. PostgreSQL was not retried because
 this verifier already hit the two-strikes boundary and firewall changes were forbidden.

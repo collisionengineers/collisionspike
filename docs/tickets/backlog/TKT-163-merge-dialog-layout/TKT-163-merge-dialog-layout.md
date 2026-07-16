@@ -16,7 +16,7 @@ The merge-case dialog allows its heading and supporting case information to over
 
 ## Evidence
 - [Operator note](./evidence/operator-note.md) — screenshot-backed UI report.
-- [Source note](./evidence/source-evidence/ui-bug.md), [screenshot](./evidence/source-evidence/screenshot.png), and [highlighted screenshot](./evidence/source-evidence/screenshot-highlighted.png) — preserved distillation inputs.
+- [Source note](./evidence/source-evidence/ui-bug.md), [screenshot](./evidence-manifest.json), and [highlighted screenshot](./evidence-manifest.json) — preserved distillation inputs.
 - TKT-052 owns merge behavior but its acceptance does not cover responsive dialog layout.
 
 ## Proposed change
@@ -33,12 +33,13 @@ PROPOSED (not built): give the dialog a stable content hierarchy and responsive 
 - The deployed SPA is checked in Chrome with no overlap, clipping, console error or failed merge-related request on a designated test case.
 
 ## Research
-Distilled 2026-07-12 from `docs/tickets/to-distill/ui-bug-merge-case/`; the note and screenshots are preserved in this ticket's evidence folder.
+Distilled 2026-07-12 from the supplied merge-dialog note and screenshots. The note remains here and
+the screenshots resolve through [the evidence manifest](./evidence-manifest.json).
 
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
 - [Source note](./evidence/source-evidence/ui-bug.md)
-- [Screenshot](./evidence/source-evidence/screenshot.png)
-- [Highlighted screenshot](./evidence/source-evidence/screenshot-highlighted.png)
+- [Screenshot](./evidence-manifest.json)
+- [Highlighted screenshot](./evidence-manifest.json)

@@ -18,7 +18,7 @@ roles: ["CollisionSpike.Admin"] — the pre-rename value — even though the API
 appRoles read Engineer/User/Superuser (Superuser keeping role-id 5b356d4c per the 2026-06-27
 rename record) and withRole('CollisionSpike.User') routes authorize the session fine. Either the
 rename didn't change the role's value field at issuance, the assignment resolves an old value, or
-the api role checks accept a legacy superset. Working today, but the directory record, the token
+the api role checks accept a earlier superset. Working today, but the directory record, the token
 claim, and the code checks should agree.
 
 ## Evidence
@@ -30,12 +30,12 @@ claim, and the code checks should agree.
 
 PROPOSED (not built): decode a fresh token, enumerate the role assignment + the appRole value at
 the assignment's target, determine why the claim says Admin, and reconcile (directory value fix or
-documented legacy-accept in api/src/lib/auth.ts). No behaviour change intended — hygiene.
+documented earlier-accept in services/data-api/src/platform/auth/staff-auth.ts). No behaviour change intended — hygiene.
 
 ## Acceptance
 
 - The mismatch is root-caused and documented (token claim vs directory vs code).
-- Either the fresh-token claim reads CollisionSpike.Superuser, or the legacy value is deliberately
+- Either the fresh-token claim reads CollisionSpike.Superuser, or the earlier value is deliberately
   accepted and recorded in the auth lib + registry.
 - No staff authorization regression.
 

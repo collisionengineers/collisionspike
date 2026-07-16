@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-123",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-reflection-warning.png",
+      "originalFilename": "live-reflection-warning.png",
+      "sha256": "766d49c2440aed13fb1a189d972e9bbfb4f3e06ebcf752f2595f33f48364d810",
+      "storagePath": "tests/fixtures/evidence/sha256/76/766d49c2440aed13fb1a189d972e9bbfb4f3e06ebcf752f2595f33f48364d810.png"
+    }
+  ]
+}

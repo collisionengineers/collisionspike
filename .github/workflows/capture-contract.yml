@@ -3,26 +3,28 @@ name: capture-contract
 on:
   pull_request:
     paths:
-      - api/openapi/capture.v1.yaml
-      - api/src/**
-      - migration/assets/schema/**
-      - api/package.json
-      - api/tsconfig.json
+      - contracts/capture.v1.yaml
+      - services/data-api/src/**
+      - database/baseline/**
+      - database/migrations/**
+      - services/data-api/package.json
+      - services/data-api/tsconfig.json
       - package.json
       - package-lock.json
-      - scripts/check-capture-contract.mjs
+      - scripts/checks/check-capture-contract.mjs
       - .github/workflows/capture-contract.yml
   push:
     branches: [main]
     paths:
-      - api/openapi/capture.v1.yaml
-      - api/src/**
-      - migration/assets/schema/**
-      - api/package.json
-      - api/tsconfig.json
+      - contracts/capture.v1.yaml
+      - services/data-api/src/**
+      - database/baseline/**
+      - database/migrations/**
+      - services/data-api/package.json
+      - services/data-api/tsconfig.json
       - package.json
       - package-lock.json
-      - scripts/check-capture-contract.mjs
+      - scripts/checks/check-capture-contract.mjs
       - .github/workflows/capture-contract.yml
 
 permissions:

@@ -1,414 +1,244 @@
-# Board — ticket tracker
+# Ticket board
 
-> Kanban mirror of every ticket under [docs/tickets/](./README.md). One row per ticket; the column =
-> the ticket's `status` frontmatter. Each ticket lives in its own folder with a `changes.md` +
-> `verification.md` audit trail (see the [README](./README.md)). Keep this table in sync when you change a
-> ticket's status. The [`scripts/check-tickets.mjs`](../../scripts/check-tickets.mjs) checker validates the
-> frontmatter (not the board placement — moving a row is a manual edit).
->
-> **No live numbers here** — see the registry [live-environment.md](../architecture/live-environment.md)
-> ([`LIVE_FACTS.json`](../../LIVE_FACTS.json)).
->
-> **Truth standard.** `done` = the fix is LIVE and proven (test or live probe), recorded in that ticket's
-> `verification.md`, with no known gap. Code that is written/merged but **not confirmed working in the live
-> app** stays `now` — "code-correct" is not "done".
->
-> **Distilled 2026-07-13 (completion-polish drop → 29 new tickets + 4 reopenings)** — filed
-> **TKT-171…199** from the current `to-distill/` material. Reopened **TKT-041/067/068/102** on new live
-> failures or superseding operator rulings, and amended existing **TKT-130/146/151/152/168/169** with the
-> resulting acceptance, validation and verification requirements. All new tickets except standalone
-> **TKT-196** belong to **PLAN-004**. The received-email timestamp note was explicitly discarded; no ticket
-> was filed for it.
->
-> **Backlog reconciliation 2026-07-07 (non-PLAN-001)** — reviewed `backlog/` against `main`, the live
-> deploy, and commit history for status drift. **PLAN-001 tickets excluded** (066/067/068/069/072/110/
-> 111/113 — reconciled separately in **PR #41**, already moved to `verify`). Moves: **TKT-035** →
-> `blocked` (placeholder with no repro; needs an operator sample), **TKT-084** → `blocked` (its own
-> acceptance gates the build on an operator design sign-off). **TKT-089** → `verify` (the PDF-lane
-> decorative-image floor `is_decorative()` is built + deployed on `main` via `aafeba1` and unit-tested on
-> the exact QDOS26004 `RJS_UnknownVRM` logo; audit + email-lane proof + backfill remain; size-floor
-> caveat). **Rescoped-in-place (stay backlog):** **TKT-034** (category split already shipped; image half
-> overlaps active TKT-043), **TKT-087** (idempotent-409 reuse already exists → investigation-only),
-> **TKT-022** (`.docx` reader + fixture now exist → re-check the sample). All other backlog tickets
-> spot-confirmed genuinely un-started. 2 → Blocked, 1 → Verify, 3 rescoped.
->
-> **Distilled 2026-07-07 (third wave — `to-distill/` re-drop → 12 tickets)** — filed **TKT-094…105**
-> from the fresh `docs/tickets/to-distill/` drop. `PLAN-case-done-lifecycle.md` became a 3-ticket
-> cluster (**TKT-094** `done` status model + auto-`eva_submitted` on export [anchor — holds the full
-> plan], **TKT-095** `done` detectors, **TKT-096** Completed/Archive view + terminal-scope search
-> fold-in). Standalone notes: **TKT-097** cancellation misclassified as a case query (relates TKT-041),
-> **TKT-098** inbox pagination (15/page), **TKT-099** QCL Case/PO not minting, **TKT-100** QDOS false
-> VRM "AND2", **TKT-101** QDOS two refs wrongly linked as one case, **TKT-102** Tractable received-email
-> handling, **TKT-103** Tractable "768.00" wrong-reference bug, **TKT-104** Tractable API integration
-> (blocked — vendor docs), **TKT-105** remittance advice → payments. The already-distilled re-drops were
-> disregarded (their material already lives in the TKT-021…040 / 059…063 / 066…093 evidence folders);
-> the drop-zone was removed. 11 → Backlog, 1 → Blocked (TKT-104).
->
-> **Email misclassification batch LIVE 2026-07-07 (TKT-081/082/083/093)** — the four P1
-> email-mistag tickets from the 2026-07-06 drop-notes are fixed. The **classifier fixes are
-> LIVE + PROVEN** (parser redeployed; `POST /api/classify-email` confirms acks →
-> `non_actionable/acknowledgement`, "your report" query → `query_existing_work`, body-only
-> "New INSTRUCTIONS:" → `receiving_work`, forwarded "Audatex attached" → `case_update`). Plus an
-> explicit tested `categoryMintsCase` mint guard (TKT-081), and TKT-093's **auto-attach** — built,
-> deployed, then **FLIPPED LIVE** (`TRIAGE_AUTO_ATTACH_ENABLED=true` on `cespk-orch-dev`,
-> operator-instructed; case_po/job_ref exact-single only — VRM-only stays a suggestion per
-> ADR-0010/0019) + an inbox-list "may belong to · <Case/PO>" visibility hint. **parser + api + orch
-> + SPA all deployed**; the classifier engine re-vendored to the sibling (`engine-v2.7`); the
-> **TKT-081 blank-case was voided** (soft-remove, backup-first, audited; 0 active blank cases).
-> **Remaining:** only the redundant full-intake live-occurrence observations (the classify layer is
-> already live-proven). All four moved Backlog → `now`.
->
-> **Inspection-address repair shipped 2026-07-06 (TKT-074…080)** — the whole 3-tier subsystem
-> rebuilt + LIVE-reseeded + deployed. **TKT-074 → done** (box-scope hook fail-open fix, all 3 adapters).
-> **TKT-075 → done** (reproducible in-repo corpus pipeline; live-validated reseed). **TKT-076/077/078/079/080
-> → now** (DEPLOYED — api 82 / location fn (Oryx) / SPA; corpus reseeded live, backup-first + idempotent,
-> confirmed rows byte-identical, firehose closed, QDOS/PCH now scoped). `AZURE_MAPS_KEY` **wired 2026-07-06**
-> (KV ref on `cespk-api-dev`, geocode smoke passed → runtime proximity live). Remaining are operator live
-> SPA click-throughs + `LOCATION_ASSIST_AI_ENABLED` sign-off. Full narrative:
-> `LIVE_FACTS.json` `verifiedBy` (2026-07-06 inspection-address repair).
->
-> **Distilled 2026-07-06 (second wave — `to-distill/` drop-notes → 13 tickets)** — filed
-> **TKT-081…093** from the ten operator drop-note folders under `docs/tickets/to-distill/` (folder
-> emptied + removed; all raw material moved into each ticket's `evidence/`). Four are a fresh
-> email-mistag batch (**TKT-081** acknowledgement batch incl. a blank case opened, **TKT-082**
-> existing-case query as new client work, **TKT-083** instructions left Unidentified despite
-> detected signals, **TKT-084** pre-instruction lane design); the rest: **TKT-085** VRM logged as
-> "OCTOBER" on A.PCH26003, **TKT-086** circumstances extraction gaps, **TKT-087** Box 409 upload
-> conflicts, **TKT-088** image-role classification decision (blocked — operator), **TKT-089**
-> non-vehicle images on Box, **TKT-090** RJS/UnknownVRM filename bug, **TKT-091** Outlook move
-> fail (first filed blocked on the gated.md B4 grant; re-filed **backlog** the same day when the
-> operator supplied the dev-tools evidence — the live failure is a **503** from the Data API's
-> `outlook-move` route, not the expected 403), **TKT-092** PCH duplicate cases, **TKT-093**
-> auto-attach matched emails. All carry the strict multi-class verification requirements; 12 →
-> Backlog, 1 → Blocked (TKT-088).
->
-> **Distilled 2026-07-06 (two operator plans → 15 tickets)** — filed **TKT-066…073** from
-> `PLAN-assistant-intake-search-fixes.md` (assistant lookup normalization + tool-failure
-> observability, New-chat button, user-confirmed evidence attach, six new read-only assistant
-> tools, email-body readability, the HD4110 VRM false-positive rule + data fix, global search +
-> same-VRM view, the varchar(16) overflow clamp) and **TKT-074…080** from
-> `PLAN-inspection-address-repair.md` (the fail-closed shell-hook **P0 blocker**, the in-repo
-> corpus rebuild pipeline, provider scoping + proximity ordering, photo-capable location assist,
-> the gated AI vision escalation, address-picker polish, and the live reseed/deploy/verify
-> cutover). All start in **Backlog**; each ticket folder carries its evidence + strict multi-class
-> verification requirements (offline tests, gates, live probes, data/telemetry proof).
->
-> **Reconciled 2026-07-05 (go-live sprint)** — P4/P5/P6/P7 landed. Moved **TKT-048/060/061/062/063** to
-> **done**: inline evidence-image previews live (same-origin `GET /api/evidence/{id}/content`); the read-only
-> AI chat helper live (`AI_CHAT_ENABLED=true`, count tool fixed to the queue numbers); the Box `FILE.UPLOADED`
-> webhook subscribed + E2E proven (File-Request template id stays operator); the ranked inspection-address
-> shortlist live; the go-live runbook/readiness-matrix/operator-checklist authored. Filed **TKT-064**
-> (image-classification gap — evidence-image role + registration-visible detection unbuilt). **TKT-059**
-> wipe-and-rebuild is **superseded** (the mailboxes don't retain full history; the deployed classifier proved
-> sound) — its P1 replay driver shipped **dark** (`REPLAY_BACKFILL_ENABLED=false`), so the row stays `now`.
-> Also single-sourced the queue count (**TKT-026** → done; dashboard "NOT READY" == Queues "Not ready",
-> live 125==125).
->
-> **Reconciled 2026-07-03 (second wave)** — the rules-engine-v2 activation: D7 (taxonomy DDL) + D8
-> (identification seed) + the Phase-4 `ai_suggestion.embedding` delta are **all applied live**; the parser
-> is **redeployed** (3 functions, taxonomy-v2 engine + the 2026-07-03 classifier hardening); all four
-> `TRIAGE_*` gates are **`true`** on `cespk-orch-dev` — the triage policy is **ACTING**, not shadow-only.
-> Moved **TKT-023/041/043/046** from `next` to `now` (their taxonomy-v2 gated behaviours are now live and
-> acting — TKT-041's hold-language edge case still needs an operator taxonomy decision, kept as a note).
-> Updated **TKT-021/051** (Connexus/PCH intermediary) to reflect the D8 seed data now landed — both stay
-> `now`, awaiting a live-occurrence probe. Activation order `docs/gated.md` **§D7 → parser deploy → §D8 →
-> TRIAGE_\* flips** is now **complete**; only **§D6 items 4/5** (PII export, Foundry keyless flip) remain
-> open.
->
-> Prior: **2026-07-03 (nine-task activation)** — TKT-055 moved from "built, not deployed"
-> to **deployed live** (delta applied, routes live, 401 smoke passed; first-key mint + e2e submit still
-> pending the operator — row updated, stays `now`); TKT-054's row updated to reflect the
-> `OUTLOOK_MOVE_ENABLED` gate flip (Exchange grant + operator live test still pending, gated.md B4). No
-> ticket changed column. Prior: **2026-07-02** — rules-engine-v2 **build** pass (the six-phase build completed this
-> session; see [the build checklist](../plans/phase-8-inbox-management/rules-engine-v2-build.md)): moved
-> **7** misclassification-cluster tickets to **done** (TKT-029/030/033/036/037/038/040 — live-probed
-> against the deployed classifier and locked by an eval-corpus regression pin); moved **7** tickets to
-> **now** (TKT-021/025/028/031/039/047/051 — code or data deployed, or eval-passing, with a live probe or
-> an operator seed/gate apply still pending); moved **4** tickets to **next** (TKT-023/041/043/046 —
-> built but gated OFF behind the D7 DDL delta + per-behaviour `TRIAGE_*` flips). Refreshed TKT-005
-> (already `now`) and TKT-015 (already `next` — Phase 4 wired ONE concrete lane, email-triage
-> categorisation, to a real AOAI call, still gated OFF). Activation order: `docs/gated.md`
-> **§D7 → parser deploy → §D8 → TRIAGE_* flips → §D6+G5** (EMAIL_AI). Left unchanged: TKT-034 (backlog —
-> the reg-keyed Box dumping-folder lane is still a stubbed TODO), TKT-032 (blocked), TKT-035 (backlog —
-> needs an operator-supplied sample), TKT-052 (backlog). Prior: rules-engine-v2 **review** pass — authored
-> + boarded the previously frontmatter-less drop-notes **TKT-041/043/044/046/047/051** and split
-> **TKT-052** (merge provider-loss) out of the old `TKT-041-merge-fix` folder. Earlier: 2026-07-01 —
-> TKT-049/050 **VERIFIED-LIVE** (AX claimant-email blank + circumstances boundary fix, parser
-> redeployed); TKT-003 **VERIFIED-LIVE** (operator re-test post-regression fix).
+Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
+## Now (23)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Now — in flight / not yet confirmed live
-
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
-| [TKT-041](./now/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | **P1 · email · PLAN-004 — REOPENED 2026-07-13:** cancellation classification remains proven, but exact-single auto-attachment and automatic Held status, concrete ambiguity reasons, idempotent handler resolution and the server-side EVA block are not implemented or live-verified. |
-| [TKT-067](./now/TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | **P2 · ui · PLAN-001 — REOPENED 2026-07-13:** the live control is disabled while an attachment decision is merely pending; reset must clear the draft, files, target choices and card without writing, while retaining safe protection for work actually executing. |
-| [TKT-068](./now/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Let the assistant understand images and add them to a case | **P1 · ai · PLAN-001 — REOPENED 2026-07-13:** the live four-image attempt failed and filenames alone cannot identify the registration; raw supported images must reach the multimodal assistant, with explicit case choice and human confirmation before the canonical evidence write. |
-| [TKT-102](./now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | **P1 · intake · PLAN-004 — REOPENED 2026-07-13:** the Ashfaq arrival stayed a suggestion despite one clear case and yielded no submitted images; exact-single auto-attachment plus durable, idempotent extraction, classification, readiness and Archive proof are required. |
-| [TKT-107](./now/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | Read-only Box archive assist (suggest-only) | **REOPENED 2026-07-10** (sweep FAILED vs the acceptance as written): line 1's inbox archive-match hint is **unimplemented** (`archiveLookup`'s only consumer is the assistant; the existing inbox hint is TKT-093's open-case one), and the assistant rung is a **live no-op** — the code rides the live api build but `RETRO_BOX_ARCHIVE_ROOT_IDS` is absent on `cespk-api-dev` so `archive_lookup` is never advertised. Guardrails healthy (facade `BOX_READONLY_ROOT_IDS=4077648161`; list/match-only; suggest-only + honest-empty unit-proven). Fix scope: build the email-surface rung + set the root-ids setting (operator-aware flip) → verify → live probe. See [follow-up](./now/TKT-107-readonly-archive-assist/evidence/reopen-followup-100726.md). |
-| [TKT-020](./now/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Stale-plan cleanup + root-doc reconciliation | **REOPENED 2026-07-12:** perform a fresh whole-repository truth pass after this production-readiness programme lands. |
-| [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | **BUILT OFFLINE ON DRAFT PR #89 (`3ffe81ec`), NOT DEPLOYED:** latest branch is published and clean but conflicts with current `main`. Rebase/resolve, rerun ticket gates, then prove image upload and idempotent Case/PO adoption under the approved test boundary before verification. |
-| [TKT-150](./now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | **P1 · parsing · PLAN-005 — RUNTIME DEPLOYED; REMEDIATION BLOCKED:** PR #93's runtime/schema/API/orchestration/Box/parser boundary is deployed and PRs #94–#96 hardened the runner. The fresh 156-case v8 plan failed audit (18 tokenized bindings unresolved, zero root binding, QDOS26079 still failed) and is superseded. No current backup, approval, claimant apply, ledger or final cutover exists; verification remains PENDING. |
-| [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | **FAILED-LIVE 2026-07-14:** the narrow label replacement is deployed, but `Not ready` is still used as a reason and one `actionReason` collapses overlapping blockers; implement an ordered blocker set with many-to-many filter membership. |
-| [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | **FAILED-LIVE 2026-07-14:** previews clip at 1024px and 390px, rapid traversal leaves overlapping stale surfaces beyond 100ms, and placement remains hard-coded rather than edge-aware. |
-| [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | **P1 · integration · PLAN-004 — MERGED TO `main` 2026-07-15 (rebased + 4-lane reviewed), NOT DEPLOYED / DARK:** review found the code clean (no BLOCKER; secrets/SAS/validation verified solid). All capture gates default-off. Live schema, public ingress throttling/CORS, storage policy, deployment and physical-device proof remain pending (see verification.md follow-ups). |
-| [TKT-021](./now/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus → real provider (PCH/SBL) | **REOPENED 2026-07-11:** make the Held explanation and audit reflect whether the provider came from explicit instruction evidence or the intermediary fallback. |
-| [TKT-159](./now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every feature gate with intended production behavior | Distilled 2026-07-12; complete code/config/live census rather than blindly enabling switches. |
-| [TKT-077](./now/TKT-077-location-assist-photos/TKT-077-location-assist-photos.md) | Location assist can't see the case photos — real photo bytes + signage business lookup | **DEPLOYED 2026-07-06** (loc fn + api + SPA). Proxy resolves evidence bytes inline (shared `evidence-bytes.ts`) → Python `InlinePhotoSource` (replaces the raising Box source under `BOX_API_ENABLED=true`); Maps fuzzy/POI for signage; CaseDetail auto-runs on corpus miss (suggest-only). Live E2E photo-path probe pending. `corpus_match` deferred (noted). See [verification](./now/TKT-077-location-assist-photos/verification.md). |
-| [TKT-078](./now/TKT-078-location-assist-ai-escalation/TKT-078-location-assist-ai-escalation.md) | Deeper photo-based location suggestion — AI reasoning escalation (gated) | **FLIPPED LIVE 2026-07-07** (operator-instructed AI sign-off): `LOCATION_ASSIST_AI_ENABLED=true` on `cespkloc-fn-a7tzj2`, `AI_MODEL_ENDPOINT`/`gpt-5` wired, and the loc-fn MI granted **Cognitive Services OpenAI User** on `digital-3339-resource` (ARM PUT) so `build_reasoner()` mints a token → returns a reasoner. Was BUILT+DARK 2026-07-06 (`ai_reasoning.py`, keyless gpt-5 vision, `deep=true`, caps + telemetry). Remaining: a live `deep=true` probe on a real photo case. See [verification](./now/TKT-078-location-assist-ai-escalation/verification.md). |
-| [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | **P1 · intake · PLAN-003 — REOPENED:** Review is complete-only, but the 2026-07-13 ruling removes blanket field acknowledgements: populated, valid, non-conflicting values need no separate confirmation; only missing, invalid or genuinely conflicting values block. Offline implementation exists; deployment, recomputation and live parity remain. |
-| [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | **FAILED-LIVE 2026-07-14:** the deployed route accepts the upload but every file rolls back because live `choice_audit_action` lacks `100000049` (`evidence_added`); add/apply the idempotent live delta, then repeat the test-root-only end-to-end proof. |
-| [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | **P1 · docs · PLAN-004** — Distilled 2026-07-13; document authority boundaries, secret exclusions and validation against the live architecture. |
-| [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | **P1 · platform · PLAN-004** — Distilled 2026-07-14 from the recovery plan; establish the governed worktree lifecycle, lane locks, offline CI and hygiene reporting before serial PR reconciliation. |
-| [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | **P0 · platform · PLAN-004** — Distilled 2026-07-14 from the recovery plan; remove runtime omission, opt-out, retention and automatic-disposition policy only through the stated drain, route-removal and migration sequence. |
-| [TKT-154](./now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP image-ingestion lane for external agents | **P1 · integration · PLAN-004 — BUILT OFFLINE ON PR #73, REBASED ONTO `main` 2026-07-15, NOT DEPLOYED:** code-complete with API/orchestration/Box-facade/watcher tests; exact VRM lookup and idempotent upload proven offline. Live provisioning, deployment, model-behavior proof and test-root-only upload remain gated. |
-| [TKT-160](./now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | **P2 · evidence · PLAN-004 — MERGED TO `main` 2026-07-15 (rebased + 4-lane reviewed), NOT DEPLOYED / DARK:** review found the cross-store deletion design sound (no BLOCKER). Added the default-off `DELETE_CASE_IMAGE_ENABLED` gate; renumbered audit codes to 63/64/65. Live cross-store deletion proof under test root `392761581105`, the retry-sweeper and the RLS-inert-policy doc fix remain pending (see verification.md follow-ups). |
+| [TKT-021](./now/TKT-021-connexus-intermediary/TKT-021-connexus-intermediary.md) | Resolve Connexus claims-manager to the real provider (PCH/SBL) | P2 · intake |
+| [TKT-034](./now/TKT-034-images-received-routing/TKT-034-images-received-routing.md) | Archive unmatched images by registration and adopt the folder into the case | P2 · intake |
+| [TKT-041](./now/TKT-041-cancelled-case/TKT-041-cancelled-case.md) | Cancelled/closed-case emails have no home (no cancellation concept) | P1 · email · PLAN-004 |
+| [TKT-067](./now/TKT-067-assistant-new-chat/TKT-067-assistant-new-chat.md) | Assistant drawer needs a "New chat" button to clear the conversation | P2 · ui · PLAN-001 |
+| [TKT-068](./now/TKT-068-assistant-attach-evidence/TKT-068-assistant-attach-evidence.md) | Let the assistant understand images and add them to a case | P1 · ai · PLAN-001 |
+| [TKT-077](./now/TKT-077-location-assist-photos/TKT-077-location-assist-photos.md) | Location assist can't see the case photos — real photo bytes + signage business lookup | P1 · ai |
+| [TKT-078](./now/TKT-078-location-assist-ai-escalation/TKT-078-location-assist-ai-escalation.md) | Deeper photo-based location suggestion — AI reasoning escalation (gated) | P2 · ai |
+| [TKT-102](./now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | Tractable received-email handling — categorise, match to case, parse PDF, extract images | P1 · intake · PLAN-004 |
+| [TKT-107](./now/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction | P2 · intake · PLAN-001 |
+| [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | P1 · intake · PLAN-003 |
+| [TKT-150](./now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | P1 · parsing · PLAN-005 |
+| [TKT-154](./now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP path for registration-based image ingestion | P1 · integration · PLAN-004 |
+| [TKT-159](./now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every live feature gate with intended production behavior | P1 · platform · PLAN-004 |
+| [TKT-160](./now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | P2 · evidence · PLAN-004 |
+| [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | P0 · evidence · PLAN-004 |
+| [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | P1 · ui · PLAN-004 |
+| [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 · ui · PLAN-004 |
+| [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 · docs · PLAN-004 |
+| [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 · integration · PLAN-004 |
+| [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 · platform · PLAN-004 |
+| [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 · platform · PLAN-004 |
+| [TKT-210](./now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 · platform · PLAN-006 |
+| [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 · integration · PLAN-004 |
 
-## Verify — deployed / code-complete, awaiting live proof
+## Verify (37)
 
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
-| [TKT-167](./verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | Distilled 2026-07-12; replaces raw-image-count gating with canonical unresolved image gaps. |
-| [TKT-166](./verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | Discovered 2026-07-12 in source: document/manual intake claims files are linked without uploading them. |
-| [TKT-156](./verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | Distilled 2026-07-12; idempotent per-case File Request plus real webhook proof in the test root. |
-| [TKT-153](./verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | Distilled 2026-07-12; also removes the competing inspection PATCH/POST race and false success. |
-| [TKT-152](./verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | **P1 · enrichment · PLAN-004 — IMPLEMENTED/OFFLINE-TESTED, NOT DEPLOYED:** production-scale holdout/rollout proof and sibling deliveries remain; the 2026-07-13 precedence matrix requires staff, instruction and readable-odometer mileage to outrank MOT estimation. |
-| [TKT-151](./verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | **P1 · enrichment · PLAN-004 — IMPLEMENTED/OFFLINE-TESTED, NOT DEPLOYED:** the A.QDOS26088/AY15EWU warning and inert “Check again” action are now mandatory end-to-end retry proof; deployment, remediation census and independent live verification remain. |
-| [TKT-170](./verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | Distilled 2026-07-13 from the original webform email; explicit non-minting category and precedence rule. |
-| [TKT-155](./verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Rebuild the dashboard around Not Ready, Review and Held | Distilled 2026-07-12 with screenshots and image-generated design exploration. |
-| [TKT-129](./verify/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | **REOPENED 2026-07-12:** remove the explanatory paragraph, hide address controls for Image Based Assessment, and preserve explicit provider defaults. |
-| [TKT-024](./verify/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form | **REOPENED 2026-07-12:** remove Insured Name and repair the supplied field-layout failure while retaining correct image-only readiness. |
-| [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time (the FILE.UPLOADED lane has no classify path) | **P2 · evidence · PLAN-003 — FOLLOW-UP PENDING 2026-07-13:** the supplied file-request upload proves case matching but reports no image analysis; repeat that entry path and prove a terminal result per image, role/registration/reflection stamps, readiness/chaser recomputation, safe retry and zero silent unknown residue. |
-| [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence | **REOPENED 2026-07-11:** close queued-target, attachment identity, partial-fetch, consent, reporting, and note-idempotency gaps. |
-| [TKT-144](./verify/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | **REOPENED 2026-07-11:** preserve merge-retired status in the reusable write-window recomputation. |
-| [TKT-133](./verify/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | **PENDING 2026-07-14:** original dedup and true-kind behavior is strongly evidenced, but the superseding merge-path acceptance still needs one natural same-SHA live merge with database, Archive, EVA and readiness readback. |
-| [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | **Sweep PENDING 2026-07-10**: DEPLOYED DARK (the old "not deployed" was stale) — `propose_action` + the If-Match concurrency code in the deployed bundle, gate ABSENT live = acceptance line 1 ("writes gated off by default") is live fact. Remaining, operator-gated (gated.md §F4 STAYS OFF): per-capability DPIA + E2/G5 sign-off → flip → live propose→confirm→execute + concurrent-edit 409. |
-| [TKT-095](./verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) | Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll | PENDING 2026-07-10 (ticket-verifier): deployment fully certified (6 detector fns + api routes live, gates correctly dark, 0 bugs); line 1-2 await the first Export-for-EVA case / first report-PDF (natural events), line 3 awaits the operator's DONE_SENT_EMAIL_ENABLED test-slot flip (gated.md D3). |
-| [TKT-094](./verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) | Case `done` terminal state — status model + auto-`eva_submitted` on export | PENDING 2026-07-10 (FAILED CLEARED same day): verify-parity-pg.mjs made runnable (9adca52) — §1 3/3 + §4 6/6 PASS re-proven by the verifier's own run; DDL delta confirmed live (done 100000012, report_delivered 100000053, 13 statuses); deployment certified. Awaits the first real Export-for-EVA (the TKT-095 shape). Follow-up: the script still exits 1 from pre-existing §5 classifier drift. |
-| [TKT-089](./verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) no longer captured/stored on Box | **PENDING 2026-07-14:** historical cleanup and deployed repair lineage are sound; certification awaits a fresh natural intake trace plus current database/Archive and staff-decision persistence readback. |
-| [TKT-052](./verify/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic) | **Sweep PENDING 2026-07-10** (ticket-verifier): `decideMergeProvider` deployed + 22/22 offline (provider-carrying side wins, provenance on fill, ADR-0010 refusal intact) — but KQL 90d shows **0 `mergeCases` POSTs ever** (only 6 dialog opens) and all 3 `mergedInto` markers are delta-stamped. **Real finding:** the SPA dialog's same-provider candidate filter (`cases.ts:890`) excludes mixed pairs both ways, so the fill branch is UI-unreachable for the exact operator scenario — follow-up candidate: relax the dialog filter to the ADR-0010 rule (refuse only when both known + differ). Stays verify. |
-| [TKT-137](./verify/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | PENDING 2026-07-10 (ticket-verifier): banner render VERIFIED-LIVE on a real pending triage_category suggestion (EREF9, screenshots; deployed-bundle grep proves the build); remaining = one operator Accept/Ignore click + audit SQL (agents must not consume live suggestions). |
-| [TKT-044](./verify/TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | PENDING 2026-07-10 (ticket-verifier): no bug — verifier independently recomputed the projection math (the ~10k needs a ~13-month-stale MOT anchor), 4 real cases probed max +3.6k, 30/30 tests; closes on ONE operator answer: which "expected value" was the original comparison against? |
-| [TKT-047](./verify/TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | PENDING 2026-07-10 (ticket-verifier): area-floor acting live (71 skips today, kill switch absent), banner+GIF/BMP rungs deployed (bundle-verified, 284/284 pins) but not yet exercised by live traffic; remaining = the zero-leak data pass (W2 Q1–Q5) or one live banner firing. |
-| [TKT-084](./verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | **Sweep PENDING 2026-07-10** (ticket-verifier): sign-off PASS; the REAL sample live-probes to `pre_instruction/pre_instruction_directions` @0.8 on the deployed parser; eval pin 1/1 + baseline "No regression"; no-mint proven at unit + banked live census (the lane fired naturally exactly once, non-minting). Correlation layer deployed (gate true) but e2e unproven — awaits the natural held-row→instruction pair; Q1–Q3 queued (incl. the Q1b demotion check — the one live arrival may predate the gate flip). Real gap: the held-rows FIND SQL has no unit test (small mocked-db vitest would close it). Stays verify. |
-| [TKT-016](./verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence | **Staged suggestion producer BUILT DARK (now→verify, 2026-07-08).** Additive `ai_suggestion`-only route `POST /api/cases/{id}/image-analysis/generate` behind default-off `IMAGE_ANALYSIS_ENABLED`; reg-OCR via local fast-alpr (zero-egress), VLM scene stages G5-only; never auto-writes evidence/case columns (no collision with the live TKT-064 classifier). Offline-proven (10/10 tests + transcript, graceful degradation). Verifier TESTED (offline). **LIVE 2026-07-08:** DDL delta applied (`SET ROLE csadmin`; audit code `100000052`) + **`IMAGE_ANALYSIS_ENABLED` FLIPPED true** on `cespk-api-dev` (operator DPIA sign-off; readback-proven; api deployed from `main a06d2dc`) — route live + fail-closed (401 no token). Behavioral `{generated:N}` proof pending an authenticated call (no mintable staff token; no SPA trigger yet). Stays `verify`. Commit `0dbe31f`. |
-| [TKT-055](./verify/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md) | Provider API intake channel (machine-to-machine case lodging) | DEPLOYED live 2026-07-03 (nine-task activation): the `2026-07-03-provider-api-intake` delta is applied (`provider_api_key` table, RLS + policies, audit codes, `choice_intake_channel_kind`), the api routes (`createProviderApiKey`/`listProviderApiKeys`/`revokeProviderApiKey`, `providerIntakeCase`) are live, and the no-key/bad-key **401** fail-closed smoke passed. Still pending (operator): a Superuser mints the first key in Admin + an end-to-end `POST /api/provider-intake/cases` submit smoke. Design [ADR-0020](../adr/0020-provider-api-intake-channel.md); contract [spec](../reference/provider-api-intake-spec.md). See [verification](./verify/TKT-055-provider-api-intake/verification.md). |
-| [TKT-066](./verify/TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) | Assistant can't find a case by spaced registration + tool failures are invisible | Schema fix landed + ASSISTANT_TOOLSET_V2 re-flipped true 2026-07-09 (zero invalid-schema traces 6h); staff-chat re-probe = the remaining tail. |
-| [TKT-069](./verify/TKT-069-assistant-more-tools/TKT-069-assistant-more-tools.md) | Assistant answers more questions — case detail, activity, twins, queues, emails, overdue | Same fix + re-flip landed; per-tool live Q/A matrix = the remaining tail. |
-| [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | **Sweep PENDING 2026-07-10**: DEPLOYED DARK (the old "not deployed" was stale) — `mcpServer` in the live fn list, gate ABSENT, and a fresh unauth `POST /api/mcp` → **401** live-proves the fail-closed half (auth runs before the gate — 401 dark, not the changes.md "404s"). Remaining, operator-gated (gated.md §F6): MCP Entra app-reg + gate flip → live Flow A + wrong-audience 401 + write-refusal. |
+| [TKT-016](./verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence (vehicle / reg / location) | P2 · ai · PLAN-001 |
+| [TKT-020](./verify/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Repository structure and documentation reset | P0 · docs · PLAN-006 |
+| [TKT-024](./verify/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form (drop instruction-only fields) | P2 · ui · PLAN-003 |
+| [TKT-044](./verify/TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | P2 · enrichment |
+| [TKT-047](./verify/TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | P2 · intake |
+| [TKT-052](./verify/TKT-052-merge-provider-loss/TKT-052-merge-provider-loss.md) | Merged image-only case loses the provider (merge logic wrong) | P2 · intake |
+| [TKT-055](./verify/TKT-055-provider-api-intake/TKT-055-provider-api-intake.md) | Provider API intake channel (machine-to-machine case lodging) | P2 · intake |
+| [TKT-066](./verify/TKT-066-assistant-lookup-observability/TKT-066-assistant-lookup-observability.md) | Assistant can't find a case by spaced registration + tool failures are invisible | P1 · ai · PLAN-001 |
+| [TKT-069](./verify/TKT-069-assistant-more-tools/TKT-069-assistant-more-tools.md) | Assistant answers more questions — case detail, activity, twins, queues, emails, overdue | P2 · ai · PLAN-001 |
+| [TKT-084](./verify/TKT-084-pre-instruction-handling/TKT-084-pre-instruction-handling.md) | Pre-instruction directions email unidentified — define a handling lane | P2 · email |
+| [TKT-089](./verify/TKT-089-non-vehicle-images-box/TKT-089-non-vehicle-images-box.md) | Confirm non-vehicle images (signatures/logos) are no longer captured or stored on Box | P2 · evidence |
+| [TKT-094](./verify/TKT-094-case-done-status-model/TKT-094-case-done-status-model.md) | Case done terminal state and EVA-submitted transition | P1 · intake · PLAN-002 |
+| [TKT-095](./verify/TKT-095-case-done-detectors/TKT-095-case-done-detectors.md) | Case `done` detectors — manual → Box report-PDF → sent-email → EVA poll | P1 · intake · PLAN-002 |
+| [TKT-110](./verify/TKT-110-mcp-readonly-server/TKT-110-mcp-readonly-server.md) | Read-only MCP server for external agents | P2 · ai · PLAN-001 |
+| [TKT-111](./verify/TKT-111-assistant-write-tier/TKT-111-assistant-write-tier.md) | Assistant write tier with human confirmation | P2 · ai · PLAN-001 |
+| [TKT-129](./verify/TKT-129-image-based-inspection-done/TKT-129-image-based-inspection-done.md) | Simplify the inspection address or Image Based Assessment choice | P1 · ui · PLAN-003 |
+| [TKT-133](./verify/TKT-133-evidence-dedup-box-kind/TKT-133-evidence-dedup-box-kind.md) | Deduplicate evidence rows (email + Box mirror twins) + fix the box-webhook kind at source | P2 · evidence · PLAN-003 |
+| [TKT-137](./verify/TKT-137-uncased-ai-suggestion-surface/TKT-137-uncased-ai-suggestion-surface.md) | Surface triage_category AI suggestions on uncased emails — currently written but invisible | P2 · ui · PLAN-003 |
+| [TKT-144](./verify/TKT-144-blob-sha256-backfill-dedup/TKT-144-blob-sha256-backfill-dedup.md) | Resolve the 214 blob-lane same-name duplicate evidence rows via a sha256 backfill | P3 · evidence · PLAN-003 |
+| [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence to the case | P2 · intake · PLAN-003 |
+| [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time (the FILE.UPLOADED lane has no classify path) | P2 · evidence · PLAN-003 |
+| [TKT-151](./verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | P1 · enrichment · PLAN-004 |
+| [TKT-152](./verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | P1 · enrichment · PLAN-004 |
+| [TKT-153](./verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | P1 · ui · PLAN-004 |
+| [TKT-155](./verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Simplify the dashboard around Not Ready, Review and Held | P2 · dashboard · PLAN-004 |
+| [TKT-156](./verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | P1 · box · PLAN-004 |
+| [TKT-166](./verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | P0 · intake · PLAN-004 |
+| [TKT-167](./verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | P1 · pipeline · PLAN-004 |
+| [TKT-170](./verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | P1 · email · PLAN-004 |
+| [TKT-207](./verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | Build the complete repository inventory and disposition ledger | P0 · docs · PLAN-006 |
+| [TKT-208](./verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | Catalog evidence and relocate workingspace without content changes | P0 · evidence · PLAN-006 |
+| [TKT-209](./verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | Migrate repository paths and remove generated output | P1 · platform · PLAN-006 |
+| [TKT-211](./verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | Enforce the forbidden-reference zero state | P0 · platform · PLAN-006 |
+| [TKT-212](./verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | Establish one agent and skill source with generated adapters | P1 · docs · PLAN-006 |
+| [TKT-213](./verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | Reconcile tickets, indexes, plans and research links | P1 · docs · PLAN-006 |
+| [TKT-214](./verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 · platform · PLAN-006 |
+| [TKT-215](./verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 · integration · PLAN-006 |
 
-## Done — live & verified
+## Done (108)
 
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
-| [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for overview-less photo sets | **VERIFIED-LIVE 2026-07-14:** A.QDOS26029 shows one drafted “Chase suggested” item; deployed locking/unique-index repair and regression suite prove concurrency safety and sent-vs-suggested wording. |
-| [TKT-147](./done/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: vehicle make (two-label rule) + VIN slot | **VERIFIED-LIVE 2026-07-14:** reviewed immutable parser lineage, deployed ancestry and retained smoke evidence prove make/model plus top-level VIN without changing the 12-field EVA export. |
-| [TKT-141](./done/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | **VERIFIED-LIVE 2026-07-14:** signed-in production search/queue proof shows retirees remain findable but excluded from active twins; repaired re-retire delta is replay-safe offline. |
-| [TKT-072](./done/TKT-072-global-search/TKT-072-global-search.md) | The search box doesn't search — global search across cases, emails, providers | **VERIFIED-LIVE 2026-07-14:** signed-in searches, case/email deep links, counts, age, auth boundary and focused tests cover every acceptance line. |
-| [TKT-043](./done/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (images-on-existing-case) | **VERIFIED-LIVE 2026-07-14:** an exact natural work-shaped, single-job-ref, images-only arrival attached to the existing case with zero mint and a complete evidence/Archive chain. |
-| [TKT-149](./done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Retire mandatory reciprocal Claude and Codex PR reviews | **VERIFIED-LIVE 2026-07-14:** workflow `311669369`, evaluator, runner, adapters, configs and dedicated tests are deleted; GitHub lists only the normal `capture-contract` and `docs` workflows. |
-| [TKT-164](./done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | Discovered 2026-07-12 in Chrome: authenticated endpoint returns HTTP 500 while the UI hides the failure. |
-| [TKT-091](./done/TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling): acceptance 4 landed at ~21:03Z — an operator-authorized "File to Inbox/Instructions" click ran the full chain in **10.5s**, independently corroborated in both App Insights components (202 → orch consumer → Graph-success-gated moved trace → 204 write-back) + DB census 1 `moved` + both audits (requested/completed). Root cause (enqueue 404 QueueNotFound) + status-code mapping (6/6) + SPA toast all previously proven. The 07-06 latched `failed` row remains re-clickable residue (optional hygiene). → done. |
-| [TKT-128](./done/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | "Imported details — from the instruction document or email" renders blank | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling): the positive-path render landed — QCL26008's CaseDetail shows "Imported details · Claim no. 226095.TA" in the operator-authorized signed-in session (screenshot), on top of W7's 20 `ov_claim_number` fills since 07-09, the 07-09 empty-state live proof, and 16/16 fill tests. Wider fact set (insured/insurer/repairer/policy) = new-ticket candidate. → done. |
-| [TKT-113](./done/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | **VERIFIED-LIVE 2026-07-10** (ticket-verifier final ruling, W7 decider): the ledger **accrues organically** — one live row (2026-07-09, staff actor, surface `assistant`, gpt-5, 4 calls / 23,866 in / 3,341 out) proving the `ON CONFLICT` day-actor-surface aggregation live; RLS/grants live-verified 07-08; the `surface` separator live-populated. Classifier/vision writer wiring = a NEW-ticket follow-up (explicitly future per the DDL comment), no capacity-consumer promised. → done. |
-| [TKT-092](./done/TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) | PCH cases duplicating for no reason | **VERIFIED-LIVE 2026-07-10** (ticket-verifier, final ruling post-W6): all four lines live-artifacted — vector named with trace (FW: re-send + the Graph-id/Internet-Message-Id keying bug); dedup 22/22 with the fix verbatim in the deployed bundle + the `UNIQUE(source_message_id)` backstop; merges re-proven (W6 Q4 parity holds at day scale via TKT-141's retired-lock); **line 4 closed twelvefold** — 12 fresh PCH mints (A.PCH26029→26040) over ~36h with a 0-row post-fix twin sweep. Residual (not an acceptance line): no *observed* live redelivery absorb yet — watch = Q3 with `actor NOT LIKE 'tkt%'`, or one deliberate re-forward. → done. |
-| [TKT-001](./done/TKT-001-document-parsing/TKT-001-document-parsing.md) | Multi-format extraction + field-drop fix | **VERIFIED-LIVE 2026-07-10** (ticket-verifier, final sweep): fresh live probes on the deployed engine-v2.15 — PDF/DOCX/legacy-.DOC/EML/MSG all return rich multi-field extractions (first live .msg proof; the .eml probe re-proved the exact 07-01 regression field); KQL 7d volume pdf 411/doc 42/docx 25/eml 23 parse-ok → 268 mints; sibling suite 453/0 at the live tag, vendored-sync 7/7. Documented FC1 limit stands (scrape-polluted legacy .doc subset 422s — parser-container, ROADMAP Later). → done. |
-| [TKT-082](./done/TKT-082-misclass-query-as-new-work/TKT-082-misclass-query-as-new-work.md) | Existing-case query misclassified as new client work | **VERIFIED-LIVE 2026-07-10** (ticket-verifier): mint stitch over the full classifier era — **472/472 mints paired to `receiving_work`, 620 non-work arrivals → 0 mints**; the ticket's own shape recurred live (07-10 query → attach_case onto ALS26007 job_ref; query → suggest_attach QDOS26079 vrm), all non-minting; recall alive (receiving_work minting daily); 3 eval pins pass fresh, suite 176/176. Side-finding routed out: `tkt103-tractable-lead` baseline drift (Tractable-family adjudication). → done. |
-| [TKT-051](./done/TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified (doc-content name + @pch-ltd.com senders) | **VERIFIED-LIVE 2026-07-10** (ticket-verifier, W5 data pass): both arms proven live — domain arm 54 `providerMatch matched pch-ltd.com` events since 07-06 (0 unmatched) with 53/54 PCH cases `sender-domain match at create`; content arm **84 live `From instructions — provider identified` provenance rows** (07-06→07-10, 10+ principals) incl. one resolving **PCH** (qdos26443, 07-08), + 4 never-override disagreement audits. D8 row proven at the DB layer. The prior "EVA (Engineers)" mislabel stays fixed under TKT-056. → done. |
-| [TKT-093](./done/TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) | Auto-attach matched emails + visibility + case_update misclass | **VERIFIED-LIVE 2026-07-10** (ticket-verifier + W5): the outstanding E2E probe landed triple-source — 16 acting `attach_case` decisions / 16 `autoAttached:true` completions in 30h, the 15:57:16Z attach (suggestion `ca4e17c0…` → ALS26007) proven to the second across orch KQL + api KQL + DB (`inbound_linked` actor `auto-attach` + same-second chaser-responded audit); **12 DB link audits on 07-10 exactly match the 12 KQL completions**. Suggest lane still visible (live pending suggestions + served-bundle hint strings); misclass fix + reversibility pinned. VRM-only sample correctly stays a suggestion (ADR-0010/0019 supersedes the ticket's literal PCH26007 line). → done. See [verification](./done/TKT-093-auto-attach-matched-emails/verification.md). |
-| [TKT-056](./done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) | Audit case-type end-to-end — EVA-leak fix + A./AP./D. markers + engineer_report evidence ([ADR-0021](../adr/0021-case-po-marker-taxonomy.md)) | VERIFIED-LIVE 2026-07-10 (ticket-verifier, W4-final): 112/112 A.-marked rows case_type=audit (zero mistyped), 8/8 A.PCH principal PCH, engineer_report evidence 71 rows/67 cases; QDOS dual lane resolved as review-derived pairing (12/12 parents exist). Follow-up: reconcile ADR-0021 D3 mint-time wording with the live nested-deliverable shape. → done. |
-| [TKT-136](./done/TKT-136-parse-fallback-ref-guard/TKT-136-parse-fallback-ref-guard.md) | Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF) | VERIFIED-LIVE 2026-07-10 (ticket-verifier, W4-final): Q1/Q3/Q4 exact; forward window 0 money / 0 fragment / 0 RIGERANT refs + 0 doc-lane junk VRMs over ~36h guarded traffic; the 6 RJS glued-label rows ruled OUT-of-lane (real refs, label hygiene) → new follow-up ticket. → done. |
-| [TKT-023](./done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up docs/emails to the existing case + Box | VERIFIED-LIVE 2026-07-10 (ticket-verifier, W4-final): the chaser flip OBSERVED LIVE ("…the requested item arrived (auto-attach)" 15:57:16Z); all four attach seams wired + bundle-proven; lines 1/2/4 live-proven earlier. Caveat: the accept-seam variant fires incidentally at the TKT-145 staged accept. → done. |
-| [TKT-065](./done/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md) | Audit cases resolve NO work provider (leaked "EVA (Engineers)" masked a real bug) | VERIFIED-LIVE 2026-07-10 (ticket-verifier): the live-occurrence probe met at volume — 54 PCH + 233 QDOS domain matches since the fix; 10/10 sampled audit cases correlated with providerMatch 0–7s before create; qdosassist.co.uk provably resolves (D3's "cannot domain-resolve" wording stale — remaining ask = additional domains e.g. qdoslaw.co.uk, re-homed to D3). → done. |
-| [TKT-099](./done/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) | QCL cases not generating Case/PO correctly | VERIFIED-LIVE 2026-07-10 (ticket-verifier): six post-seed complexreports.com intakes ALL minted (matched→created→Box-folder triplets; the folder step structurally requires a minted PO); QCL26007 corroborated; 108/108 allocator tests; the 11 Held cases correctly staff-mint per the D3 decision. → done. |
-| [TKT-028](./done/TKT-028-work-provider-not-populating/TKT-028-work-provider-not-populating.md) | `work_provider` not populating on intake | VERIFIED-LIVE 2026-07-10 (ticket-verifier): 182 matched / 25 unmatched / 7 intermediary in 26h (85%); ≥89.9% of all 348 post-deploy creates provably had the provider written at create; Connexus intermediary path 7/7 non-regressed; qdoslaw.co.uk noted for the D3 domain list. → done. |
-| [TKT-027](./done/TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond "new" | VERIFIED-LIVE 2026-07-10 (ticket-verifier): 60 automatic setIngested stamps in 24h (55 applied + 5 idempotent no-ops), orch↔api telemetry 1:1, "Logged" badge + queue membership in the deployed bundle. → done. |
-| [TKT-073](./done/TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) | Intake write fails with "value too long" — clamp over-length field before insert | VERIFIED-LIVE 2026-07-10 (ticket-verifier): all 21 pre-fix originals found inside retention, 0 post-deploy over the heaviest traffic day (~16k requests incl. the drain); 9 clamp warns observed firing live; 8/8 tests. → done. |
-| [TKT-132](./done/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | VERIFIED-LIVE 2026-07-10 (ticket-verifier): two real post-deploy generations observed with widened sections payloads (vs the pre-deploy no-sections contrast); 35 tests green; DPIA §6a scope-note verified; empty-circumstances live shape pinned by tests (optional operator click). → done. |
-| [TKT-090](./done/TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM" | VERIFIED-LIVE 2026-07-10 (ticket-verifier, finalized after W2b+W3): live parser probe clean both shapes; forward window 0 bad rows post-final-deploy (the 67 advisory-band rows join the 5,760 LEAVE backlog); 535 identity-stem rows persisted; Box folder listing shows correct names. → done. |
-| [TKT-143](./done/TKT-143-extraction-stems-identity/TKT-143-extraction-stems-identity.md) | Pass the resolved provider/VRM into /extract-images so extraction filenames carry real identity | VERIFIED-LIVE 2026-07-10 (ticket-verifier, finalized after W3): 535 identity_provider_vrm + 93 single-token rows persisted since deploy, 20/20 strict-window cases identity-stemmed with 0 neutral leakage, stems confirmed end-to-end in Box; corrected predicate recorded (source_label is always auto-intake — match on the filename shape). → done. |
-| [TKT-134](./done/TKT-134-action-logs-humanize/TKT-134-action-logs-humanize.md) | Action-logs page renders raw engineering strings — humanize the staff-visible log lines | VERIFIED-LIVE 2026-07-10 (ticket-verifier): all 200 rendered /logs rows scanned — zero primary-line violations, ONE label map confirmed; the technical-details disclosure was deliberately REMOVED by PR52-F5 (itself engineering language). Secondary-line residuals (delta actor stamp, plainDetail vocabulary) → follow-up candidates. → done. |
-| [TKT-087](./done/TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) | Box report shows 409 upload conflicts — investigate duplicate archive attempts | VERIFIED-LIVE 2026-07-10 (ticket-verifier): 18/18 attribution corroborated in retention; old blind-reuse trace EXTINCT post-07-09; both new lanes observed live (content-match reuse + sha1-mismatch disambiguation), 409 rate 8→2/day, per-message names confirmed Box-side; mis-link census + backfill decision ride the next data pass. → done. |
-| [TKT-096](./done/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) | Completed/Archive view + dashboard drill-through + terminal-scope search fold-in | VERIFIED-LIVE 2026-07-10 (ticket-verifier): /completed renders with the three tabs + handler-plain empty state (empty-by-data, all-time Sent-to-EVA=0), all three dashboard tiles drill through, global search live with the removed-exclusion in the deployed SQL; row-level listing exercises itself at the first terminal case. → done. |
-| [TKT-140](./done/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute historical un-cased emails from Deleted Items | VERIFIED-LIVE 2026-07-10 (ticket-verifier + W2c): ledgers recomputed independently, KQL reproduced 99/0 starter requests + both refusal timestamps to the second; confirmatory SQL exact — 34/34 Held+PO-null mints, 71/71 links, 6/6 unable-to-locate, Q6 invariant 0 violations. Honest residual: 19 trigger_not_found unstamped (follow-up filed). → done. |
-| [TKT-106](./done/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | Remove the non-viable replay-backfill driver + gate | VERIFIED-LIVE 2026-07-10 (ticket-verifier): removal proven by absence — 0 replay functions on the live app, REPLAY_BACKFILL_ENABLED absent from app-settings, bundles grep-clean, TKT-059 finding preserved. → done. |
-| [TKT-131](./done/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | VERIFIED-LIVE 2026-07-10 (ticket-verifier): enumeration recomputed exactly (2,002/142 cases), 1,989 facade fetches all-200 in KQL, 4 residuals enumerated with causes, ready_for_eva 23→27; corroborated structurally by TKT-146/148's independent passes; confirmatory SQL rides W2. → done. |
-| [TKT-142](./done/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | VERIFIED-LIVE 2026-07-10 (ticket-verifier): message.eml (17,684,171 bytes) confirmed in Box folder QDOS26029 via keyed listing; durable archive Completed 4/4; zero collateral 4xx/5xx; ≥20MiB chunked lane offline-only by design. → done. |
-| [TKT-139](./done/TKT-139-retro-search-tokenization/TKT-139-retro-search-tokenization.md) | Retro Outlook $search misses spaced-ref variants (Graph tokenization) | VERIFIED-LIVE 2026-07-10 (ticket-verifier): recorded Graph pair from the TKT-140 dry-run — compact PHA5007=0 hits vs spaced=2 hits; call shape matched to the live rung, bundle grep, live retroOutlookLocate execution, 20/20 tests; PHA5007 Held case corroborated in the W1 data-pass. → done. |
-| [TKT-112](./done/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | DONE 2026-07-09 (adjudicated): ownership documented + invariant source-verified (orch stamps, api suggestions); no conflict. → done. |
-| [TKT-088](./done/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | DONE 2026-07-09 (adjudicated): the fork resolved by events — auto-classification shipped + live; determination recorded. → done. |
-| [TKT-138](./done/TKT-138-token-roles-claim-rename/TKT-138-token-roles-claim-rename.md) | Live staff tokens still carry the pre-rename "CollisionSpike.Admin" roles value — reconcile with the Superuser rename | DONE 2026-07-09 (second acceptance arm): directory/SP/assignment all read Superuser — .Admin claims are stale pre-rename tokens; legacy-accept documented. → done. |
-| [TKT-114](./done/TKT-114-ticket-move-transition-guard/TKT-114-ticket-move-transition-guard.md) | Enforce the ticket lifecycle transition graph in ticket-move.mjs | VERIFIED (offline-provable acceptance) 2026-07-09: guard live in the tooling; matrix transcribed + orchestrator spot-check; skill kept in step. → done. |
-| [TKT-059](./done/TKT-059-replay-wipe-rebuild/TKT-059-replay-wipe-rebuild.md) | Replay: wipe & rebuild derived data from full mailbox history | CLOSED 2026-07-09: superseded finding preserved; TKT-106 removal landed; constructive successor = the read-only reconstruction path (TKT-107/119/140). → done. |
-| [TKT-101](./done/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) | QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case | VERIFIED-LIVE 2026-07-09 (verifier): two refs = two cases live, no cross-contamination; detach + rebuild audited; guard pinned + deployed. → done. |
-| [TKT-058](./done/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md) | Retroactive case creation — reconstruction fallback for un-linked update/billing email ([ADR-0022](../adr/0022-retroactive-case-reconstruction.md)) | VERIFIED-LIVE 2026-07-09 (verifier): both operator reports resolved live (two drains; ack -> locate not mint). Box rung stays D11-gated. → done. |
-| [TKT-119](./done/TKT-119-retro-locate-ack-hardening/TKT-119-retro-locate-ack-hardening.md) | Retro case-locate failed on ref PHA5007 — acks must never mint, add an "Unable to Locate" outcome, explore Graph deleted-items | VERIFIED-LIVE 2026-07-09 (verifier): drain field-proven (case 87e79f62 from Deleted Items); dual-seam guard pinned; Unable-to-locate deployed (tail: first live failure); memo delivered. → done. |
-| [TKT-079](./done/TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) | Address picker polish — provider default chip, distance hints, show-more | VERIFIED-LIVE 2026-07-09 (re-check): common-chip half closed with TKT-076; language audit clean. → done. |
-| [TKT-076](./done/TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) | Inspection suggestions ignore the provider and distance — real scoping + nearest-first | VERIFIED-LIVE 2026-07-09 (re-check): common-location banner + 8 labelled fallback rows live, zero foreign chips; all other lines stood. → done. |
-| [TKT-083](./done/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected signals | VERIFIED-LIVE 2026-07-09 (as amended): receiving_work live-proven; AND-arm adjudicated + pinned; FW seed row-confirmed. → done. |
-| [TKT-080](./done/TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) | Reseed the live address catalogue + deploy and prove the whole inspection repair | VERIFIED-LIVE 2026-07-09 (adjudicated): repair chain live-proven; gates-block drift fixed; parser triage + SQL re-checks + TKT-062 hygiene closed; boxWebhook null = transient (12 x3 confirmations). → done. |
-| [TKT-070](./done/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | VERIFIED-LIVE 2026-07-09 (verifier): post-deploy intake stores the multi-line cleaned preview (impossible under the old path); QDOS pin 28/28; sniff unaffected. → done. |
-| [TKT-120](./done/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | VERIFIED-LIVE 2026-07-09 (verifier): replica -> billing/payment_remittance live; AI-rung telemetry independently re-pulled (ran, wrong verdict); TKT-137 filed. → done. |
-| [TKT-103](./done/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | VERIFIED-LIVE 2026-07-09 (verifier): three Tractable samples live — money never captured as ref; guards + pins green. /parse residual = TKT-136. → done. |
-| [TKT-086](./done/TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | VERIFIED-LIVE 2026-07-09 (verifier, as adjudicated): anchor pair EMPTY at source (pinned); coverage 51.1%/348 reported; residual ticketed (TKT-135). → done. |
-| [TKT-022](./done/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | `.docx` claim-form extraction fails | VERIFIED-LIVE 2026-07-09 (verifier): live /parse of the actual Cheema .docx returns every corrected field; fixture byte-identical; 383 sibling tests pass. → done. |
-| [TKT-118](./done/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | VERIFIED-LIVE 2026-07-09 (verifier): old label gone at bundle level; TE57IMG VRM-first live; no casePo on the wire; mint-requires-provider pinned. → done. |
-| [TKT-105](./done/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | VERIFIED-LIVE 2026-07-09 (verifier): remittance -> billing/payment_remittance live (beats the instruction promotion); SPA Billing group renders. → done. |
-| [TKT-097](./done/TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | VERIFIED-LIVE 2026-07-09 (verifier): Oakwood sample -> cancellation live; query control unregressed; recall 13/13 pinned. → done. |
-| [TKT-100](./done/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) | QDOS false VRM "AND2" invented on emails that don't contain it | VERIFIED-LIVE 2026-07-09 (verifier): the Higsons footer shape returns no VRM live; pin green; 5 rows cleared. → done. |
-| [TKT-085](./done/TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) | Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive) | VERIFIED-LIVE 2026-07-09 (verifier): the ACTUAL A.PCH26003 PDF re-parsed live returns the real plate BE57JDS; month/day guards in both engines; row cleared. → done. |
-| [TKT-071](./done/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | VERIFIED-LIVE 2026-07-09 (verifier): HD4110 rejects live, tight-anchor recall holds; 36/36 + 26 + eval clean; 11-row audited data fix. → done. |
-| [TKT-005](./done/TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | VERIFIED-LIVE 2026-07-09 (verifier): real staff dismissal persisted 8 days — hidden by default, badge under Show dismissed, audited status_change with actor. → done. |
-| [TKT-123](./done/TKT-123-exclude-label-reflection-warning/TKT-123-exclude-label-reflection-warning.md) | Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images | VERIFIED-LIVE 2026-07-09 (verifier): Exclude label live; dismiss E2E proven by three independent artifacts incl. the live audit row + post-dismiss reload; delta + patchEvidence deployed; classifier stamps the flag. → done. |
-| [TKT-010](./done/TKT-010-delete-case/TKT-010-delete-case.md) | Close case (renamed from delete/remove) — confirm + audit, available to all users | VERIFIED-LIVE 2026-07-09 (verifier): Close case menu/dialog live; TE57IMG closed non-destructively, intact, queue-hidden, audited; User-role guard pinned 9/9. → done. |
-| [TKT-126](./done/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | VERIFIED-LIVE 2026-07-09 (verifier): exported two zips itself — 12-field JSON + gapless NNN photos matching the orderer 1:1; zero non-image members. → done. |
-| [TKT-124](./done/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | VERIFIED-LIVE 2026-07-09 (verifier): two cases (one unstaged) — orderer holds images only while .eml/PDF/.doc render in Documents; re-kind delta evidenced. → done. |
-| [TKT-125](./done/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | VERIFIED-LIVE 2026-07-09 (verifier): zero hint slots, all probes negative, bundle greps clean. → done. |
-| [TKT-117](./done/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | VERIFIED-LIVE 2026-07-09 (verifier): 350-row sweep — plain-English descriptor + date on every row, zero jargon; Action-logs cross-check held. Side finding filed as TKT-134. → done. |
-| [TKT-116](./done/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | VERIFIED-LIVE 2026-07-09 (verifier): all 3 queues page at ≤15 with the inbox pager; totals reconstructed from pages match every counting surface. → done. |
-| [TKT-122](./done/TKT-122-dashboard-panel-alignment/TKT-122-dashboard-panel-alignment.md) | Align the dashboard containers — inbox and "Check the flagged details" do not line up | VERIFIED-LIVE 2026-07-09 (verifier): shared grid line 367.797/367.797 measured live; root-cause empty chip container not rendered. → done. |
-| [TKT-121](./done/TKT-121-email-type-dropdown-overflow/TKT-121-email-type-dropdown-overflow.md) | The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar | VERIFIED-LIVE 2026-07-09 (verifier): 320px = exactly 10 rows, internal scroll, mouse + keyboard reach all 18 options. → done. |
-| [TKT-015](./done/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (gated) | VERIFIED-LIVE 2026-07-09 (verifier): suggestions land model-stamped + confidence, never silent mutations; human-confirmed promotion live-exercised; gate controls it. → done. |
-| [TKT-127](./done/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | VERIFIED-LIVE 2026-07-09 (verifier): 200s throughout (the 204 was the CORS preflight); post-fix generate {generated:5} traced; SPA renders 5 pending suggestions. → done. |
-| [TKT-054](./done/TKT-054-ui-work/TKT-054-ui-work.md) | Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions | VERIFIED-LIVE 2026-07-09 (verifier): full visual acceptance + backfill proofs; the Outlook-move clause re-homed to TKT-091. → done. |
-| [TKT-109](./done/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | VERIFIED-LIVE 2026-07-09 (verifier): runtime seam fired on fresh intake QDOS26070 (01:04, audited); FW cases keep the manual flow. → done. |
-| [TKT-081](./done/TKT-081-misclass-ack-batch/TKT-081-misclass-ack-batch.md) | Acknowledgement emails misclassified — one opened a blank case | VERIFIED-LIVE 2026-07-09 (classify re-probe + data pass: voided case stays Removed; zero non_actionable mints). → done. |
-| [TKT-046](./done/TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | VERIFIED-LIVE 2026-07-09 (verifier, observable scope): own lane, 24 live rows, 5 live linked-to-case rows, attach affordance renders. → done. |
-| [TKT-025](./done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox | VERIFIED-LIVE 2026-07-09 (verifier): mailbox chips + counts + filter + keyboard + honest empty-state all proven on the signed-in SPA; data-derived chip set. → done. |
-| [TKT-039](./done/TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | VERIFIED-LIVE 2026-07-09 (verifier): sample + report attachment classifies query on the deployed parser (report_attachment + Our-Ref signals); non-minting. → done. |
-| [TKT-031](./done/TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other' | VERIFIED-LIVE 2026-07-09 (verifier): sample classifies query/query_existing_work on the deployed parser, rule:query_with_reference; pin green. → done. |
-| [TKT-002](./done/TKT-002-pdf-image-extraction/TKT-002-pdf-image-extraction.md) | Auto-extract vehicle images + flag unsuitable | **VERIFIED-LIVE** (extraction) — 63 image rows = telemetry `extracted:63`. Unsuitable-flag half awaits `PLATE_OCR_ENABLED`. |
-| [TKT-003](./done/TKT-003-box-sync/TKT-003-box-sync.md) | Get `.eml` / images / instructions into the Box folder | **VERIFIED-LIVE** (2026-07-01) — post-regression re-test: intake archive copies `.eml` + instructions (+ images) into case folder; `boxArchiveEvidence` clean. |
-| [TKT-006](./done/TKT-006-suggested-tags-and-folders/TKT-006-suggested-tags-and-folders.md) | Suggest email categories/tags | **VERIFIED-LIVE** (tags) — `suggested_category/subtype` populated on both live cases. Outlook-folder-sort half deferred (Phase 2). |
-| [TKT-007](./done/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Combine email + intake overviews into one dashboard | TESTED (offline) — `dashboard.test.ts` 10/10. |
-| [TKT-008](./done/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Calendar picker on the date fields | TESTED (offline) — `date-format.test.ts` 12/12; SPA build PASS. |
-| [TKT-011](./done/TKT-011-case-page/TKT-011-case-page.md) | Case page de-jargon + layout | TESTED (offline)/audit — plain-language sweep clean. |
-| [TKT-012](./done/TKT-012-dashboard-logic/TKT-012-dashboard-logic.md) | Combined dashboard/queue count contract | TESTED (offline) — `dashboard.test.ts` 10/10 + `mappers.test.ts`. |
-| [TKT-013](./done/TKT-013-automation-mode/TKT-013-automation-mode.md) | Per-provider automation modes | **VERIFIED-LIVE** — orch trace shows the mode-branch executing; live providers flipped review_auto. |
-| [TKT-014](./done/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md) | Remove the `acme.co.uk` placeholder | TESTED (offline)/audit — zero `acme` in source. |
-| [TKT-017](./done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model bench | **Benchmark + recommendation DELIVERED (now→verify, 2026-07-08).** Candidate comparison (fast-alpr / DI Read / gpt-5 VLM) on accuracy/cost/latency/residency + runnable harness with captured TIER A run under `evidence/`. Recommendation: reg-OCR of record = local fast-alpr primary / DI Read uksouth fallback (UK-resident, zero-egress); a vision model-egress flip is NOT justified for reg-OCR alone. Commit `ab06ee2`. Awaiting verifier (offline). |
-| [TKT-019](./done/TKT-019-ticket-system/TKT-019-ticket-system.md) | Markdown ticket system + board + validator | TESTED (offline) — `check-tickets.mjs` 0 errors (now 40 tickets in per-ticket folders). |
-| [TKT-026](./done/TKT-026-queue-tracking/TKT-026-queue-tracking.md) | Queue counts don't match the actual queues | **VERIFIED-LIVE** (2026-07-05) — the P4 fix single-sourced the count: the dashboard pipeline "NOT READY" now equals the Queues "Not ready" count everywhere (live 125==125), folding the redundant NEW segment in. |
-| [TKT-029](./done/TKT-029-misclass-case-summary/TKT-029-misclass-case-summary.md) | Case-summary email misclassified as new case | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`non_actionable`/`case_summary`); locked by an eval-corpus regression pin. |
-| [TKT-030](./done/TKT-030-misclass-chasing-report/TKT-030-misclass-chasing-report.md) | Report-chaser misclassified as new work | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`query`/`query_existing_work`); locked by an eval-corpus regression pin. |
-| [TKT-033](./done/TKT-033-misclass-email-reply/TKT-033-misclass-email-reply.md) | Simple reply to our query misclassified as new work | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`query`/`query_existing_work`); locked by an eval-corpus regression pin. |
-| [TKT-036](./done/TKT-036-misclass-instructions/TKT-036-misclass-instructions.md) | Work-instructions email misclassified as query | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`receiving_work`/`new_client_work`); locked by an eval-corpus regression pin. |
-| [TKT-037](./done/TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md) | Invoice request misclassified as new case | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`billing`/`billing_request`); locked by an eval-corpus regression pin. |
-| [TKT-038](./done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`non_actionable`/`acknowledgement`); locked by an eval-corpus regression pin. |
-| [TKT-040](./done/TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) | Informal roadworthy work-request misrouted to 'Other' | **VERIFIED-LIVE** (2026-07-02) — live-probed against the deployed classifier (`receiving_work`/`existing_provider_instruction`); locked by an eval-corpus regression pin. |
-| [TKT-048](./done/TKT-048-no-image-previews/TKT-048-no-image-previews.md) | Inbox/case image previews not rendering | **VERIFIED-LIVE** (2026-07-05) — real inline previews live; new `GET /api/evidence/{id}/content` serves bytes same-origin (blob first, Box-facade fallback for the ~39% box-only evidence); the SPA fetches with bearer → `blob:` URL for `<img>`. Proven end-to-end on case `85fedca4` (box-only image → 200 image/jpeg → `<img>` 1200×1600). |
-| [TKT-049](./done/TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | **VERIFIED-LIVE** (2026-07-01) — live `/api/parse` on AX sample: `claimant_email` blank (team inbox rejected). |
-| [TKT-050](./done/TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) | AX PDF accident circumstances extraction too deep | **VERIFIED-LIVE** (2026-07-01) — live `/api/parse` on AX sample: circumstances narrative only, no Pre Existing tail. |
-| [TKT-060](./done/TKT-060-ai-chat-helper/TKT-060-ai-chat-helper.md) | AI chat helper — read-only Q&A assistant drawer | **VERIFIED-LIVE** (2026-07-05) — built + deployed; `AI_CHAT_ENABLED=true` on `cespk-api-dev`; `POST /api/assistant/chat` answers with real data via read-only tools; the count tool was fixed to return QUEUE counts matching the dashboard (Not ready 125, Held 40), verified live by direct endpoint call. Read-only, audited, keyless AOAI `gpt-5`. |
-| [TKT-061](./done/TKT-061-box-cli-webhook-e2e/TKT-061-box-cli-webhook-e2e.md) | Box CLI + FILE.UPLOADED webhook + sandboxed E2E | **VERIFIED-LIVE** (2026-07-05) — Box CLI installed + authed on Windows; `FILE.UPLOADED` webhook SUBSCRIBED on root `392761581105` → the `box-webhook` fn; E2E proven (upload → `FILE.UPLOADED` → signature validate → evidence row → audit → SPA). **REMAINDER (operator):** the template File Request id (`BOX_FILE_REQUEST_TEMPLATE_ID`) still needs a Box-UI hand-build — the CLI + webhook + E2E core is done. |
-| [TKT-062](./done/TKT-062-inspection-shortlist/TKT-062-inspection-shortlist.md) | Inspection-address picker returns entire corpus — add ranked shortlist | **VERIFIED-LIVE** (2026-07-05) — deployed + verified: the Address tab shows a ranked ~4-item shortlist + a "Search all locations…" corpus search; no more full-corpus dump. |
-| [TKT-063](./done/TKT-063-go-live-docs/TKT-063-go-live-docs.md) | Go-live runbook, readiness matrix & operator checklist | DONE (2026-07-05) — authored `docs/plans/go-live/` (README, runbook, readiness-matrix, day0-smoke, rollback, support-playbook, operator-checklist), linked from `docs/plans/README.md`. |
-| [TKT-064](./done/TKT-064-image-classification/TKT-064-image-classification.md) | Auto-classify evidence images — role (overview/damage) + registration visible | P2, area pipeline (operator-raised 2026-07-05). Image role is unbuilt (deferred M2/ADR-0009, defaults `unknown`); registration OCR runs only on PDF-extracted images. Needs a vision-classifier pass + OCR-on-all-sources + backfill. |
-| [TKT-074](./done/TKT-074-shell-hook-fail-closed/TKT-074-shell-hook-fail-closed.md) | Every terminal command is blocked — the Box scope-guard hook fails closed | **RESOLVED (2026-07-06)** — the shared box-scope guard now resolves stdin on a 700ms timer (not the never-emitted `'end'`), lazy-imports its lib, and a 1500ms watchdog fail-OPENS for non-Box; hardened across `.cursor`/`.claude`/`.codex`. Proven: ~900ms with stdin held open; out-of-scope Box (folder 0 / bad id) still DENIED. See [verification](./done/TKT-074-shell-hook-fail-closed/verification.md). |
-| [TKT-075](./done/TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) | Rebuild the inspection-address corpus in-repo — correct provider attribution + geocodes | **BUILT + VALIDATED (2026-07-06)** — reproducible `scripts/inspection-corpus/` pipeline (marker-aware parse folds the 4673 `a.qdos…` IDs, hyphen/typo-tolerant image-based drop, PII-free 2012-site CSV + per-provider run report + geocache). Deterministic hash; DDL delta + `920` seed validated live in a rolled-back txn (live commit is TKT-080). See [verification](./done/TKT-075-inspection-corpus-pipeline/verification.md). |
-| [TKT-098](./done/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 drop-note (2026-07-07): SPA inbox paging (15/page) preserving the mailbox-chip filter (TKT-025) + actions (TKT-005). |
-| [TKT-108](./done/TKT-108-completed-tickets-done-folder/TKT-108-completed-tickets-done-folder.md) | Completed tickets → a done/ folder for easier management | P3 (distilled 2026-07-07 from a to-distill drop): move `status: done` ticket folders into `docs/tickets/done/` + make check-tickets/check-doc-links/BOARD follow. Ticket-tracking housekeeping (distinct from TKT-096, the app's completed-**case** view). |
-| [TKT-115](./done/TKT-115-orch-ocr-fn-url-host-mismatch/TKT-115-orch-ocr-fn-url-host-mismatch.md) | Fix orch OCR_FN_URL host — azurewebsites.net vs the Functions-on-ACA azurecontainerapps.io FQDN | **DONE (live, 2026-07-08).** `OCR_FN_URL` on `cespk-orch-dev` corrected from the NXDOMAIN `*.azurewebsites.net` to the ACA ingress FQDN (config-only); LIVE_FACTS + mirror updated. Proven at the decisive level: `/api/plate-ocr` + `/api/ocr-pdf` = 401 (no key) / **400 (with the KV key on empty body = reachable, authenticated, processing)** where the old host NXDOMAINed — the `fetch failed` root cause is eliminated, no known gap. Operator-directed close; the behavioural line (registration_visible on a real intake) is downstream observation on the next OCR-triggering email (no OCR traffic in the 3h close window). Follow-up candidate: derive the OCR host from `defaultHostName` at deploy time (the ACA infix can change). |
+| [TKT-001](./done/TKT-001-document-parsing/TKT-001-document-parsing.md) | Fix multi-format document extraction regression | P1 · parsing |
+| [TKT-002](./done/TKT-002-pdf-image-extraction/TKT-002-pdf-image-extraction.md) | Auto-extract vehicle images from PDFs + flag unsuitable | P1 · evidence |
+| [TKT-003](./done/TKT-003-box-sync/TKT-003-box-sync.md) | Get .eml / images / instructions into the Box folder | P1 · box |
+| [TKT-005](./done/TKT-005-email-actions/TKT-005-email-actions.md) | Make the inbox actionable (dismiss removes from view) | P2 · email |
+| [TKT-006](./done/TKT-006-suggested-tags-and-folders/TKT-006-suggested-tags-and-folders.md) | Suggest email categories/tags + Outlook folders, log overrides | P2 · email |
+| [TKT-007](./done/TKT-007-amalgamated-dashboard/TKT-007-amalgamated-dashboard.md) | Combine email + intake overviews into one compact dashboard | P2 · ui |
+| [TKT-008](./done/TKT-008-calendar-date-fields/TKT-008-calendar-date-fields.md) | Calendar picker on the date-of-incident / instruction fields | P3 · ui |
+| [TKT-010](./done/TKT-010-delete-case/TKT-010-delete-case.md) | Close case (renamed from delete/remove) — confirm + audit, available to all users | P2 · ui · PLAN-003 |
+| [TKT-011](./done/TKT-011-case-page/TKT-011-case-page.md) | Case page de-jargon + layout fixes | P2 · ui |
+| [TKT-012](./done/TKT-012-dashboard-logic/TKT-012-dashboard-logic.md) | Define the combined dashboard/queue count contract | P2 · dashboard |
+| [TKT-013](./done/TKT-013-automation-mode/TKT-013-automation-mode.md) | Define + enforce the per-provider automation modes | P2 · platform |
+| [TKT-014](./done/TKT-014-acme-placeholder/TKT-014-acme-placeholder.md) | Remove the acme.co.uk placeholder from provider fields | P3 · ui |
+| [TKT-015](./done/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (observation-first, gated) | P2 · ai · PLAN-001 |
+| [TKT-017](./done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model research + bench | P2 · ai · PLAN-001 |
+| [TKT-019](./done/TKT-019-ticket-system/TKT-019-ticket-system.md) | Build the Markdown ticket system, generated board and validator | P2 · docs |
+| [TKT-022](./done/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | .docx claim-form extraction fails | P1 · parsing |
+| [TKT-023](./done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up documents/emails to the existing case + Box | P2 · intake |
+| [TKT-025](./done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox (info/engineers/desk) | P2 · email |
+| [TKT-026](./done/TKT-026-queue-tracking/TKT-026-queue-tracking.md) | Queue counts don't match the actual queues | P2 · dashboard |
+| [TKT-027](./done/TKT-027-intake-triage-status/TKT-027-intake-triage-status.md) | Intermediate intake status beyond 'new | P2 · intake |
+| [TKT-028](./done/TKT-028-work-provider-not-populating/TKT-028-work-provider-not-populating.md) | work_provider not populating on intake | P1 · parsing |
+| [TKT-029](./done/TKT-029-misclass-case-summary/TKT-029-misclass-case-summary.md) | Case-summary email misclassified as new case | P2 · email |
+| [TKT-030](./done/TKT-030-misclass-chasing-report/TKT-030-misclass-chasing-report.md) | Report-chaser misclassified as new work | P1 · email |
+| [TKT-031](./done/TKT-031-misclass-client-chasing/TKT-031-misclass-client-chasing.md) | Client report-chaser misrouted to 'Other | P2 · email |
+| [TKT-033](./done/TKT-033-misclass-email-reply/TKT-033-misclass-email-reply.md) | Simple reply to our query misclassified as new work | P1 · email |
+| [TKT-036](./done/TKT-036-misclass-instructions/TKT-036-misclass-instructions.md) | Work-instructions email misclassified as query | P1 · email |
+| [TKT-037](./done/TKT-037-misclass-invoice-request/TKT-037-misclass-invoice-request.md) | Invoice request misclassified as new case | P2 · email |
+| [TKT-038](./done/TKT-038-misclass-query-ack/TKT-038-misclass-query-ack.md) | Bare acknowledgement ('Thanks Ed') misclassified as query | P2 · email |
+| [TKT-039](./done/TKT-039-misclass-query-report-support/TKT-039-misclass-query-report-support.md) | Report-support request misclassified as new case | P2 · email |
+| [TKT-040](./done/TKT-040-misclass-roadworthy-request/TKT-040-misclass-roadworthy-request.md) | Informal roadworthy work-request misrouted to 'Other | P2 · email |
+| [TKT-043](./done/TKT-043-misclass-images-received/TKT-043-misclass-images-received.md) | Images-received / report-chaser email misrouted (scope to confirm) | P2 · email |
+| [TKT-046](./done/TKT-046-seperate-case-updates/TKT-046-seperate-case-updates.md) | Separate case updates from general queries (own lane + attach-to-case) | P2 · email |
+| [TKT-048](./done/TKT-048-no-image-previews/TKT-048-no-image-previews.md) | Inbox/case image previews not rendering | P2 · ui |
+| [TKT-049](./done/TKT-049-incorrect-claimant-email/TKT-049-incorrect-claimant-email.md) | Claimant email wrongly set to AX team inbox | P1 · parsing |
+| [TKT-050](./done/TKT-050-ax-pdf-extract/TKT-050-ax-pdf-extract.md) | AX PDF accident circumstances extraction too deep | P1 · parsing |
+| [TKT-051](./done/TKT-051-pch-connexus/TKT-051-pch-connexus.md) | PCH not identified — doc-content name + @pch-ltd.com senders both missed | P2 · intake |
+| [TKT-054](./done/TKT-054-ui-work/TKT-054-ui-work.md) | Inbox simplification + VRM/Ref split + dashboard inbox-panel regressions | P1 · ui |
+| [TKT-056](./done/TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md) | Audit case-type end-to-end — activation (delta + shadow review + gate flip + live probe) | P1 · intake |
+| [TKT-058](./done/TKT-058-retro-case-creation/TKT-058-retro-case-creation.md) | Retroactive case creation (reconstruction fallback for un-linked update/billing email) | P1 · intake |
+| [TKT-059](./done/TKT-059-replay-wipe-rebuild/TKT-059-replay-wipe-rebuild.md) | Replay: wipe & rebuild derived data from full mailbox history | P1 · intake |
+| [TKT-060](./done/TKT-060-ai-chat-helper/TKT-060-ai-chat-helper.md) | AI chat helper — read-only Q&A assistant drawer | P2 · ui · PLAN-001 |
+| [TKT-061](./done/TKT-061-box-cli-webhook-e2e/TKT-061-box-cli-webhook-e2e.md) | Box CLI + FILE.UPLOADED webhook + sandboxed E2E | P2 · integration |
+| [TKT-062](./done/TKT-062-inspection-shortlist/TKT-062-inspection-shortlist.md) | Inspection-address picker returns entire corpus — add ranked shortlist | P2 · ui |
+| [TKT-063](./done/TKT-063-go-live-docs/TKT-063-go-live-docs.md) | Consolidate release and operator procedures | P1 · docs |
+| [TKT-064](./done/TKT-064-image-classification/TKT-064-image-classification.md) | Auto-classify evidence images — role (overview/damage) + registration visible | P2 · pipeline · PLAN-001 |
+| [TKT-065](./done/TKT-065-audit-provider-resolution/TKT-065-audit-provider-resolution.md) | Audit cases resolve NO work provider (leaked "EVA (Engineers)" masked a real bug) | P1 · pipeline |
+| [TKT-070](./done/TKT-070-email-body-readability/TKT-070-email-body-readability.md) | Inbox email previews are one unreadable line — keep line breaks, cut noise | P2 · email · PLAN-003 |
+| [TKT-071](./done/TKT-071-vrm-false-positive-hd4110/TKT-071-vrm-false-positive-hd4110.md) | Job references like HD4110 wrongly captured as a vehicle registration | P1 · parsing |
+| [TKT-072](./done/TKT-072-global-search/TKT-072-global-search.md) | The search box doesn't search — global search across cases, emails, providers | P1 · ui · PLAN-001 |
+| [TKT-073](./done/TKT-073-varchar16-overflow-clamp/TKT-073-varchar16-overflow-clamp.md) | Intake write fails with "value too long" — clamp over-length field before insert | P2 · intake |
+| [TKT-074](./done/TKT-074-shell-hook-fail-closed/TKT-074-shell-hook-fail-closed.md) | Every terminal command is blocked — the Box scope-guard hook fails closed | P0 · platform |
+| [TKT-075](./done/TKT-075-inspection-corpus-pipeline/TKT-075-inspection-corpus-pipeline.md) | Build the reproducible inspection-address corpus pipeline | P1 · platform |
+| [TKT-076](./done/TKT-076-inspection-provider-scope-proximity/TKT-076-inspection-provider-scope-proximity.md) | Inspection suggestions ignore the provider and distance — real scoping + nearest-first | P1 · ui |
+| [TKT-079](./done/TKT-079-inspection-ui-provider-policy/TKT-079-inspection-ui-provider-policy.md) | Address picker polish — provider default chip, distance hints, show-more | P2 · ui |
+| [TKT-080](./done/TKT-080-inspection-reseed-live/TKT-080-inspection-reseed-live.md) | Reseed the live address catalogue + deploy and prove the whole inspection repair | P1 · platform |
+| [TKT-081](./done/TKT-081-misclass-ack-batch/TKT-081-misclass-ack-batch.md) | Acknowledgement emails still misclassified — tagged as query/new case, one opened a blank case | P1 · email |
+| [TKT-082](./done/TKT-082-misclass-query-as-new-work/TKT-082-misclass-query-as-new-work.md) | Existing-case query misclassified as new client work | P1 · email |
+| [TKT-083](./done/TKT-083-misclass-instructions-unidentified/TKT-083-misclass-instructions-unidentified.md) | Instructions email left "Unidentified" despite detected instruction signals | P1 · email |
+| [TKT-085](./done/TKT-085-vrm-false-positive-october/TKT-085-vrm-false-positive-october.md) | Registration on case A.PCH26003 logged as "OCTOBER" (VRM false positive) | P1 · parsing |
+| [TKT-086](./done/TKT-086-circumstances-extraction-gaps/TKT-086-circumstances-extraction-gaps.md) | Accident circumstances still not being 100% extracted | P1 · parsing |
+| [TKT-087](./done/TKT-087-box-upload-409-conflicts/TKT-087-box-upload-409-conflicts.md) | Box report shows 409 upload conflicts — investigate duplicate archive attempts | P2 · box |
+| [TKT-088](./done/TKT-088-image-role-classification-check/TKT-088-image-role-classification-check.md) | Image role auto-classification — confirm whether it works and decide the path | P2 · evidence · PLAN-001 |
+| [TKT-090](./done/TKT-090-evidence-filename-provider-vrm/TKT-090-evidence-filename-provider-vrm.md) | Evidence filenames carry a wrong "RJS" provider token and "UnknownVRM | P2 · evidence |
+| [TKT-091](./done/TKT-091-outlook-move-fail/TKT-091-outlook-move-fail.md) | Outlook "File to …" move fails live with a 503 from the Data API | P1 · email |
+| [TKT-092](./done/TKT-092-pch-duplicate-cases/TKT-092-pch-duplicate-cases.md) | PCH cases duplicating for no reason | P1 · intake |
+| [TKT-093](./done/TKT-093-auto-attach-matched-emails/TKT-093-auto-attach-matched-emails.md) | Auto-attach matched emails to their case instead of a hidden suggest dialog | P1 · email |
+| [TKT-096](./done/TKT-096-completed-archive-view/TKT-096-completed-archive-view.md) | Completed/Archive view + dashboard drill-through + terminal-scope search fold-in | P2 · ui · PLAN-002 |
+| [TKT-097](./done/TKT-097-cancellation-misclass-query/TKT-097-cancellation-misclass-query.md) | Cancellation email misclassified as a case query | P2 · email |
+| [TKT-098](./done/TKT-098-inbox-pagination/TKT-098-inbox-pagination.md) | Inbox pagination — cap the inbox page at 15 emails, paginate the rest | P3 · ui |
+| [TKT-099](./done/TKT-099-qcl-case-po-generation/TKT-099-qcl-case-po-generation.md) | QCL cases not generating Case/PO correctly | P1 · intake · PLAN-003 |
+| [TKT-100](./done/TKT-100-qdos-false-vrm-and2/TKT-100-qdos-false-vrm-and2.md) | QDOS false VRM "AND2" invented on emails that don't contain it | P1 · parsing |
+| [TKT-101](./done/TKT-101-qdos-cases-wrong-linking/TKT-101-qdos-cases-wrong-linking.md) | QDOS — two distinct refs (46671/1, 46533/1) wrongly linked as one case | P1 · intake |
+| [TKT-103](./done/TKT-103-tractable-reference-bug/TKT-103-tractable-reference-bug.md) | Tractable "768.00" wrongly captured as the reference number | P2 · parsing |
+| [TKT-105](./done/TKT-105-remittance-payments-category/TKT-105-remittance-payments-category.md) | Remittance advice classified under payments/billing | P2 · email |
+| [TKT-106](./done/TKT-106-remove-replay-backfill/TKT-106-remove-replay-backfill.md) | Remove the non-viable replay-backfill driver + gate | P2 · intake |
+| [TKT-108](./done/TKT-108-completed-tickets-done-folder/TKT-108-completed-tickets-done-folder.md) | Keep completed tickets in the done status folder | P3 · docs |
+| [TKT-109](./done/TKT-109-image-based-provider-prefill/TKT-109-image-based-provider-prefill.md) | Pre-fill image-based inspections for image-led providers | P2 · intake |
+| [TKT-112](./done/TKT-112-image-writer-reconcile/TKT-112-image-writer-reconcile.md) | Reconcile the two image-classification writers | P2 · ai · PLAN-001 |
+| [TKT-113](./done/TKT-113-ai-usage-ledger/TKT-113-ai-usage-ledger.md) | AI usage ledger for model capacity controls | P3 · ai · PLAN-001 |
+| [TKT-114](./done/TKT-114-ticket-move-transition-guard/TKT-114-ticket-move-transition-guard.md) | Enforce ticket lifecycle transitions and regenerate derived views | P2 · docs |
+| [TKT-115](./done/TKT-115-orch-ocr-fn-url-host-mismatch/TKT-115-orch-ocr-fn-url-host-mismatch.md) | Fix orch OCR_FN_URL host — it points at azurewebsites.net but the OCR app is Functions-on-ACA (azurecontainerapps.io) | P1 · platform |
+| [TKT-116](./done/TKT-116-queues-pagination/TKT-116-queues-pagination.md) | Paginate the case queues at 15 per page (same as the inbox) | P2 · ui · PLAN-003 |
+| [TKT-117](./done/TKT-117-queues-last-update/TKT-117-queues-last-update.md) | Show a "Last update" line for each case in the queues view | P2 · ui · PLAN-003 |
+| [TKT-118](./done/TKT-118-image-only-vrm-identity/TKT-118-image-only-vrm-identity.md) | Rename the "Image Based" case label + identify image-only cases by VRM (no Case/PO before instructions) | P2 · intake · PLAN-003 |
+| [TKT-119](./done/TKT-119-retro-locate-ack-hardening/TKT-119-retro-locate-ack-hardening.md) | Retro case-locate failed on ref PHA5007 — acks must never mint, add an "Unable to Locate" outcome, explore Graph deleted-items | P1 · intake · PLAN-003 |
+| [TKT-120](./done/TKT-120-fairway-payment-misclass/TKT-120-fairway-payment-misclass.md) | FAIRWAY LEGAL payment transfer marked Unidentified — should classify as payments/billing | P2 · email · PLAN-003 |
+| [TKT-121](./done/TKT-121-email-type-dropdown-overflow/TKT-121-email-type-dropdown-overflow.md) | The "E-mail Type" dropdown fills the whole page — cap its height with a scrollbar | P3 · ui · PLAN-003 |
+| [TKT-122](./done/TKT-122-dashboard-panel-alignment/TKT-122-dashboard-panel-alignment.md) | Align the dashboard containers — inbox and "Check the flagged details" do not line up | P3 · ui · PLAN-003 |
+| [TKT-123](./done/TKT-123-exclude-label-reflection-warning/TKT-123-exclude-label-reflection-warning.md) | Rename "exclude (person reflection)" to "Exclude" + dismissible vision reflection warning on images | P2 · ui · PLAN-003 |
+| [TKT-124](./done/TKT-124-photo-orderer-images-only/TKT-124-photo-orderer-images-only.md) | Photo orderer shows .eml files — it must list images only | P2 · ui · PLAN-003 |
+| [TKT-125](./done/TKT-125-add-case-descriptor-removal/TKT-125-add-case-descriptor-removal.md) | Remove the field descriptors under the Add Case inputs (and the wrong "4-char" principal claim) | P3 · ui · PLAN-003 |
+| [TKT-126](./done/TKT-126-eva-export-zip/TKT-126-eva-export-zip.md) | Export for EVA downloads a .zip of the JSON plus all the images | P1 · ui · PLAN-003 |
+| [TKT-127](./done/TKT-127-ai-suggestions-generate-204/TKT-127-ai-suggestions-generate-204.md) | AI Assistant "Generate Suggestions" does not generate — devtools shows 204 no content | P1 · ai · PLAN-003 |
+| [TKT-128](./done/TKT-128-imported-details-blank/TKT-128-imported-details-blank.md) | Imported details — from the instruction document or email" renders blank | P2 · ui · PLAN-003 |
+| [TKT-131](./done/TKT-131-image-role-classify-retry/TKT-131-image-role-classify-retry.md) | Classify the role-unknown evidence images — retry the backfill residue so cases can reach Ready for EVA | P1 · evidence · PLAN-003 |
+| [TKT-132](./done/TKT-132-generate-suggestions-inputs/TKT-132-generate-suggestions-inputs.md) | Widen the AI-suggestion generate inputs beyond accident circumstances | P2 · ai · PLAN-003 |
+| [TKT-134](./done/TKT-134-action-logs-humanize/TKT-134-action-logs-humanize.md) | Action-logs page renders raw engineering strings — humanize the staff-visible log lines | P3 · ui · PLAN-003 |
+| [TKT-136](./done/TKT-136-parse-fallback-ref-guard/TKT-136-parse-fallback-ref-guard.md) | Guard the /parse fallback reference against money values and text fragments (RIGERANT R1234YF) | P2 · parsing · PLAN-003 |
+| [TKT-138](./done/TKT-138-token-roles-claim-rename/TKT-138-token-roles-claim-rename.md) | Live staff tokens still carry the pre-rename "CollisionSpike.Admin" roles value — reconcile with the Superuser rename | P3 · platform · PLAN-003 |
+| [TKT-139](./done/TKT-139-retro-search-tokenization/TKT-139-retro-search-tokenization.md) | Retro Outlook $search misses spaced-ref variants (Graph tokenization: PHA5007 vs PHA 5007) | P3 · intake · PLAN-003 |
+| [TKT-140](./done/TKT-140-retro-backlog-drain/TKT-140-retro-backlog-drain.md) | Bulk retro backlog drain — reconstitute prior un-cased emails from Deleted Items | P2 · intake · PLAN-003 |
+| [TKT-141](./done/TKT-141-merged-twins-exclusion/TKT-141-merged-twins-exclusion.md) | Exclude merged/retired duplicate cases from twin counts and attention lists | P2 · dashboard · PLAN-003 |
+| [TKT-142](./done/TKT-142-boxfn-large-payload/TKT-142-boxfn-large-payload.md) | Box facade 502s on large base64 payloads — QDOS26029 archive stranded (17.6 MB .eml) | P1 · box · PLAN-003 |
+| [TKT-143](./done/TKT-143-extraction-stems-identity/TKT-143-extraction-stems-identity.md) | Pass the resolved provider/VRM into /extract-images so extraction filenames carry real identity | P3 · evidence · PLAN-003 |
+| [TKT-147](./done/TKT-147-tractable-make-vin/TKT-147-tractable-make-vin.md) | Tractable layout: capture vehicle make (two-label rule) + a VIN field slot | P3 · parsing · PLAN-003 |
+| [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for cases whose photo sets genuinely lack a vehicle overview | P2 · pipeline · PLAN-003 |
+| [TKT-149](./done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Retire mandatory reciprocal Claude and Codex PR reviews | P0 · platform · PLAN-004 |
+| [TKT-164](./done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | P1 · platform · PLAN-004 |
 
-## Next — queued / MVP
+## Next (0)
 
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
 
-## Backlog — not started
+## Backlog (35)
 
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
-| [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI total-loss vs repairable categorisation | Deferral RE-AFFIRMED by the operator 2026-07-10 (backlog-drain batch AskUserQuestion: "Keep deferred" over build-dark/blocked). Stays backlog; the 2026-07-09 assessment (deps live, build shape, fresh-DPIA need) remains current. |
-| [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove dev copy and unnecessary explanatory text from the app | Distilled 2026-07-12; whole-route rendered-string and built-bundle audit. |
-| [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun and account for every affected case after the fixes deploy | Distilled 2026-07-12; backup-first targeted rerun with field-level residual ledger. |
-| [TKT-161](./backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | Allow reflection images for Image Based Assessment cases | Distilled 2026-07-12 from the inbox note; reflection remains an observation but is not a reflection-only blocker for these cases. |
-| [TKT-162](./backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | Nest QDOS audit work inside the standard case archive folder | Distilled 2026-07-12 with the supplied email/document; canonical parent plus deterministic audit child. |
-| [TKT-163](./backlog/TKT-163-merge-dialog-layout/TKT-163-merge-dialog-layout.md) | Repair the merge-case dialog layout | Distilled 2026-07-12 with the supplied screenshots; responsive, accessible non-overlapping dialog. |
-| [TKT-171](./backlog/TKT-171-four-digit-case-po-sequence/TKT-171-four-digit-case-po-sequence.md) | Keep Case/PO numbering working after 999 | **P1 · intake · PLAN-004** — Distilled 2026-07-13; four-digit-safe allocation, rollover, concurrency and migration proof. |
-| [TKT-172](./backlog/TKT-172-manual-intake-duplicate-guard/TKT-172-manual-intake-duplicate-guard.md) | Check matching registrations before Manual Intake creates a case | **P1 · intake · PLAN-004** — Distilled 2026-07-13; show defensible active-case matches and require an explicit duplicate decision before creation. |
-| [TKT-173](./backlog/TKT-173-ax-instruction-acceptance-action/TKT-173-ax-instruction-acceptance-action.md) | Make AX instruction acceptance impossible to miss | **P2 · intake · PLAN-004** — Distilled 2026-07-13; prominent, accessible acceptance action with durable idempotent outcome proof. |
-| [TKT-174](./backlog/TKT-174-archive-evidence-preview/TKT-174-archive-evidence-preview.md) | Make Archive evidence previews load clearly and open larger | **P2 · ui · PLAN-004** — Distilled 2026-07-13; truthful loading/failure states and accessible full-size viewing. |
-| [TKT-175](./backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) | Investigate resilience to direct Archive changes | **P1 · box · PLAN-004** — Distilled 2026-07-13; observe the failure matrix, establish reconciliation ownership and file atomic remediation follow-ups before implementation. |
-| [TKT-176](./backlog/TKT-176-dashboard-period-wording/TKT-176-dashboard-period-wording.md) | Use clear period wording on the dashboard | **P3 · ui · PLAN-004** — Distilled 2026-07-13; replace ambiguous period labels and verify consistent date boundaries. |
-| [TKT-177](./backlog/TKT-177-duplicate-case-resolution-workspace/TKT-177-duplicate-case-resolution-workspace.md) | Resolve likely duplicate cases in one workspace | **P1 · intake · PLAN-004** — Distilled 2026-07-13; compare candidates, preserve evidence and resolve or dismiss safely with audit proof. |
-| [TKT-179](./backlog/TKT-179-evidence-image-decision-controls/TKT-179-evidence-image-decision-controls.md) | Make photo decisions explicit | **P2 · ui · PLAN-004** — Distilled 2026-07-13; one tri-state Photo use decision, reasons, transitions and audit behavior. |
-| [TKT-180](./backlog/TKT-180-icon-semantic-consistency/TKT-180-icon-semantic-consistency.md) | Use one icon for each app concept | **P3 · ui · PLAN-004** — Distilled 2026-07-13; one accessible semantic mapping across shared surfaces. |
-| [TKT-181](./backlog/TKT-181-truthful-image-analysis-states/TKT-181-truthful-image-analysis-states.md) | Show truthful photo-checking states | **P1 · evidence · PLAN-004** — Distilled 2026-07-13; distinguish queued, checking, complete, skipped and retryable failure without false completion. |
-| [TKT-182](./backlog/TKT-182-long-reference-layout/TKT-182-long-reference-layout.md) | Keep long email references inside their column | **P3 · ui · PLAN-004** — Distilled 2026-07-13; bounded responsive layout with readable full-value access. |
-| [TKT-183](./backlog/TKT-183-name-variant-case-correlation/TKT-183-name-variant-case-correlation.md) | Match case emails when first names are shortened to initials | **P1 · intake · PLAN-004** — Distilled 2026-07-13; conservative name-variant correlation with ambiguity and near-match safeguards. |
-| [TKT-184](./backlog/TKT-184-out-of-office-no-action/TKT-184-out-of-office-no-action.md) | Treat automatic out-of-office replies as no action needed | **P2 · email · PLAN-004** — Distilled 2026-07-13; classify auto-replies without minting work or hiding actionable human replies. |
-| [TKT-185](./backlog/TKT-185-override-provenance-audit/TKT-185-override-provenance-audit.md) | Audit what actually caused each category override | **P1 · ai · PLAN-004** — Distilled 2026-07-13; preserve the exact rule/model/source inputs and resulting override decision. |
-| [TKT-186](./backlog/TKT-186-provider-update-chase-category/TKT-186-provider-update-chase-category.md) | Separate provider chases from case queries | **P2 · email · PLAN-004** — Distilled 2026-07-13; distinct non-minting category, precedence and corpus regression proof. |
-| [TKT-187](./backlog/TKT-187-multi-case-provider-chase-linking/TKT-187-multi-case-provider-chase-linking.md) | Link one provider chase to every referenced case | **P1 · intake · PLAN-004** — Distilled 2026-07-13; resolve all stated cases, expose partial ambiguity and keep linking idempotent. |
-| [TKT-188](./backlog/TKT-188-report-amendment-classification-reconstruction/TKT-188-report-amendment-classification-reconstruction.md) | Keep report amendments with the existing case | **P1 · intake · PLAN-004** — Distilled 2026-07-13; classify and reconstruct amendment threads without opening duplicate work. |
-| [TKT-189](./backlog/TKT-189-search-result-affordance/TKT-189-search-result-affordance.md) | Make search results clearly actionable | **P2 · ui · PLAN-004** — Distilled 2026-07-13; clear destination, selected state and keyboard behavior for every result type. |
-| [TKT-190](./backlog/TKT-190-inbox-case-po-status-display/TKT-190-inbox-case-po-status-display.md) | Show complete case details in inbox statuses | **P2 · ui · PLAN-004** — Distilled 2026-07-13; display trustworthy Case/PO, registration and status without stale or clipped identity. |
-| [TKT-191](./backlog/TKT-191-actionable-email-suggestions/TKT-191-actionable-email-suggestions.md) | Suggest email replies and urgency only when justified | **P2 · email · PLAN-004** — Distilled 2026-07-13; grounded suggestions with abstention, evidence and human control. |
-| [TKT-192](./backlog/TKT-192-triage-precase-category/TKT-192-triage-precase-category.md) | Keep triage requests outside the case queue until instructions arrive | **P1 · intake · PLAN-004** — Distilled 2026-07-13; non-minting Triage classification with one canonical handoff to TKT-193. |
-| [TKT-193](./backlog/TKT-193-precase-evidence-holding-adoption/TKT-193-precase-evidence-holding-adoption.md) | Hold pre-case evidence and adopt it when instructions arrive | **P1 · intake · PLAN-004** — Distilled 2026-07-13; durable evidence holding, exact adoption, lineage and idempotent retry. |
-| [TKT-194](./backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | **P2 · email · PLAN-004** — Distilled 2026-07-13; specific actionable reasons with source evidence and accessible presentation. |
-| [TKT-195](./backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) | Manage staff access with Microsoft work accounts | **P1 · platform · PLAN-004** — Distilled 2026-07-13; least-privilege onboarding/offboarding, role reconciliation and live access proof. |
-| [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | **P3 · evidence · no plan** — Distilled 2026-07-13 as standalone future work; deterministic, bounded frame extraction with provenance and duplicate control. |
-| [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | **P1 · intake · PLAN-004** — Distilled 2026-07-13; keep Ref owned by the email, allow only the VRM case fallback and expose conflicts rather than guessing. |
-| [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | **P1 · evidence · PLAN-004** — Distilled 2026-07-13; calibrate registration mismatch detection and route decisions through the tri-state Photo use contract without deleting evidence. |
-| [TKT-207](./backlog/TKT-207-bulk-case-registration-lock-budget/TKT-207-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | **P2 · platform · PLAN-004** — Distilled 2026-07-15 from the PR #73 / TKT-154 review; chunk large single-transaction case_ purges/inserts so the required per-row registration advisory lock cannot exhaust `max_locks_per_transaction`. Fail-safe today. |
-| [TKT-208](./backlog/TKT-208-mcp-box-root-single-source/TKT-208-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | **P2 · integration · PLAN-004** — Distilled 2026-07-15 from the PR #73 / TKT-154 review; collapse the ~5 uncoordinated test-root sources to one shared constant and close the Python `BOX_ALLOWED_ROOT_ID` activation-checklist gap. Fail-closed today. |
+| [TKT-018](./backlog/TKT-018-ai-case-category/TKT-018-ai-case-category.md) | AI VLM total-loss vs repairable categorisation (deferred) | P3 · ai · PLAN-001 |
+| [TKT-157](./backlog/TKT-157-handler-copy-audit/TKT-157-handler-copy-audit.md) | Remove internal and unnecessary explanatory copy from the app | P2 · ui · PLAN-004 |
+| [TKT-158](./backlog/TKT-158-case-remediation-rerun/TKT-158-case-remediation-rerun.md) | Rerun affected cases safely and account for every residual issue | P1 · intake · PLAN-004 |
+| [TKT-161](./backlog/TKT-161-image-based-reflection-policy/TKT-161-image-based-reflection-policy.md) | Allow reflection images for Image Based Assessment cases | P1 · evidence · PLAN-004 |
+| [TKT-162](./backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md) | Nest QDOS audit work inside the standard case archive folder | P1 · box · PLAN-004 |
+| [TKT-163](./backlog/TKT-163-merge-dialog-layout/TKT-163-merge-dialog-layout.md) | Repair the merge-case dialog layout | P2 · ui · PLAN-004 |
+| [TKT-171](./backlog/TKT-171-four-digit-case-po-sequence/TKT-171-four-digit-case-po-sequence.md) | Keep Case/PO numbering working after 999 | P1 · intake · PLAN-004 |
+| [TKT-172](./backlog/TKT-172-manual-intake-duplicate-guard/TKT-172-manual-intake-duplicate-guard.md) | Check matching registrations before Manual Intake creates a case | P1 · intake · PLAN-004 |
+| [TKT-173](./backlog/TKT-173-ax-instruction-acceptance-action/TKT-173-ax-instruction-acceptance-action.md) | Make AX instruction acceptance impossible to miss | P2 · intake · PLAN-004 |
+| [TKT-174](./backlog/TKT-174-archive-evidence-preview/TKT-174-archive-evidence-preview.md) | Make Archive evidence previews load clearly and open larger | P2 · ui · PLAN-004 |
+| [TKT-175](./backlog/TKT-175-archive-deletion-resilience-investigation/TKT-175-archive-deletion-resilience-investigation.md) | Investigate resilience to direct Archive changes | P1 · box · PLAN-004 |
+| [TKT-176](./backlog/TKT-176-dashboard-period-wording/TKT-176-dashboard-period-wording.md) | Use clear period wording on the dashboard | P3 · ui · PLAN-004 |
+| [TKT-177](./backlog/TKT-177-duplicate-case-resolution-workspace/TKT-177-duplicate-case-resolution-workspace.md) | Resolve likely duplicate cases in one workspace | P1 · intake · PLAN-004 |
+| [TKT-179](./backlog/TKT-179-evidence-image-decision-controls/TKT-179-evidence-image-decision-controls.md) | Make photo decisions explicit | P2 · ui · PLAN-004 |
+| [TKT-180](./backlog/TKT-180-icon-semantic-consistency/TKT-180-icon-semantic-consistency.md) | Use one icon for each app concept | P3 · ui · PLAN-004 |
+| [TKT-181](./backlog/TKT-181-truthful-image-analysis-states/TKT-181-truthful-image-analysis-states.md) | Show truthful photo-checking states | P1 · evidence · PLAN-004 |
+| [TKT-182](./backlog/TKT-182-long-reference-layout/TKT-182-long-reference-layout.md) | Keep long email references inside their column | P3 · ui · PLAN-004 |
+| [TKT-183](./backlog/TKT-183-name-variant-case-correlation/TKT-183-name-variant-case-correlation.md) | Match case emails when first names are shortened to initials | P1 · intake · PLAN-004 |
+| [TKT-184](./backlog/TKT-184-out-of-office-no-action/TKT-184-out-of-office-no-action.md) | Treat automatic out-of-office replies as no action needed | P2 · email · PLAN-004 |
+| [TKT-185](./backlog/TKT-185-override-provenance-audit/TKT-185-override-provenance-audit.md) | Audit what actually caused each category override | P1 · ai · PLAN-004 |
+| [TKT-186](./backlog/TKT-186-provider-update-chase-category/TKT-186-provider-update-chase-category.md) | Separate provider chases from case queries | P2 · email · PLAN-004 |
+| [TKT-187](./backlog/TKT-187-multi-case-provider-chase-linking/TKT-187-multi-case-provider-chase-linking.md) | Link one provider chase to every referenced case | P1 · intake · PLAN-004 |
+| [TKT-188](./backlog/TKT-188-report-amendment-classification-reconstruction/TKT-188-report-amendment-classification-reconstruction.md) | Keep report amendments with the existing case | P1 · intake · PLAN-004 |
+| [TKT-189](./backlog/TKT-189-search-result-affordance/TKT-189-search-result-affordance.md) | Make search results clearly actionable | P2 · ui · PLAN-004 |
+| [TKT-190](./backlog/TKT-190-inbox-case-po-status-display/TKT-190-inbox-case-po-status-display.md) | Show complete case details in inbox statuses | P2 · ui · PLAN-004 |
+| [TKT-191](./backlog/TKT-191-actionable-email-suggestions/TKT-191-actionable-email-suggestions.md) | Suggest email replies and urgency only when justified | P2 · email · PLAN-004 |
+| [TKT-192](./backlog/TKT-192-triage-precase-category/TKT-192-triage-precase-category.md) | Keep triage requests outside the case queue until instructions arrive | P1 · intake · PLAN-004 |
+| [TKT-193](./backlog/TKT-193-precase-evidence-holding-adoption/TKT-193-precase-evidence-holding-adoption.md) | Hold pre-case evidence and adopt it when instructions arrive | P1 · intake · PLAN-004 |
+| [TKT-194](./backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 · email · PLAN-004 |
+| [TKT-195](./backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) | Manage staff access with Microsoft work accounts | P1 · platform · PLAN-004 |
+| [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | P3 · evidence |
+| [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | P1 · intake · PLAN-004 |
+| [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 · evidence · PLAN-004 |
+| [TKT-217](./backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 · platform · PLAN-004 |
+| [TKT-218](./backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 · integration · PLAN-004 |
 
-## Blocked — needs operator
+## Blocked (8)
 
-| ID | Title | State |
+| ID | Title | Classification |
 |---|---|---|
-| [TKT-178](./blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md) | Reconcile active cases and the Archive at production cutover | **BLOCKED — PLAN/OFFLINE REHEARSAL ONLY:** missing the signed job spreadsheet, authenticated/verified production EVA API and confirmed production Archive root with explicit/proven write/rename/merge/retarget authority. No live cutover is authorized. |
-| [TKT-009](./blocked/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Open an associated email in Outlook | **PENDING / BLOCKED 2026-07-14:** PR 86 is merged/offline-tested but not deployed; no cutover until the signed spreadsheet, authenticated EVA API, approved production Archive authority, frozen ledger hash, backup/restore proof and named approval exist. Outlook remains read-only. |
-| [TKT-135](./blocked/TKT-135-circumstances-provider-samples/TKT-135-circumstances-provider-samples.md) | Circumstances coverage residual — needs one dropped sample per 0%-coverage provider layout | BLOCKED on operator samples (PCH first — 46/50 empty per the TKT-086 coverage report). |
-| [TKT-057](./blocked/TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | AP. total-loss review flow + diminution (D.) detection grounding | AP.-half SHIPPED 2026-07-09 (case-type control + derived marker live); D. diminution half stays data-gated (needs a real inbound diminution email). → blocked on that data. |
-| [TKT-004](./blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md) | Allocate the next Case/PO number reliably | The live/production Box root id for the allocator fallback (not the test folder). DB mint works (`QDOS26001`). |
-| [TKT-032](./blocked/TKT-032-misclass-defer-routing/TKT-032-misclass-defer-routing.md) | 'Deferred: clarify routing for audatex + PCD-diminution emails' | Operator routing decision for the deferred Audatex + PCD-diminution emails before the rule can be specified. |
-| [TKT-035](./blocked/TKT-035-misclass-information-request/TKT-035-misclass-information-request.md) | Information-request misclassification (placeholder) | **Reclassified backlog → blocked (2026-07-07)** — placeholder with no repro: the source folder was empty at distillation and `evidence/` holds only the operator-note. No classifier rule can be specified until the operator supplies a sample `.eml` + a one-line description of the mis-routing. Blocked-on-operator (same class as TKT-032/057). |
-| [TKT-104](./blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) | Tractable API integration (deferred — blocked on vendor docs) | Tractable **developer docs** for the full API integration (in-app link generation + direct case ingestion). Deferred until the vendor supplies them; the received-email path (TKT-102) covers the immediate need. |
+| [TKT-004](./blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md) | Allocate the next Case/PO number reliably | P1 · intake |
+| [TKT-009](./blocked/TKT-009-clickable-case-and-email/TKT-009-clickable-case-and-email.md) | Open an associated email in Outlook | P3 · ui |
+| [TKT-032](./blocked/TKT-032-misclass-defer-routing/TKT-032-misclass-defer-routing.md) | Deferred: clarify routing for audatex + PCD-diminution emails | P3 · email |
+| [TKT-035](./blocked/TKT-035-misclass-information-request/TKT-035-misclass-information-request.md) | Information-request misclassification (placeholder) | P3 · email |
+| [TKT-057](./blocked/TKT-057-ap-diminution-refinement/TKT-057-ap-diminution-refinement.md) | AP. total-loss review flow + diminution (D.) detection grounding | P2 · intake |
+| [TKT-104](./blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) | Tractable API integration (deferred — blocked on vendor docs) | P3 · intake |
+| [TKT-135](./blocked/TKT-135-circumstances-provider-samples/TKT-135-circumstances-provider-samples.md) | Circumstances coverage residual — needs one dropped sample per 0%-coverage provider layout | P2 · parsing · PLAN-003 |
+| [TKT-178](./blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md) | Reconcile active cases and the Archive at production cutover | P0 · platform · PLAN-004 |

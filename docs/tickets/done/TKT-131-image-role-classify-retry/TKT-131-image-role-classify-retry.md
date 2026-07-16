@@ -44,4 +44,4 @@ PLAN-003 workflow, added per the operator's standing instruction.
 
 ## Scope addendum — 2026-07-09
 
-The UI-wave batch added evidence.person_reflection / reflection_dismissed (delta applied live) with the orch classifier stamping the flag from the next intake onward — the ~8.2k historical image rows are unflagged. Fold the reflection-flag backfill into this ticket's reclassification pass (same model call already returns person_reflection).
+The UI-wave batch added evidence.person_reflection / reflection_dismissed (delta applied live) with the orch classifier stamping the flag from the next intake onward — the ~8.2k prior image rows are unflagged. Fold the reflection-flag backfill into this ticket's reclassification pass (same model call already returns person_reflection).

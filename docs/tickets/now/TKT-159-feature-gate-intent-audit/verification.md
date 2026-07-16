@@ -6,7 +6,7 @@ PENDING
 ## Evidence
 - 2026-07-14 read-only `az functionapp config appsettings list` returned
   `AI_CHAT_ENABLED=true` and `ASSISTANT_WRITE_TIER_ENABLED=true` on `cespk-api-dev`.
-- `.azure/deployment-plan.md` records the 2026-07-11 validated/deployed activation and operator-attested
+- `docs/operations/live-environment.md` records the 2026-07-11 validated/deployed activation and operator-attested
   approval state.
 - Registry/runbook correction is recorded in `changes.md`; no live setting was mutated.
 

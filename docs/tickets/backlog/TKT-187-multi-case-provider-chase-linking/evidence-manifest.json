@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "ticket": "TKT-187",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/ESTIMATE_singular_2.eml",
+      "originalFilename": "ESTIMATE_singular_2.eml",
+      "sha256": "ec639928e9d779cd5868b7b879b2d15fdbe791752d74af698774dbe65549d064",
+      "storagePath": "tests/fixtures/evidence/sha256/ec/ec639928e9d779cd5868b7b879b2d15fdbe791752d74af698774dbe65549d064.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/ESTIMATE_singular.eml",
+      "originalFilename": "ESTIMATE_singular.eml",
+      "sha256": "559bee9ed6a94e981357c84a7e002e93f706f3247466c8cb36e5ac4769afff0b",
+      "storagePath": "tests/fixtures/evidence/sha256/55/559bee9ed6a94e981357c84a7e002e93f706f3247466c8cb36e5ac4769afff0b.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/ESTIMATES_multi.eml",
+      "originalFilename": "ESTIMATES_multi.eml",
+      "sha256": "408cfc33c7a635087596386a7d2994d8fb8bf35e3bcbf72649b992db0249d79d",
+      "storagePath": "tests/fixtures/evidence/sha256/40/408cfc33c7a635087596386a7d2994d8fb8bf35e3bcbf72649b992db0249d79d.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/ESTIMATES_multi2.eml",
+      "originalFilename": "ESTIMATES_multi2.eml",
+      "sha256": "d39bf36f8b09585ae2f4ce3be08f54a6723fba6259bebb434dc0e865924a5283",
+      "storagePath": "tests/fixtures/evidence/sha256/d3/d39bf36f8b09585ae2f4ce3be08f54a6723fba6259bebb434dc0e865924a5283.eml"
+    }
+  ]
+}

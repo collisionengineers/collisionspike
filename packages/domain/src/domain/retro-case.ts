@@ -59,7 +59,7 @@ export const RETRO_TRIGGER_ACK_SUBTYPE = 'acknowledgement';
 
 /**
  * Anchored full-match mirror of the Python extractor `CASEREF_RE`
- * (functions/parser/cedocumentmapper_v2/rules/email_classifier.py — the vendored
+ * (services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py — the vendored
  * engine is the authority; this mirror must track it):
  *
  *     \b(?:(?:AP|A|D)\.\s?)?(?:[A-Z]{2}\d{2}\d{3}|[A-Z]{3,5}\d{2}\d{3,4})\b(?!\.\d)

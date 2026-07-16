@@ -42,7 +42,7 @@ the 07-10 rows are unambiguously post-deploy.
 - **Drain-artifact lane judgement:** JUL2026 (drain Held mint) is the SNIFF lane, not this ticket's
   /parse document lane — and is a shared month+year-composite guard gap (same class as MAY2026),
   already filed under TKT-140's follow-ups; EY12SSU vs YE12SSU is a value-accuracy discrepancy
-  between two well-formed plates, outside this guard class; the dry-run junk keys are historical
+  between two well-formed plates, outside this guard class; the dry-run junk keys are prior
   pre-guard sniff artifacts. None are TKT-136 regressions; none double-counted.
 - **Expected absences:** no guard-hit telemetry (the engine emits none); 422s are input validation.
 - **Report-only finding:** the sibling working tree carries an uncommitted TKT-089-reopen edit

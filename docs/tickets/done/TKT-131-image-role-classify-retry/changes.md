@@ -6,12 +6,12 @@ re-evaluated with audit; 4 honest residuals enumerated. Verification transcripti
 
 ## What ran (no repo code change — a one-shot admin pass mirroring the orch writer)
 
-A Python driver (faithful port of `orchestration/src/lib/image-classify.ts` — same system
+A Python driver (faithful port of `services/orchestration/src/platform/image-classify.ts` — same system
 prompt, same strict `json_schema`, same gpt-5 params `max_completion_tokens:3000 /
 reasoning_effort:low`, same `caseRegistrationVisible` case-VRM constraint and
 `classificationToEvidenceFields` policy, same `imageRoleCodec` role→code map with
 `other`→unknown-code+not-accepted) over every unclassified image evidence row, under the
-TKT-112 ownership model (a backfill acts FOR the orch writer over historic rows).
+TKT-112 ownership model (a backfill acts FOR the orch writer over prior rows).
 
 1. **Enumeration** (csadmin read, transient FW rule added→removed, backup-first):
    **2,002 unclassified** image rows (`image_role_code=unknown AND registration_visible IS NULL

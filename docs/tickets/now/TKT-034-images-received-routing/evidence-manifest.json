@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-034",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE Re127581.001_Mr E Taullaj.eml",
+      "originalFilename": "RE Re127581.001_Mr E Taullaj.eml",
+      "sha256": "35a182160fdf28cff0cdbd2d681220e874877e63e16da1b1d4b48c1758cb8714",
+      "storagePath": "tests/fixtures/evidence/sha256/35/35a182160fdf28cff0cdbd2d681220e874877e63e16da1b1d4b48c1758cb8714.eml"
+    }
+  ]
+}

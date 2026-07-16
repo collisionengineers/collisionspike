@@ -11,7 +11,7 @@ built + deployed (2026-07-08, branch `feat/readiness-ai-spine`) — awaiting ver
 SBL) already carry the policy from the corpus seed — no new designation was needed (counts in
 [TKT-129 changes.md](../../verify/TKT-129-image-based-inspection-done/changes.md)).
 
-**The pre-fill seam** — new `api/src/lib/inspection-prefill.ts`:
+**The pre-fill seam** — new `services/data-api/src/features/cases/inspection-prefill.ts`:
 - `isPrefillApplicable(case)` (pure, exported, unit-tested): `always_image_based` provider AND empty
   `inspectionAddress` AND `inspectionDecision === 'unknown'` AND non-terminal status. Providers
   without the policy keep the manual flow — the function is false for `prefer_address` /
@@ -29,12 +29,12 @@ SBL) already carry the policy from the corpus seed — no new designation was ne
   record a manual decision, after which the prefill can never re-fire (decision ≠ unknown).
 
 **Call sites (every status-evaluation seam, so new + existing cases converge):**
-- `api/src/functions/cases.ts` `recomputeStatus` (staff-driven edits, merges) — prefill runs before
+- `services/data-api/src/features/cases/` `recomputeStatus` (staff-driven edits, merges) — prefill runs before
   the `statusForReviewCase` evaluation and patches the in-memory copy so the same pass sees the
   completed field.
-- `api/src/functions/internal.ts` `recomputeStatus` (orchestration `statusEvaluate` activity, the
+- `services/data-api/src/features/` `recomputeStatus` (orchestration `statusEvaluate` activity, the
   internal `status-evaluate` route, enrichment writes) — same seam.
-- `api/src/functions/cases.ts` `createCase` — a manual case for an image-led provider pre-fills
+- `services/data-api/src/features/cases/` `createCase` — a manual case for an image-led provider pre-fills
   immediately (post-insert `recomputeStatus`).
 
 ## Acceptance mapping
@@ -46,7 +46,7 @@ SBL) already carry the policy from the corpus seed — no new designation was ne
   policy-gated; unit-tested false for the other two policies and for unknown providers.
 
 ## Tests
-- `api/src/lib/inspection-prefill.test.ts` (new): 7 tests — the applicability matrix, the guarded
+- `services/data-api/src/features/cases/inspection-prefill.test.ts` (new): 7 tests — the applicability matrix, the guarded
   fill + provenance + audited reason, provenance dedup, and the race-lost no-op.
 
 ## Live proof / deploy state

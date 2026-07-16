@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-030",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "originalFilename": "RE 30143 - Mussie Belay  -  BX67OEY  .eml",
+      "sha256": "71d5803bffe1098db154db3b65026514cd5d800eed7233affdc748d46d0412ed",
+      "storagePath": "tests/fixtures/evidence/sha256/71/71d5803bffe1098db154db3b65026514cd5d800eed7233affdc748d46d0412ed.eml"
+    }
+  ]
+}

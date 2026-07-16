@@ -1,9 +1,18 @@
-# The tool's responsibility ends at EVA submission + Box archival (the EVA handoff)
+# ADR-0008 — Product responsibility ends at EVA handoff and Archive filing
 
 **Status:** Accepted (2026-06-17).
 
-The spike's scope ends when a Case is submitted to EVA and archived to Box — the "EVA handoff." The
-subsequent **engineer assessment, report generation, and return-to-client are out of scope**: they
-happen in EVA / by the engineers, not in this tool. The tool's job is to **intake, parse, enrich,
-validate (readiness), and hand off** cases — it does not perform or track the assessment itself.
-Terminal Case statuses are `eva_submitted` / `box_synced`.
+## Decision
+
+The product owns intake, case assembly, parsing, enrichment, review, readiness, EVA handoff, and Archive
+filing. Engineer assessment, report authoring, and return of the finished report are outside its scope.
+
+## Rationale
+
+The product should solve the case-preparation bottleneck without duplicating the specialist assessment
+system or changing the engineers' report process.
+
+## Consequences
+
+Readiness and handoff outcomes are terminal product milestones, but the system may retain later inbound
+mail for audit, linking, or retroactive reconstruction.

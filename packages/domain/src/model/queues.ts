@@ -28,9 +28,9 @@ import type { ActionReason, Case, CaseStatus } from './types';
    queueByName, caseTypeOf), the dashboard aggregate result types
    (LiveCounts / Throughput / AgingRow / AgingExceptions / PipelineStage /
    ReasonFacet) and REASON_LABELS. The aggregate COMPUTATION lives in each data
-   source (dataverse-source windows over the fetched rows; the empty default
+   source (the REST source windows over fetched rows; the empty default
    source returns zeroes). No fabricated case array lives here — the app renders
-   only real Dataverse rows.
+   only real persisted rows.
 
    Dates are DD/MM/YYYY strings; the sources accept an optional `now`.
    ============================================================ */
@@ -135,7 +135,7 @@ export function queueByName(name: string): QueueDef | undefined {
 
 /* ----------  Funnel-stage mapping (CANONICAL, shared)  ----------
    The single source for "which of the 4 funnel stages does this status sit in".
-   Consumed by the Dataverse source (dashboard strip counts) AND the CaseDetail
+   Consumed by the REST source (dashboard strip counts) and the CaseDetail
    spine ("you are here"), so the funnel, the spine and the queues agree.
 
    The funnel is the FLOW New → Not ready → Review → Submitted; it deliberately
@@ -259,7 +259,7 @@ export function caseTypeOf(
 
 /* ----------  Dashboard aggregate RESULT TYPES  ----------
    The shapes the DataAccess fetchers return. Computation lives in the sources
-   (dataverse-source windows over the fetched cases; the empty source returns
+   (the REST source windows over fetched cases; the empty source returns
    zeroes), so no fabricated case array is read here. */
 
 /* ----------  LIVE DEPTH (always-now backlogs)  ----------

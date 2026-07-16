@@ -1,0 +1,356 @@
+/* ============================================================
+   Collision Engineers — M1 prototype global styles.
+   Brand @font-face blocks copied verbatim from the design system
+   (colors_and_type.css), pointed at ../fonts so Vite fingerprints them.
+   Includes CE display/eyebrow
+   helpers and a couple of CSS custom properties the shell reuses.
+   ============================================================ */
+
+/* ----------  BRAND FONTS  ---------- */
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStdLight.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStd.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStdItalic.otf') format('opentype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStdSemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStdBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Tw Cen MT Std';
+  src: url('../fonts/TwCenMTStdExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Futura PT';
+  src: url('../fonts/FuturaCyrillicBook.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('../fonts/FuturaCyrillicMedium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('../fonts/FuturaCyrillicDemi.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('../fonts/FuturaCyrillicBold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ----------  CE custom properties (for non-Fluent surfaces) ---------- */
+:root {
+  --ce-red: #db0816;
+  --ce-red-dark: #8f1422;
+  --ce-red-tint: rgba(219, 8, 22, 0.07);
+  --ce-focus-stroke: var(--ce-red);
+  --ce-focus-separator: #ffffff;
+  --ce-charcoal: #2c2a27;
+  --ce-ink: #16191d;
+  --ce-muted: #6b6b6b;
+  --ce-border: #e6e4e1;
+  --ce-bg-2: #f5f4f2;
+  --ce-success: #16833b;
+  --ce-whatsapp: #25d366;
+  /* Amber "attention" severity ramp (status badge + dashboard chips/pills). */
+  --ce-amber: #f5c244; /* fill */
+  --ce-amber-tint: #f7e2a6; /* lighter fill (aging pill) */
+  --ce-amber-line: #e0a92a; /* border */
+  --ce-amber-ink: #3a2e08; /* text on amber */
+
+  /* ----------  Semantic severity triads (reforge 2026-07-01)  ----------
+     Every family = tint (surface wash) / line (1px borders) / ink (text on
+     tint/white) / accent (fills, 3px rails, icons). All ink-on-tint pairs
+     clear WCAG 4.5:1 — asserted by src/theme/contrast.test.ts. */
+
+  /* INFO — slate. Cool/steel callouts ONLY (guidance banner, avatar circle,
+     info messages); grid chips/tags stay neutral charcoal (fork #1). */
+  --ce-info-tint: #edf2f7;
+  --ce-info-line: #c5d3e0;
+  --ce-info-ink: #2e4a66;
+  --ce-info-accent: #476d92;
+
+  /* SUCCESS — formalized around --ce-success (terminal, windowed states). */
+  --ce-success-tint: #e9f4ec;
+  --ce-success-line: #b5d9c1;
+  --ce-success-ink: #0e5f2b;
+  --ce-success-accent: var(--ce-success);
+
+  /* WARNING — aliases the amber set (values unchanged), plus:
+     -text  = amber-looking text/icons on white (formalizes dueSoonText);
+     -wash  = large-surface wash (pipeline segment; -tint too heavy at panel
+              scale). Never white-on-amber. */
+  --ce-warning-tint: var(--ce-amber-tint);
+  --ce-warning-line: var(--ce-amber-line);
+  --ce-warning-ink: var(--ce-amber-ink);
+  --ce-warning-accent: var(--ce-amber);
+  --ce-warning-text: #8a5a00;
+  --ce-warning-wash: #fdf6e1;
+
+  /* CRITICAL — aliases the red family. The accent (#db0816) is strokes/icons/
+     CTA only, never a text-carrying fill; white-text chips fill with the ink. */
+  --ce-critical-tint: #fceeef; /* flat-hex of rgba(219,8,22,.07) over white */
+  --ce-critical-line: var(--ce-red);
+  --ce-critical-ink: var(--ce-red-dark);
+  --ce-critical-accent: var(--ce-red);
+
+  /* Eyebrow demotion (red budget: brand chrome + critical only). */
+  --ce-eyebrow-color: var(--ce-charcoal);
+
+  --ce-font-display: 'Futura PT', 'Tw Cen MT Std', 'Helvetica Neue', Arial, sans-serif;
+  --ce-font-brand: 'Tw Cen MT Std', 'Futura PT', 'Century Gothic', sans-serif;
+  --ce-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, monospace;
+
+  --ce-shadow-sm: 0 1px 2px rgba(44, 42, 39, 0.05);
+  --ce-shadow-md: 0 4px 12px rgba(44, 42, 39, 0.04), 0 2px 4px rgba(44, 42, 39, 0.06);
+  --ce-shadow-hover: 0 8px 20px rgba(44, 42, 39, 0.06), 0 4px 8px rgba(44, 42, 39, 0.08);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* ----------  CE semantic type helpers ---------- */
+
+/* Big display moments — app title, KPI numbers. Futura PT only. */
+.ce-display {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  color: var(--ce-ink);
+}
+
+/* Uppercase eyebrow — charcoal, tracked (reforge 2026-07-01: red demoted out
+   of eyebrows; the tracking/caps carry the section moment). */
+.ce-eyebrow {
+  font-family: var(--ce-font-display);
+  color: var(--ce-eyebrow-color);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Section heading lockup container. Pair with <SectionHeading/>. (The old
+   .ce-hairline 2px red rule was dead CSS — removed, reforge 2026-07-01.) */
+.ce-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* KPI number — Futura PT, large, ink. */
+.ce-kpi-number {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  color: var(--ce-ink);
+}
+
+/* ----------  CE region overline + stat numbers  ----------
+   Reused recipes the dashboard inlined per-element: the uppercase tracked
+   region label, and the two Futura stat sizes (live depth / throughput). The
+   muted colour uses the Fluent neutral token (NOT --ce-muted) so it matches the
+   token-driven surfaces. */
+
+/* Uppercase tracked region/section overline — 11px Futura, muted. */
+.ce-overline {
+  font-family: var(--ce-font-display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--colorNeutralForeground3);
+}
+
+/* Throughput stat — 22px Futura, ink. */
+.ce-stat {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.05;
+  color: var(--ce-ink);
+}
+
+/* Live-depth stat — 26px Futura, ink. */
+.ce-stat-lg {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--ce-ink);
+}
+
+/* ----------  CE real type scale  ----------
+   ≈ 28 / 20 / 15 / 13 / 11(eyebrow). Display sizes (h1/h2) carry Futura;
+   text sizes use the brand body face. Field labels are 11-12px uppercase
+   tracked muted; values 15px ink. */
+
+/* Page H1 (Futura) — the only place big Futura lives besides the case lockup. */
+.ce-h1 {
+  font-family: var(--ce-font-display);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ce-ink);
+}
+/* Sub-head (Futura) */
+.ce-h2 {
+  font-family: var(--ce-font-display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1.15;
+  color: var(--ce-ink);
+}
+/* Body — brand face */
+.ce-body {
+  font-family: var(--ce-font-brand);
+  font-weight: 400;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ce-ink);
+}
+/* Small / caption */
+.ce-small {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ce-muted);
+}
+
+/* Field label — 11px uppercase tracked muted (definition-list keys). */
+.ce-field-label {
+  font-family: var(--ce-font-display);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ce-muted);
+}
+/* Field value — 15px ink. */
+.ce-field-value {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ce-ink);
+}
+
+/* ----------  Screen-reader-only text  ----------
+   Visually hidden, still real DOM text every SR reads (browse mode included).
+   THE one sr-only recipe (the former local makeStyles copies in
+   ProvenanceBadge / ImageOrderList / LinkedEmailsPanel were consolidated
+   here at M-H). Used for full-form timestamps behind compact grid cells and
+   other sr-only supplements. */
+.ce-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ----------  CE focus ring  ----------
+   A 2px white separator plus a 3px solid CE-red outer stroke. The red clears
+   3:1 against white, while the separator keeps the indicator unmistakable on
+   the charcoal rail and other dark surfaces. Apply `.ce-focusable` to any
+   custom interactive surface that doesn't inherit a Fluent indicator. */
+.ce-focusable:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--ce-focus-separator),
+    0 0 0 5px var(--ce-focus-stroke);
+  border-radius: 2px;
+}
+
+/* The same 3px CE-red halo, hung on Fluent's own focus-indicator hook so it
+   reads consistently on DataGrid rows, TabList tabs, Dropdowns and dialog
+   buttons (which manage their own ::after focus pseudo-element). Applied via
+   the `.ce-focus-ring` class where a host element wraps Fluent controls. */
+.ce-focus-ring :focus-visible,
+.ce-focus-ring:focus-visible {
+  outline-color: var(--ce-red);
+}
+
+/* ----------  Content entrance (route/content mount)  ----------
+   Restrained 140ms fade + 4px rise applied to a screen's outer container so the
+   async→loaded transition (skeleton → content) feels intentional, not a flash.
+   Neutralised by the reduced-motion gate below (animation-duration → 0.001ms). */
+@keyframes ce-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ce-enter {
+  animation: ce-enter 140ms ease-out both;
+}
+
+/* ----------  Reduced motion (release gate)  ----------
+   Honour prefers-reduced-motion across every transition / entrance / animation,
+   including the rail collapse, dashboard hover lifts, pipeline tints, the
+   .ce-enter content entrance, and the @dnd-kit sortable transforms.
+   Belt-and-braces: also neutralise inline transition styles dnd-kit writes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

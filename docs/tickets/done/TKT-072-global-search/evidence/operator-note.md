@@ -4,13 +4,13 @@
 > preserved at
 > [TKT-066 evidence](../../../verify/TKT-066-assistant-lookup-observability/evidence/operator-note.md).
 
-Diagnostic (verified 06/07): `mockup-app/src/components/AppShell.tsx` line 438–444 — the
+Diagnostic (verified 06/07): `apps/web/src/shared/ui/AppShell.tsx` line 438–444 — the
 SearchBox only `navigate('/')` on Enter. No search endpoint exists; `openVrmTwins`
 (`GET /api/cases?vrm=`) already returns all open same-VRM cases.
 
 Plan:
 
-- New endpoint `GET /api/search?q=` (staff role) in a new `api/src/functions/search.ts`: one
+- New endpoint `GET /api/search?q=` (staff role) in a new `services/data-api/src/features/cases/search-route.ts`: one
   normalized query across `case_` (Case/PO, VRM space-insensitive, ref, claimant),
   `inbound_email` (subject, sender), `work_provider` (name/code). Returns
   `{ cases[], emails[], providers[] }` capped per group.

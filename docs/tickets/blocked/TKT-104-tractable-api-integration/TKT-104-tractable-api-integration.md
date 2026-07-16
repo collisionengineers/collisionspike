@@ -12,7 +12,7 @@ research-link: docs/tickets/blocked/TKT-104-tractable-api-integration/evidence/o
 
 ## Problem
 
-Beyond handling the received Tractable email (TKT-102), Tractable has **API compatibility** that would let
+Beyond handling the received Tractable email (TKT-102), Tractable has **API continuity** that would let
 CE (1) generate Tractable links in-app and send them to a customer (by button or automatically), and (2)
 directly integrate received items into a case via API. This is a future integration and cannot be
 specified yet.
@@ -25,7 +25,7 @@ external action, not code we can write today).
 ## Evidence
 
 - `evidence/operator-note.md` — "Deferred items for future integration" (the operator's note that Tractable
-  has API compatibility, plus the two capabilities, and that developer docs are awaited).
+  has API continuity, plus the two capabilities, and that developer docs are awaited).
 
 ## Proposed change
 
@@ -42,7 +42,7 @@ PROPOSED (deferred — not built):
 
 Distilled 2026-07-07 from operator drop-note `to-distill/tractable-integration/` (`tractable-deferred.md`);
 raw material in [evidence/](./evidence). Consider a one-line pointer in
-[docs/gated.md](../../../gated.md) for the vendor-docs dependency. The immediate received-email handling is
+[docs/tickets/BOARD.md](../../BOARD.md) for the vendor-docs dependency. The immediate received-email handling is
 [TKT-102](../../now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md).
 
 ## Artifacts

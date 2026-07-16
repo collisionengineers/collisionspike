@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ai
 tickets-it-relates-to: [TKT-001, TKT-016, TKT-015]
-research-link: docs/plans/work-todo-spike/ai-assistant/ai-tools/research/reg-ocr.md
+research-link: docs/tickets/done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md
 plan: PLAN-001
 ---
 
@@ -28,8 +28,8 @@ image-analysis pipeline.
 A short benchmark + recommendation comparing the candidate models on accuracy/cost/latency.
 
 ## Research
-- Operator stub: [reg-ocr.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/reg-ocr.md)
-- Research pack: [research/reg-ocr.md](../../../plans/work-todo-spike/ai-assistant/ai-tools/research/reg-ocr.md)
+- Operator stub: [reg-ocr.md](TKT-017-ai-reg-ocr.md)
+- Research pack: [research/reg-ocr.md](TKT-017-ai-reg-ocr.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

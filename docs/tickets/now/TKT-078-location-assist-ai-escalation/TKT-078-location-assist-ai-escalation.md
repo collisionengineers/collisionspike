@@ -15,16 +15,16 @@ research-link: docs/tickets/now/TKT-078-location-assist-ai-escalation/evidence/o
 Even with real photo bytes + POI search (TKT-077), the deterministic assist tier (OCR + regex +
 geocode) will miss hard cases — oblique signage, partial street furniture, landmark-only clues.
 There is a designed but unbuilt escalation: a vision-reasoning pass
-(`docs/plans/phase-4-address-and-chaser/gpt4o-reasoning-escalation.md`) that reasons over the
+(`docs/tickets/README.md`) that reasons over the
 photos when the deterministic tier is weak. Without it, hard photo-only cases dead-end at
 "Image Based Assessment" even when the photos plainly show a locatable site.
 
 ## Evidence
 
 - `evidence/operator-note.md` — plan Phase D (2026-07-06 planning session).
-- Design pack: `docs/plans/phase-4-address-and-chaser/gpt4o-reasoning-escalation.md`.
+- Design pack: `docs/tickets/README.md`.
 - The AOAI deployment (`digital-3339-resource`, `gpt-5`) is already live per the registry
-  [live-environment.md](../../../architecture/live-environment.md) — same keyless deployment the
+  [live-environment.md](../../../operations/live-environment.md) — same keyless deployment the
   chat helper + email triage use.
 - Host: the same Function as the deterministic tier (`cespkloc-fn-a7tzj2`, TKT-077).
 
@@ -40,7 +40,7 @@ PROPOSED (not built) — an escalation **branch** in the location-suggest Functi
   provenance, distinguishable from deterministic candidates end-to-end.
 - **UI**: a reviewer-pressed "Try a deeper photo-based suggestion" action, offered when the
   deterministic tier returns weak/no candidates (plain user language; never auto-invoked).
-- **Operator**: production AI sign-off per docs/gated.md E2 before the gate flips live.
+- **Operator**: production AI sign-off per docs/tickets/BOARD.md E2 before the gate flips live.
 
 ADR-0013 intact: candidates are suggestions; a human always confirms.
 
@@ -53,7 +53,7 @@ ADR-0013 intact: candidates are suggestions; a human always confirms.
 - [ ] Per-case and per-day caps enforce (the N+1th call is refused and logged); spend telemetry
       is queryable.
 - [ ] The escalation only runs on explicit reviewer action, and nothing is auto-applied.
-- [ ] The gate flip is recorded in gated.md/E2 with operator sign-off before production use.
+- [ ] The gate flip is recorded in ticket board/E2 with operator sign-off before production use.
 
 ## Verification requirements (proof standard)
 

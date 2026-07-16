@@ -11,8 +11,8 @@ done — parser fix deployed + live-verified 2026-07-01.
 - `cedocumentmapper_v2.0/src/cedocumentmapper_v2/rules/engine.py` — `_extract_between_label_pair` requires end marker on line path.
 - `cedocumentmapper_v2.0/providers.json` — AX `accident_circumstances` label pairs: `Pre Existing` then `Bodyshop Details` fallback.
 - `cedocumentmapper_v2.0/tests/test_extraction_targeted.py` — AX with/without Pre Existing row.
-- `functions/parser/cedocumentmapper_v2/rules/engine.py` — same between_labels fix (vendored).
-- `functions/parser/cedocumentmapper_v2/providers.json` — same AX provider rule (deployed seed).
+- `services/functions/parser/cedocumentmapper_v2/rules/engine.py` — same between_labels fix (vendored).
+- `services/functions/parser/cedocumentmapper_v2/providers.json` — same AX provider rule (deployed seed).
 
 ## Summary
 AX PDF tables place a **Pre Existing / Damage** block between the circumstances narrative and

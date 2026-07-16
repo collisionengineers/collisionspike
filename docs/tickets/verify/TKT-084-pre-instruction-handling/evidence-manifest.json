@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-084",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "originalFilename": "New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "sha256": "c308fe91a36737ec0895c178c81be47afe84270cc836cb984d56809520badf3e",
+      "storagePath": "tests/fixtures/evidence/sha256/c3/c308fe91a36737ec0895c178c81be47afe84270cc836cb984d56809520badf3e.eml"
+    }
+  ]
+}

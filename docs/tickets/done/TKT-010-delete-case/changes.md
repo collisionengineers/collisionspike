@@ -8,10 +8,10 @@ Superuser-gated and the operator's principal is not yet app-role-assigned `Colli
 - `94902ce` — mega-commit implementing TKT-001..014,019,020 → added the soft-remove case action, the
   confirm dialog, and the supporting status/enum rows.
 - `d5e2d4b` — add the 3 missing case Box API routes the SPA calls (Open-in-Box 404 fix) → file
-  `api/src/functions/cases.ts`; included the delete/finalize plumbing the delete action depends on.
+  `services/data-api/src/features/cases/`; included the delete/finalize plumbing the delete action depends on.
 
 ## Files touched
-- `api/src/functions/cases.ts` (delete/finalize plumbing + Box routes).
+- `services/data-api/src/features/cases/` (delete/finalize plumbing + Box routes).
 - SPA delete-case action + confirm dialog with the Box-folder tickbox (within the `94902ce` change set).
 
 ## Summary
@@ -29,7 +29,7 @@ app-role.
 **SEMANTICS CHANGE (prominent).** Per the 2026-07-08 operator re-scope, the action is now a
 **Close**, not a delete, and it is **no longer destructive**:
 
-- **Role guard relaxed** — `DELETE /api/cases/{id}` (`api/src/functions/cases.ts`) is now
+- **Role guard relaxed** — `DELETE /api/cases/{id}` (`services/data-api/src/features/cases/`) is now
   `withRole('CollisionSpike.User')` (was Superuser). This also dissolves the old operator block
   (Superuser assignment no longer needed for this action).
 - **PII anonymisation REMOVED from this path.** The old handler blanked the 12 EVA fields, VRM,
@@ -42,7 +42,7 @@ app-role.
   `after`. Box folder removal stays ACK-only (ADR-0017) — never automated.
 - Idempotent re-close unchanged (`alreadyRemoved: true`).
 
-**SPA (`mockup-app/src/screens/CaseDetail.tsx` + `components/StatusBadge.tsx`)**:
+**SPA (`apps/web/src/features/cases/CaseDetail.tsx` + `components/StatusBadge.tsx`)**:
 - Overflow menu now renders for ALL staff (`useIsSuperuser` gate dropped); item reads **"Close
   case…"** (FolderClosed icon, no Trash iconography).
 - Dialog: title "Close case"; info bar **"Close case — it will leave the work queues. Nothing is
@@ -51,7 +51,7 @@ app-role.
 - Closed-case banner: "This case is closed — It has left the work queues. Nothing was deleted…";
   the status chip label for the stored `removed` state now reads **"Closed"** (muted, FolderClosed).
 
-**Tests** — new `api/src/functions/cases-close.test.ts` (registration-capture + real-jose harness):
+**Tests** — new `services/data-api/src/features/cases/close-route.test.ts` (registration-capture + real-jose harness):
 pins the **User-role 200** (the guard relaxation), 401/403, the non-destructive UPDATE (no PII
 blanking SQL, no note/evidence/inbound scrubs), the "Case closed" `case_removed` audit with the
 audit-only ACK, idempotent re-close, 404.

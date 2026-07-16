@@ -3,7 +3,7 @@
 ## Status
 REOPEN FIX built + deployed + data re-applied (2026-07-10, see the dated section below);
 awaiting fresh verification (verdict PENDING). The original exclusion build (below) was
-merged via PR #52; its "uncommitted" line is historical.
+merged via PR #52; its "uncommitted" line is prior.
 
 ## 2026-07-10 — reopen fix: retired-lock + audited re-retire
 
@@ -31,8 +31,8 @@ terminal-lock, before every recompute branch**:
 - no marker → behaviour unchanged (a plain `linked_to_instruction` partial still
   recomputes once its fields/images resolve — no over-lock).
 
-Wired at both recompute seams that evaluate an EXISTING case (`api/src/functions/cases.ts`
-`recomputeStatus`, `api/src/functions/internal.ts` `recomputeStatus` — both build the
+Wired at both recompute seams that evaluate an EXISTING case (`services/data-api/src/features/cases/`
+`recomputeStatus`, `services/data-api/src/features/` `recomputeStatus` — both build the
 input from `rowToCase`, which surfaces the marker via `mergedIntoFrom`). Case-create
 seams (`createCase`, provider-intake) have no marker by construction. The orchestration
 app does NOT embed the recompute (its `statusEvaluate` activity calls the Data API
@@ -50,7 +50,7 @@ internal route), so only the API needed deploying.
   fixtures carry no marker; the lock is invisible to it).
 
 ### Deploy evidence (2026-07-10)
-- Bundle: `npm run build --prefix api` (tsc) → `node build-api.cjs` → prod `node_modules`
+- Bundle: `npm run build --prefix api` (tsc) → `node scripts/build/build-api.cjs` → prod `node_modules`
   → smoke `require('./main.cjs')` registers **96** functions; bundle greps confirm the
   lock expression (`input.mergedInto ?? ""`) and BOTH seam wirings
   (`mergedInto: full.mergedInto` ×2).
@@ -61,7 +61,7 @@ internal route), so only the API needed deploying.
   count/setting change).
 
 ### Audited re-retire (data, one transient-FW window 2026-07-10 ~16:20 UTC)
-Delta: [`migration/assets/schema/deltas/2026-07-10-tkt141-re-retire-merged.sql`](../../../../migration/assets/schema/deltas/2026-07-10-tkt141-re-retire-merged.sql)
+Delta: [`database/migrations/2026-07-10-tkt141-re-retire-merged.sql`](../../../../database/migrations/2026-07-10-tkt141-re-retire-merged.sql)
 (backup-first, audited, idempotent, terminal-respecting; applied as `SET ROLE csadmin`
 AFTER the lock deployed). Run record in
 [evidence/reretire-run-100726/](./evidence/reretire-run-100726) (pre/post SQL + outputs
@@ -92,25 +92,25 @@ pathspec/doc-gate interaction.)
 ## Files touched
 - `packages/domain/src/model/queues.ts` — **the ONE predicate** `isRetiredMerged(c)`:
   `status === 'linked_to_instruction' && mergedInto present`. A plain
-  `linked_to_instruction` case (no marker) keeps its historical partial-joined meaning
+  `linked_to_instruction` case (no marker) keeps its prior partial-joined meaning
   and still counts as Not-ready. (Count contract stays single-sourced — TKT-012.)
 - `packages/domain/src/model/types.ts` — `Case.mergedInto?: string` (the TKT-092
   survivor marker, surfaced from dedup staging).
-- `api/src/lib/mappers.ts` — `mergedIntoFrom(duplicate_keys)` (tolerant JSON parse of the
-  merge marker TKT-092 writes; legacy candidate-list values → undefined) wired into
+- `services/data-api/src/shared/mapping/` — `mergedIntoFrom(duplicate_keys)` (tolerant JSON parse of the
+  merge marker TKT-092 writes; earlier candidate-list values → undefined) wired into
   `rowToCase`; **`filterQueue` excludes retired merged cases** — this one seam covers the
   queue LIST route, `computeLiveCounts`, `computeQueueCounts`, `computeReasonFacets`, and
   `computeAgingExceptions`/`actionableCases` (the needs-action/attention set the
   dashboard's same-VRM twin badge is derived from).
-- `api/src/functions/dashboard.ts` — `computePipelineStages` skips retired merged cases
+- `services/data-api/src/features/cases/dashboard-routes.ts` — `computePipelineStages` skips retired merged cases
   (the Not-ready stage count).
-- `api/src/functions/cases.ts` — `openVrmTwins` (`GET /api/cases?vrm=…&open=true`) filters
+- `services/data-api/src/features/cases/` — `openVrmTwins` (`GET /api/cases?vrm=…&open=true`) filters
   them exactly like the terminal set (CaseList/CasePeekDrawer twin counts).
-- `api/src/functions/assistant.ts` — the `vrm_twins` assistant tool applies the same
+- `services/data-api/src/features/assistant/chat-routes.ts` — the `vrm_twins` assistant tool applies the same
   predicate, so the assistant's twin count agrees with the SPA badge.
 - Tests: `packages/domain/src/model/queues.test.ts` (+`isRetiredMerged` suite),
-  `api/src/lib/mappers.test.ts` (+`mergedIntoFrom` + `rowToCase.mergedInto` suites),
-  `api/src/functions/dashboard.test.ts` (+TKT-141 suite: a PK20FWT-shaped survivor + two
+  `services/data-api/src/shared/mapping/` (+`mergedIntoFrom` + `rowToCase.mergedInto` suites),
+  `services/data-api/src/features/cases/dashboard-routes.test.ts` (+TKT-141 suite: a PK20FWT-shaped survivor + two
   retired rows + an un-marked linked case — queue lists/live counts/aging rows/stage
   counts all drop exactly the retired pair; the aging-row same-VRM tally for PK20FWT
   computes 1).

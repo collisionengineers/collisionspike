@@ -51,9 +51,10 @@ describe('decideCaseType', () => {
     expect(d.caseType).toBe('diminution');
   });
 
-  it('falls back to the legacy audit boolean envelope (not-yet-redeployed parser)', () => {
-    const d = decideCaseType({ parserAudit: { value: true, signals: ['audit report'] } });
-    expect(d).toEqual({ caseType: 'audit', dual: false, signals: ['audit report'] });
+  it('retains the legacy audit envelope fallback during independent parser rollout', () => {
+    expect(decideCaseType({
+      parserAudit: { value: true, signals: ['legacy audit signal'] },
+    })).toEqual({ caseType: 'audit', dual: false, signals: ['legacy audit signal'] });
   });
 
   it('falls back to the classifier subtype when the parser saw nothing', () => {

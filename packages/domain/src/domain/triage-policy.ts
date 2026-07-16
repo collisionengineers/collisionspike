@@ -72,7 +72,7 @@
  * `category`/`subtype` are deliberately loose NAMES — not the closed InboundCategory /
  * InboundSubtype unions (dto/index.ts). Stage A's taxonomy version can be ahead of or
  * behind the DTO's at any moment (`taxonomyVersion` records which — Phase 2's stated
- * deploy order lands the DDL/choicesets before the engine tag that emits v2 names), and
+ * deploy order lands the DDL/code tables before the engine tag that emits v2 names), and
  * this module must not force a compile-time coupling between the two. Codes are minted
  * from these NAMES at the persistence layer via the codecs (`@cs/domain/codecs`), never
  * here.
@@ -94,7 +94,7 @@ export interface TriagePolicyClassification {
   bodyJobref?: string;
   isReply?: boolean;
   /** Which taxonomy vintage produced this classification (v1 today; v2 once the engine
-   *  tag + choicesets ship). Absent = v1. Carried through for telemetry only. */
+   *  tag + code tables ship). Absent = v1. Carried through for telemetry only. */
   taxonomyVersion?: number;
 }
 

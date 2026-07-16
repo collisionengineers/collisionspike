@@ -18,9 +18,9 @@ The email, photos and Collision Engineers response still matter. This ticket own
 
 ## Evidence
 - [Operator process note](./evidence/operator-source/triage-process.md) — states that triage requests need their own category, must not receive a Case/PO and should link to the later instruction with all saved images/evidence.
-- The QDOS `Triage Only Request` sample in the [TKT-193 evidence corpus](../TKT-193-precase-evidence-holding-adoption/evidence/) asks for an initial roadworthy/repairable assessment and explicitly says official instructions will follow.
-- [Engineer Triage sample](<../TKT-193-precase-evidence-holding-adoption/evidence/Engineer Triage – Our Claim Reference 46783_1 - Vehicle Registration VN62YRE.eml>) — asks whether the photographed vehicle is repairable or a total loss.
-- [Collision Engineers reply sample](<../TKT-193-precase-evidence-holding-adoption/evidence/RE Engineer Triage – Our Claim Reference 46841_1  Vehicle Registration DG12ZTH.eml>) — records the preliminary assessment in the same thread.
+- The QDOS `Triage Only Request` sample in the [TKT-193 evidence corpus](../TKT-193-precase-evidence-holding-adoption/evidence-manifest.json) asks for an initial roadworthy/repairable assessment and explicitly says official instructions will follow.
+- [Engineer Triage sample](../TKT-193-precase-evidence-holding-adoption/evidence-manifest.json) — asks whether the photographed vehicle is repairable or a total loss.
+- [Collision Engineers reply sample](../TKT-193-precase-evidence-holding-adoption/evidence-manifest.json) — records the preliminary assessment in the same thread.
 - TKT-084 defines the analogous pre-instruction principle; TKT-118 establishes that identity may exist before a Case/PO.
 
 ## Proposed change
@@ -44,11 +44,11 @@ PROPOSED (not built): introduce an explicit Triage email category with a fail-cl
 - **Regression:** rerun pre-instruction, images-received, manual images-only, retro reconstruction, evidence backfill, Case/PO allocation, inbox counts and case readiness suites.
 
 ## Research
-Distilled 2026-07-13 from the [process note](./evidence/operator-source/triage-process.md) and [request/reply corpus](../TKT-193-precase-evidence-holding-adoption/evidence/). The design keeps the Case/PO boundary tied to formal instructions; TKT-193 owns storage and adoption.
+Distilled 2026-07-13 from the [process note](./evidence/operator-source/triage-process.md) and [request/reply corpus](../TKT-193-precase-evidence-holding-adoption/evidence-manifest.json). The design keeps the Case/PO boundary tied to formal instructions; TKT-193 owns storage and adoption.
 
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator process note](./evidence/operator-source/triage-process.md)
 - [Scope-split context](./evidence/operator-source/context.md)
-- [Triage sample corpus](../TKT-193-precase-evidence-holding-adoption/evidence/)
+- [Triage sample corpus](../TKT-193-precase-evidence-holding-adoption/evidence-manifest.json)

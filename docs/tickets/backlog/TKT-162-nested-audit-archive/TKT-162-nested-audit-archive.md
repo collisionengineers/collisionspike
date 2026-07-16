@@ -16,7 +16,7 @@ Some QDOS instructions require both the normal report and a separate audit repor
 
 ## Evidence
 - [Operator note](./evidence/operator-note.md) — summary of the supplied audit sample and requested archive shape.
-- [Source note](./evidence/source-evidence/audit-organization.md), [sample email](./evidence/source-evidence/sample-instruction.eml), and [sample document](./evidence/source-evidence/LtrtoEngineerIn.pdf) — preserved distillation inputs.
+- [Source note](./evidence/source-evidence/audit-organization.md), [sample email](./evidence-manifest.json), and [sample document](./evidence-manifest.json) — preserved distillation inputs.
 - The preserved sample contains one instruction/report document and five vehicle images for a dual report-and-audit case.
 - TKT-056 detects the audit requirement but does not define the nested archive ownership model.
 
@@ -36,12 +36,13 @@ PROPOSED (not built): retain the normal QDOS Case/PO folder as the canonical par
 - Live Box proof creates and mutates folders only beneath test root `392761581105` and records the final hierarchy and persisted IDs.
 
 ## Research
-Distilled 2026-07-12 from `docs/tickets/to-distill/audits/`; the supplied note, email and document are preserved in this ticket's evidence folder.
+Distilled 2026-07-12 from the supplied audit note and source files. Text notes remain here and source
+bytes resolve through [the evidence manifest](./evidence-manifest.json).
 
 ## Artifacts
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
 - [Source note](./evidence/source-evidence/audit-organization.md)
-- [Sample email](./evidence/source-evidence/sample-instruction.eml)
-- [Sample document](./evidence/source-evidence/LtrtoEngineerIn.pdf)
+- [Sample email](./evidence-manifest.json)
+- [Sample document](./evidence-manifest.json)

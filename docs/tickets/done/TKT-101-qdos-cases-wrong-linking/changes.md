@@ -15,13 +15,13 @@ ref arm to match), so **`linkReply`'s VRM arm auto-linked the second ref onto th
 
 ## Shipped
 
-- **linkReply reference veto** (`api/src/functions/internal.ts` + new
-  `api/src/lib/link-guards.ts`): a VRM-only single hit is now REFUSED when the incoming email cites
+- **linkReply reference veto** (`services/data-api/src/features/` + new
+  `services/data-api/src/features/inbound/link-guards.ts`): a VRM-only single hit is now REFUSED when the incoming email cites
   a job/claim reference that conflicts with everything the candidate case is known as (its
   `case_ref`/`case_po` + the `body_jobref`s of its already-linked emails) — ADR-0010 rung-3
   semantics applied to the link seam. The refusal audits `duplicate_flagged` and returns
   `no_match`, so the retro ladder can still resolve the mail correctly.
-- **Regression pins:** `api/src/lib/link-guards.test.ts` (the live 46533/1-vs-46671/1 shape; match
+- **Regression pins:** `services/data-api/src/features/inbound/link-guards.test.ts` (the live 46533/1-vs-46671/1 shape; match
   via any known ref; no-reference and no-known-refs pass-through) and
   `packages/domain/src/domain/dedup.test.ts` ("TKT-101 shape: different ref on the same VRM →
   new case + duplicate risk, never merged").

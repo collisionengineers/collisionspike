@@ -26,26 +26,25 @@ later session** into thinking a wipe/replay is a live option. Remove it.
 ## What the dry-run learning WAS worth keeping
 
 The *finding* (mailboxes are a lossy store; the DB is the system of record; the classifier is sound) is
-valuable and is already captured in **TKT-059 verification.md** + the memory
-`[[replay-mailboxes-do-not-retain-history]]`. **Keep that knowledge; delete only the dead driver.**
+valuable and is captured in **TKT-059 verification.md**. **Keep that knowledge; delete only the dead
+driver.**
 
 ## Scope (remove)
 
-- `orchestration/src/functions/gated/replay-backfill.ts` — the whole driver (the `POST /api/replay-backfill`
-  HTTP starter + the replay orchestrator + its collect/classify/process activities).
-- The import at `orchestration/src/index.ts` (`import './functions/gated/replay-backfill.js'`).
-- `orchestration/src/lib/replay-manifest.ts` — **only if** no other consumer remains (verify: `compareByReceived`
-  / `mergeChronological` / `tallyByCategory` are grep-clean outside the driver + its test) — plus its test.
+- The whole replay driver: its HTTP starter, replay orchestrator and collect/classify/process
+  activities.
+- Its orchestration entry-point registration.
+- Its private manifest helpers and tests, after confirming no other consumer remained.
 - The `replayBackfill` gate in `packages/domain/src/gates.ts` (+ any `REPLAY_BACKFILL_ENABLED` reference).
 - The `REPLAY_BACKFILL_ENABLED` app-setting on `cespk-orch-dev` (delete the setting).
 - Doc references: mark TKT-059 as superseded-and-driver-removed (keep its findings), scrub any
-  `REPLAY_BACKFILL_ENABLED` mention in `docs/gated.md` / CLAUDE.md / LIVE_FACTS if present.
+  `REPLAY_BACKFILL_ENABLED` mention in `docs/tickets/BOARD.md` / CLAUDE.md / LIVE_FACTS if present.
 
 ## Acceptance
 
 - The orch bundle rebuilds + deploys with the driver gone; function count drops by the driver's routes;
   `node verify-all.mjs` green; no dangling `replay` / `REPLAY_BACKFILL_ENABLED` references (grep-clean
-  except the TKT-059 historical record).
+  except the TKT-059 prior record).
 - TKT-059's non-viability finding remains documented (not lost with the code).
 - LIVE_FACTS + the board updated; the gate removed from the live app-settings.
 

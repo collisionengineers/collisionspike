@@ -6,4 +6,4 @@ DONE (built + deployed 2026-07-06) — awaiting the operator live SPA click-thro
 (2026-07-06 inspection-address repair).
 
 ## Summary
-Applied the DDL delta + `920` replace seed live (backup-first, idempotent; DELETE 2035 → INSERT 2012, confirmed rows byte-identical, ran twice = same state). Deployed api (82 fns) + location fn (Oryx) + SPA (CSP re-verified). Per-provider smoke matrix (QDOS/PCH now present, QCL 132, FW 97; firehose closed). Updated LIVE_FACTS + mirror + corpus doc + ADR-0016 note + gated.md.
+Applied the DDL delta + `920` replace seed live (backup-first, idempotent; DELETE 2035 → INSERT 2012, confirmed rows byte-identical, ran twice = same state). Deployed api (82 fns) + location fn (Oryx) + SPA (CSP re-verified). Per-provider smoke matrix (QDOS/PCH now present, QCL 132, FW 97; firehose closed). Updated LIVE_FACTS + mirror + corpus doc + ADR-0016 note + ticket board.

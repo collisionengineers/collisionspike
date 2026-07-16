@@ -104,7 +104,7 @@ the new lane end-to-end (or a supervised synthetic send closes it sooner).
 
 FAILED (live occurrence) — the next real arrival has now occurred. The supplied Ashfaq message was
 recognised but remained a suggestion instead of auto-attaching to its unique case, and no submitted images
-were extracted. The parser’s earlier direct-route probes do not prove the orchestration/persistence path.
+were extracted. The parser’s earlier direct-route probes do not prove the services/orchestration/persistence path.
 The earlier synthetic-send close-out options are superseded: live proof must use genuine operator-designated
 work and no case, email or evidence may be seeded into the live app solely for verification.
 

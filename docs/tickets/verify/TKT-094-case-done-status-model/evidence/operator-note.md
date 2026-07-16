@@ -17,6 +17,5 @@ lifecycle tracking *beyond* the EVA handoff. It is triggered by any of:
 
 **Placement:** a separate **Completed/Archive** area + global search, **not** a 4th work-queue.
 
-> The full, code-referenced A–E plan is preserved verbatim alongside this note in
-> [PLAN-case-done-lifecycle.md](./PLAN-case-done-lifecycle.md). TKT-095 (detectors) and TKT-096
-> (Completed view + search) carry their phase sections.
+> The enduring decision is distilled into the owning [TKT-094 spec](../TKT-094-case-done-status-model.md).
+> TKT-095 owns detectors and TKT-096 owns the Completed view and search.

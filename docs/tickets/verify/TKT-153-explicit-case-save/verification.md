@@ -39,7 +39,7 @@ Acceptance line 39 therefore remains open.
   shared field order and normaliser plus the inspection contract, returns every issue, and
   `CaseDetail.tsx:1096-1104,2378-2381` counts and focuses them.
 - Acceptance 5 (`:29`) — the API enters one database transaction before locking/loading the case
-  (`api/src/functions/cases.ts:473-507`), makes the case/address/decision/readiness/provenance/audit
+  (`services/data-api/src/features/cases/`), makes the case/address/decision/readiness/provenance/audit
   changes inside it (`:526-603,648-770`), and returns server truth only after completion. The rollback
   test injects an inspection-write failure and proves rollback with no success audit
   (`case-edit-save.test.ts:319-326`).
@@ -89,8 +89,8 @@ Acceptance line 39 therefore remains open.
   reconciliation copy, and the exact single `PATCH` with `{editSession:true}` and `If-Match`. This
   proves the SPA half is live.
 - Git proves implementation/release-artifact merges `ab2d677f` and `f3ec6a22` plus later
-  reconciliation `b1bf2df6` are ancestors of current HEAD, and tracked `deploy/api/main.cjs` contains
-  the explicit-save API. However, `.azure/deployment-plan.md:54-65` leaves the then-active API/SPA
+  reconciliation `b1bf2df6` are ancestors of current HEAD, and tracked `.artifacts/deploy/data-api/main.cjs` contains
+  the explicit-save API. However, `docs/operations/live-environment.md:54-65` leaves the then-active API/SPA
   publish pending and `:69-116` records only the older dashboard-wave API/SPA release; there is no
   later API SHA/deployment proof for TKT-153. The registry confirms the live API resource/count but
   not its deployed commit (`live-environment.md:400-409,544-547`).
@@ -98,8 +98,8 @@ Acceptance line 39 therefore remains open.
 ### Pending / gaps
 
 - Prove the live Data API runs the matching explicit-save bundle. A merged/tracked
-  `deploy/api/main.cjs` is not deployment evidence, and the SPA being live does not prove API
-  compatibility.
+  `.artifacts/deploy/data-api/main.cjs` is not deployment evidence, and the SPA being live does not prove API
+  continuity.
 - Perform the acceptance-39 designated-test-case run: baseline the API/database/audit, edit without
   Save, prove no PATCH/server change, then Save and prove exactly one complete persisted change,
   readiness recomputation, current provenance and one redacted attributable audit. No non-test case

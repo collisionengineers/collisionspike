@@ -6,30 +6,30 @@ Built + deployed live (2026-07-09, PLAN-003 UI-wave batch), incl. the live DDL d
 ## What was built
 
 **DDL (applied live 2026-07-09, backup-first, transient firewall rule added+removed)** —
-`migration/assets/schema/deltas/2026-07-09-tkt123-evidence-reflection.sql` + the canonical
+`database/migrations/2026-07-09-tkt123-evidence-reflection.sql` + the canonical
 `060_evidence.sql`: `evidence` +`person_reflection` +`reflection_dismissed` (both boolean NOT NULL
 DEFAULT false). 8,237 evidence rows before/after (no data change; no backfill — pre-delta rows read
 false until the one-shot classifier backfill restamps them, see Remainders).
 
 **Orchestration (classifier stamps the flag — exclusion behaviour UNCHANGED/additive)**:
-- `orchestration/src/lib/image-classify.ts`: `classificationToEvidenceFields` now also returns
+- `services/orchestration/src/platform/image-classify.ts`: `classificationToEvidenceFields` now also returns
   `personReflection` (both branches); the auto-exclusion policy is untouched.
-- `orchestration/src/functions/activities/classifyPersist.ts` + `extractImages.ts`: stamp
-  `personReflection` onto the persisted rows; `orchestration/src/lib/data-api.ts` row types widened.
+- `services/orchestration/src/workflows/evidence/classifyPersist.ts` + `extractImages.ts`: stamp
+  `personReflection` onto the persisted rows; `services/orchestration/src/adapters/data-api.ts` row types widened.
 - `image-classify.test.ts`: new case pinning "reflection is ALSO stamped as the advisory flag".
 
 **API**:
-- Internal evidence persist route (`api/src/functions/internal.ts`): accepts + writes
+- Internal evidence persist route (`services/data-api/src/features/`): accepts + writes
   `person_reflection` on both INSERT branches and in `applyEvidenceMetadata` (enrich-in-place).
-- **New route `patchEvidence` — `PATCH /api/evidence/{id}`** (`api/src/functions/evidence.ts`,
+- **New route `patchEvidence` — `PATCH /api/evidence/{id}`** (`services/data-api/src/features/evidence/`,
   role `CollisionSpike.User`): body `{ reflectionDismissed: boolean }` → durable UPDATE + an
   `attachment_classified` audit row ("Reflection warning dismissed on <file>") → returns the
   updated Evidence row. Advisory-only: never touches excluded/accepted.
-- `api/src/lib/mappers.ts` `rowToEvidence`: exposes `personReflection` / `reflectionDismissed`.
+- `services/data-api/src/shared/mapping/` `rowToEvidence`: exposes `personReflection` / `reflectionDismissed`.
 
 **Domain**: `Evidence.personReflection?` / `reflectionDismissed?` (additive).
 
-**SPA (`mockup-app/src/screens/CaseDetail.tsx` + `src/data/rest-client.ts`/`mock-source.ts`)**:
+**SPA (`apps/web/src/features/cases/CaseDetail.tsx` + `src/data/rest-client.ts`/`mock-source.ts`)**:
 - The exclusion switch label is exactly **"Exclude"** (was "Exclude (person reflection)").
 - The exclusion reason is no longer hard-coded: a manual exclude records **"Excluded by reviewer"**,
   unless the image carries the reflection flag (then "Person reflection visible").

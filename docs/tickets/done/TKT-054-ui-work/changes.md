@@ -1,7 +1,7 @@
 # TKT-054 — changes made
 
 > Rulings: [020726 review](../../../reviews/020726/decisions.md). Live state:
-> [the registry](../../../architecture/live-environment.md).
+> [the registry](../../../operations/live-environment.md).
 
 ## 2026-07-02 — built + DEPLOYED (operator items remain — see verification)
 
@@ -20,7 +20,7 @@
   `inbound_email.outlook_move_*` columns + audit codes 100000039–41.
 
 **SPA**
-- `eef56c0` pure modules: e-mail-type filter + legacy-URL migration
+- `eef56c0` pure modules: e-mail-type filter + earlier-URL migration
   (`?type=`/`?dismissed=1`), status-cell model, suggested-action model.
 - `659ecda` Inbox rework: category tabs / Triage-status links / Show toggle /
   subtype dropdown REMOVED; one list (all except dismissed, handled muted,
@@ -28,7 +28,7 @@
   strength UI removed** (020726 E3); VRM|Ref split; status
   "Case created / Linked to case · CCPY26050 →" links; Suggested-action column.
 - `653d54c` Dashboard inbox panel: 2×2 equal tiles, flush-right chevrons; deep
-  links moved to `?type=` (legacy URLs still migrate).
+  links moved to `?type=` (earlier URLs still migrate).
 
 **2026-07-03 — regressions round 2 (operator flagged: panel still looked broken)**
 - The first pass re-gridded only the four inbox tiles — but the regression
@@ -92,4 +92,4 @@ not 1280)**
 - Deployed: orch **53** functions (+`outlook-move`), api **72** (+3 routes),
   SPA rebuilt + CSP re-verified. Api MI granted Storage Queue Data Message
   Sender on `cespkorchstdev01`; `OUTLOOK_MOVE_QUEUE_SERVICE_URL` set;
-  **`OUTLOOK_MOVE_ENABLED` absent (dark)** pending [gated.md B4](../../../gated.md).
+  **`OUTLOOK_MOVE_ENABLED` absent (dark)** pending [ticket board B4](../../BOARD.md).

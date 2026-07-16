@@ -6,7 +6,7 @@ done — live-probed against the deployed engine 2026-07-02; locked in as an eva
   damage-photo attachments as a `receiving_work`/`existing_provider_instruction` work signal, not 'Other'.
 - 2026-07-02 — rules-engine-v2 Phase 0/1 evidence pass: live-probed the evidence email against the
   deployed `/classify-email` route; result recorded as an eval-corpus regression pin (manifest id
-  `tkt040-roadworthy-informal`, `scripts/eval-email/`). See [verification.md](./verification.md).
+  `tkt040-roadworthy-informal`, `scripts/evaluation/email/`). See [verification.md](./verification.md).
 ## Summary
 An informal work request (RTA, client, Our Ref, reg, damage photos — but no formal instructions doc) was
 routed to 'Other'; the classifier needs to treat damage photos plus case/vehicle identifiers as a work signal.

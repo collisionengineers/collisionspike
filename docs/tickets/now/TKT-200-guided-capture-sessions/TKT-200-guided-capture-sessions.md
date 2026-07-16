@@ -26,13 +26,13 @@ intake or reuse of the staff evidence-upload route would expose the wrong author
 
 ## Proposed change
 
-IN PROGRESS on PR #83 (`codex/guided-capture-server`): add authenticated staff issue/replace/cancel
+IMPLEMENTED AND DEPLOYED DARK: authenticated staff issue/replace/cancel
 controls, one-time high-entropy session exchange, short-lived public session access, exact-object
 managed-identity uploads, server-side structural validation, idempotent submission, review-pending
 canonical Evidence and bounded retention cleanup.
 
-The contract, API, schema and staff workflow are offline candidates. No live database delta, public
-ingress, storage policy, application setting or physical-device acceptance is claimed by this ticket.
+The contract, API, schema and staff workflow are deployed. Public ingress, cleanup, physical-device
+acceptance and canonical evidence materialisation remain unproven and default-off.
 
 ## Acceptance
 
@@ -65,8 +65,8 @@ ingress, storage policy, application setting or physical-device acceptance is cl
 ## Scope boundary
 
 This ticket is guided manual capture with deterministic quality advice. It does not claim vehicle,
-viewpoint, part or damage recognition or automated evidential acceptance. PR #83 remains unmerged and
-undeployed until its integration, security, browser/device and live gates pass.
+viewpoint, part or damage recognition or automated evidential acceptance. The feature remains dark until
+its integration, security, browser/device and live gates pass.
 
 ## Artifacts
 

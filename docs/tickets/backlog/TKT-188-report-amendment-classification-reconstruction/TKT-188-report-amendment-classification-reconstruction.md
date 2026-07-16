@@ -18,9 +18,9 @@ An amendment is an existing-case action. It must retain the requested correction
 
 ## Evidence
 - [Operator note](./evidence/issue.md) — reports the wrong Provider instruction label, identifies the attached Collision Engineers report and asks that reconstruction use the deep mail/Archive history where safe.
-- [Original amendment email](<./evidence/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml>) — subject names DE67 LLG; body asks to change “Mr Shedrack Nlemchukwu N” to “Mr Shedrack Nlemchukwu Ndugba”.
-- [Attached engineer’s report](./evidence/DE67LLG.pdf) — the prior Collision Engineers report returned for correction.
-- [Inbox screenshot](./evidence/1.png) — shows the wrong Receiving work/Provider instruction label and “Has instruction paperwork attached” explanation.
+- [Original amendment email](./evidence-manifest.json) — subject names DE67 LLG; body asks to change “Mr Shedrack Nlemchukwu N” to “Mr Shedrack Nlemchukwu Ndugba”.
+- [Attached engineer’s report](./evidence-manifest.json) — the prior Collision Engineers report returned for correction.
+- [Inbox screenshot](./evidence-manifest.json) — shows the wrong Receiving work/Provider instruction label and “Has instruction paperwork attached” explanation.
 - TKT-058 provides the guarded reconstruction ladder; TKT-056 already distinguishes engineer-report layouts from provider instructions in other paths.
 
 ## Proposed change
@@ -51,6 +51,6 @@ Distilled 2026-07-13 from the [operator note, screenshot, original email and rep
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/issue.md)
-- [Original amendment email](<./evidence/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml>)
-- [Attached engineer’s report](./evidence/DE67LLG.pdf)
-- [Inbox screenshot](./evidence/1.png)
+- [Original amendment email](./evidence-manifest.json)
+- [Attached engineer’s report](./evidence-manifest.json)
+- [Inbox screenshot](./evidence-manifest.json)

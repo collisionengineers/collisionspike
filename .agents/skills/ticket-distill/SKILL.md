@@ -21,7 +21,7 @@ Invoke explicitly — do not create tickets unless the user asks.
 - [ ] Write ticket .md (frontmatter + body sections)
 - [ ] Add BOARD.md row in matching section
 - [ ] If multi-ticket programme, create/update a PLAN with ticket-plan
-- [ ] node scripts/check-tickets.mjs && node scripts/check-doc-links.mjs
+- [ ] node scripts/checks/check-tickets.mjs && node scripts/checks/check-doc-links.mjs
 ```
 
 ## When to distill vs elsewhere
@@ -30,9 +30,9 @@ Invoke explicitly — do not create tickets unless the user asks.
 |----------|-------------|
 | Atomic bug/feature with evidence | **Ticket** (this skill) |
 | Multi-ticket operator plan/programme | `ticket-plan` skill + member tickets |
-| Strategic phase / broad roadmap | [ROADMAP.md](../../../ROADMAP.md) |
-| Pure operator action, no code | [docs/gated.md](../../../docs/gated.md) |
-| Fan-out research before ticket exists | `docs/plans/work-todo-spike/` stub + research pack → then ticket links pack |
+| Strategic programme or broad work | [ticket plans](../../../docs/tickets/plans/) |
+| Pure operator action, no code | A blocked ticket, surfaced in the generated [operator-actions view](../../../docs/operations/operator-actions.md) |
+| Fan-out research before implementation | Ticket evidence or a current reference page linked by `research-link` |
 
 ## Step 1 — Confirm material
 
@@ -92,10 +92,10 @@ Body sections:
 
 Gold-standard example: [TKT-023](../../../docs/tickets/done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md).
 
-### Cohort A exception
+### Existing research
 
-When distilling from an existing `work-todo-spike` research pack, set `research-link` to the pack path and **do
-not delete** the pack. Link operator stub from the Research section.
+When distilling from an existing current research source, set `research-link` to that source and **do
+not delete** it. Link operator input from the Research section.
 
 ## Step 5 — Stub artifacts
 
@@ -143,8 +143,8 @@ Regenerate or update the README index when adding tickets. If the material is a 
 ## Finish
 
 ```bash
-node scripts/check-tickets.mjs
-node scripts/check-doc-links.mjs
+node scripts/checks/check-tickets.mjs
+node scripts/checks/check-doc-links.mjs
 ```
 
 All placement, frontmatter, BOARD, plan, manifest, and links must validate.

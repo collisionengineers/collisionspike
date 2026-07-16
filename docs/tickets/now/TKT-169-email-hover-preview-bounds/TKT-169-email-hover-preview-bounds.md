@@ -15,8 +15,8 @@ plan: PLAN-004
 Hovering a long email snippet opens a tooltip containing the full message. The live tooltip can begin above the browser window and extend beyond the available height, leaving the start or end cut off and impossible to read.
 
 ## Evidence
-- [Live inbox screenshot](./evidence/hover-preview-overflow-live.png) — the long preview is positioned above the inbox content and clipped by the top of the viewport.
-- `mockup-app/src/screens/Inbox.tsx` passes the entire `bodyPreview` string directly to a default Tooltip with no bounded content container or scrolling behavior.
+- [Live inbox screenshot](./evidence-manifest.json) — the long preview is positioned above the inbox content and clipped by the top of the viewport.
+- `apps/web/src/features/inbox/Inbox.tsx` passes the entire `bodyPreview` string directly to a default Tooltip with no bounded content container or scrolling behavior.
 
 ## Proposed change
 Replace the unbounded text tooltip with a viewport-aware preview surface. It must choose a fitting placement, reserve margins from the app chrome and viewport edges, and scroll its own body when the message is longer than the available space. The short inline snippet remains one line in the table.

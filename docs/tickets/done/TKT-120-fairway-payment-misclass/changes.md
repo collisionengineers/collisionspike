@@ -18,14 +18,14 @@ not started
 3. **Why no verdict surfaced:** the non-abstain verdict WAS persisted as a pending `ai_suggestion`
    (`suggestion_type='triage_category'`, suggest-link 200s, zero write-failure traces) — but NO UI
    surface renders `triage_category` suggestions for an UNCASED email: the inbox banner understands
-   only `case_link`/`cancellation` (`mockup-app/src/screens/inbox-suggestions.ts`), and the only
+   only `case_link`/`cancellation` (`apps/web/src/features/inbox/inbox-suggestions.ts`), and the only
    renderer (`AiAssistPanel`) mounts on CaseDetail — an `other/other` email mints no case. The verdict
    was written and dropped on the floor.
 
 **Shipped:** the Rule-0d payments lane (see TKT-105 — the transfer phrases "we have made a payment",
 "funds have been transferred", "payment transfer" are in the 14-phrase collection, grounded on this
 ticket's shape); a faithful SYNTHETIC sample
-[evidence/synthetic-fairway-transfer.eml](./evidence/synthetic-fairway-transfer.eml) (the original's
+[evidence/synthetic-fairway-transfer.eml](./evidence-manifest.json) (the original's
 content is unavailable — PII-scrubbed telemetry only); eval pin `tkt120-fairway-transfer-synthetic`
 (pms one, → `billing/payment_remittance`, passing); AOAI prompt taxonomy definitions extended
 (`payment_remittance`: "a payment made TO us … not a request for our invoice") so Stage C
@@ -38,4 +38,4 @@ matched provider returned `billing/payment_remittance` (unit-pinned identically)
 suggestions for uncased inbox rows (until then every AI email-identification verdict on an uncased
 email is invisible); (2) telemetry — `triage_llm_assist` events carry no messageId (correlation was
 timestamp-adjacency); (3) playbook — `az monitor app-insights query` defaults `--offset` 1h and
-INTERSECTS the KQL time filter (add to docs/azure/logs-kql.md).
+INTERSECTS the KQL time filter (add to docs/operations/diagnostics.md).

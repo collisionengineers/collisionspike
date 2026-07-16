@@ -20,8 +20,8 @@ The required rule is minimum width, not fixed width: keep 001–999 in the famil
 - [Operator note](./evidence/info.md) — confirms that three digits remain the default and four digits are allowed only after more than 999 cases for the principal/year.
 - [Canonical formatter](../../../../packages/domain/src/domain/case-po.ts) — pads to a minimum of three digits and therefore formats 1000 without truncation.
 - [Retro correlation validator](../../../../packages/domain/src/domain/retro-case.ts) — currently rejects a four-digit sequence for a two-letter principal such as AX.
-- [EVA submission screen](../../../../mockup-app/src/screens/EvaSubmitDialog.tsx) — currently validates and describes the editable sequence as exactly three digits.
-- TKT-004 owns reliable allocation; this ticket owns compatibility with the 999→1000 boundary everywhere that consumes the allocated value.
+- [EVA submission screen](../../../../apps/web/src/features/cases/EvaSubmitDialog.tsx) — currently validates and describes the editable sequence as exactly three digits.
+- TKT-004 owns reliable allocation; this ticket owns continuity with the 999→1000 boundary everywhere that consumes the allocated value.
 
 ## Proposed change
 PROPOSED (not built): define one shared Case/PO shape and sequence parser with a three-digit minimum and four-digit overflow, then replace fixed-width assumptions in allocation, validation, storage, manual entry, search, sorting, correlation, archive naming and EVA preparation.

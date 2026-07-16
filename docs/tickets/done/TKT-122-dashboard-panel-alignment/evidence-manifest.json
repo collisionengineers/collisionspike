@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-122",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/after-dashboard-1600.png",
+      "originalFilename": "after-dashboard-1600.png",
+      "sha256": "b85aa6fb1c76efb073291eb123c4e62d361dddb1f2c63a7d39262bad4158d10d",
+      "storagePath": "tests/fixtures/evidence/sha256/b8/b85aa6fb1c76efb073291eb123c4e62d361dddb1f2c63a7d39262bad4158d10d.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/before-dashboard-1600.png",
+      "originalFilename": "before-dashboard-1600.png",
+      "sha256": "726844db3dcd27a9a9f9c38f60b4d575bbd664d866f7cc6b17377e5dbadc23da",
+      "storagePath": "tests/fixtures/evidence/sha256/72/726844db3dcd27a9a9f9c38f60b4d575bbd664d866f7cc6b17377e5dbadc23da.png"
+    }
+  ]
+}

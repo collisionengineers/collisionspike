@@ -1,0 +1,5014 @@
+{
+  "schemaVersion": 2,
+  "reviewedOn": "2026-07-15",
+  "sourceCatalog": "tests/fixtures/manifests/evidence.json",
+  "selection": "Every unique retained image blob",
+  "uniqueBlobCount": 294,
+  "candidateSetSha256": "d9aac84fc38fb83ffb38709adf92de1868dba9c094ac853e663174e37e279986",
+  "classificationCounts": {
+    "case-document-or-interface-image": 37,
+    "non-document-case-photo": 158,
+    "product-demo-image": 21,
+    "ticket-evidence-image": 78
+  },
+  "methods": {
+    "visual": {
+      "reviewedBlobCount": 294,
+      "process": "Every blob was inspected in four-by-four hash-labelled contact sheets at readable resolution; original content was consulted wherever a classification or visible text needed closer inspection.",
+      "result": "clean"
+    },
+    "ocr": {
+      "reviewedBlobCount": 136,
+      "engine": "RapidOCR 1.2.3 with ONNX Runtime; longest image dimension limited to 1600 pixels before recognition",
+      "selection": "All ticket and demo images plus every case image containing a document, interface, or substantial visible text",
+      "recognizedLineCount": 7453,
+      "result": "clean"
+    },
+    "visualOnly": {
+      "reviewedBlobCount": 158,
+      "selection": "Non-document case photographs only",
+      "rationale": "These remain inside the visual audit; only OCR is inapplicable because they contain vehicle, workshop, or site imagery rather than a document or software surface.",
+      "result": "clean"
+    }
+  },
+  "result": "clean",
+  "findings": [],
+  "records": [
+    {
+      "sha256": "009be7e8773f509e1cea438a54652a4d46a3bc23ca67750ca8f6c9c330140eb5",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 32,
+        "textSha256": "df190d9daf146cffad020968562e7dc3b2ef5092ad8d10fa4c17d8396b169e01",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "00c4708e0fcb8d00ab77e93afb0854461dccec3fa1bf0f5b7a321be90c09f923",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 90,
+        "textSha256": "98ebc043ea7f154b4d651f8b5db098806ac699b3425ad41b7846edb12208d054",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "0152bc3ea71d2f0a1045be328a9615fa29d44ecfc629d7ff13fd4444777a9dea",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "02980662e2822fe862aea7f72d170a774a9b375522cc1f2c4ab663594e3ba24f",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 28,
+        "textSha256": "b03ca970582780539e9c3398325f190eec37164846f31fd6c05b5bcf30aec5dd",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "02e418ad0708813d70b6ae524f3524b39a067b2c3d70ed1220623d32551361ef",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 2,
+        "textSha256": "0467f0c98e266018bae9b68b866b76d8caf002bde7ad3070331cd9d5a0fb214e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "0336a7b65f4203b513b8285f663a0483d58c7a92da5ead1f4d85339892047889",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 20,
+        "textSha256": "fae4bf7a3931361c3ce0ba1d6a60fb53995992a704953317c767e0afccceb113",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "0448bf3ddf81b5ad31e461616378c354f7927068eb47e60106791d1a3bdfb372",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "07d5dce592cc137c1e28a82913d20b064233bf1724270083813ebfcb6672bef4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0b1edd60f096d38bee6e97ecf27044353d704200ab0c23998d9f495f33af7c41",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0b357f631aab0a9e59af697a3d9eee2187b60e290e43a4da9811e4ed4a3b70eb",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 78,
+        "textSha256": "98a88673795655b1fefae4a095e6a2a5f12826a748ce1b5633775a1b2857be54",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "0b677df777db53f566e23111947cb7c1147d6c89e3a1c94863102c7ddb9bdc59",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0bc9ddcfa20fdd3c752cdae3743fc8f32e8376722b9574eaaea70a090a05ebd0",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0c7a372d655223cde9ae183093c4d078cc775b711972d491f84925a3ffb47324",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0cf298a34d584d76a9b32b887c9b87abc99cb4d8b2061ccf5fa3b710b0436c54",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 5,
+        "textSha256": "e29d97ce303d371aac01e618c395a6b288a70552bd3f3181a62f64224d5d149d",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "0fb8dc3b8cb73ebd6abbb14582b4feda48f6955b79d2023c230633da569fa615",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0fe0936ec835bb595781217be6f94ec66064cfb8a51893cabd73a26ede5d9710",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "0ff25b3eafc287ca027efa46be6bfa9974892ea0990f9de9d113faae9cb122f8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1049eb9c24f081d0c39743c13818d6e47dbb99d7137e33bf44f955b4785a271c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "10b1be2e054ca182f7fe38054a8545f460f3112f1cf199d1eefe87bd84178e24",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 4,
+        "textSha256": "186b296c396cedbc25030a100a37ca47b5461b3dfe5b4c5d8947749f080dcf31",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "12938483d76e210275289557ac34a5092e3874529f588c3727a9de85f47a97fb",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "16de993a90c61fdf537132061f5e3e9b5788a2957139a6ae0f2174a9db9063ca",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1709e2ea440963327063205ebf50f4c9439239423dc4e990a6aa7760467cc3a5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 7,
+        "textSha256": "3a85612b9ef113617bf3e669411c276e528c0ee03d2ceaa30e871e47d50951c3",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "1713124d4ba1de6080fba61680062308970c2b29f1216fc13c67c45676dff69e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 90,
+        "textSha256": "0f0e72cf1975b9895552029f7819f609f807d47733ff89001aa5be4b21f2527f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "18933e4d330f1a41edc24cef9db62af5e6030e2c28eb0ee05e5151c70f0b9e0f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1acd2e098e10f722ae2ee8ab0d087ece0e073cca3e5507411064e6f3c3a7d756",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1bc4a0b37e7a952d5b545fc7a2b1b0c63578898c4bc76736044be9529c35aac6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1d4648ba340299758d1111dd9f198951014b82c3e04080492f11ce0de1ddd6ac",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1da24a7a737d1dbeb36eeb10ef586d15786576bb2030d860bbf73151a1950e57",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 12,
+        "textSha256": "25232fc2546f707490fc3bfcf6562a0b1130807bcc06219c25b73894e8ee959e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "1dd2bbead207ba1dd42dc19c27291680cf9d01abcd99bddb63c36c43ee3637b1",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "1e6c09b5ae8275e63da5145bc414abfb1f15651686273ef0fd6739f4bffc7550",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 146,
+        "textSha256": "5a81bd494c1c6ddc682df3c1fbdc85e79c88f4592aefa39536991b6cfc2d782e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "1e9f430be77b1f935329866889e53b975041476055aebb3819bdd38003cf7928",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 8,
+        "textSha256": "69ff5a353722750dce58010690e56b5e57f7e7cd8bbbd75323249b079daef906",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "1e9f9822946e3fd1339044461238de543933435075cf9f1af97df34186b559f7",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 121,
+        "textSha256": "0fc7c89e8427b7e68c96ecbd83770c4698430b49f7efd7f07809752646d1a557",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "2041c37f4d89c5a0613f1420420da0d75af4881dab0f74f0f4b4791f8abb9dcb",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "21584a462f22ca084ea4595057f40e77347e870c755bcd9f9b96da0b58b1019b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "2257db909d8cfed4dd0d282909b416ec4c703bece1606879ed88333ed6c2b509",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "22ff55b10b47fb11397e9a1c5468c7067e5da3c6db4dafc12b4239f307b26bd4",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 121,
+        "textSha256": "38bbf8e2726a1546e13752c60223190fde9148c1a9ff7d86be536a1cf86f8ca9",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "2321c14e5b0509005231e6ad4c2fe095eddf0050959fe7df2f25829155886855",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "232bc053a79ccba4c9bf9483cff622e9040682fb2276c0c41cf6525627045837",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 133,
+        "textSha256": "975895ea0f89edb848f8d51a1a389b960807ac5a634019b09d6e42c6863d6bc8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "23f62efc22d6608794dca97951db1e0ec169356021f970f49c4b1b838067ec1d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "241da1643d55306ed7189c9370c7e3c3441100f5d220e03f1ea82aa729c49212",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 79,
+        "textSha256": "0b7dc6d1cfa41f26c8852b50a4b64700370c13bc45144bed84e10e7bf2a095a8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "24b8e45163d4551e861beb68e46aa7f99106318a80d10ed56263dea316fdade1",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 64,
+        "textSha256": "292329d052728b09e713cbc7efa4d3a70672051568c66177da2a93776997b79c",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "2591b4eceea9dca6dbc1b421d01afe362d6fd6f3a78437b1cc70946d92afc578",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "26e054f4e3737b01c37d58e646b9d9aa42ca06121ab5ee26a433e28ae5ffc728",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "27698842b1e66e343273a35826cd43763e30c53dba84d84d5f2095768e64f7cd",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "27de8e43f1c0a6bfc8d12847e40f6577e19073925d2f749e9f750fbdb56753e4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "2e6f2a9e346714b1eceace35c2db53ca1709776d2992a0290b552e5bd8c4d9c6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "2f9f2079c5474d9ef99bc4a8f03becc84e52c00ec14658cb5c1e65e422cb0631",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "2fc4a710e1384de076c5bfce92ad9dc750f2830ed2eb4228a16aa8f3b2800292",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "306f720c1da2b64c7baca66decfcf951709eb7cc9f2ee4b9c910f671a02a6388",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3141011fa282d8d76420d8e8b2c24d7c9678604bce9a1ed907c2d8e0b8ab5b9b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3228306cb66969083d5a548689bdf7f05d53964bd5a5e89bbfd9ffa1b1ee19a7",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 35,
+        "textSha256": "6e244407930775f50336dffe99b75d5a880b673e10f16144fc125ddb49cb0d17",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3267961c81eb58582f37b955a9fab75a4c2a2fdc76e6581737b5c379ad45cf29",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "328e082c30ed3ccb1d3ce1dc79c9f2a97c3c215f02f6a733c923aad4a9b6267e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "377533592629a8cad22713e30c89b16d567b839d45368aa0fcaf66464fcb5742",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 86,
+        "textSha256": "60e3a7a797bc3c25feff654c646648054956377bb260c935a26d157053acc8c7",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "37c3820f98e9000ecd42a589668f7463dfca384c809ad5533e9731f5d141e6c8",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "39bad4bf13755861bdb6ed46bf357ee2642da9ea346069b92c1a5755193ab1dd",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 70,
+        "textSha256": "5e5cb5c9f1c98d8fb6cb3e9c1da3ca051ae1ac29601a205763ec02b9bd273cc1",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3a36dc740b14573295061bc8cf8a6fa5348d5c40e972d6558a4264a875b15b93",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3a3c4bb006db5fa06fdd1bc1329497bdd979b205e64b9577b61431ce8c9ec1e2",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 28,
+        "textSha256": "0c10992f2c9f4b3408e4c1a1c469f100cab3f63fa85a1721f8c2fdc2b8847214",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3a735127fe393b2426bc2801b655e981cf229e4e59d6444857e7fdd78c1833ab",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3a928144c514aa74d28d4fe97ea6de53d5277f6d195c054395f4c355c7b16cf1",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3ab8227a1bfd377eb36563a5807ec226355f9a6bc7f693c7bb5a1434e6956ed5",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 20,
+        "textSha256": "7e612f29a91aba42110a5f993e04b026cefb7982124a31ec509142fda6bac016",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3add2e62bf6f92cde3ff2d38c2b7771d950113382ea0969d837302e2965f3952",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3ae52e8314d93727756f6b28638395b10a03ef42fe8ed6dd24fb8b80b58278c9",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3cc9f3fc4ad3292d10f0d799fac596722db4d70b109e9d0e52bc08786b0bca0b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "3e4bdef7158e79be171152cc6fbded4976e418d6ae5a30c78303af60321b8f7a",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 48,
+        "textSha256": "ea0dde4c45c313a6fdea4d4a8e5daee256066e362eb39e583e1e4ef8b697d940",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3ec2e3999a817b8abdb008e0e1a22f405d12049f2a5c8b49698f7b9b8cb5f889",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 1,
+        "textSha256": "63a9ee6766ad09115298720f67f3191aac64bf76f7d374721136d87ce0c984dd",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "3fc535c557df9a26786d3f33f33e1f3b3fcf98e5e6eedd8bd07bcefd5dbdb2f9",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "40d637e61aeea598049e1277da4f276c284d7a4caed26dba152a106372144869",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 21,
+        "textSha256": "12b2b4d83220a7c2efa554a151256ae00cc875b1fe14f1fcba7629e46a207e7d",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "410730a4b595482d3c6bf242729ff2755626bec5f79ca1f51f0b14714b2cbfef",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 16,
+        "textSha256": "b0d65e558c691088f42b66e51dffc6e5ced98b903f38379d6ca184254f63538b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "428c48ded7e47e370f7be8b19a30cc0dc24b31aebe07860b604ff2bfccba9dad",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "43ae7ea6f5a06f0d2aaaeb3052f6b2c9e03f07cc152aba93d474b6201cc7296f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "480737aa505fa53a0014a7c261e992f580db2f989e3a43bb3ef2a11f2c0084e4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "4807613dfe098f4e464a7bbc8910e96dd4e31a42e601315d141a1339e219daf3",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "4836021e597aa52227b24f6a56daca8bbd3113a6b631387308a186152421d68b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 8,
+        "textSha256": "9b97a178d480916fe3ff0d19c28a4580ababfd5ec1fd60c26579a8d418a21931",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "4a02a5bd94b92c69c8873a39ab92cfb5801406342a5d26a859b4e2768ba00b83",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 16,
+        "textSha256": "f2e2fa715a6a7700e869a87226ea169e4e50dc52c9f23357db5045bb55945ad3",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "4a2df03dba6bd0248bc2bad90be955de73251c11e7fc07fbd11310874c84290d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "4ae8e94c21c4e6049be6edc5d0fb06ae46bd1190b70a0ff7829366de895a5b50",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "4c9e6a4579d38d199acdbcd15ec8a4a2295bb60c2bae0848b815db7bd90093c6",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 10,
+        "textSha256": "c40bd4a60aaf3564cf021ad797aa2a14b73cfc3d05737fa222d4f26fee8be93f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "504c1ce3ee8f268ebebf5829fffa82323854b6e23863c3d72c8af7b02927bc51",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5170693985db7b294ab457ff6086a7868e7577600ac3638fb9398b5829350136",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "51b5d2c906cbc8ec9a9b5d90af60955fa960c1a251565256932ff6f0e48b5462",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "525c1f9aa0c84d54c286d79404133cf635de65bc348204b788915942782bac9e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 7,
+        "textSha256": "1d347752d0e80f21ae8edd3a04bcbd5310cf4f9c8d80c59040ed573a59e59f81",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "53c30a24772e74160a60e88d27b1246ec1d72fc921cc3abde3c2d9d206901f50",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "53caaa92b6b16302b0073d5333fc57213aa89afaa504f0dfa5390f1b28acabb3",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 1,
+        "textSha256": "dad244b1cbed76ae8e76d00e72d8a726b32f961ce8e3936ccc4c85cd2b576cfb",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5427217db5d5783946bc54e93c092b5a67bf59dbfe4f28bc221f2b2a887f1e73",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5432d2d15457d390b7a6830f5ebd487b60122215e0e26bfa926207645963b534",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "54b9d68f23f6361d86786dab752ebf9963666032c696ebd0672b6b1e8c3d7001",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 99,
+        "textSha256": "203cee572de1ade65af9b9ce5c3e56a85770e2757626ac157646785df936c8fc",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5557f12c0d955c0a3b8abecedcd1e0ec330e205c1185f5e2233b2d69de5d87de",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 1,
+        "textSha256": "bee7adcf4f9085c0e79c5b1dac40fbad3f520c4c47803bb049283a7bc91617e0",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "564ceb10d0bd447c2a7744936eabb3e938075717fdb88671f76a838b37092ee5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "573da5a7cd6efb7da7713359c81e7d1188e7fa37181e7c792effc2625ebeb0d1",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 29,
+        "textSha256": "e94def70b6bc3f782fa2a31e76a62660824d347c4338ab6acac363674c1c3bb7",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "592abaaa7d9cc93c0b4756c262c8a8f4b5b85443e127e81b1ac94ec9f90342a3",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 69,
+        "textSha256": "21e7e95fae4044f57743307ac0b4fbf3344d26bd9b8920fbd42c59a649d0cf0e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5a8a62a74192dd6820f3dce0fac4f8a9131de62fbf151a45bd8b65e2599a06c4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5a8ae1d7fd44f4fc7e4f97ca840dd67100ac5657ebfa3dfda6e6ef720be5ad4e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5bc166e6c6aee86f18ab83f0a157857e57f76f94adf69055ab0b8961378afdd7",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 151,
+        "textSha256": "70ea57bbf4f93fd65de9e2c4a6e02446637ddd54bad2fa1a7279aa02207e0994",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5c2f1dd913295a6d5eea12561b6bed5dfc7c3b38ed15f486b4991b89568cda8d",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 17,
+        "textSha256": "137355aeb22ad66cb20b5e0ef47ad5f92e98e89d48578a19d6de20da52f14723",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5cdc29a4383bf1e4136a8e6070d5085562e6e640bc73c47a1c05fec78f5d0dc0",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5ce380a6989999ae40db9b7105b2f6fc3613144a97bcb5b06523f24cb1c363ff",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 32,
+        "textSha256": "9e548cded91fcb213b13dc6e5f8f81ea23b72b827f3a78f67bc59c1a399629ef",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5d8f441e9fcaa3580a875674f874c12c186e5486bec07d6827f08a0ccd6dd6f5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5dfa86675c861c02c7ff2d2a0d56956ac32980359f05a313f332b3de72f88d51",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "5e30910717ee72a09c9d08f4c715416a143c815f2eefccf498bf4c8d71234ffa",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 243,
+        "textSha256": "6242f2a2efecf03589981f6ca85fdfa1aca71fa46ceb18f92c4dde3635a672d8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "5f4f69376cbeee2a052de7cb42b715ff5b5d5e3290bec1b416e554e5b0c8ee89",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 174,
+        "textSha256": "268f6394e574c40848232fb6093fa2873722a00049083923ef32ae09e6c27714",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "60a16f5e2b8d1e671a58ea31ff838a123872c704c0e74c12c32551450fd7f15c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "60d56174eea6e3e255721b73c9f1a61fd42d7d9e69cdc8d3a2779431b6396a90",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "60f5d76db07c937ebd250eb4500fa850c32349301439204d597feadabf01ee01",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 29,
+        "textSha256": "6eaca6fd7cd6a2d6ae6e821955bab58ab1c6a4f75619fe752a8ac57c91dfaf2e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "616f79a4926938d6ce1e64e6c2bd17983da97d3a22d019bfbfcb550bf23ac129",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 62,
+        "textSha256": "39c0d7d2616168a8088492b18d1d6033f27253a23866967458cb9c3f6d90c6b7",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "61d5eb8cbc420580552a8d282c54c6224e0777434c9706b8c972ed83df150ac7",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 91,
+        "textSha256": "edb07bc954241ab724b83b643516115f3bd3cdadec417608c5f0e1a0a82f3ef8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "626e24dda0270c0a8c0b100634b3a5777ca04b626206995f56d8c4a0efd053ad",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "62f63dfb0f039f5b6fdddc02fab18057c862ebdfdacf7f014a0bf56d30ae1d7c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "6310e96cff64671361277ecdcf79f27d6ab6e1df8887e2275fdeb11760198de1",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 17,
+        "textSha256": "ebeab03820b7a5c81185e3c1ef3ed1d2a32e75ed5efa17637289d74ebd353862",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "645e2789bfd72e842a4571a053cb4e441669fc2a6268c45c2b1185169300f8ea",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 87,
+        "textSha256": "e026be66dbb79ac199826e2ef7f7b542c84bda9fcbb167d545ab226fda555e87",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "64c596dfd2aa06fa7681ee0f169b5ce010ccdae0e8f0cf56d952c4f1be24da6f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "64cd8cecdd359dd59e4a7dc2e911b4c554646fdcefbd9b3d989d264d0dbecb2a",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 97,
+        "textSha256": "33c7432c91d50c06d1359f7d59eb7d3d6efd1c9d62100cac5b6e51c79229d96b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "64ce891292832b207baa1f18eb5fd6b09a4adc129aff0580073d4e6a2890a14d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "65d42d8fd824ad012aa92fa888c3badc33db9060fd4fef6c677348cc33ba358e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 1,
+        "textSha256": "55df18d062878fb6d3f4a6d1928fd19c1b49d5f8b90fbfcc76d5e1b1b2b75ef8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "664377962a75ea29a4394420b2a27f30b0653befa642728f1fe24f39900a4d34",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "66a5d6e27c7710d64c7cf1cea85f3b59c5f449edec26ad4fdb9a65912fb2c5cc",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 9,
+        "textSha256": "1c010df2558f9767e9a950ea2badef7830a21aedd2d245aad201b3607870bfc5",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "66ae9a5074207e82c03cdeff9d6218f86e2bf1f92ed9b82e3414baba55113773",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 18,
+        "textSha256": "25b4335243f27a2dabaec3a0f63b6a74888a685314f3231f2a133552bff69bc8",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "679ec4be21993f76b1dd2865cfac9d51d50130e6acd956796efff748728013f5",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 21,
+        "textSha256": "87d2363f0e6422d793eca1d7e3f1d3c1fd11569850d98729b31c5e7de674c492",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "688d48ed9772a34b2e280dc0c69aa5415f3cf5072d1a890d1356ec24619a7c0b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "69f5842ff2fc07c2905e5cd5a2be50193c9b3dfee8dc3678fa050a3fe97fa8a7",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "6abc3c9f58f7a25ba1c114463cb0d784342fc7fc53d74d7ea7d5d5c47ab18f3e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 26,
+        "textSha256": "0b5d175530de9716830f09a6a1d6c3e1d3ab6fb5b9a696d5d360cd516f7fddbd",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "6bb3bf32eb2f1404a30eafc50efcc8a314ca1e865908dd41fa6128f9f6a9e294",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "6c23b89a98c849fb808a6a54643721a22ea9283c9d0e9cf20f97956061e14d02",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "6c427527378fd50a9aadad78821e223760f380962b778cc24f61d697aaf2e34e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "6d38cceb935f206104b55191af904721b85001986c34e199bcb5f2e562885de3",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 6,
+        "textSha256": "86629c01d8f6680d9a1dee8d43be8ec47f68e69105512b939dc3d4e0853c6f9f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "6d44e180911bd85ea00eeed9d8283a94f5a73e3ffdedce5f702c1f0409249e15",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "7061587f8e08fde0f6c7c0e8fd7e589b508a08e50512cf09ec3a38aa4b493734",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "70c551d1af4e47520d1f0cb14781a30256fc841fbde083ce5c79b36eaf58952e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "71003d48ce3c363ae9b279d87ca100220abb8a236d85192e72acd88df376cb3c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 27,
+        "textSha256": "4e7718602ffc45ca29285ac5295db45bebe38c99bad728d3bd46ff9e68c0f19b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "726844db3dcd27a9a9f9c38f60b4d575bbd664d866f7cc6b17377e5dbadc23da",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 81,
+        "textSha256": "e7c6b24e0e3d24ca8bbf626e24e52be16c0cda04204e9f1f3f579f2a93748bb6",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "72ae24416565dff782b875f2af952ff138f2a605bb397228af0159ca6a6f64cc",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "72fcfc06c07c7b28e7c35d6362166ba2813267fdd5a5ec60241321715800a8b3",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 109,
+        "textSha256": "eb229e2a6c31e4efb70ef2cc47d100db9aa2b75e91ab55b36ec2b49e4a9a8bdf",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "7322da2dd5bd3cf29b47f7900361575916270884fb08800fcd976a4c94f0a77a",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "73e07cba7446c50e2a3f521b10133d3f61e50c855978c12daf6378bda693b5f2",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "75583cbf6ea5669f1b3e39de332bd11ed1e0dddbf53531640e6ca2d8f2b88faf",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 27,
+        "textSha256": "8ae5ba1ca440befb63476cedd3a5241ff8113e519e0f1a1a0237328707c27384",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "766d49c2440aed13fb1a189d972e9bbfb4f3e06ebcf752f2595f33f48364d810",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 90,
+        "textSha256": "3f42d98ac5e08561a4fbd783c41b59a27d2d999845df77acdc520cf3ae17fedc",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "7762707e8611bf95fdc3a643f342cd80b3c1318e95e238eb53ad000ff9351128",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "78016407101fe3c029abe9e4e1901f3737c582903ca73ee00e5a32f3b8164142",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 70,
+        "textSha256": "e57e0720946b2fd7106684e9222c416656b341d3fd7b8f791b4200bc1fa31612",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "78b7c598f60ddaecb65f69907ebec018854216d72e70798e07bdfef93589ebcd",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 2,
+        "textSha256": "992706eb305f518dfcecd90fa8f36fb53d63ebc624a49ef41bd6c3cf9a0f6be9",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "793e23a4b24135dbdce0e7063cf8b92fde61eb6753c1cb1d1e78f632daae4182",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "7a1a2d8997d5123ffd5ba86a07247892ae3479d213e83629cd4ef52c08523871",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "7a8ee934fda626755114e6f90d489235732267275d9c7d18ccdb41826c583884",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "7d69eb942332df5febcea83aeda3080313a6d21d51d833f7e28943caf3287cdb",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 75,
+        "textSha256": "2e124961c1c6a243ea8a4ba6598bdb9f98b750d634bfb4068ee6962806855130",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "7eb65b432334f33649617e449744d2c7ed7e5193a08fa430279ce8380a2cd670",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "7fc91d74e906b8f03d7fd31c08024863bed29e20be2a39cc972ef458b8b7ed02",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 55,
+        "textSha256": "745c15e6f8a17bde0ff8a627f194929f2fd22f8dc691793912d5d7ee141395a3",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "80b1e274731c240175d675a313bdd6ae3fc9152cd77089a5fd35463e98eaff92",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 174,
+        "textSha256": "4909fbcb025eb3d6141cdc913dc889094db6028841d27fa8d4893aced14f9149",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "81a74b60676b83cb7f46d40d9bc76652cc597a32130a84c4920f7b20cf64141f",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 21,
+        "textSha256": "9b644aec5e547dbc3086e88c19ab8591bfe6ea1fc8f106f59d757138434a12d9",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "828371ef22e79c9a8b8d2644711fa8a01bf3827bb3fc1448266fdf24cbd864c8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "82b2417e3d14eb1091b318bd13690f8473fec469486995d1d3df71e3945684c4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "83497d99d9d565540660d4430b29d94bae69683671661cefe3899d3750df35ad",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "845749af8a71da5c31c100c812f795eaf3c1d51e313d40ef3899acd4ffc8e496",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 3,
+        "textSha256": "571716f068497321775044905ecb350455bf58bff82deeaa863b3d8fd463a817",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "850e16ddc4ade575682b590ec2951b7e1e8d9603c7a1c04aa1c642332a82d69b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 26,
+        "textSha256": "38d95a53fa8a46260025a1700808352fcbd7193862648fe13d440bb4cce45fec",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "8622dbb57474cc001c3e7079c37db4aff761b23579f2c525b40abd6ba8c8e468",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 62,
+        "textSha256": "20806b535ce27032ee2fd23b5e3c6af341d67da7186d45c183512ba69500425f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "864c8959e20021697f1a5ce80e948fd7da6bb3517b7b4b846856433e764e749f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8743789e9f146041acf0e8d395301fdde0b865aa697fc9276880fe337b60e86a",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8a1ef94a2799fe3b37a5dc2d47977a7c16776dd70e420dd7990d25c1265e430d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8a951975d3345db36917f32da4d7a420469ce91340310c15f392967d6d759670",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8c1acea8c6d2f266952766c16d8f43a32c6ab5bb68a7a52159f2a436bf66bfa6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8ce6e954a43e8ca8fb269e55283e80347202bf98cdb24a5d0eaac445c8c2532d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 89,
+        "textSha256": "555eedda284d634be6bc503bbbb111d9d7e927d8e4777cc954199f2260bb47c6",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "8ef7041be2e423aa354c631e245372f64c589e8dd5329fd882f69997575609fe",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "8f1a97b62eedc98b6d24ab1622a305fa1c54cb6ac411ce98aa443e0c051a53f6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "8f8eba36030e018c026d59c1e73d240718d4227cc838a93182f5cc02b0c8d071",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "912d3c76e6ffdba438def58b5021d79323f7a44e118d8e80d46aad2ce4914eab",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9241a54e0da0b233afd8b211b337d714ff8d38658015c672fd3f751bdd706c8a",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 42,
+        "textSha256": "5d0131665fcd5501d148067097f0a7bf595f9ba732bcdc4ef98b4e1a6cb38a04",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "926341131468100c163cd959ae1b329d329a50fed0e76844420602949427a262",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 163,
+        "textSha256": "a2d9a9ababa632b6c212a3b3083ea78a39529c989f0154688b72c920b211832c",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "9283452e5978fd615103d3c46d08e6b92c66b780e1ce5a3fe23d117eef16a898",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9286fc6c107682b63a5e82b4670912b91498cb5c269cd0bf4de358ffbb4dc339",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "939e983eb0d99e3cc9f255ac1da844c7cf4199a9f7d87b76c858d40d77af0516",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 105,
+        "textSha256": "75417254242f7821538c7cca2f8783675e8739c6766f1e42e1bde5d8b70d3588",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "944543e2ebc8111029ccd331658eaf86c63c60c48bff9a55b2a37f9c2d3a2f56",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "963fa01148668626031cf5b41119b1631ff0493ab0d2a0c9ad83a79754c98578",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9727c13fe4ebeaf6cf8d2e0759577ce04fe7aa6e218c7b798e42cb381d5b965c",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 32,
+        "textSha256": "cc9af88146674765f32d747962f783a9722f43428fb0c6007a44ef6cc7333d34",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "996ac7d03b1b03edb8c3cb732beebf190ffec95d5c9388e43a6035b119ef20f0",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "99b761b25fe46b43fc6ebd1b7783753c62c2db6297e93609390316be8f5486fb",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "99c1dd2215f130a6cc4836af65aa25c284bfcefd208fb24b9fc2e4706589db3d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 20,
+        "textSha256": "7665047675849b9ae88daa09b331c7f567cc62a2dec69bfc3b6a4b7a2d0000a1",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "9b2ae69619408be5bd7b9a844f6dff0b191e88c7a64cc911f39ca5626300859e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9b597e757d4ba112faf8027b696c9a21b05e4e7ffd452cadfb87c55e1609559d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9d4894353e6d96a334012c4269c72d41034a47da2603b2a3b2c406679a35b2dc",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9d57b26097bed0f3bd77fafb6f0f277fdef754d367367486eb4610c3050c4098",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9e28bdf531e0f39c9c4374fdf20e83308388fb304fc0f609daf0b4ff5551db95",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 10,
+        "textSha256": "799da7646303516a4119423f9ff069f419c1a75d6a459d824ebf70190c4e4691",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "9e3205b453225b779b454e59b1ede84b37c28ad1fd98c0921e00075aaf483798",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 16,
+        "textSha256": "8e8d8ce9ad60f5352828ba01f9baf6d57d0319024a3a6adb5e1d9ff9f4e56eae",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "9ed438c54efa04b30dc6a0d1b814e64f5d59a20f7d4d6581e9ff0070e21040c8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "9f2a5d02750d180b6cfa43cefb7a0d53f078189c41f68223047d458e1ec8425e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a1447d8cadb60b1aef13655b4afa2a33f6f257baa9febdab47673616e323e69f",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 5,
+        "textSha256": "b24c0b560e1ebea3cf710deaac1aaee2dbabc2e1bb8061d795ad23d220d26f9c",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a2c02f666f50c4005c32a215a6457677538839a14fe20a05600f659ca9057d34",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 3,
+        "textSha256": "315c862731082137bc8ac8401375209c38ab921fab7d0b672d9fba4a13eb7b77",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a2fe7aea9126c9def06f195d0510e58a4ed89206f13791121164894a7a4c3677",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 53,
+        "textSha256": "b663d753162e1a439ba09d136db47c3dfb3f6ed80d7bef11f6a3d59b8a10929e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a3befe9dd1ce90ccf19296ae16558408da2e9eee8706431dd83ff4b86dc9fa88",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a3f1d8c95dccd3578452192142ad0bf5ebf7679814b224ad95df9006c760a57c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a570200e0d3d95d9d99526e6070107f534e676df6594afc7cf59930606bf8c24",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 56,
+        "textSha256": "5c45769920b20c1efaca9172790dd7416273a20f8f0e50e0a811860dc3c490de",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a5f422e956f185af438464c66b8899958ad03f4bdd89525d13d33a4d13031972",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a6ce1cf376ca19bee21b2a71ac83e6f675ea9a22bdf2ee764a6057ccb32482bd",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 46,
+        "textSha256": "62dd25578b88d3da989d308b3619621b521bb86579c509160e7e7d6caec14088",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a6f18e5bf23d03fa5475d3e62b6fb879a938089e825201828c377ec47bee656e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 190,
+        "textSha256": "b7021f58272d7645ff844e57cd3f9e2b10c33107db11b2d18a06ac41a44603aa",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "a727815175a9cfefb484796de7bb2ef411b74113709e01c6371382eab6db0b86",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a804f45085f48b7b95f93801fa0cecf610642152685bda84a9da6ed49d8673e3",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a896a3d94d3e682bf2e80e6032a48b0c689f6e962fe968a040dd3414e72f20ff",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a928ce03b2b77ec666fe93648f7c07a853840356cc47f2302bc573850ff84953",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a92ed105518126004007278d1d2c75171ef6ce35957e2bb2eb3ab5550c2104b4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "a93ecd5574b6da2b9904f0f68500d266fb325cb0d1894151f0c169b7c58a45a4",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 8,
+        "textSha256": "37df8e645bcbcc1b66176dea564c49a33a5be78cc974144eee99a4d07b7aa3e9",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "aab9ce8902ce394cf099f31cc9704eabd97c2b7fe59beb350674a7b2983ba732",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 44,
+        "textSha256": "2dfa1e8c89d81ba925ddd827215a7217933c53729865af697214a4ef7810695d",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "ab0ba0aa824b2b6031d2ddc52853a25162b7f44fa406cae110e05896f31d93ac",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 7,
+        "textSha256": "750248bf35336a9a58578a86d49647d23a6ee6417b1c22c819329aa6d0921870",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "ab143a76b8717378839bb2bb3f2e971e45c5f9c9e51da2158d4cada91e6f53af",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "ac4700971876b2537ece3a88e6e2dcc487b2b7103b8353301d390230bccc7ac0",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "ad85ec877f99cce963a8f007ac291736fa929461bcd8b51cf2ba27026ee0aa95",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 39,
+        "textSha256": "ffd1873988a267969349f09a60912515f3edae2e1d85894fedfe84966848050f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "ae7bc2838a226ad591f6d166012a96c0ff5a2a980cbdca2270621a81894e726a",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "af9013e026bebc6dee09bc9097975eccbf5f3cc16e23dc1e4ddeef529847ebf0",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 32,
+        "textSha256": "ab2c34b184aa76231b3adba84a56bd0a8296f8dd14e1d1bccb139f0eefa77470",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "b08724cd154c5374cab253b3d64d843d95b56dec566b060cc29332b89d0db2d6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "b118b803fde3c03e572d9f7d72f0565dd1af78bfde98a917423f070f0eecb232",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "b1bb194ad9864f4385558fc19b71e1ddad0bf458b3efc6bea0c130ea714fc570",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 11,
+        "textSha256": "1a3ac5f3dceb2e967379da29a312df0bbee9700296e2576848afe3453c311f17",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "b1da6990f72dad5689c5438d3265481d90e9c74f5e5ff30960f59c377b61006d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "b2c024fefcee0f62da2506f2176252c2ecd239d75d6e00de2d7c2ef0df879d4d",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 198,
+        "textSha256": "1211236b6d35bf69fb3e0bfe632b78f765497ef776c11260ba5ec07fc5e7f9f0",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "b4b07ded9fedb7683d8bbf6a7e68e97b9d5e51a10a2f227eaa02a005f68f6b23",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "b53a9e634e3bb5ce657b24df35edd7ae7e2b8b021d8344d69c9d8f3158a1e525",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 95,
+        "textSha256": "1d9d49f09aae9b0cc98117c763b4c4990436e1840aa34f86882fb39d6b738942",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "b5638e5d385c1346a9d13406e217165bb36bc545d22396f22db1c048d7aff753",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "b85aa6fb1c76efb073291eb123c4e62d361dddb1f2c63a7d39262bad4158d10d",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 81,
+        "textSha256": "94c64508a02edf5f6cfaa8a3d7adb64191299e7a67d60779dd5aa180c5513d56",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "b8f9bc4061ffa62464d1312f9f7a4ef4200add95ceec5cc66d600936789a1272",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "bb56d131323604bb963adb76ab691fe509ff98dc0ffc0a1e9007ba53a8323a12",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 14,
+        "textSha256": "c24026d6c44050b672621a288f403deea9e4281f2f8a1ab51476bd2c69a183b2",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c18ca3af455a63f4e878409017b58b117e94c04ce6e952ca9097b0411465511c",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "c1b1e02dcb2b8c1242dc46660008f34c2239e2d176ba8f68584b074659df1951",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 13,
+        "textSha256": "4391aabf1d4f05316ba4f97fa417729bdc5816ba2eb385621cba714af3cd5c67",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c220f8885d873acd3d924ed261d79e0e2f628bacc0fe73e1bc44b156cb24196b",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 62,
+        "textSha256": "85aa9c086d64f20bb0953191c898282d53e9b0bae24504fe27ed3092e320d035",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c2c5730557d0143c3ec8663c065f8bce55e4fd84bb93368dbda88e301aa0df34",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 11,
+        "textSha256": "0dcf53c54d6edc241b698cf8e4b66c89de9752c8425067ad10eb5a327ed6a08d",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c363443a2ee85037f7c44121b1d17970b5dafee080c7e6d18d847136cd1a8176",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 79,
+        "textSha256": "bab9947cdd07c84514bff8c5f1b0d7a6c37d653dff3f9ac97f634e6a00162f09",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c691c5cfb6c02a685a09f741fe2c41d034951501fbbed43ef80081ace43a8704",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "c7b2bf13c282e2535340a86fcd10400330de1b830dbde3e8cb835046e209e9f6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 9,
+        "textSha256": "4a627051f85e13fea87c7daa13074a370012fd6a5549f003243c0b3e29d1c532",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "c9419baf85859da570ebc79781dfc6d95b175a5f94484006db928205d730f61b",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "cb0f1e752ad16d8038f073d9f64fee9a6a7e0f4cf200ca80534975e34d9e2462",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "cb492c93198942c189df01cdb4d2919c2f85a4d473f97b1175ec316a16fa5b8b",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 137,
+        "textSha256": "34464b78a28a455d233367a9b093cade945bab49f05566d8f93d8cf7ad544c97",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "cb4cda6b0bd964fcfd59d5d639d2dd5b9ba20e8058f511a74f11db4e286517b4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "cc19701f3b6570b04f888a6f4cc788ad854c1cd3b2a8d3d75a695ee9e936c9b1",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 20,
+        "textSha256": "5213a17268e3e013b77baf5e3a8f156e8da814f8592b39421a39053f9e26d424",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "ccad0e6bde8b33250c55633de16a4fdb8976ea911198fae868d705933f74df4f",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 102,
+        "textSha256": "9796f833ee6bb08a710b8fb333edf3e8a8b87e1742bd41f952b86474fdcbcd0b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "cd9dd7a24c3b19cd876125473b5e8aa0fe57c57d7b32c125ac16e2858dbc7686",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 81,
+        "textSha256": "0e46a6db381a5a5161de6ceb752e88b96e12453ff71f3369e55f48277f9b6135",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "cdfc0e4d4095e7893fecf55a1faabdf4044e84fc9700304b41e8e0fdcfba4378",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 70,
+        "textSha256": "1dae5c8e662b22a0f19a828bfe21cbb4bf6ae752f35c8d1b5149f4ed0bf1d016",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "cfb59fda59ea9a311cee68fc5263d5d958b9653fb258a797465be8012c33a620",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "d061a7487f4364f220c661a5b59f8adaa4afa0cec037caca1844af7b0c933e1f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 4,
+        "textSha256": "0c52ca5f44f4b5ef0ffada6209ebf8b29d7948dc27081788543a29104be3a09e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d0634aa6cf0de112b2c566ffee1169998e0d9d6f1b23d94ca105fcb74bff5830",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "d1b5943cd7e71f0cc1b58ddf9feacb2a4f49d6729fe65d22c25bd1da9099af6d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 9,
+        "textSha256": "7c115a73368f30d2a6e87180d52ead4cc8728a7353fc7b3a4fc84ed0846508f2",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d1c154649d1d6d3b1181185262863cb677771f465a4e3054b89b2c96a6d43bad",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 88,
+        "textSha256": "69d87803c97a049b5b6087bdf52355e9a25b99d4421fd8d510d0cfc3983973c5",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d35a54cc279a2477762261a2e314286ea6f507ac644a279c2ab5f5be523f7e2e",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 17,
+        "textSha256": "7c2dd3f6240f11b76dac686f7922e4bfacb8bb568aa8dcac3db19f0eb2490d15",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d3dea023884367193b34e7d986ba780190e28db9ff5d579a20c222d23b076a73",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "d5325f04b8bbdd9486e13b6fd168cc5bfd3673720062a47a4e5de21864e97f15",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 43,
+        "textSha256": "0b39d9a63d330924a4926706dade382db90546467b757e637a71310e3065cc1c",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d5bb5788be5ebdb91bf0edb20a17ba4c2e51eea234f23ab4324fd525b93ee4a4",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 187,
+        "textSha256": "634ce4ec515dc8ba2abd9c93b9542a1587cc53a9f625159dc57bbaebb2fbf29f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d5e87e09d764ddd083ee8310024fa207b8db4baaf4b5bf638914fb9982d4fdec",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 117,
+        "textSha256": "1d45ef3046ea02c7d96828f1fedc85558c70e6917da8f4add28c84ad3e9e5eb3",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d620bc3f57490758374c8bc8a391260ff34db33e36d39a73b855bc93c2238411",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d7c67bdddc47367a8d3074640bda1fa249100275294eb19fec4ec5ea02edbf76",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 183,
+        "textSha256": "49046591962c5f5b14a0e584a8b7754e6230b04f79e9fe8a9f83a25013f6e648",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d8c7b404e28fda4690e2246b5fdbb61765ff09ec4949ca258ae844c756d8e2e4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "d9848a09563f6bedaed046b3fc61871655edf6a93afab9f94b79455b73203f6e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "d9f36625935bf490457f9c0378ddd2b9406a93ec41ed8b92835df88a9cffd24d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "dbc2114b7b462d7d28f88eac1f0895c96f8f27fcf8a16397d235fdc87a01ddfb",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "dce415b204cc47b83416f0c9a589cf094c012ff5d3cfa1ba89a9abd712fb99ba",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 169,
+        "textSha256": "2d85587d5433cfa28845f15127f45b718ceac36e2603dcf218ed816b6290debc",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "dd1205785f7ccc9c3655451359d674df24b65fde954930d0ed6baa93aae270be",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 5,
+        "textSha256": "0444c9356f25467443f6442d8a39d1e108d9ab8fe47afb547e4ab88f7cb5c4cf",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "dd5e745309dd73077b60f253024c41fa3e7064c2a3d9d0b5637ad8b52404857d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 94,
+        "textSha256": "39a3acc83c9f31881709105d514621c3df1f61f11a719b8891defc72e9ea795f",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "dd6d9ebd6c30201dee298ef5a041845585cabda1a3ba3721aa70b0fbb5a8c69a",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 13,
+        "textSha256": "7ac5d50914aa3831323e4a85e1e561caf375102ba3f2191a1d350694b1b26369",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "dd713b23a197156c8ab6c2fdf13b7029a59396188b8c8161cdaf56939641c341",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 90,
+        "textSha256": "dbfc1f724eae91e4f1a4ea5c93d932777b31ed9530da574b55a656718ca32a5b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "de04fde05a16dca11dfb297bdbf86ee5f7e2390075b21ce0e9b31d4ff1146d51",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 3,
+        "textSha256": "6921c3f72c83ce566481dd190211542011bff3b741bf03e70204bbbdf4967a88",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "de4ca7526a90c26ee221853b92d845d32d578639915da4df4ce21fcaa8ad88dc",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e001e3c2fce9badc7e152fb0d09abdbdbf35ce5df2bc56358e0baac75b41d0b8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e09ad2dd8112d6910acba1fd7b7d95b393c52787b1e415899de708a0b52aecd3",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e0c3d3efa5a3011a1583bf9138f4c01ddf8b8d17c23f454007a3aa7dddd054e0",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 0,
+        "textSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e2436a1157f2eb908f5b59e4f564f54209e1841b2d226d2e7d6f6a2957cf49fc",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 20,
+        "textSha256": "83ead284a29111a452f4b87019a5b13052fdaab700748ed587034fa5c4973df0",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e2c01009ec99dd857690bb936975b53d64760db83bc33bdac78d06c830371771",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e304384bd4c69778f46eb090092cdea19987151eaa949333df3c8a0a022f0fff",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e371593bd260b5f1862c90430c0bfb6a9fc71495cd74674fbe902a11350d4c7f",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 5,
+        "textSha256": "a7f4ef342f52a2e03eb07690d75fc15db0b94870afd9707f51739b1fd18a5e51",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e47b4326da4216cdd36aa4666c5e85f084cf2ef9928cf26ef4a1f43b82de9ffa",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 48,
+        "textSha256": "b3b9025029a028f05ed3d39ab03a70e7c4c4172482bc7e7e58df77dbbe286086",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e4d36deaaa79a44bdeca9b5cf1e39adc17c0309dfb100fc4273d121c8351ce55",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 50,
+        "textSha256": "8927c687bdae10288beebbc2946c6c09373f20773563a6d8cd649729c1673ab1",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e682cf3809d0a3f459b577405fb63b9ea3b6584100d5f70e75408c9220e58ddb",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e695fbeb781c63d23230c95ea32bb7260940ad6bec5ed73c254df61635756f6f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e6b6a42f74ade8933b7a72a4f48b76b7e09310d2a9c99968691ac5699f89a54e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 3,
+        "textSha256": "7245ed9f2eac1c001d0f16c3dede64f67e9471820723ed0430f0fa902f262bd5",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "e74b9a0bafd165d3870a2fe9f403147559d16998e688475ff8a6ff08f4395e1a",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "e9a7213193e31688c3ae0c821ababe7f3bf2d21b3e8e11a61eaaf06db889d7e6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "eae5118158fdfe66f87e8ff57f02ea98f1e233ae4971ac9ea3aa02c32cebf5bb",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 27,
+        "textSha256": "859e7f91a0cdcc4473b95c213df750917ba79854b13611826bcdb14a3e7d1672",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "eb1015acf5815c5aaf167e4f2f6db2722b8ebce39b7f659ef882f0f6a9c86701",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "ec2f23dc9e3a87ee42121e6cc9701f7ca37a84308f1601ec470a9925d081c0a5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "edaa1674a5a07113fbfb9745469a19d5a140c23f1b06f86d52ded1341a2c537e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "ee0f2f0130c041f6fe40d6d9c9bfdc9c2aa02e86a48aa00cb3152e45140187c4",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "case-document-or-interface-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 170,
+        "textSha256": "bfae1c3b8952a5f568eb054ac849b15f9c581d86ae6c3d399b8287d315d86a06",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f0bda80bf773822a95f6425f21148c1dd55b3236db5b278112106970997230ef",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 81,
+        "textSha256": "c6c7e3e64680440df42d72494952f300afcddca523f19d06a8a51f2b091d0229",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f0caea250f85da182043f76cf1afe46f27b76dded9db3227e7ba9bb269332de5",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 89,
+        "textSha256": "2cf61b211ce81d5865cbbf8ccee2e927490220b63a99cc8a235adacbb8699364",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f104b9887f5fb97dd344e0cfb8c3225fd6543371fdc8ed996bf2abbed2b7b583",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 29,
+        "textSha256": "41247dbe7972a1992d4ca057483604c762b47db2602bfaa829e28c05a0b52d70",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f10a7f0d26045a56045934ae66985358a6cda8429c267352e2322b61346060ff",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f123a9a5690ac0dcc8e988eb0359d60f59bcc53988e2011500ff0a280f48aa51",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f2135fb32ffd65fcb8907832686dd97480798f445fee314fc6c0a76af55f0fa5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f26de92332e99869109a785c02c62a6d134c6cabc700b51058d2786aead59ca8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f2aba3f726e1e328d0b2f15a7778457cbb142c0d2ee4d88b8172b4a53ba19ae8",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f417be60ea3200c748f3fb153aebc0dc10bc28be42800b789a2c9829ffa25775",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f52d9b08c027c767fba23f7a943e46908bde911baebbaf25520a8944c344f69f",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f5c4dd118d504c5134970529519d44642a08c8bee261853de7592d21c7c9f9a3",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 10,
+        "textSha256": "8f2e447ad4e244cdcb0f04384d397757038f610e0fd7b644b4815d7b7f3cee2e",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f77c7279ca6341c6a1f45782f46f95d03fd682337bfbcb342e16f852bffb9527",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 19,
+        "textSha256": "f2c5eb2f01d8da75ecd08c2986d85ed3eb2e9f25648636854bd190b670060cfc",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f8c0a27ba713762d0330621d1757e8d5f955c9deade87efb2b9f1f7f6ce6a0f5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "f95c489fdb35840106d240b356efda87c15de8fb55f68992ccb110b4947bb874",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 141,
+        "textSha256": "d3be73bf5abdda2a602001ffc2d70b2776a40f22090bd9466113ef439f48081b",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "f9a793b41410092543a0f0eb9410f194fdb73c86c374f5eb63a3d571953a23f1",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "fa7b5420218d963d9f7d30ca09cddd41889d6a9986b75439d5774f6cd324dba5",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "fb48597307cf4693140a5904f9270b9d54945a033d158e0fba8774b31f02c45d",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "fbb954e9413cd3a1dc75cc8daa06636a524a7f5bff8ae3295d529db70e91e32e",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "fc28a1ddec2ab05608e02a4737d5ca351d4f79cb9955656e09cc55f0ef977fc1",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "fe17d0b036691d951d8a79907d7ff843329e9b0475ad9f5eb40354c3491ff0c6",
+      "sourceRoles": [
+        "case-fixture-image"
+      ],
+      "classification": "non-document-case-photo",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "not-applicable",
+        "result": "not-applicable",
+        "reason": "Non-document case photograph; manual visual review covered visible text, overlays, logos, and screen content."
+      }
+    },
+    {
+      "sha256": "ff3e9df9df1ce3977b9f795cd5cb1d3f06d532bebab51154b79c992dc5836f3f",
+      "sourceRoles": [
+        "demo-image"
+      ],
+      "classification": "product-demo-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 179,
+        "textSha256": "59bab04d614b4cb6f0c1b2363b4d516b2b4c3aa5bc00a8e5c8bddbea8d2cbe95",
+        "signatureMatchCount": 0
+      }
+    },
+    {
+      "sha256": "ff466e4f860462205c95d6308ea3e8fc437b8010dc95cbcc0219b25791ae329e",
+      "sourceRoles": [
+        "ticket-image"
+      ],
+      "classification": "ticket-evidence-image",
+      "visualReview": {
+        "method": "hash-labelled-contact-sheet",
+        "result": "clean"
+      },
+      "ocrReview": {
+        "method": "rapidocr-onnx-targeted",
+        "result": "clean",
+        "lineCount": 109,
+        "textSha256": "0306244de836582a744696ef07534f2c2714c6a4634d52cc14a098d3c4162ce0",
+        "signatureMatchCount": 0
+      }
+    }
+  ]
+}

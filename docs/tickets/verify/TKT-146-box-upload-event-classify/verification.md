@@ -164,7 +164,7 @@ PENDING
   `evidence/kql-sweep.txt:27-28` form one live chain for Archive file `2338959990817` / evidence
   `37bbb92a-262c-488c-8347-8e2b0a968324`: registered at 11:28:19Z, stamped `overview` +
   `registration_visible=true` at 11:30:09Z, latency 1m50s. This original line is VERIFIED-LIVE.
-- **Original acceptance 2 — failures remain unknown without blocking registration:** the historical W1
+- **Original acceptance 2 — failures remain unknown without blocking registration:** the prior W1
   readback records the already-registered residual `f43ff684-dfe6-41f3-aa21-f9a9eecd0502` remaining
   unknown while classification failed (`verification.md:90-101,118-126`). A fresh read-only 72-hour
   orchestration query independently shows the repaired live behavior: the same row produced
@@ -181,14 +181,14 @@ PENDING
   (`changes-regression-11-07-26.md:16-17,26-28,35-37`; `verification.md:141-144`). Artifact status: TESTED
   (offline).
 - **Regression acceptance 3 — successful classification has durable status recompute:**
-  `.azure/deployment-plan.md:335-341` records the retry schema applied, orchestration published,
+  `docs/operations/live-environment.md:335-341` records the retry schema applied, orchestration published,
   classification singleton `Running`, repeated bootstrap idempotent, and a reclaimed classification
   returning 200. Fresh live telemetry on 13 July shows `recoveredStatusRequests=1` and
   `casesReEvaluated=1` in both the 08:19Z and 08:49Z sweeps. Artifact status: VERIFIED-LIVE for the durable
   drain mechanism.
 - **Regression acceptance 4 — regression coverage:** the ticket names the four focused suites and cases
   (`changes-regression-11-07-26.md:31-38`); the exact released candidate passed orchestration 394 and API
-  578 tests before publish (`.azure/deployment-plan.md:244-249,310-311`). Artifact status: TESTED
+  578 tests before publish (`docs/operations/live-environment.md:244-249,310-311`). Artifact status: TESTED
   (offline).
 - **File-request follow-up acceptance 1 — terminal outcome per image within a bound:** the binding
   operator artifact `evidence/followup-2026-07-13/info.md:1-4` says the chaser link/case match worked but no

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-121",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/live-email-type-dropdown-capped.png",
+      "originalFilename": "live-email-type-dropdown-capped.png",
+      "sha256": "80b1e274731c240175d675a313bdd6ae3fc9152cd77089a5fd35463e98eaff92",
+      "storagePath": "tests/fixtures/evidence/sha256/80/80b1e274731c240175d675a313bdd6ae3fc9152cd77089a5fd35463e98eaff92.png"
+    }
+  ]
+}

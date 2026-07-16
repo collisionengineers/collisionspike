@@ -7,7 +7,7 @@ PENDING
 
 | Acceptance | Offline evidence required | Signed-in/live evidence required | Verdict |
 |---|---|---|---|
-| A1 — normalized full-name/initial compatibility | Pure tests cover titles, whitespace, punctuation, case and Saira/S/S. variants while snapshots retain raw values. | Signed-in case/email detail shows original values on a naturally occurring operator-designated compatible match despite the variant. | PENDING |
+| A1 — normalized full-name/initial continuity | Pure tests cover titles, whitespace, punctuation, case and Saira/S/S. variants while snapshots retain raw values. | Signed-in case/email detail shows original values on a naturally occurring operator-designated supported match despite the variant. | PENDING |
 | A2 — fixed evidence hierarchy and no name-only attach | Decision-table tests enumerate every rung and fail any auto-attach whose only positive signal is a name. | A naturally occurring operator-designated name-only email remains unattached; an exact-reference counterpart links when available. | PENDING |
 | A3 — name variation cannot veto exact evidence | The supplied fixture and case snapshot resolve to one case when the stored name is S Khurshid and the subject says Saira Khurshid. | Operator-approved signed-in replay links the supplied message to the intended active case. | PENDING |
 | A4 — strong conflicts and weak names stay safe | Negative tests cover conflicting ref/VRM/provider, surname-only, initial-only, fuzzy and transposed names and assert no wrong attachment. | A naturally occurring operator-designated conflict remains unattached and displays the conflict without overwriting case identity. | PENDING |

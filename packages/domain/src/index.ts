@@ -3,24 +3,24 @@
  *
  * Re-exports: contracts, domain, model, dto.
  *
- * codecs  → import from '@cs/domain/codecs'  (subpath; server-only — JSON choicesets off the client)
+ * codecs  → import from '@cs/domain/codecs'  (subpath; server-only — JSON code tables off the client)
  * gates   → import from '@cs/domain/gates'   (subpath; server-only — process.env out of the browser)
  */
 
-// contracts (moved verbatim from mockup-app/src/contracts/)
+// contracts
 export * from './contracts/case-status.js';
 export * from './contracts/image-rules.js';
 export * from './contracts/eva-export.js';
 export * from './contracts/eva-edit.js';
 export * from './contracts/vehicle-data.js';
 
-// domain (moved verbatim from mockup-app/src/domain/)
+// domain
 export * from './domain/index.js';
 
 // model — pure domain types + helpers lifted from mock/types.ts + mock/queues.ts
 export * from './model/index.js';
 
-// dto — DataAccess interface + all input/result types from data/types.ts (NO cr1bd_* shapes)
+// dto — DataAccess interface + all input/result types; persistence-neutral.
 export * from './dto/index.js';
 
 // dto/provider-api — the provider API-intake channel DTOs (TKT-055, ADR-0020). Kept a

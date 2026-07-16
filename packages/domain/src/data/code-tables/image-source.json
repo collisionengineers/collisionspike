@@ -1,0 +1,25 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table-bundle",
+  "description": "ImageSource enums. The party that supplies a case's images/instructions is a ROLE. Audatex out of scope.",
+  "codeTables": [
+    {
+      "codeTableId": "image_source_kind",
+      "displayName": "Image Source Kind",
+      "options": [
+        { "value": 100000000, "name": "provider_direct", "label": "Provider Direct" },
+        { "value": 100000001, "name": "repairer",        "label": "Repairer" },
+        { "value": 100000002, "name": "intermediary",    "label": "Intermediary" },
+        { "value": 100000003, "name": "individual",      "label": "Individual" }
+      ]
+    },
+    {
+      "codeTableId": "image_source_channel",
+      "displayName": "Image Source Channel",
+      "options": [
+        { "value": 100000000, "name": "email",    "label": "Email" },
+        { "value": 100000001, "name": "whatsapp", "label": "WhatsApp" }
+      ]
+    }
+  ]
+}

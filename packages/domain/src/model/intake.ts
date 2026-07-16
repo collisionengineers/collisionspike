@@ -136,7 +136,7 @@ export interface CasePoSuggestion {
  * else the current year. Returns both the EVA (lowercase) and Box (UPPER) forms.
  *
  * Pure over the case (no data-source read). The next provider sequence comes
- * from Dataverse in the live flow; pass `nextSeq` to seed it, else it defaults
+ * from the database in the live service; pass `nextSeq` to seed it, else it defaults
  * to 1 (the first case for that principal/year).
  */
 export function suggestCasePo(

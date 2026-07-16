@@ -4,7 +4,7 @@
 VERIFIED-LIVE
 
 Verified by: ticket-verifier dispatch, 10-07-26. Orchestrator ruling on line 4: closed with the
-QDOS-domain item re-homed to gated.md D3 (where it was already tracked) — the live data shows
+QDOS-domain item re-homed to ticket board D3 (where it was already tracked) — the live data shows
 qdosassist.co.uk ALREADY resolves (D3's "cannot domain-resolve" wording is stale; the remaining ask
 is additional domains such as qdoslaw.co.uk), and the acceptance's probe line was met on the
 stronger domain arm.
@@ -30,7 +30,7 @@ stronger domain arm.
   qdosassist.co.uk — not the content fallback. The "QDOS unseeded" premise is stale for that domain;
   D3's remaining live value is confirming/seeding additional QDOS domains. D3 blocks nothing in this
   acceptance.
-- **Line 4 (QDOS domains supplied + seeded):** open operator data item → re-homed to gated.md D3 on
+- **Line 4 (QDOS domains supplied + seeded):** open operator data item → re-homed to ticket board D3 on
   close (orchestrator ruling above).
 - Expected absences: a direct-domain-unmatched QDOS audit exercising the pure content path was not
   observed (all six domain-matched) — the content path stays pinned by unit tests + the TKT-051

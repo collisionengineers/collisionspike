@@ -1,0 +1,213 @@
+/** *
+ * Durable activity: classify email attachments (instruction / image / email / other) and
+ * persist evidence rows for the Case via the Data API (plan 22 §B).
+ *
+ * D10 — classification uses the shared `@cs/domain` `describeEvidence` (the SAME rule the
+ * intake flow mirrors). Idempotent: the Data API upserts by blob path, so a re-run after a
+ * partial persist updates existing rows rather than duplicating (at-least-once activities).
+ */
+
+import * as df from 'durable-functions';
+import { describeEvidence, isEngineerReportLayoutName } from '@cs/domain';
+import { gates } from '@cs/domain/gates';
+import { dataApi } from '../../adapters/data-api.js';
+import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../platform/blob.js';
+import { bodyInstructionFileName } from '../../platform/evidence-names.js';
+import { classifyImage, classificationToEvidenceFields } from '../../platform/image-classify.js';
+import { settlePersistedStatusGeneration } from '../../platform/status-generation.js';
+import type { InboundEnvelope } from '../intake/fetchMessage.js';
+import type { AttachmentTyping } from '../intake/parse.js';
+
+interface ClassifyPersistInput {
+  caseId: string;
+  inbound: InboundEnvelope;
+  /** Per-document content typings from the parse activity (ADR-0014/ADR-0021): lets a
+   *  report-typed attachment be stored as `engineer_report` evidence instead of
+   *  `instruction`. Absent means no override. */
+  typings?: AttachmentTyping[];
+  /** Best-known case VRM — constrains `registration_visible` to the case vehicle's plate. */
+  caseVrm?: string;
+  /** Resolved work provider (when known) — used to honour a per-provider AI opt-out
+   *  (work_provider.ai_allowed=false) before sending images to the vision model. */
+  workProviderId?: string;
+}
+
+/** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
+const MIN_BODY_INSTRUCTION_CHARS = 40;
+
+/**
+ * Pure assembly of the direct-attachment + raw-`.eml` evidence rows (no I/O; exported for
+ * unit tests). TKT-133: each row carries the attachment's `sha256` (hashed at blob-landing
+ * time — fetchMessage/blob.ts) so the Data API can dedup/link the email lane against its
+ * Box FILE.UPLOADED mirror twin on (case_id, sha256). The hash is OPTIONAL on the envelope
+ * (an orchestration checkpointed before the field shipped omits it — replay-safe), so the
+ * row omits it too rather than sending an empty string.
+ */
+export function buildBaseEvidenceRows(
+  inbound: Pick<InboundEnvelope, 'attachments' | 'rawEml'>,
+): Parameters<typeof dataApi.persistEvidence>[1] {
+  const rows: Parameters<typeof dataApi.persistEvidence>[1] = inbound.attachments.map((a) => ({
+    ...describeEvidence(a.filename, a.contentType),
+    blobPath: a.blobPath,
+    size: a.size,
+    ...(a.sha256 ? { sha256: a.sha256 } : {}),
+  }));
+
+  // The original message captured as raw `.eml` (box-sync ticket) becomes its own
+  // email-class evidence row so the archive holds the email itself. Idempotent on
+  // its deterministic blob path ({messageId}/message-<token>.eml). Omitted when the
+  // `$value` capture failed in fetchMessage (best-effort).
+  if (inbound.rawEml) {
+    rows.push({
+      ...describeEvidence(inbound.rawEml.filename, inbound.rawEml.contentType),
+      blobPath: inbound.rawEml.blobPath,
+      size: inbound.rawEml.size,
+      ...(inbound.rawEml.sha256 ? { sha256: inbound.rawEml.sha256 } : {}),
+    });
+  }
+  return rows;
+}
+
+df.app.activity('classifyPersist', {
+  handler: async (input: ClassifyPersistInput, ctx): Promise<{ persisted: number }> => {
+    const { caseId, inbound } = input;
+
+    const rows = buildBaseEvidenceRows(inbound);
+
+    // TKT-064 live classifier: role/registration/person-reflection for genuine image
+    // attachments (the direct-email path — extractImages covers PDF-embedded images). Runs
+    // only when the gate + model are configured; best-effort per image (a fetch/classify
+    // failure leaves the row at the default `unknown` role = pre-classifier behaviour).
+    // Per-provider AI opt-out: skip the vision model when the resolved
+    // work provider has ai_allowed=false (mirrors triageClassify). Undefined provider
+    // (unresolved/held case) = no opt-out; fail-open on lookup error.
+    let classifyAllowed = gates.imageRoleClassifyEnabled();
+    if (classifyAllowed && input.workProviderId) {
+      try {
+        const { aiAllowed } = await dataApi.workProviderAiAllowed(input.workProviderId);
+        if (aiAllowed === false) {
+          classifyAllowed = false;
+          ctx.log('[classifyPersist] image classify skipped — work provider opted out of AI (ai_allowed=false)');
+        }
+      } catch (e) {
+        ctx.log(JSON.stringify({ evt: 'classifyPersist.aiAllowedLookupFailed', caseId, err: e instanceof Error ? e.message : String(e) }));
+      }
+    }
+    if (classifyAllowed) {
+      for (const r of rows) {
+        if (!r.isImage) continue;
+        try {
+          const bytes = await downloadEvidenceBytes(r.blobPath);
+          const cls = await classifyImage({ imageBase64: bytes.toString('base64'), contentType: r.contentType, caseVrm: input.caseVrm });
+          if (cls) {
+            const f = classificationToEvidenceFields(cls, input.caseVrm);
+            r.imageRole = f.imageRole;
+            r.registrationVisible = f.registrationVisible;
+            r.acceptedForEva = f.acceptedForEva;
+            r.excluded = f.excluded;
+            r.exclusionReason = f.exclusionReason ?? null;
+            r.decisionSource = 'classifier';
+            // TKT-123: stamp the advisory reflection flag (dismissible SPA warning);
+            // exclusion behaviour below is unchanged.
+            r.personReflection = f.personReflection;
+          }
+        } catch (e) {
+          ctx.log(JSON.stringify({ evt: 'classifyPersist.imageClassifyFailed', caseId, file: r.filename, err: e instanceof Error ? e.message : String(e) }));
+        }
+      }
+    }
+
+    // engineer_report override (ADR-0014 "store BOTH, never overlay" / ADR-0021): an
+    // attachment whose detected LAYOUT is an engineer-report firm's (EVA/CNX) is a
+    // third-party engineer's report — persist it as evidence kind engineer_report, not
+    // instruction, so it is stored for comparison and never treated as the parse source.
+    // Keyed on WHO ISSUED the document (the typing's provider/layout name), NOT its
+    // content doc_type: probed against the real corpus, the audit instruction .DOC
+    // content-types as `report` (its title says "Audit Report") while the EVA report
+    // types as `instruction` — doc_type would reclassify exactly backwards. Guards:
+    // (1) gated by AUDIT_CASES_ENABLED so the kind_code 100000007 write is impossible
+    // until the operator applies the choice-row delta + flips the gate; (2) never strips
+    // the LAST instruction row — if reclassifying would leave no instruction-classed
+    // attachment, the override is skipped entirely (the body-text fallback below must
+    // keep firing only for genuinely instruction-less emails).
+    if (gates.auditCases() && (input.typings?.length ?? 0) > 0) {
+      const reportBlobPaths = new Set(
+        (input.typings ?? [])
+          .filter((t) => isEngineerReportLayoutName(t.providerName))
+          .map((t) => t.blobPath),
+      );
+      if (reportBlobPaths.size > 0) {
+        const wouldRemain = rows.some(
+          (r) => r.evidenceClass === 'instruction' && !reportBlobPaths.has(r.blobPath),
+        );
+        if (wouldRemain) {
+          let overridden = 0;
+          for (const r of rows) {
+            if (r.evidenceClass === 'instruction' && reportBlobPaths.has(r.blobPath)) {
+              r.evidenceClass = 'engineer_report';
+              r.isInstruction = false;
+              overridden += 1;
+            }
+          }
+          if (overridden > 0) {
+            ctx.log(
+              JSON.stringify({ evt: 'classifyPersist.engineerReportOverride', caseId, overridden }),
+            );
+          }
+        } else {
+          ctx.log(
+            JSON.stringify({ evt: 'classifyPersist.engineerReportOverrideSkipped', caseId, reason: 'would_strip_only_instruction' }),
+          );
+        }
+      }
+    }
+
+    // (The raw `.eml` email-class row is assembled in buildBaseEvidenceRows above — it is
+    // never image- or instruction-class, so its earlier presence cannot affect the image
+    // classifier loop or the engineer-report override.)
+
+    // Body-only instruction (ADR-0015): a RECEIVING-WORK email whose instructions are typed
+    // in the body with NO instruction attachment must still yield instruction evidence, else
+    // the case lands empty. Persist the body text to Blob and add one instruction row.
+    const hasInstructionAttachment = rows.some((r) => r.evidenceClass === 'instruction');
+    const bodyText = (inbound.body ?? '').trim();
+    if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+      // TKT-087: per-message token in the name (was the generic `email-body.txt`,
+      // which collided in the Box case folder on multi-email cases and mis-linked
+      // the later email's evidence row to the earlier email's Box file). Stable
+      // across replays — same message, same name.
+      const bodyName = bodyInstructionFileName(inbound.internetMessageId ?? inbound.messageId);
+      const up = await uploadEvidenceBytes(
+        inbound.messageId,
+        bodyName,
+        Buffer.from(bodyText, 'utf8'),
+        'text/plain',
+      );
+      rows.push({
+        filename: bodyName,
+        contentType: 'text/plain',
+        extension: 'txt',
+        evidenceClass: 'instruction',
+        isImage: false,
+        isInstruction: true,
+        blobPath: up.blobPath,
+        size: up.size,
+        sha256: up.sha256,
+      });
+      ctx.log(JSON.stringify({ evt: 'classifyPersist.bodyInstruction', caseId, bytes: up.size }));
+    }
+
+    const result = await dataApi.persistEvidence(caseId, rows);
+    await settlePersistedStatusGeneration(caseId, result, ctx);
+
+    // attachment_classified (auditaction 2) — one branch per persist, matching the flow.
+    await dataApi.recordAudit({
+      action: 'attachment_classified',
+      caseId,
+      summary: `classified + persisted ${result.persisted} evidence row(s)`,
+    });
+
+    ctx.log(JSON.stringify({ evt: 'classifyPersist', caseId, persisted: result.persisted }));
+    return result;
+  },
+});

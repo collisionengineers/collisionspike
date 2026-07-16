@@ -14,7 +14,7 @@ No code changes — determination + live re-confirmation only.
 The ticket was filed when auto role classification "was never built" (TKT-064 then-unbuilt,
 roles defaulting `unknown`, staff classifying by hand). That premise no longer holds:
 
-1. **TKT-064 shipped the vision classifier** (orchestration `src/lib/image-classify.ts`): one
+1. **TKT-064 shipped the vision classifier** (orchestration `src/platform/image-classify.ts`): one
    AOAI gpt-5 structured-output call per image returning role (overview / damage_closeup /
    additional / other), registration_visible (+ plate text, constrained to the CASE VRM), and
    person_reflection (TKT-123). It stamps evidence columns at intake on BOTH lanes — direct
@@ -25,7 +25,7 @@ roles defaulting `unknown`, staff classifying by hand). That premise no longer h
    `az functionapp config appsettings list`, 2026-07-09, this batch).
 3. **Live spot-check (Postgres, csadmin read 2026-07-09)**: 6,700 image evidence rows total;
    4,698 already carried a classifier-stamped role/registration before this batch. The 2,002
-   still-unclassified rows are the HISTORIC residue (box-mirror lane + the ~82 TKT-064 backfill
+   still-unclassified rows are the prior residue (box-mirror lane + the ~82 TKT-064 backfill
    errors + pre-classifier intake) — exactly the TKT-131 target set, whose reclassification run
    is recorded in [TKT-131's changes.md](../TKT-131-image-role-classify-retry/changes.md).
    The screenshots in evidence/ (all-Unclassified dropdowns) show pre-TKT-064 state.
@@ -46,5 +46,5 @@ full reconcile record lives in [TKT-112](../TKT-112-image-writer-reconcile/chang
 
 ## Remainders
 - The box-upload live-classify path (an image arriving VIA Box, not email) still isn't wired to
-  the classifier at event time — the TKT-131 backfill covers the historic rows; the forward path
+  the classifier at event time — the TKT-131 backfill covers the prior rows; the forward path
   is recorded as a remainder there (TKT-112 ownership applies: it would be an orch-side stamp).

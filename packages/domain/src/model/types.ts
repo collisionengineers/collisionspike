@@ -1,15 +1,13 @@
 /* ============================================================
    Collision Engineers — M1 domain model types.
 
-   Shaped like the eventual Dataverse / EVA-contract model (see
-   docs/architecture/data-model.md + the eva-sentry-api skill), but
-   trimmed to what the UI prototype needs. DOMAIN TYPES ONLY — no live shapes.
+   Shaped around the current case and EVA contracts. DOMAIN TYPES ONLY — no
+   transport or persistence shapes.
    ============================================================ */
 
 /* ----------  Case status state machine  ----------
    CANONICAL source is the framework-free contract; re-exported here so the
-   screens keep importing `CaseStatus` from '../mock' unchanged. The Dataverse
-   `cr1bd_casestatus` choice set reconciles 1:1 against this same union. */
+   status code table reconciles 1:1 against this same union. */
 export type { CaseStatus } from '../contracts/case-status';
 import type { CaseStatus } from '../contracts/case-status';
 
@@ -214,14 +212,13 @@ export interface IntakeChannel {
    `inspectionLocationPolicy` + `providerAutomationMode` use the BINDING enums
    (data-model.md / provider-corpus.md / inspection-address.md), re-exported from
    the domain layer so there is one source of truth shared with the policy gate
-   and the Dataverse choice sets (cr1bd_inspectionlocationpolicy /
-   cr1bd_providerautomationmode). This SUPERSEDES the stale prototype literals
+   and the current code tables. This supersedes the earlier prototype literals
    ('physical'|'image_based'|'mixed') — `prefer_address` is the unknown default. */
 export type { InspectionLocationPolicy } from '../domain/address-policy';
 import type { InspectionLocationPolicy } from '../domain/address-policy';
 
-/** How much automation a provider's intake is trusted with (only `review_auto`
- *  honored in M1). Mirrors the cr1bd_providerautomationmode choice set 1:1. */
+/** How much automation a provider's intake is trusted with. Mirrors the
+ * provider_automation_mode code table 1:1. */
 export type ProviderAutomationMode = 'manual' | 'review_auto' | 'full_auto';
 
 export interface Provider {
@@ -261,7 +258,7 @@ export interface ActivityEvent {
   actor: string;
   timestamp: string; // DD/MM/YYYY HH:mm
   /** PRIMARY line — always plain English (the ONE audit-action label map,
-   *  api/src/lib/last-activity.ts). Never a raw enum/snake_case/GUID (TKT-134). */
+   *  services/data-api/src/shared/last-activity.ts). Never a raw enum/snake_case/GUID (TKT-134). */
   description: string;
   /** Optional plain-language specifics (rendered as a secondary line). Only present
    *  when the underlying audit summary is human-safe — an engineering-shaped summary
@@ -296,7 +293,7 @@ export type ActionReason =
 
 /* ----------  Last activity (queue-row recency line, TKT-117)  ----------
    Computed SERVER-side from the case's audit trail + notes + chase log so the
-   plain-English descriptor lives in ONE place (api/src/lib/last-activity.ts) and
+   plain-English descriptor lives in ONE place (services/data-api/src/shared/last-activity.ts) and
    the SPA renders it verbatim — never a raw enum/status code. */
 export interface CaseLastActivity {
   /** Plain-English descriptor, e.g. "Images received", "Chased", "Note added by Alex". */
@@ -342,7 +339,7 @@ export interface Case {
   /** Latest durable vehicle-lookup outcome. Full evidence stays server-side. */
   vehicleLookup?: VehicleLookupSummary;
 
-  /** Claimant postal address captured at intake (cr1bd_evaclaimantaddress). A
+  /** Claimant postal address captured at intake. A
    *  Case-identity/intake-capture clue (like vrm/casePo), NOT one of the 12 EVA
    *  payload fields. Used ONLY as a geolocation text clue for the Phase-4a
    *  location-suggestion assist; never drives workflow/readiness/matching. */

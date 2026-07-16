@@ -1,6 +1,6 @@
 # Blank-claimant source replay plan — 2026-07-13
 
-> **Historical evidence only — never approved for apply.** This 134-case v1 snapshot was
+> **prior evidence only — never approved for apply.** This 134-case v1 snapshot was
 > generated against `engine-v2.23`; current code is newer and PLAN-005 requires a fresh,
 > separately checksummed v2 plan. Its broad non-claimant suggestions are outside the final
 > TKT-150 remediation allowlist.
@@ -12,7 +12,7 @@ readback showed only `AllowAzureServices`.
 
 The earlier 132-case census had grown to **134** active blank-claimant cases before this run. The
 hash-protected full plan contains live personal data and is intentionally not retained in Git; the
-hash below preserves its historical identity without making it an apply artifact.
+hash below preserves its prior identity without making it an apply artifact.
 
 - Plan contract: `tkt150-claimant-remediation-plan-v1`
 - Internal plan integrity: `5e3ee846f7ee9d0975e08559aa263a6b8f60bf8e09bfabea640e1d6e012cdc95`
@@ -22,7 +22,7 @@ hash below preserves its historical identity without making it an apply artifact
 - Conflicting: **0**
 - Failed: **1** — one case retains an empty `images.pdf` (zero bytes; parser 400). Its retained
   email body yielded no defensible claimant, so this remains an actionable failed-source case; the exact
-  Case/PO remains only in the external historical artifact.
+  Case/PO remains only in the external prior artifact.
 
 Queue ownership before apply:
 
@@ -38,7 +38,7 @@ references, 8 case references, 7 loss dates, 7 instruction dates, 6 accident-cir
 is tied to retained evidence and is applied only if the corresponding live field still matches the
 blank before-value.
 
-QDOS26079 now replays successfully from its retained legacy Word instruction. The plan recovers its
+QDOS26079 now replays successfully from its retained earlier Word instruction. The plan recovers its
 claimant, provider reference, loss date, and instruction date from the retained DOC source, with the
 email body independently agreeing on the claimant. The exact evidence UUID remains outside Git with
 the raw plan. No parser or source-read failure remained for that case.

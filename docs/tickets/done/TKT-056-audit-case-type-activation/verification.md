@@ -41,7 +41,8 @@ Verified by: ticket-verifier dispatch, 10-07-26. Findings:
   Q1–Q7 for the W4 pass.
 - Interesting observation for the operator: the CSV shows systematic QDOS26NNN/A.QDOS26NNN PAIRS
   (…44, …55, …56, …57, …68) — consistent with review-derived audit IDs sharing the parent number
-  (the D3 dual rule + the nested-folder note in docs/tickets/to-distill/audits/) — Q4b decides.
+  (the D3 dual rule + the nested-folder note retained by
+  [TKT-162](../../backlog/TKT-162-nested-audit-archive/TKT-162-nested-audit-archive.md)) — Q4b decides.
 
 > Activation record (2026-07-04) follows below.
 
@@ -66,7 +67,7 @@ Verified by: ticket-verifier dispatch, 10-07-26. Findings:
 - **Sibling engine suite** (`cedocumentmapper_v2.0`): 324 passed, 4 skipped — including the new
   marker-taxonomy matrix, `detect_case_type_signals`, engineer_report fallback suppression, and
   the triage-rules parity snapshot (238 → 255 across the two commits).
-- **Vendored parser Function suite** (`functions/parser`): 263 passed, 2 skipped (the 2
+- **Vendored parser Function suite** (`services/functions/parser`): 263 passed, 2 skipped (the 2
   `test_multiformat_extraction` failures are PRE-EXISTING on this box — they fail identically on
   the unmodified tree; environment-dependent .doc reader, not this change) — including both
   vendored-sync drift guards (byte-mirror restored).
@@ -75,7 +76,7 @@ Verified by: ticket-verifier dispatch, 10-07-26. Findings:
   marker sequence-independence pins in `case-po.test.ts`.
 - **API + orchestration**: `parser-eva-fields.test.ts` 24 passed (sentinel blocks EVA/CNX; PCH/
   QDOS still match); `parse.test.ts` 22 passed (multi-doc ordering/selection); full orch suite
-  119 passed; `tsc --noEmit` clean on domain/api/orchestration/mockup-app.
+  119 passed; `tsc --noEmit` clean on domain/api/services/orchestration/@cs/web.
 
 ## Local parser probe — REAL corpus (2026-07-03, vendored engine post-re-cut)
 
@@ -96,7 +97,7 @@ report types as `instruction` — so (a) `selectInstructionIndex` now ranks the 
 
 ## Eval harness — no regressions
 
-`python scripts/eval-email/run_eval.py` (52 items): **identical mismatch list before vs after**
+`python scripts/evaluation/email/run_eval.py` (52 items): **identical mismatch list before vs after**
 the engine change (9 pre-existing, all known deferred tickets — TKT-032/034/041/043 etc.);
 A.PCH261269/272 pass in both runs.
 

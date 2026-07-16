@@ -8,6 +8,6 @@
   counts + confirmed rows preserved → deploy API + SPA + Function → smoke-test one case per
   major provider (QDOS, PCH, QCL, FW) + one assist run on a photo case.
 - Update `docs/architecture/inspection-address-corpus.md` (new in-repo pipeline + marker rule),
-  ADR-0016 note, `LIVE_FACTS.json` + live-environment mirror, docs/gated.md; short ADR note
+  ADR-0016 note, `LIVE_FACTS.json` + live-environment mirror, docs/tickets/BOARD.md; short ADR note
   that auto-*suggest* on corpus miss stays within ADR-0013; close/annotate TKT-062 residuals.
 - `node verify-all.mjs` green.

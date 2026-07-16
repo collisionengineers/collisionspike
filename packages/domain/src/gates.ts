@@ -2,7 +2,7 @@
  * @cs/domain/gates — shared gate reader (server-only, process.env).
  *
  * Imported as '@cs/domain/gates' by:
- *   - api/src/lib/gates.ts (re-export)
+ *   - services/data-api/src/features/settings/gates.ts (re-export)
  *   - orchestration activity files (direct import)
  *
  * Deliberately NOT re-exported from the main barrel (src/index.ts) so that the browser SPA
@@ -56,7 +56,7 @@ export const gates = {
   // live TKT-064 classifier owns those; reconciliation is TKT-088/112). Needs a model endpoint +
   // deployment (see imageAnalysisEnabled). Off/unconfigured => the route is an honest no-op. The
   // scene-understanding stages carry image bytes off-region (GlobalStandard) — the live flip is
-  // DPIA-gated (docs/gated.md; PLAN-001 Phase 4).
+  // DPIA-gated; activation is tracked in docs/operations/operator-actions.md.
   imageAnalysis: (): boolean => process.env.IMAGE_ANALYSIS_ENABLED === 'true',
 
   // Destructive case-image deletion (TKT-160) — DELETE /api/cases/{caseId}/images/{evidenceId}.
@@ -75,12 +75,14 @@ export const gates = {
   // falls back to its prior behaviour while off, and the route honestly 404-gates.
   globalSearch: (): boolean => process.env.GLOBAL_SEARCH_ENABLED === 'true',
   // TKT-111 — the in-app assistant WRITE tier (propose→confirm→execute). Default OFF; ships DARK.
-  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA, docs/gated.md). The model NEVER
+  // Live flip is operator-blocked (per-gate E2/G5 sign-off + DPIA; see
+  // docs/operations/operator-actions.md). The model NEVER
   // issues a write directly — a human confirms a structured diff and the SPA calls an existing route.
   assistantWriteTier: (): boolean => process.env.ASSISTANT_WRITE_TIER_ENABLED === 'true',
   // TKT-110 — the read-only MCP server (Streamable-HTTP) for external agents. Default OFF; ships
   // DARK. Exposes ONLY registry read tools; needs its own Entra app-registration before a live flip
-  // (operator, docs/gated.md). Authorization is still enforced at the Data API, never the MCP layer.
+  // (see docs/operations/operator-actions.md). Authorization is still enforced at the Data API,
+  // never the MCP layer.
   mcpServer: (): boolean => process.env.MCP_SERVER_ENABLED === 'true',
   // TKT-154 — autonomous registration-bound IMAGE ingestion. Independent kill switch:
   // read-only MCP remains available while this write lane is dark. The route also requires
@@ -106,7 +108,7 @@ export const gates = {
   // Outlook filing (TKT-054 / 020726 E6) — default off. Gates the SPA "Suggested action"
   // button, the Data API enqueue route, AND the orchestration mover. Operator-blocked:
   // requires the Mail.ReadWrite Exchange-RBAC re-consent before it may be flipped
-  // (docs/gated.md).
+  // (see docs/operations/operator-actions.md).
   outlookMove: (): boolean => process.env.OUTLOOK_MOVE_ENABLED === 'true',
 
   // Retroactive case reconstruction (ADR-0022 / TKT-058) — all default off. retroCase is
@@ -132,7 +134,8 @@ export const gates = {
   triageImagesRouting: (): boolean => process.env.TRIAGE_IMAGES_ROUTING_ENABLED === 'true',
   triageCaseUpdate: (): boolean => process.env.TRIAGE_CASE_UPDATE_ENABLED === 'true',
   // TKT-093 — auto-attach promotion (ADR-0019 §4 promotion seam). Default off (ships DARK;
-  // live flip is operator-blocked, docs/gated.md). MODIFIES the ref-gate rung: an EXACT
+  // live flip is operator-blocked; see docs/operations/operator-actions.md). MODIFIES the
+  // ref-gate rung: an EXACT
   // SINGLE open-case match on a strong signal (case_po/job_ref — NEVER vrm-only, per the
   // inviolable VRM rule) is attached automatically instead of merely suggested. With this
   // off, the ref-gate rung is exactly today's suggest_attach.
@@ -148,7 +151,7 @@ export const gates = {
   // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
   // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
   // folders under the Box root is a NEW folder-naming semantic the operator must approve;
-  // docs/gated.md). While off, an unmatched images email is only FLAGGED for manual
+  // see docs/operations/operator-actions.md). While off, an unmatched images email is only FLAGGED for manual
   // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
   boxRegFolder: (): boolean => process.env.BOX_REG_FOLDER_ENABLED === 'true',
 

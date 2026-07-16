@@ -4,7 +4,7 @@
 
 ## Root cause
 The four live acks were mislabelled because `_is_bare_acknowledgement`
-(`functions/parser/cedocumentmapper_v2/rules/email_classifier.py`) keyed on the raw FIRST
+(`services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py`) keyed on the raw FIRST
 line (≤40 chars): a greeting ("Good morning,"/"Hi Ed") or a Teams "reacted to your message"
 notice preceded the thanks, so the ack was never seen → the inherited-subject ref/VRM routed
 the reply to `query` (Rule 4b). The severe sample-2 was an **automated** "Thank you for your

@@ -3,9 +3,9 @@
 ## Status
 Original internal-preview work delivered. The reopened Outlook follow-up was implemented, reviewed and
 merged through PR #86, but it is not currently deployed or verified live. An interrupted rollout was
-restored to the pre-PR-86 API and unchanged orchestration/SPA runtime. Its additive Phase-A schema is
+restored to the pre-PR-86 API and unchanged services/orchestration/SPA runtime. Its additive Phase-A schema is
 present; the final mailbox-key cutover was not applied. This documentation pass hardens the future
-cutover plan and performs no further deployment, subscription replacement, historical backfill, EVA
+cutover plan and performs no further deployment, subscription replacement, prior backfill, EVA
 query, Outlook mutation or production Archive write. Deployment, subscription replacement and signed-in
 Chrome proof remain **PENDING**.
 
@@ -37,18 +37,18 @@ until its rollout and signed-in verification are complete.
   both the inbox sidebar and the case-linked email panel. A missing or rejected link shows a concise
   saved-preview fallback instead of opening a generic inbox.
 - Fresh-schema truth and the replay-safe live delta now carry `graph_message_id` and
-  `outlook_web_link`; historical rows safely remain null until replayed/backfilled.
+  `outlook_web_link`; prior rows safely remain null until replayed/backfilled.
 - The SPA now waits for a fresh server check. The API reads the row's mailbox + immutable Graph id
   and delegates a GET-only current-message check to the orchestration identity. Deleted,
   inaccessible and temporarily unavailable messages retain the saved preview with a concise outcome.
 - New subscriptions are intended to send `Prefer: IdType="ImmutableId"`, and maintenance recognizes
-  their versioned callback URL. An equivalent legacy and immutable-ID subscription cannot be relied on
+  their versioned callback URL. An equivalent earlier and immutable-ID subscription cannot be relied on
   to coexist, so replacement is **not** create-before-delete. Routine maintenance now keeps and renews
-  the legacy delivery path and reports `rotationRequired`; it never tries the Graph-invalid duplicate
+  the earlier delivery path and reports `rotationRequired`; it never tries the Graph-invalid duplicate
   creation or deletes that path. The executable rotation attempt was rejected in review and removed:
   the future plan first needs durable delta checkpoints, drain proof, an operation ledger and an
   idempotent outbox. No subscription was changed by this work.
-- Historical remediation is implemented but deliberately not run. An explicit function-key endpoint
+- prior remediation is implemented but deliberately not run. An explicit function-key endpoint
   enumerates mailbox-qualified rows, performs GET-only exact Internet-Message-Id matching, and appends
   an immutable outcome to `outlook_link_backfill_ledger`. Only one exact result can atomically fill the
   Graph-id/webLink tuple.
@@ -57,16 +57,17 @@ until its rollout and signed-in verification are complete.
 
 ### Files
 
-- `orchestration/src/lib/graph.ts`, `orchestration/src/functions/activities/fetchMessage.ts`
-- `orchestration/src/lib/outlook-links.ts`, `orchestration/src/functions/outlook-link-{resolve,backfill}.ts`
-- `api/src/functions/internal.ts`, `api/src/lib/mappers.ts`
-- `api/src/functions/inbound.ts`, `api/src/lib/outlook-link-{resolver,backfill}.ts`
+- `services/orchestration/src/adapters/graph.ts`, `services/orchestration/src/workflows/intake/fetchMessage.ts`
+- `services/orchestration/src/platform/outlook-links.ts`, `services/orchestration/src/workflows/mailbox/outlook-link-{resolve,backfill}.ts`
+- `services/data-api/src/features/`, `services/data-api/src/shared/mapping/`
+- `services/data-api/src/features/inbound/`, `services/data-api/src/features/inbound/outlook-link-{resolver,backfill}.ts`
 - `packages/domain/src/domain/outlook-link.ts`, `packages/domain/src/dto/index.ts`
-- `mockup-app/src/components/OutlookMessageAction.tsx`, `LinkedEmailsPanel.tsx`, `screens/Inbox.tsx`
-- `migration/assets/schema/120_inbound_email.sql`
-- `migration/assets/schema/deltas/2026-07-13-tkt009-outlook-message-link.sql`
-- `migration/assets/schema/205_outlook_link_backfill.sql` and its replay-safe delta
-- `orchestration/src/lib/subscriptions.ts` and `subscriptions.test.ts` — retain/renew legacy
+- `apps/web/src/shared/ui/OutlookMessageAction.tsx`, `LinkedEmailsPanel.tsx`, and
+  `apps/web/src/features/inbox/Inbox.tsx`
+- `database/baseline/120_inbound_email.sql`
+- `database/migrations/2026-07-13-tkt009-outlook-message-link.sql`
+- `database/baseline/205_outlook_link_backfill.sql` and its replay-safe delta
+- `services/orchestration/src/platform/subscriptions.ts` and `subscriptions.test.ts` — retain/renew earlier
   subscriptions and report the blocked rotation instead of attempting an invalid automatic handoff.
 
 ### Offline evidence
@@ -80,7 +81,7 @@ until its rollout and signed-in verification are complete.
 - Full suites after hardening: domain 1,188, API 723, orchestration 441, SPA 522 passed.
 - Domain/API/orchestration TypeScript build: passed.
 - Production SPA build: passed.
-- `node verify-all.mjs`: 8 passed, 0 failed, 13 declared skips (retired Power Platform gates,
+- `node verify-all.mjs`: 8 passed, 0 failed, 13 declared skips (checks unavailable in the current checkout,
   locally unavailable Python virtual environments/corpus opt-in, and offline live-registry opt-in).
 
 No Outlook mailbox mutation was performed by this implementation or its tests.
@@ -118,11 +119,11 @@ After those gates pass, the frozen and separately approved execution plan still 
    inserted without violating the old global key.
 2. Deploy orchestration, mint a function-scoped resolver key, and configure the API's
    `OUTLOOK_LINK_RESOLVER_URL` plus Key-Vault-backed `OUTLOOK_LINK_RESOLVER_KEY`; then deploy API + SPA.
-3. While the legacy subscription is still delivering, persist a pre-delete Inbox delta checkpoint and
-   a durable one-mailbox operation row containing the approved operation ID, phase, legacy definition,
-   exact deployment/config hashes and rollback data. Prove the legacy queue and Durable instances are
+3. While the earlier subscription is still delivering, persist a pre-delete Inbox delta checkpoint and
+   a durable one-mailbox operation row containing the approved operation ID, phase, earlier definition,
+   exact deployment/config hashes and rollback data. Prove the earlier queue and Durable instances are
    drained to a recorded watermark before deletion; a database-only prefilter is not drain proof.
-4. Under a time-bounded operation lease, delete only that mailbox's legacy Inbox subscription, create
+4. Under a time-bounded operation lease, delete only that mailbox's earlier Inbox subscription, create
    the immutable-ID replacement, and re-list Graph until exactly one expected replacement is confirmed.
    On an ambiguous create response, re-list before retrying. If coverage is absent, immediately recreate
    the recorded supported definition and keep the cutover blocked.
@@ -133,7 +134,7 @@ After those gates pass, the frozen and separately approved execution plan still 
    independently reconcile.
 6. Repeat only after sign-off for the next mailbox. Sent Items requires its own documented checkpoint
    and recovery path; an Inbox-only tool must not advertise that it handles Sent Items.
-7. Invoke historical backfill only after its own zero-write candidate report, frozen hash and explicit
+7. Invoke prior backfill only after its own zero-write candidate report, frozen hash and explicit
    approval. Retain its ledger evidence and do not mutate any Outlook item.
 8. Complete signed-in Chrome proof against an available sample from each production mailbox and a
    deleted/inaccessible saved-preview outcome. Outlook remains read-only throughout.
@@ -149,7 +150,7 @@ After those gates pass, the frozen and separately approved execution plan still 
 - Simulate interruption after each database, subscription and Archive phase. The rehearsal must prove
   that checkpoints prevent duplicate rows/files and that the documented restore procedure recovers the
   pre-cutover relationships and bytes.
-- Rehearse persisted delta continuation, legacy-queue/Durable drain checks, ambiguous Graph create
+- Rehearse persisted delta continuation, earlier-queue/Durable drain checks, ambiguous Graph create
   responses, immediate coverage restoration, outbox partial publication/retry and independent final
   reconciliation. A timestamp/current-folder scan is not sufficient because moved or deleted gap mail
   can disappear from that snapshot.

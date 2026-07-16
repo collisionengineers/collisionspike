@@ -18,7 +18,7 @@ Opening the link is not proof that AX recorded an acceptance. The app must make 
 
 ## Evidence
 - [Operator note](./evidence/issue.md) — states that every AX new instruction requires the email link to be clicked and that this must be made very clear.
-- [Existing AX instruction fixture](<../../../../test-cases-and-data/test-cases/AX26353/AX26353/New inspection request - AX Ref_1070571.msg>) — sender engineersinspections@ax-uk.com, subject “New inspection request - AX Ref:1070571”, attached inspection request and an action URL on emailrequest.ax-uk.com.
+- [Existing AX instruction fixture](<../../../../tests/fixtures/manifests/evidence.json#test-cases/AX26353/AX26353/New inspection request - AX Ref_1070571.msg>) — sender engineersinspections@ax-uk.com, subject “New inspection request - AX Ref:1070571”, attached inspection request and an action URL on emailrequest.ax-uk.com.
 - TKT-036 establishes correct provider-instruction classification; TKT-049/TKT-050 cover AX-specific extraction. This ticket owns the post-classification acceptance action and its audit state.
 
 ## Proposed change
@@ -48,4 +48,4 @@ Distilled 2026-07-13 from the [operator note](./evidence/issue.md). The reposito
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/issue.md)
-- [AX instruction fixture](<../../../../test-cases-and-data/test-cases/AX26353/AX26353/New inspection request - AX Ref_1070571.msg>)
+- [AX instruction fixture](<../../../../tests/fixtures/manifests/evidence.json#test-cases/AX26353/AX26353/New inspection request - AX Ref_1070571.msg>)

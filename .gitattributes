@@ -1,17 +1,33 @@
-# Normalise text to LF in the repo; let git pick native EOL on checkout.
+# Normalize source text to LF in Git and in clean checkouts.
 * text=auto
+*.cjs  text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.jsx  text eol=lf
+*.md   text eol=lf
+*.mjs  text eol=lf
+*.py   text eol=lf
+*.sh   text eol=lf
+*.sql  text eol=lf
+*.toml text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.txt  text eol=lf
+*.xml  text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+scripts/hooks/* text eol=lf
 
-# This source historically contained a raw NUL delimiter and CRLF bytes, which made
-# `text=auto` classify the old blob as binary. Preserve its existing byte-level line
-# endings for this transition, but force a text diff so the escaped delimiter and
-# future changes remain reviewable line by line.
-orchestration/src/functions/gated/retro-case.ts -text diff whitespace=cr-at-eol
-
-# Binary assets must NEVER be line-ending-converted (CRLF mangling corrupts them —
-# this is the failure class behind the broken deployed logo). Treat as binary.
+# Keep the immutable working files byte-stable in Windows checkouts while preserving rename-equivalent Git blobs.
+workingspace/** text eol=crlf -diff
+# Binary source evidence must never be line-ending converted.
+tests/fixtures/evidence/** -text -diff
 *.png   binary
 *.jpg   binary
 *.jpeg  binary
+*.avif  binary
 *.gif   binary
 *.ico   binary
 *.webp  binary
@@ -23,9 +39,14 @@ orchestration/src/functions/gated/retro-case.ts -text diff whitespace=cr-at-eol
 *.eot   binary
 *.pdf   binary
 *.eml   binary
+*.msg   binary
+*.boxnote binary
 *.doc   binary
 *.docx  binary
+*.ppt   binary
 *.pptx  binary
 *.xls   binary
 *.xlsx  binary
+*.mov   binary
+*.mp4   binary
 *.zip   binary

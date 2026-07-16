@@ -23,9 +23,9 @@ the documentation/registry updates the MAINTENANCE protocol requires.
 - `evidence/operator-note.md` — plan Phase F (2026-07-06 investigation).
 - Inputs: the TKT-075 pipeline outputs (DDL delta, PII-free CSV, `920` replace seed).
 - Live counts before/after: the registry
-  [live-environment.md](../../../architecture/live-environment.md) / `LIVE_FACTS.json` (never
+  [live-environment.md](../../../operations/live-environment.md) / `LIVE_FACTS.json` (never
   embedded here).
-- Docs to reconcile: `docs/architecture/inspection-address-corpus.md`, ADR-0016, docs/gated.md,
+- Docs to reconcile: `docs/architecture/inspection-address-corpus.md`, ADR-0016, docs/tickets/BOARD.md,
   the TKT-062 residual annotations.
 
 ## Proposed change
@@ -44,7 +44,7 @@ PROPOSED (not executed) — ordered, backup-first cutover:
    case.
 7. **Document**: update `inspection-address-corpus.md` (in-repo pipeline + marker rule),
    ADR-0016 note, `LIVE_FACTS.json` + the live-environment mirror (bump `lastVerified`),
-   docs/gated.md; add the short ADR note that auto-*suggest* on corpus miss stays within
+   docs/tickets/BOARD.md; add the short ADR note that auto-*suggest* on corpus miss stays within
    ADR-0013; close/annotate the TKT-062 residuals.
 
 ## Acceptance

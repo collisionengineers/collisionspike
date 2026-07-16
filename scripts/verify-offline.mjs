@@ -10,13 +10,9 @@ const repo = join(root, '..');
 const node = process.execPath;
 const skipped = [];
 const checks = [
-  ['domain build', ['run', 'build:domain']],
-  ['API build', ['run', 'build:api']],
-  ['orchestration build', ['run', 'build:orch']],
-  ['SPA build', ['run', 'build', '--workspace', 'collisionspike-mockup']],
-  ['domain/SPA tests', ['test']],
-  ['API tests', ['run', 'test', '--workspace', '@cs/api']],
-  ['orchestration tests', ['run', 'test', '--workspace', '@cs/orchestration']],
+  ['all TypeScript builds', ['run', 'build']],
+  ['all TypeScript tests', ['test']],
+  ['capture contract', ['run', 'contract:capture:check']],
 ];
 
 function run(label, command, args, cwd = repo) {
@@ -26,11 +22,11 @@ function run(label, command, args, cwd = repo) {
 
 try {
   for (const [label, args] of checks) run(label, 'npm', args);
-  run('ticket records', node, [join(repo, 'scripts', 'check-tickets.mjs')]);
-  run('documentation links', node, [join(repo, 'scripts', 'check-doc-links.mjs')]);
-  run('skill sync', node, [join(repo, 'scripts', 'check-skills-sync.mjs')]);
-  for (const name of ['parser', 'enrichment', 'evasentry', 'evavalidation', 'location-suggest', 'box-webhook']) {
-    const dir = join(repo, 'functions', name);
+  run('ticket records', node, [join(repo, 'scripts', 'checks', 'check-tickets.mjs')]);
+  run('documentation links', node, [join(repo, 'scripts', 'checks', 'check-doc-links.mjs')]);
+  run('generated agent adapters', 'npm', ['run', 'check:adapters']);
+  for (const name of ['parser', 'vehicle-enrichment', 'eva-sentry', 'location-assist', 'box-webhook', 'ocr']) {
+    const dir = join(repo, 'services', 'functions', name);
     const py = process.platform === 'win32' ? join(dir, '.venv', 'Scripts', 'python.exe') : join(dir, '.venv', 'bin', 'python');
     if (!existsSync(py)) {
       process.stdout.write(`\n=== ${name} pytest ===\nSKIP — no provisioned virtualenv for ${name}.\n`);
@@ -38,14 +34,6 @@ try {
       continue;
     }
     run(`${name} pytest`, py, ['-m', 'pytest', 'tests', '-q'], dir);
-  }
-  const ocr = join(repo, 'ocr');
-  const ocrPy = process.platform === 'win32' ? join(ocr, '.venv', 'Scripts', 'python.exe') : join(ocr, '.venv', 'bin', 'python');
-  if (!existsSync(ocrPy)) {
-    process.stdout.write('\n=== ocr pytest ===\nSKIP — no provisioned virtualenv for ocr.\n');
-    skipped.push('ocr');
-  } else {
-    run('ocr pytest', ocrPy, ['-m', 'pytest', 'tests', '-q'], ocr);
   }
   const note = skipped.length ? ` (skipped pytest: ${skipped.join(', ')} — no provisioned venv; provision each function's .venv for full Python coverage)` : '';
   console.log(`\nPASS — offline verification completed without Azure credentials.${note}`);

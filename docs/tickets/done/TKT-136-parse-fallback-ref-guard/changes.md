@@ -33,7 +33,7 @@ re-enter via documents.
   `vrm_document_candidate_is_bad` in `_fallback_vrm` and `_fallback_vrm_from_labels`
   (a fuzzy-matched VRM label line remains anchored by construction — `Registration Number` →
   next-line value still extracts; unanchored `estimate HD4110` near "vehicle" no longer does).
-- Fixture `tests/fixtures/instructions/RIGERANT ESTIMATE 01.pdf` + expected.json: pre-fix engine
+- Sibling `RIGERANT ESTIMATE 01` PDF and expected-result fixtures: pre-fix engine
   (A/B via stash) reproduces `reference='RIGERANT R1234YF'` + `vrm='HD4110'`; post-fix pins both
   empty. New `tests/test_reference_guards.py` (33 tests: money shapes incl. "768.00"/"£1,234.56"/
   "GBP487", fragment shapes, tier-4 boundary, document tight-anchor/trigram). `test_regression.py`
@@ -46,14 +46,14 @@ collisionspike parser suite 281 passed / 11 skipped / 1 PRE-EXISTING environment
 (`test_multiformat_extraction[ALS_doc]` — fails identically against the pre-re-cut tree).
 
 ## Re-vendor (collisionspike)
-`functions/parser/cedocumentmapper_v2/rules/{engine,email_classifier}.py` byte-mirrored from the
+`services/functions/parser/cedocumentmapper_v2/rules/{engine,email_classifier}.py` byte-mirrored from the
 tag; `PROVENANCE.md` bumped to `engine-v2.12`/`ab5f8d2` (its stale "tags LOCAL" note cleared —
 v2.10/v2.11 were already on origin). `tests/test_engine_vendored_in_sync.py` green.
 
 ## Audited live data fix (case_ref rows) — EXECUTED 2026-07-09
 Enumerated live via the guard shapes (money-shaped / RIGERANT-like / prose-fragment): **13
 candidates** (`evidence/junk-ref-candidates.csv`). Applied as the repo delta
-`migration/assets/schema/deltas/2026-07-09-tkt136-ref-junk-cleanup.sql` (idempotent,
+`database/migrations/2026-07-09-tkt136-ref-junk-cleanup.sql` (idempotent,
 backup-first via `backup_20260709_tkt136_ref_junk`, per-row audit_event with the recorded
 nearest-fit action, mirroring the vrm-junk-cleanup precedent):
 - **4 cleared to NULL** (no recoverable ref): A.PCH26003 `RIGERANT R1234YF` (the marker),

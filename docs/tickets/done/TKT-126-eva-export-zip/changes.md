@@ -5,7 +5,7 @@ Built + deployed live (2026-07-09, PLAN-003 UI-wave batch).
 
 ## What was built
 
-**New — `mockup-app/src/screens/eva-export-zip.ts`** (pure, unit-tested): the zip MANIFEST layer —
+**New — `apps/web/src/features/cases/eva-export-zip.ts`** (pure, unit-tested): the zip MANIFEST layer —
 `buildEvaZipImageSpecs` names each member `NNN-<original name>` so a plain filename sort reproduces
 the EVA photo order; `orderEntriesByKeys` re-applies the reviewer's drag order from the on-screen
 photo orderer (stale/partial captures can never DROP a photo — uncovered entries append in seed
@@ -15,7 +15,7 @@ ALL accepted photos in sequence INCLUDING those two again; excluded images never
 **New — `eva-export-zip.test.ts`**: pins the preview-repeat rule, the sortable numeric naming, the
 excluded/not-accepted absence, name sanitisation, and the drag-order re-application.
 
-**Edited — `mockup-app/src/screens/CaseDetail.tsx`**:
+**Edited — `apps/web/src/features/cases/CaseDetail.tsx`**:
 - "Export for EVA" now builds ONE `.zip`: the canonical 12-field EVA JSON (`buildEvaJson`,
   byte-identical to the submit flow) + every included image fetched through the authenticated seam
   (new `evidenceContentBlob` on `DataAccessExt` — the content route's bytes as a Blob; fetching a
@@ -28,7 +28,7 @@ excluded/not-accepted absence, name sanitisation, and the drag-order re-applicat
 - **Recorded choice**: the separate JSON-only download is REPLACED — the JSON travels inside the
   zip (one artifact, per the operator ask). No caller depended on the bare .json.
 
-**Seam** — `mockup-app/src/data/rest-client.ts` (+ mock-source): `evidenceContentBlob(id)`.
+**Seam** — `apps/web/src/data/rest-client.ts` (+ mock-source): `evidenceContentBlob(id)`.
 
 ## Deploy + live proof
 SPA deployed. Live export on `A.QDOS26035` (ready_for_eva): one zip,

@@ -18,8 +18,8 @@ The distinction must not turn a chase into new work. Some messages contain attac
 
 ## Evidence
 - [Operator note](./evidence/info.md) — requests a category separate from Case query for providers chasing an update.
-- [General update sample](<./evidence/Re100290.012_The Car Hire Specialists.eml>) — asks “Any updates regarding this case?” and carries reference 100290.012.
-- [AX report chase](./evidence/REPORT.eml) — asks for a report on AX reference 1075184 and registration JY04 ELY.
+- [General update sample](./evidence-manifest.json) — asks “Any updates regarding this case?” and carries reference 100290.012.
+- [AX report chase](./evidence-manifest.json) — asks for a report on AX reference 1075184 and registration JY04 ELY.
 - [Estimate-chase corpus](../TKT-187-multi-case-provider-chase-linking/evidence/) — repeatedly asks whether estimates are in, with one or several AX references/registrations.
 - TKT-046 separated case updates from general queries; TKT-187 owns associating one chase with several existing cases.
 
@@ -52,7 +52,7 @@ Distilled 2026-07-13 from the [operator note and original messages](./evidence/)
 - [Verification](./verification.md)
 - [Provider-chase note](./evidence/info.md)
 - [Estimate-chase note](../TKT-187-multi-case-provider-chase-linking/evidence/info.md)
-- [General update sample](<./evidence/Re100290.012_The Car Hire Specialists.eml>)
-- [AX report sample](./evidence/REPORT.eml)
-- [Singular estimate sample](../TKT-187-multi-case-provider-chase-linking/evidence/ESTIMATE_singular.eml)
-- [Multi-estimate sample](../TKT-187-multi-case-provider-chase-linking/evidence/ESTIMATES_multi.eml)
+- [General update sample](./evidence-manifest.json)
+- [AX report sample](./evidence-manifest.json)
+- [Singular estimate sample](../TKT-187-multi-case-provider-chase-linking/evidence-manifest.json)
+- [Multi-estimate sample](../TKT-187-multi-case-provider-chase-linking/evidence-manifest.json)

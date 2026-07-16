@@ -26,8 +26,8 @@ Two usability gaps in the CaseDetail address flow:
 ## Evidence
 
 - `evidence/operator-note.md` — plan Phase E + root cause 6 (2026-07-06 investigation).
-- `mockup-app/src/screens/CaseDetail.tsx` — the address tab / confirm path.
-- Provider policy fields exist in the corpus + `api/src/lib/mappers.ts` but are unused in
+- `apps/web/src/features/cases/CaseDetail.tsx` — the address tab / confirm path.
+- Provider policy fields exist in the corpus + `services/data-api/src/shared/mapping/` but are unused in
   this flow.
 - Depends on TKT-076 for `distanceMiles` + the labelled-fallback flag in the payload.
 

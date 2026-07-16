@@ -10,9 +10,9 @@ record understated both. See the [reopen follow-up](./evidence/reopen-followup-1
 ## Sweep verdict (transcribed verbatim, 2026-07-10)
 
 - **Line 1 (unmatched email shows "may match archive folder X · Open in Box"): UNIMPLEMENTED.**
-  `archiveLookup`'s **only** consumer across api/orchestration/mockup-app/packages is
-  `api/src/functions/assistant.ts` (grep-proven); the inbox hint at
-  `mockup-app/src/screens/Inbox.tsx:674-682` is TKT-093's *open-case* `linkSuggestionCasePo`, not an
+  `archiveLookup`'s **only** consumer across `services/data-api`, `services/orchestration`, `apps/web`, and `packages` is
+  `services/data-api/src/features/assistant/chat-routes.ts` (grep-proven); the inbox hint at
+  `apps/web/src/features/inbox/Inbox.tsx:674-682` is TKT-093's *open-case* `linkSuggestionCasePo`, not an
   archive match; no re-scope exists (ADR-0022 doesn't mention TKT-107/suggest-only; TKT-119/140 are
   the retro locate/drain tickets — different scope, both done).
 - **Line 2 (assistant archive lookup): deployed but a live no-op.** The code IS in the live api

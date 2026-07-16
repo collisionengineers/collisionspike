@@ -13,16 +13,16 @@ deployed (deploy + live sweep owned by the dispatching session).
 ## Files touched
 - sibling `src/cedocumentmapper_v2/application/service.py` (+ new sibling
   `tests/test_extract_images.py`)
-- `functions/parser/cedocumentmapper_v2/application/service.py` (re-vendor mirror of the above)
-- `functions/parser/cedocumentmapper_v2/PROVENANCE.md` (pin → `engine-v2.11`)
-- `functions/parser/tests/test_extract_images.py` (mirrored naming test)
+- `services/functions/parser/cedocumentmapper_v2/application/service.py` (re-vendor mirror of the above)
+- `services/functions/parser/cedocumentmapper_v2/PROVENANCE.md` (pin → `engine-v2.11`)
+- `services/functions/parser/tests/test_extract_images.py` (mirrored naming test)
 
 ## Summary
 
 **Root cause (located exactly):** the engine's `extract_images` built its stem as
 `f"{safe_filename(fields.get('work_provider', 'RJS'))}_{safe_filename(fields.get('vrm', '') or 'UnknownVRM')}"`
 — a hardcoded `'RJS'` provider default and a literal `'UnknownVRM'` placeholder. The cloud wrapper
-(`functions/parser/parser_adapter.py run_image_extraction`) calls it with **`fields={}`** (its own
+(`services/functions/parser/parser_adapter.py run_image_extraction`) calls it with **`fields={}`** (its own
 comment wrongly assumed "the engine uses generic stems"), so **every** live extraction was branded
 `RJS_UnknownVRM_img_<page>_<n>` regardless of the case's actual provider/VRM. The orchestration's
 `extractImages` activity then prepends `<source-doc-stem>__`, producing exactly the operator's
@@ -72,7 +72,7 @@ on the ref in CI.
 - **Deployed live:** parser republished at sibling tag `engine-v2.11` — the hardcoded `'RJS'`
   default + literal `'UnknownVRM'` are gone from the extraction naming (unresolved tokens are
   omitted; stems stay unique/Box-safe).
-- **Live scale of the historical mislabel (Postgres audit):** **5,693** evidence rows carry
+- **Live scale of the prior mislabel (Postgres audit):** **5,693** evidence rows carry
   `RJS_UnknownVRM` names (3,547 created since 2026-07-04 alone — every PDF/DOCX extraction since
   the parser went live).
 - **Rename-or-leave decision (recorded): LEAVE.** Renaming 5,693 evidence rows would desynchronise

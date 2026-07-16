@@ -1,6 +1,6 @@
 ---
 name: ticket-implement
-description: Implements and closes collisionspike tickets (TKT-NNN) in the status-folder ticket system — reads the ticket spec/research/plan, verifies live facts against the registry, routes work by area, records changes.md and verification.md, and changes status with scripts/ticket-move.mjs. Use when picking up, finishing, verifying, or moving a ticket, or when the user references TKT-NNN or docs/tickets/.
+description: Implements and closes collisionspike tickets (TKT-NNN) in the status-folder ticket system — reads the ticket spec/research/plan, verifies live facts against the registry, routes work by area, records changes.md and verification.md, and changes status with scripts/maintenance/ticket-move.mjs. Use when picking up, finishing, verifying, or moving a ticket, or when the user references TKT-NNN or docs/tickets/.
 ---
 
 # Ticket implement
@@ -15,11 +15,11 @@ Workflow for **working an existing ticket** to completion. The authoritative spe
 - [ ] Read ticket .md + research-link + related tickets + plan (if set)
 - [ ] Verify live facts against LIVE_FACTS.json (not the research pack)
 - [ ] Check binding reviews if UI/domain
-- [ ] Pick up with: node scripts/ticket-move.mjs TKT-NNN now
+- [ ] Pick up with: node scripts/maintenance/ticket-move.mjs TKT-NNN now
 - [ ] Implement (route by area)
 - [ ] Write changes.md + verification.md
 - [ ] Move to verify/done/blocked/next with ticket-move.mjs
-- [ ] node scripts/check-tickets.mjs && node scripts/check-doc-links.mjs
+- [ ] node scripts/checks/check-tickets.mjs && node scripts/checks/check-doc-links.mjs
 ```
 
 ## Pick-up (before coding)
@@ -28,23 +28,23 @@ Workflow for **working an existing ticket** to completion. The authoritative spe
    `docs/tickets/<status>/TKT-NNN-<slug>/TKT-NNN-<slug>.md`.
 2. Open the ticket spec and read frontmatter plus every body section.
 3. Follow `research-link`:
-   - Cohort A (TKT-001…020): `docs/plans/work-todo-spike/<area>/research/<name>.md`
+   - Follow the ticket's `research-link` frontmatter when present; research has no fixed cohort path.
    - Drop-note tickets: `docs/tickets/<status>/TKT-NNN-<slug>/evidence/operator-note.md` plus samples.
 4. Read every ticket in `tickets-it-relates-to` — do not duplicate or contradict sibling work.
 5. If frontmatter has `plan: PLAN-NNN`, read `docs/tickets/plans/PLAN-NNN-*.md` and keep the plan's progress accurate.
 6. **Verify live facts** against [`LIVE_FACTS.json`](../../../LIVE_FACTS.json) and
-   [live-environment.md](../../../docs/architecture/live-environment.md). Research packs are advisory
+   [live-environment.md](../../../docs/operations/live-environment.md). Research packs are advisory
    point-in-time snapshots.
-7. Pick up with `node scripts/ticket-move.mjs TKT-NNN now`. Do not hand-edit the folder path or BOARD row.
+7. Pick up with `node scripts/maintenance/ticket-move.mjs TKT-NNN now`. Do not hand-edit the folder path or BOARD row.
 
 ## Route by `area`
 
 | area | Route |
 |------|-------|
 | `parsing` | Edit sibling `cedocumentmapper_v2.0` first, re-vendor into parser Function, deploy — ADR-0018 |
-| `box` / `intake` / `email` / `platform` | [docs/azure/README.md](../../../docs/azure/README.md) playbooks + `azure:*` skills |
+| `box` / `intake` / `email` / `platform` | [operations](../../../docs/operations/README.md) playbooks + the matching platform skill |
 | `ui` / `dashboard` | `.cursor/rules/ui-user-language.mdc` — no engineering strings on screen |
-| `docs` | [docs/MAINTENANCE.md](../../../docs/MAINTENANCE.md) — no live-number leakage outside registry |
+| `docs` | [documentation governance](../../../docs/governance/documentation.md) — no live-number leakage outside registry |
 | `evidence` / `ai` | Follow ticket research; gate reads from registry |
 
 Parser regressions need a fixture in `cedocumentmapper_v2.0/tests/fixtures/` before re-vendor. Intake/orch
@@ -57,7 +57,7 @@ verdict — status transitions belong to the dispatching loop.
 
 ## Implement
 
-- Scope to the ticket's **Acceptance** section — do not expand into unrelated ROADMAP items.
+- Scope to the ticket's **Acceptance** section — do not expand into unrelated planned work.
 - If blocked on operator action, stop coding and move to `blocked` with `ticket-move.mjs`.
 - Record sample emails/docs used under `evidence/` if new material arrives mid-work.
 - If the ticket belongs to a plan, update the plan body/progress notes when the change materially advances it.
@@ -96,16 +96,17 @@ use `done` only when the ticket acceptance explicitly allows offline-only proof.
 
 Add a dated follow-up doc (pattern:
 [TKT-003/changes-regression-01-07-26.md](../../../docs/tickets/done/TKT-003-box-sync/changes-regression-01-07-26.md)).
-Reopen with `node scripts/ticket-move.mjs TKT-003 now` until re-verified. Link the follow-up from `changes.md`.
+Reopen with `node scripts/maintenance/ticket-move.mjs TKT-003 now` until re-verified. Link the follow-up from `changes.md`.
 
-Operator gates belong in [docs/gated.md](../../../docs/gated.md) **and** ticket `blocked` status.
+Operator actions belong in the generated [operator-actions view](../../../docs/operations/operator-actions.md)
+and ticket `blocked` status.
 
 ## Finish
 
 ```bash
-node scripts/check-tickets.mjs
-node scripts/check-doc-links.mjs
-node scripts/check-skills-sync.mjs
+node scripts/checks/check-tickets.mjs
+node scripts/checks/check-doc-links.mjs
+node scripts/maintenance/generate-agent-adapters.mjs --check
 ```
 
 Fix any frontmatter, board, plan, manifest, skill-sync, or link errors before handing off. If all tickets in

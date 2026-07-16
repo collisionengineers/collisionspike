@@ -3,8 +3,8 @@
 
    Re-implements collisioncc `src/lib/case-status.ts` `statusForReviewCase`
    on the collisionspike domain model. The 13-value `CaseStatus` union is the
-   authority used by the prototype (`mockup-app/src/mock/types.ts`) and the
-   status choice set; both MUST reconcile 1:1 against this file.
+   authority used by the web app and the status code table; both MUST reconcile
+   1:1 against this file.
 
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No React, no I/O, no live calls.
    The guard operates over small STRUCTURAL inputs (not the full React-coupled
@@ -47,7 +47,7 @@ export type CaseStatus =
   | 'removed'
   | 'done';
 
-/** All 13 values, frozen in declaration order (drives the choice-set parity test). */
+/** All 13 values, frozen in declaration order (drives the code-table parity test). */
 export const CASE_STATUSES: readonly CaseStatus[] = [
   'new_email',
   'ingested',
@@ -70,9 +70,9 @@ export const CASE_STATUSES: readonly CaseStatus[] = [
  * `error`, plus `removed` (the Superuser soft-remove terminal, work-todo-spike)
  * and `done` (the post-EVA delivery terminal, TKT-094 / ADR-0023 — written only
  * by an explicit mark-done transition, guarded `WHERE status = eva_submitted`);
- * these reconcile 1:1 with the choice set's `stateMachine.terminals`
- * (`packages/domain/src/data/choicesets/case-status.json`), asserted by
- * `migration/assets/verify-parity-pg.mjs`. `linked_to_instruction` and `duplicate_risk`
+ * these reconcile 1:1 with the code table's `stateMachine.terminals`
+ * (`packages/domain/src/data/code-tables/case-status.json`), asserted by
+ * `database/tests/code-table-parity.mjs`. `linked_to_instruction` and `duplicate_risk`
  * are BRANCH states set by the dedup flow, NOT terminals — the guard may
  * recompute a linked/duplicate case once its fields/images resolve — EXCEPT a
  * merge-retired case: when the `duplicate_keys.mergedInto` survivor marker is
@@ -394,8 +394,8 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
 /* ----------  The guard (re-implements `statusForReviewCase`)  ----------
    Mirrors the LIVE FIX-3 EVIDENCE-AWARE tree (CS Status Evaluate
    `Compute_next_status`, flows/definitions/status-evaluate.definition.json), so
-   the Code App contract and the deployed flow stop diverging (re-saving a Case
-   through the app no longer re-stamps a status the flow wouldn't). Order is
+   the application contract and deployed services stop diverging (re-saving a
+   Case no longer re-stamps an inconsistent status). Order is
    load-bearing:
      1. terminal?                          -> return it unchanged (terminal-lock)
      1b. merge-retired (`mergedInto` set)?  -> 'linked_to_instruction' (retired-lock,

@@ -6,7 +6,7 @@ the **fix is deployed** (below) and the ticket is back in verify awaiting the ne
 Connexus arrival to prove the new wording live.
 
 > **Reopen-fix deployed (2026-07-10, azure-integration-engineer dispatch):** `buildHeldReason()`
-> (`api/src/functions/internal.ts:846-917`, Held seam rewired at 1269-1332) — three handler-plain
+> (`services/data-api/src/features/`, Held seam rewired at 1269-1332) — three handler-plain
 > shapes: unknown sender keeps the New-client wording **verbatim**; known intermediary + principal
 > unresolved → note "Held — intermediary sender" ("Intermediary sender (Connexus): the instructing
 > provider could not be determined from the instruction. Candidates: Performance Car Hire, SBL. …")
@@ -80,13 +80,13 @@ CODE DEPLOYED (2026-07-02) — activation pending the D8 seed delta
   unit-tested). This is live on `cespk-api-dev` / `cespk-orch-dev`.
 - The **data** side — a `connexus.co.uk` intermediary `image_source` row joined N:N to PCH + SBL — is
   authored as the operator-gated delta
-  [`2026-07-02-rules-engine-v2-identification.sql`](../../../../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql)
-  (gated.md **§D8**) and is **not yet applied** to the live database. Until it lands, the code path is
+  [`2026-07-02-rules-engine-v2-identification.sql`](../../../../database/migrations/2026-07-02-rules-engine-v2-identification.sql)
+  (ticket board **§D8**) and is **not yet applied** to the live database. Until it lands, the code path is
   live-safe but degrades to today's behaviour (an empty intermediary candidate list) per the delta's own
   "Unblocks (not blocks)" note.
 
 ## Pending / gaps
-- 🔒 D8 seed apply (operator, [docs/gated.md](../../../gated.md) §D8) — required before a Connexus email can
+- 🔒 D8 seed apply (operator, [docs/tickets/BOARD.md](../../BOARD.md) §D8) — required before a Connexus email can
   resolve to PCH/SBL instead of "new enquiry".
 - No live probe yet against a real Connexus email post-seed (can't be exercised until D8 lands).
 
@@ -100,12 +100,12 @@ SBL, and holds for review with an explicit unresolved-principal reason when neit
 **Verdict: TESTED (offline) — deployment pending.**
 
 This block supersedes the earlier live/deployed verdicts for the PR 55 regression repair. Those
-records remain historical evidence for the older build; they do not prove the repaired build live.
+records remain prior evidence for the older build; they do not prove the repaired build live.
 
 - The provider resolver now carries `instruction_content` versus `single_intermediary` into the Held
   explanation. Explicit document evidence retains the direct-provider wording; the single-provider
   intermediary fallback uses neutral routing wording and records its source in audit detail.
-- `api/src/functions/apply-parser-fields.test.ts` covers both resolution sources, the display-lookup
+- `services/data-api/src/features/inbound/internal/parser-fields.test.ts` covers both resolution sources, the display-lookup
   fallback and the unresolved intermediary path. The existing sender-identity tests continue to pin
   Connexus as an intermediary rather than a new customer.
 - Live proof still required: deploy the repaired API, then observe a new Connexus PCH, SBL and
@@ -132,7 +132,7 @@ FAILED
 - Acceptance 3: the same case was Held for review, but its case note and audit wording could not be read.
   The read-only PostgreSQL connection was blocked by the live firewall, and no firewall mutation was
   attempted.
-- Regression follow-up: `api/src/functions/apply-parser-fields.test.ts` passed 22/22, including the
+- Regression follow-up: `services/data-api/src/features/inbound/internal/parser-fields.test.ts` passed 22/22, including the
   source-aware Held-reason paths. The offline tests do not override the fresh live PCH counterexample.
 
 ## Pending / gaps

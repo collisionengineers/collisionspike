@@ -9,9 +9,9 @@
 > model-egress flip is justified (see [PLAN-001](../../../plans/PLAN-001-ai-mcp-hardening.md) §Phase 4).
 >
 > Live facts are checked against the registry
-> ([live-environment.md](../../../../architecture/live-environment.md) / `LIVE_FACTS.json`), not the
+> ([live-environment.md](../../../../operations/live-environment.md) / `LIVE_FACTS.json`), not the
 > research pack. PII: no verbatim registration appears here (aggregate + shape only), per
-> `scripts/eval-email/README.md`.
+> `scripts/evaluation/email/README.md`.
 
 ## Recommendation (TL;DR)
 
@@ -48,7 +48,7 @@ Three **separable axes** (the bench must not conflate them):
 
 Three downstream destinations (unchanged by this ticket):
 
-- **`case_.vrm`** — the case identity (`migration/assets/schema/050_case.sql`). **Never auto-written** from
+- **`case_.vrm`** — the case identity (`database/baseline/050_case.sql`). **Never auto-written** from
   a photo read (ADR-0013).
 - **`evidence.registration_visible`** — a **tri-state** final flag (`060_evidence.sql`); the EVA image rule
   needs ≥1 accepted `overview` with the *case* registration visible (`packages/domain/src/contracts/image-rules.ts`).
@@ -69,7 +69,7 @@ running on the live stack:
   Engine: YOLO-v9-t detector + CCT-xs-v2 global OCR (ONNX/CPU, MIT). A `PLATE_PROVIDER=docintel` fallback
   switch is wired. (Route + gate: registry `gates` + `resourceInventory`; the OCR host URL was corrected in
   **TKT-115**.)
-- **gpt-5 vision classifier** — `orchestration/src/lib/image-classify.ts` (**TKT-064**), gate
+- **gpt-5 vision classifier** — `services/orchestration/src/platform/image-classify.ts` (**TKT-064**), gate
   `IMAGE_ROLE_CLASSIFY_ENABLED=true`, keyless MI on Foundry `digital-3339-resource`. At intake it already
   writes `image_role_code` **and** `registration_visible` (+ `plate_text`, `person_reflection`).
 
@@ -79,7 +79,7 @@ VLM's egress earn its place* — exactly the flip-precondition framing of PLAN-0
 > **Registry correction.** The research pack (`research/reg-ocr.md`) says `digital-3339-resource` had **zero
 > model deployments**. That is **stale**: `LIVE_FACTS.json` `foundry` block shows **gpt-5** deployed there
 > (GlobalStandard) since 2026-07-01, plus `text-embedding-3-large`. Exact deployment/quota live in the
-> registry — not re-transcribed here per MAINTENANCE.md.
+> registry — not re-transcribed here under the current documentation-governance rules.
 
 ## 3. Candidates (verified live state)
 
@@ -90,7 +90,7 @@ VLM's egress earn its place* — exactly the flip-precondition framing of PLAN-0
 | **gpt-5 vision** (`digital-3339-resource`, GlobalStandard) | image-analysis producer (role/visibility/reflection/location); reg cross-check | LIVE for classify (TKT-064) | **GlobalStandard — may infer in ANY region**; image bytes bypass `scrubPii` | Implicit (scene understanding) |
 | **Specialist UK ALPR** — Plate Recognizer (SaaS) / `fast-plate-ocr` UK fine-tune | only if fast-alpr underperforms on UK 2021+/private plates | not deployed | SaaS = egress (Plate Recognizer) / local (fine-tune) | Yes |
 
-The **shared post-processing decision layer** (`ocr/plate_adapter.py`: `normalise_vrm`, `_looks_like_plate`,
+The **shared post-processing decision layer** (`services/functions/ocr/plate_adapter.py`: `normalise_vrm`, `_looks_like_plate`,
 `_build_result`) is engine-agnostic — every candidate above feeds it, so its behaviour is measured once for
 all (§4).
 
@@ -98,8 +98,9 @@ all (§4).
 
 **What ran (real, in-repo, no ML/live deps):** the harness
 ([`harness/plate_bench.py`](./harness/plate_bench.py)) scores the **actual shipped**
-`ocr/plate_adapter.py::_build_result` over 10 labelled candidate scenarios covering axes A–C.
-Full output: [`harness/results/decision-layer-run.txt`](./harness/results/decision-layer-run.txt) (+ `.json`).
+`services/functions/ocr/plate_adapter.py::_build_result` over 10 labelled candidate scenarios
+covering axes A–C. Run [`harness/plate_bench.py`](./harness/plate_bench.py) to regenerate the ignored
+text and JSON output.
 
 **Result: 10/10 scenarios match the layer's documented contract** (mean ~17 µs/call — the decision layer is
 negligible cost/latency next to any OCR). The value is the **three findings** it surfaces — these shape the
@@ -154,7 +155,7 @@ deciding axes are **residency + localisation accuracy + ops**: fast-alpr and DI 
 zero-egress; only the VLM carries the GlobalStandard egress that Phase 4 gates.
 
 Exact live gpt-5 quota/rate-limits and DI Read tier live in the registry (`foundry` / `resourceInventory`) —
-not re-embedded here (MAINTENANCE.md).
+not re-embedded here under the current documentation-governance rules.
 
 ## 7. Sample availability (stated plainly)
 
@@ -196,7 +197,7 @@ fast-alpr(+DI Read) doesn't already give UK-resident and cheaper.
 **Where the VLM belongs (hand-off to TKT-016):** keep gpt-5 vision for the observations only it does well —
 axis C visibility tri-state (F3), image role, same-vehicle, person-reflection, and the background-signage →
 location stages (TKT-016 steps 5–8). Those are what carry the image bytes off-region, so **the DPIA +
-`docs/gated.md` image-egress residency line-item is TKT-016's**, scoped to *scene understanding*, not to reg
+`docs/tickets/BOARD.md` image-egress residency line-item is TKT-016's**, scoped to *scene understanding*, not to reg
 reading. The VLM's reg read is a **corroborator** of fast-alpr's, surfaced as a suggestion.
 
 **Observation record (for TKT-016 / TKT-015).** Adopt the pack's per-image observation shape so results are
@@ -210,7 +211,7 @@ tri-state F3 needs and keeps the ADR-0013 "detected VRM ≠ case identity" bound
 1. **Reg read = fast-alpr (primary) / DI Read (fallback); the VLM cross-checks, it is not the reader.** Don't
    route reg-OCR through the GlobalStandard model.
 2. **Only the scene-understanding stages (5–8: signage/location/same-vehicle/reflection) justify image
-   egress** → that is the DPIA/residency line-item to raise in `docs/gated.md`, scoped narrowly.
+   egress** → that is the DPIA/residency line-item to raise in `docs/tickets/BOARD.md`, scoped narrowly.
 3. **Use the observation-record schema** (§8) so reg reads are suggestions with a visibility tri-state, never
    auto-applied, never writing `case_.vrm` (ADR-0013).
 4. **The F1/F2/F3 findings are pre-baked** — F1 (localisation matters), F2 (join dependency), F3 (tri-state
@@ -224,7 +225,7 @@ tri-state F3 needs and keeps the ADR-0013 "detected VRM ≠ case identity" bound
   research session can't produce; needed to close the fast-alpr UK-plate accuracy unknown. *(Owner: operator
   / azure-integration-engineer; the harness + schema are ready.)*
 - **`_looks_like_plate` hardening** toward UK plate grammar to cut the F1 scene-text false positive — a small
-  parser-area change in `ocr/plate_adapter.py` (sibling-first if it touches engine logic; here it is
+  parser-area change in `services/functions/ocr/plate_adapter.py` (sibling-first if it touches engine logic; here it is
   OCR-host-local). Candidate ticket.
 - **Confidence calibration** (a pack metric) is unmeasured — fast-alpr emits detector confidence; DI Read
   emits none per-token (candidates carry `None`); gpt-5 emits a self-reported 0–1. A calibration study needs

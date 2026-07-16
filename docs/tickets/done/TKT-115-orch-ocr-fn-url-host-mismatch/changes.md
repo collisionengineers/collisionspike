@@ -17,7 +17,7 @@ Config-only live change (no code, no redeploy). Value taken from the live `defau
 ## Files touched (repo, doc-maintenance)
 - `LIVE_FACTS.json` — `gates.cespk-orch-dev.OCR_FN_URL` → ACA FQDN; `lastVerified` bumped; a dated
   `docDrift` entry added (root cause + the reachability/auth proof + the robustness follow-up).
-- `docs/architecture/live-environment.md` — a `⚠️ TKT-115` note on the OCR line (host was wrong →
+- `docs/operations/live-environment.md` — a `⚠️ TKT-115` note on the OCR line (host was wrong →
   NXDOMAIN → silent `fetch failed` 2026-07-04→08; no literal URL — that stays only in LIVE_FACTS).
 
 ## Not done (deliberate)

@@ -14,7 +14,7 @@ plan: PLAN-001
 ## Problem
 
 The top-bar search box is decorative: on Enter it just navigates home
-(`mockup-app/src/components/AppShell.tsx` ~lines 438–444, `navigate('/')`). There is no search
+(`apps/web/src/shared/ui/AppShell.tsx` ~lines 438–444, `navigate('/')`). There is no search
 endpoint at all, so a handler cannot find a case by registration, Case/PO, claimant, or
 reference — and when several open cases share one VRM ("3 same VRM"), nothing shows them
 side-by-side. The twin query already exists (`openVrmTwins`, `GET /api/cases?vrm=`) but has no
@@ -24,8 +24,8 @@ search surface.
 
 - `evidence/operator-note.md` — plan § 7 + diagnostic (2026-07-06 planning session, verified
   06/07).
-- `mockup-app/src/components/AppShell.tsx` ~lines 438–444 — the Enter handler.
-- No `api/src/functions/search.ts` exists; `openVrmTwins` returns open same-VRM cases.
+- `apps/web/src/shared/ui/AppShell.tsx` ~lines 438–444 — the Enter handler.
+- No `services/data-api/src/features/cases/search-route.ts` exists; `openVrmTwins` returns open same-VRM cases.
 - Same-VRM matching depends on the space-insensitive normalization defined in TKT-066 and on
   clean VRM data (TKT-071).
 
@@ -33,7 +33,7 @@ search surface.
 
 PROPOSED (not built):
 
-- **New endpoint `GET /api/search?q=`** (staff role) in a new `api/src/functions/search.ts`:
+- **New endpoint `GET /api/search?q=`** (staff role) in a new `services/data-api/src/features/cases/search-route.ts`:
   one normalized query across `case_` (Case/PO, VRM space-insensitive, ref, claimant),
   `inbound_email` (subject, sender), and `work_provider` (name/code). Returns
   `{ cases[], emails[], providers[] }` capped per group.

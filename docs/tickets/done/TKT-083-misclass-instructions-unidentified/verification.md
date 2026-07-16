@@ -7,7 +7,7 @@ VRM) + the operator-reviewable domain add remain.
 ## 1. Offline eval (sample passes)
 Real classifier run on the sample `.eml` → **`receiving_work/new_client_work`** (was
 `other/other`), with `body_jobref=30230-01` and `body_vrm=BV72YVB` surfaced. Pinned in
-`scripts/eval-email/manifest.json` (baseline-v2 regenerated, `--check` clean) + an enforced
+`scripts/evaluation/email/manifest.json` (baseline-v2 regenerated, `--check` clean) + an enforced
 unit test (`test_tkt083_body_instruction_one_phrase_with_ref_and_vrm_promotes`, which also
 asserts the floor STILL holds without a ref+VRM). Full prior corpus green.
 

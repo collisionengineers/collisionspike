@@ -1,3 +1,0 @@
-# Runtime dependencies for the EVA validation Function. Pure logic — only the
-# Functions host library is needed (no httpx, no upstream call, no secrets).
-azure-functions>=1.21.0

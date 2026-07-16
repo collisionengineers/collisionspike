@@ -36,19 +36,19 @@ ticket from `verify` to `now`. The responsive and focus repair is implemented an
 - `f1bfcfe` — replace the dashboard cockpit with the three-queue overview, sectioned Inbox health, responsive skeleton and contract tests.
 
 ## Files changed
-- `mockup-app/src/screens/Dashboard.tsx`
-- `mockup-app/src/screens/dashboard-layout.ts`
-- `mockup-app/src/screens/dashboard-layout.test.ts`
-- `mockup-app/src/components/Skeletons.tsx`
-- `mockup-app/src/components/AppShell.tsx`
-- `mockup-app/src/components/AppShell-responsive.test.ts`
-- `mockup-app/src/components/app-shell-layout.ts`
-- `mockup-app/src/components/app-shell-layout.test.ts`
-- `mockup-app/src/theme/theme.css`
-- `mockup-app/src/theme/contrast.test.ts`
-- `mockup-app/src/data/hooks.ts`
-- `mockup-app/src/data/rest-client.ts`
-- `mockup-app/src/data/rest-client.test.ts`
+- `apps/web/src/features/dashboard/Dashboard.tsx`
+- `apps/web/src/features/dashboard/dashboard-layout.ts`
+- `apps/web/src/features/dashboard/dashboard-layout.test.ts`
+- `apps/web/src/shared/ui/Skeletons.tsx`
+- `apps/web/src/shared/ui/AppShell.tsx`
+- `apps/web/src/shared/ui/AppShell-responsive.test.ts`
+- `apps/web/src/shared/ui/app-shell-layout.ts`
+- `apps/web/src/shared/ui/app-shell-layout.test.ts`
+- `apps/web/src/theme/theme.css`
+- `apps/web/src/theme/contrast.test.ts`
+- `apps/web/src/data/hooks.ts`
+- `apps/web/src/data/rest-client.ts`
+- `apps/web/src/data/rest-client.test.ts`
 
 ## Summary
 - Replaced the pipeline, Held banner, oldest-first action lists and lower queue snapshot with one centred group of equal Not ready, Review and Held cards.

@@ -13,7 +13,7 @@ Received On, Vehicle Details, Location as required. Related to TKT-002 (new-case
 
 ## 2026-07-09 — BUILT + LIVE (PLAN-003 UI wave)
 
-**`mockup-app/src/screens/ManualIntake.tsx`** — a real image-only variant (`mode: 'images'`,
+**`apps/web/src/features/intake/ManualIntake.tsx`** — a real image-only variant (`mode: 'images'`,
 entered via the renamed **"Images only (no instructions yet)"** button — TKT-118 wording):
 
 - **Removed from the image-only form**: Work Provider, Principal, Case/PO (+preview), Provider's
@@ -28,7 +28,7 @@ entered via the renamed **"Images only (no instructions yet)"** button — TKT-1
 - **Create path**: sends NO provider → **no Case/PO can mint** (by construction — the API only
   mints under a principal); `receivedFrom`/`receivedOn` are new additive `CreateCaseInput` fields
   (`packages/domain/src/dto/index.ts`) persisted by `POST /api/cases`
-  (`api/src/functions/cases.ts`) as a durable case note ("Received from X on DD/MM/YYYY." — there
+  (`services/data-api/src/features/cases/`) as a durable case note ("Received from X on DD/MM/YYYY." — there
   is no dedicated column); sourceLabel "Images received — from X".
 
 **Deploy + live proof**: api + SPA deployed. Live E2E: the form rendered exactly the kept field set

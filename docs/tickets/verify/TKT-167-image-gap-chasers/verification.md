@@ -14,9 +14,9 @@ PENDING — implementation is tested offline; the reviewed merge, SPA deployment
 
 ## Acceptance coverage
 - `packages/domain/src/contracts/image-rules.test.ts` proves zero accepted/all-excluded, missing overview with visible registration, missing close-up, unresolved review and reflection-only behavior from one structured evaluator.
-- `mockup-app/src/components/ChaserPanel.test.ts` proves exact templates for no images, all excluded, wrong role, invisible registration, missing close-up, unresolved image decision, fully valid, instruction/no-instruction and existing overview-draft/channel combinations.
-- `mockup-app/src/components/ChaserPanel-copy.test.tsx` proves the active upload link is copied with the editable draft, link failure copies/logs nothing, and rerenders after concurrent review, exclusion, upload, role classification and case replacement remove or reopen only the applicable gap.
-- `mockup-app/src/screens/case-detail-chaser-contract.test.ts` pins the composer to `liveCase`, the same current image working copy used by readiness.
+- `apps/web/src/shared/ui/ChaserPanel.test.ts` proves exact templates for no images, all excluded, wrong role, invisible registration, missing close-up, unresolved image decision, fully valid, instruction/no-instruction and existing overview-draft/channel combinations.
+- `apps/web/src/shared/ui/ChaserPanel-copy.test.tsx` proves the active upload link is copied with the editable draft, link failure copies/logs nothing, and rerenders after concurrent review, exclusion, upload, role classification and case replacement remove or reopen only the applicable gap.
+- `apps/web/src/features/cases/case-detail-chaser-contract.test.ts` pins the composer to `liveCase`, the same current image working copy used by readiness.
 
 ## Pending / live gaps
 - The final PR must pass its normal repository and CI checks; no reciprocal AI-review marker is required.

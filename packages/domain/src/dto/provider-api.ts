@@ -7,7 +7,7 @@
 
    Kept in a SEPARATE module (not dto/index.ts) so the frozen DataAccess contract
    is untouched: these are additive, channel-specific shapes. The SPA binds them
-   through the DataAccessExt seam (mockup-app/src/data/rest-client.ts), not the
+   through the DataAccessExt seam (apps/web/src/data/rest-client.ts), not the
    base DataAccess interface.
 
    PURE TYPES ONLY. No values, no I/O.

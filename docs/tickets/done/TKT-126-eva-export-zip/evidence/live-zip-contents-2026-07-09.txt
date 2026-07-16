@@ -1,4 +1,4 @@
-# TKT-126 live export — zip contents (case A.QDOS26035, 2026-07-09)
+# TKT-126 live export ï¿½ zip contents (case A.QDOS26035, 2026-07-09)
 # First export (pre TKT-124 re-kind) had PDFs/.doc/.mp4 leaking in; after the
 # re-kind delta + api kind-guard the zip is the EVA JSON + photos only:
 

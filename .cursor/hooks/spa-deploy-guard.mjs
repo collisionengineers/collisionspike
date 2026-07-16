@@ -21,7 +21,7 @@ try {
 
 if (/swa\s+deploy|az\s+staticwebapp/i.test(cmd) && !/npm\s+run\s+build/i.test(cmd)) {
   const msg =
-    '[spa-deploy-guard] Before deploying the SPA: run `npm run build` from `mockup-app/` first. ' +
+    '[spa-deploy-guard] Before deploying the SPA: run `npm run build` from `apps/web/` first. ' +
     'After deploy, hard-refresh the SWA edge cache (Ctrl+Shift+R) — stale assets are a common false "it works".';
   process.stdout.write(
     JSON.stringify({

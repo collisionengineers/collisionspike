@@ -13,7 +13,10 @@ research-link: docs/tickets/done/TKT-051-pch-connexus/evidence/operator-note.md
 > **VERIFIED-LIVE 2026-07-10** — both arms proven live at volume (54 PCH-resolved cases since the
 > 2026-07-02 deploy: 53 sender-domain + 1 doc-content, plus 84 content-arm firings across 10+
 > providers and 4 never-override disagreement audits); see [verification.md](./verification.md).
-> The 2026-07-02 "D8 not yet applied" note below is historical — D8 was applied 2026-07-03.
+> The 2026-07-02 "D8 not yet applied" note below is prior — D8 was applied 2026-07-03.
+
+The implementation record is in [changes.md](./changes.md); the live proof is in
+[verification.md](./verification.md).
 
 ## Problem (operator drop-note, verbatim in [evidence/operator-note.md](./evidence/operator-note.md))
 
@@ -36,7 +39,7 @@ TKT-021) resolves through the Image-Source intermediary map.
 
 ## Delivery
 
-Phase 3 of the [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md)
+Phase 3 of the [Rules Engine v2 plan](TKT-051-pch-connexus.md)
 (identification upgrade).
 
 ## Status update — 2026-07-03 (the "EVA (Engineers)" mislabel root-caused → TKT-056)
@@ -48,7 +51,7 @@ layout-name fallback then emitted `"EVA (Engineers)"` as `work_provider`, which 
 free-text `eva_work_provider`. Fixed in code (engine-v2.6 fallback guard + multi-doc content-typed
 parse pick + a Data-API denylist) plus an operator delta deactivating any stale EVA corpus row —
 all under **[TKT-056](../TKT-056-audit-case-type-activation/TKT-056-audit-case-type-activation.md)**
-/ [ADR-0021](../../../adr/0021-case-po-marker-taxonomy.md) / [gated.md §D9](../../../gated.md).
+/ [ADR-0021](../../../adr/0021-case-po-marker-taxonomy.md) / [ticket board §D9](../../BOARD.md).
 
 ## Status update — 2026-07-02 (now — code deployed, activation pending D8 seeds)
 
@@ -58,6 +61,6 @@ against this ticket's own evidence: the doc-content provider detector already ex
 `Inspection Request - Audit Report.DOC` at confidence **1.0** — the gap was that the detected string was
 never mapped to a real `work_provider_id`; that mapping is now live at `caseResolve` (fill-if-empty +
 provenance). The `@pch-ltd.com` domain addition to PCH's `known_email_domains` rides the operator-gated
-seed delta [`2026-07-02-rules-engine-v2-identification.sql`](../../../../migration/assets/schema/deltas/2026-07-02-rules-engine-v2-identification.sql)
-([docs/gated.md](../../../gated.md) §D8), **not yet applied live**. No live re-probe of this exact sample has
+seed delta [`2026-07-02-rules-engine-v2-identification.sql`](../../../../database/migrations/2026-07-02-rules-engine-v2-identification.sql)
+([docs/tickets/BOARD.md](../../BOARD.md) §D8), **not yet applied live**. No live re-probe of this exact sample has
 been run post-deploy — awaiting the D8 apply to exercise both signals together.

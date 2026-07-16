@@ -6,7 +6,7 @@ done — live-probed against the deployed engine 2026-07-02; locked in as an eva
   instructions attachment as `receiving_work`/`new_client_work`, not a query.
 - 2026-07-02 — rules-engine-v2 Phase 0/1 evidence pass: live-probed the evidence email against the
   deployed `/classify-email` route; result recorded as an eval-corpus regression pin (manifest id
-  `tkt036-instructions-misclass`, `scripts/eval-email/`). See [verification.md](./verification.md).
+  `tkt036-instructions-misclass`, `scripts/evaluation/email/`). See [verification.md](./verification.md).
 ## Summary
 An instructions email (with a "...with instructions" attachment) was classified as a query; the classifier
 needs to treat instruction subject/attachment cues as an instructions signal. Part of the email-classification

@@ -22,7 +22,7 @@ POST cespk-api-dev.azurewebsites.net/api/inbound/a137d98f-bda5-4e09-bdac-c306a2f
 
 This is a **503 from the Data API app**, not the Graph **403** that
 [TKT-054](../TKT-054-ui-work/TKT-054-ui-work.md) was expecting while the operator's Exchange
-`Mail.ReadWrite` grant ([docs/gated.md B4](../../../gated.md)) is outstanding. Candidate causes to
+`Mail.ReadWrite` grant ([docs/tickets/BOARD.md B4](../../BOARD.md)) is outstanding. Candidate causes to
 verify (not conclusions):
 
 - **Cold start / host unavailable** — a scale-to-zero Function-app cold start surfacing as 503
@@ -41,7 +41,7 @@ readable error (they had to open dev tools).
   inbound-email id `a137d98f-bda5-4e09-bdac-c306a2fd3f7a`).
 - `evidence/outlook-move-fail-original-empty.md` — the first drop of the note (empty; provenance).
 - Known open state: `OUTLOOK_MOVE_ENABLED` flipped `true` 2026-07-03; the Exchange
-  `Mail.ReadWrite` grant is still pending (gated.md B4) — earlier live attempts 403'd (TKT-054).
+  `Mail.ReadWrite` grant is still pending (ticket board B4) — earlier live attempts 403'd (TKT-054).
   Verify current gate/grant state against the registry before acting.
 
 ## Proposed change
@@ -77,7 +77,7 @@ PROPOSED (not built):
 1. **Trace evidence** — the KQL result pinning the 503's cause, recorded in
    [verification.md](./verification.md).
 2. **Offline tests** — error-mapping unit tests green; `node verify-all.mjs` green.
-3. **Deploy record** — api/SPA deploys recorded in [changes.md](./changes.md).
+3. **Deploy record** — Data API/SPA deploys recorded in [changes.md](./changes.md).
 4. **Live failure-UX probe** — with the grant still missing, a move attempt shows the readable
    in-SPA error (screenshot).
 5. **Live probe (post-grant)** — a real move: SPA action → 2xx → email in the target Outlook

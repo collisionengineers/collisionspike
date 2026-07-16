@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "ticket": "TKT-082",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-1/Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
+      "originalFilename": "Client Mr Anthony Mohammed Cauchie __ Engineer Instruction - VRN GM23 KPZ.eml",
+      "sha256": "4395b9c2332c9aa7c0c249f1eeae2e79d44e68c876db6a747f2adc6fb89cd9ea",
+      "storagePath": "tests/fixtures/evidence/sha256/43/4395b9c2332c9aa7c0c249f1eeae2e79d44e68c876db6a747f2adc6fb89cd9ea.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/sample-1/GM23KPZ.pdf",
+      "originalFilename": "GM23KPZ.pdf",
+      "sha256": "d500947dddf3b59d802244c9b8ecc2031df229f3ffdcb2df842bbdf50cc48295",
+      "storagePath": "tests/fixtures/evidence/sha256/d5/d500947dddf3b59d802244c9b8ecc2031df229f3ffdcb2df842bbdf50cc48295.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-2/Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "originalFilename": "Re (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "sha256": "6bcfb9072aa6690018b2f40218f60551be458a4f8171594f6a5ecfa83db03fd9",
+      "storagePath": "tests/fixtures/evidence/sha256/6b/6bcfb9072aa6690018b2f40218f60551be458a4f8171594f6a5ecfa83db03fd9.eml"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/sample-2/Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "originalFilename": "Re FW (EREF1) Mr Paul Tasker  accident date tba (Our Ref __46587_1, Registration NA68 FMU).eml",
+      "sha256": "bedc8f9ca8fafa1580dc2ae19706af54f8fb940965c2fc9a97f84fa41f4d5d6f",
+      "storagePath": "tests/fixtures/evidence/sha256/be/bedc8f9ca8fafa1580dc2ae19706af54f8fb940965c2fc9a97f84fa41f4d5d6f.eml"
+    }
+  ]
+}

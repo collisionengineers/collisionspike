@@ -10,11 +10,11 @@ The facade upload route took base64-in-JSON only, with NO size cap: a 17.6 MB ra
 failing as recycle collateral (TKT-087 verification). Note: 17.6 MB is BELOW Box's 20 MiB
 chunked-upload minimum — the fix needed a streaming direct lane, not just the chunked API.
 
-## box-webhook Function (functions/box-webhook/) — large-payload lanes
+## box-webhook Function (services/functions/box-webhook/) — large-payload lanes
 
 - `function_app.py` upload route (`POST box/folders/{folderId}/files`) now takes TWO mutually
   exclusive body variants (400 if both/neither):
-  - `{ filename, contentBase64, contentType? }` — legacy lane kept, response unchanged, but
+  - `{ filename, contentBase64, contentType? }` — earlier lane kept, response unchanged, but
     length-capped BEFORE decode (default 11 MiB base64 ≈ 8 MiB raw; `BOX_UPLOAD_BASE64_MAX_CHARS`
     overrides) → 413 naming the blobPath alternative. A giant base64 body can no longer reach
     b64decode and kill the worker.
@@ -31,18 +31,19 @@ chunked-upload minimum — the fix needed a streaming direct lane, not just the 
   whole-file digest; bounded 202 retries; session endpoints host-pinned to *.box.com). The
   TKT-087 sha1 409-idempotency factored into a shared `_resolve_upload_conflict` used by all
   lanes.
-- Tests: `tests/test_blob_source.py` (25), `tests/test_upload_stream.py` (11), upload-route
+- Tests: `services/functions/box-webhook/tests/test_blob_source.py` (25),
+  `services/functions/box-webhook/tests/test_upload_stream.py` (11), upload-route
   additions (lane contract, 413-before-decode, traversal rejection, blob lane happy/404/502).
   box-webhook pytest 150 → 238, green.
 
 ## Orchestration — large evidence goes by blobPath
 
-- `orchestration/src/lib/functions-client.ts` — new `box.uploadFileFromBlob(folderId, filename,
+- `services/orchestration/src/adapters/functions-client.ts` — new `box.uploadFileFromBlob(folderId, filename,
   blobPath, contentType?)` on the same facade route; `blobPath` = the evidence row's
   container-relative `storage_path` (the exact `blob.ts` convention).
-- `orchestration/src/lib/blob.ts` — new `getEvidenceBlobSize(blobPath)` (getProperties HEAD;
+- `services/orchestration/src/platform/blob.ts` — new `getEvidenceBlobSize(blobPath)` (getProperties HEAD;
   a large file is never downloaded into the orch just to measure it).
-- `orchestration/src/functions/activities/boxArchive.ts` — `uploadArchiveItem()` (exported,
+- `services/orchestration/src/workflows/archive/boxArchive.ts` — `uploadArchiveItem()` (exported,
   injectable): size > `boxInlineUploadMaxBytes()` (env `BOX_INLINE_UPLOAD_MAX_BYTES`, default
   8 MiB) → blob-reference upload (zero bytes through the orch); at/below → today's inline
   base64 byte-for-byte. Per-file isolation preserved (the existing per-item try/catch; the

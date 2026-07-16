@@ -40,12 +40,12 @@ wrapped, gates default-off on BOTH apps (`RETRO_CASE_ENABLED`; R3 additionally
 - [x] **R1 — foundations + any-status link ("the billing fix")**: domain rules
   (`packages/domain/src/domain/retro-case.ts` — `decideRetro`, `decideRetroStatus`,
   `matchPrincipalByCasePo`, `selectBoxInstructionCandidate` + tests); DDL delta
-  [`2026-07-04-retro-case.sql`](../../../../migration/assets/schema/deltas/2026-07-04-retro-case.sql)
+  [`2026-07-04-retro-case.sql`](../../../../database/migrations/2026-07-04-retro-case.sql)
   (audit actions 100000046–48, intake channel `retro` 100000003); Data API routes
   `POST /api/internal/retro/resolve-existing` + `/retro/create`
-  (`api/src/functions/internal-retro.ts`, validator `api/src/lib/retro-validate.ts` + tests);
+  (`services/data-api/src/features/inbound/retro-routes.ts`, validator `services/data-api/src/features/inbound/retro-validate.ts` + tests);
   orchestration `retroCaseOrchestrator` + keyed drain starter `POST /api/retro-case`
-  (`orchestration/src/functions/gated/retro-case.ts`); the two intake hooks.
+  (`services/orchestration/src/workflows/retro/retro-case.ts`); the two intake hooks.
 - [x] **R2 — Box archive reconstruction (primary source)** *(built 2026-07-04, ships dark —
   live activation is the D11 operator item)*: dual RW/RO Box scope lock
   (`BOX_READONLY_ROOT_IDS`, split verification caches), `search_content`/`download_file` +
@@ -69,7 +69,7 @@ wrapped, gates default-off on BOTH apps (`RETRO_CASE_ENABLED`; R3 additionally
 
 Change-by-change audit trail: [changes.md](./changes.md) · smoke steps: [verification.md](./verification.md).
 
-## Activation (operator — gated.md D11)
+## Activation (operator — ticket board D11)
 
 Archive root id(s) + Box service-account Viewer grant → apply the DDL delta → set the app
 settings → flip `RETRO_CASE_ENABLED` on **both** apps → smoke per
@@ -83,9 +83,9 @@ one email at a time; a bulk sweep is a follow-up once trusted.
   `mintCasePo` + the next-po preview allocate `GREATEST(db max, floor)+1`, the **Set-Case/PO staff
   edit** (PATCH `casePo`, 409 `case_po_in_use` w/ conflicting case, SPA title editor) bridges the
   trial period (old process mints at EVA-add by staff; pre-EVA cases legitimately have no number),
-  and `scripts/cutover/case-po-floor-from-folders.mjs` seeds floors from an archive listing.
-  Cutover procedure: [docs/plans/case-po-sequence-cutover.md](../../../plans/case-po-sequence-cutover.md).
-  Remaining: the operator's archive listing / per-principal next-numbers + the cutover run itself.
+  and `scripts/database/case-po-floor-from-folders.mjs` seeds floors from an archive listing.
+  Allocation and any future floor activation remain owned by
+  [TKT-004](../../blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md).
 - Claimant-name search keys (no extraction exists; classifier change = sibling-repo edit).
 - Bulk backfill sweep over `inbound_email WHERE case_id IS NULL`.
 - `boxArchiveEvidence` skip-when-RO-rooted (future replies to retro cases can't archive-mirror

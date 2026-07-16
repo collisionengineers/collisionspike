@@ -4,7 +4,7 @@
 Not started.
 
 ## Planned scope
-- Inventory and reconcile incomplete historic email-to-case relationships.
+- Inventory and reconcile incomplete prior email-to-case relationships.
 - Display the current relationship with a complete Case/PO or honest unavailable/unassigned wording.
 - Add API, route, accessibility and responsive regression coverage.
 

@@ -5,7 +5,7 @@ status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-002, TKT-017]
-research-link: docs/plans/work-todo-spike/document-parsing/research/document-parsing.md
+research-link: docs/tickets/done/TKT-001-document-parsing/evidence-manifest.json
 ---
 
 # Fix multi-format document extraction regression
@@ -29,9 +29,9 @@ A representative instruction in each of PDF / DOC / DOCX / EML / MSG returns the
 (not just the registration), with field-level provenance, verified by re-intake.
 
 ## Research
-- Operator stub: [document-parsing.md](../../../plans/work-todo-spike/document-parsing/document-parsing.md)
-- Research pack: [research/document-parsing.md](../../../plans/work-todo-spike/document-parsing/research/document-parsing.md)
-- Sample instruction fixtures live under [pdf-image-extraction/](../../../plans/work-todo-spike/pdf-image-extraction).
+- Operator stub: [document-parsing.md](TKT-001-document-parsing.md)
+- Research pack: [research/document-parsing.md](TKT-001-document-parsing.md)
+- Sample instruction fixtures live under [pdf-image-extraction/](TKT-001-document-parsing.md).
 
 ## Artifacts
 - [Changes made](./changes.md)

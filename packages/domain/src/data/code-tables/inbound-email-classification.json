@@ -1,0 +1,48 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table-bundle",
+  "description": "Inbound-email triage taxonomy (ADR-0015). Two stable, append-only code tables mirror the deterministic classifier's returned category and subtype strings 1:1. Never renumber; append new members at the next free integer. Billing, non-actionable, case-update, cancellation, pre-instruction, website-enquiry, and their subtypes retain their established values.",
+  "codeTables": [
+    {
+      "codeTableId": "inbound_category",
+      "displayName": "Inbound Category",
+      "parityKey": "name",
+      "description": "Triage CATEGORY. Members EQUAL email_classifier.py CATEGORY_RECEIVING_WORK / CATEGORY_QUERY / CATEGORY_OTHER (plus the append-only CATEGORY_BILLING / CATEGORY_NON_ACTIONABLE, TKT-029/037/038). receiving_work routes to the existing Case chain; query logs against an open Case (or none) and stops; other is the catch-all (spam/auto-replies/newsletters fall through here -- never silently dropped). case_update and cancellation (taxonomy v2, rules-engine-v2 Phase 2 / ADR-0019) are routed by the triage-policy module (packages/domain/src/domain/triage-policy.ts): case_update is an inbound belonging to an existing open Case (attach-to-case, suggest-first); cancellation is a claim/case reported cancelled or closed (a staff-confirmed close/hold proposal, never automatic).",
+      "options": [
+        { "value": 100000000, "name": "receiving_work", "label": "Receiving Work" },
+        { "value": 100000001, "name": "query",          "label": "Query" },
+        { "value": 100000002, "name": "other",          "label": "Other" },
+        { "value": 100000003, "name": "billing",         "label": "Billing" },
+        { "value": 100000004, "name": "non_actionable",  "label": "Non-actionable" },
+        { "value": 100000005, "name": "case_update",     "label": "Case Update" },
+        { "value": 100000006, "name": "cancellation",    "label": "Cancellation" },
+        { "value": 100000007, "name": "pre_instruction", "label": "Pre-instruction" },
+        { "value": 100000008, "name": "website_enquiry", "label": "Website Enquiry" }
+      ]
+    },
+    {
+      "codeTableId": "inbound_subtype",
+      "displayName": "Inbound Subtype",
+      "parityKey": "name",
+      "description": "Triage subtype values mirror the deterministic classifier. existing_provider_audit describes an audit re-inspection instruction and is distinct from an audit-event action or the audit case type. The remaining values retain their established classifier meanings and numeric codes.",
+      "options": [
+        { "value": 100000000, "name": "existing_provider_instruction", "label": "Existing Provider Instruction" },
+        { "value": 100000001, "name": "existing_provider_audit",       "label": "Existing Provider Audit" },
+        { "value": 100000002, "name": "new_client_work",               "label": "New Client Work" },
+        { "value": 100000003, "name": "query_existing_work",           "label": "Query: Existing Work" },
+        { "value": 100000004, "name": "query_new_enquiry",             "label": "Query: New Enquiry" },
+        { "value": 100000005, "name": "other",                         "label": "Other" },
+        { "value": 100000006, "name": "existing_provider_diminution",  "label": "Existing Provider Diminution", "classifierEmits": false },
+        { "value": 100000007, "name": "billing_request",               "label": "Billing Request" },
+        { "value": 100000008, "name": "case_summary",                  "label": "Case Summary" },
+        { "value": 100000009, "name": "acknowledgement",                "label": "Acknowledgement" },
+        { "value": 100000010, "name": "images_received",               "label": "Images Received" },
+        { "value": 100000011, "name": "cancellation_notice",           "label": "Cancellation Notice" },
+        { "value": 100000012, "name": "update_general",                "label": "General Update" },
+        { "value": 100000013, "name": "payment_remittance",            "label": "Payment Received" },
+        { "value": 100000014, "name": "pre_instruction_directions",    "label": "Pre-instruction Directions" },
+        { "value": 100000015, "name": "website_general_enquiry",       "label": "Website General Enquiry" }
+      ]
+    }
+  ]
+}

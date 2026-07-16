@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-105",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "evidence/P43684 - Collision.pdf",
+      "originalFilename": "P43684 - Collision.pdf",
+      "sha256": "00346a80bd5235b8dfb3104aff87669342495711d9f9b3a594703bcdde9c8ffe",
+      "storagePath": "tests/fixtures/evidence/sha256/00/00346a80bd5235b8dfb3104aff87669342495711d9f9b3a594703bcdde9c8ffe.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/Remittance advice.eml",
+      "originalFilename": "Remittance advice.eml",
+      "sha256": "bc39b37b18724e0a2e184c6d2e4e31c9ae54726f16318ed008e3ba6ead8c5abf",
+      "storagePath": "tests/fixtures/evidence/sha256/bc/bc39b37b18724e0a2e184c6d2e4e31c9ae54726f16318ed008e3ba6ead8c5abf.eml"
+    }
+  ]
+}

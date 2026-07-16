@@ -1,0 +1,23 @@
+{
+  "name": "@cs/orchestration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b --force",
+    "test": "vitest run",
+    "start": "func start",
+    "dev": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0",
+    "@azure/storage-blob": "^12.25.0",
+    "@cs/domain": "*",
+    "durable-functions": "^3.3.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.9"
+  }
+}

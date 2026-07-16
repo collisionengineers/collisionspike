@@ -158,7 +158,7 @@ SELECT c.id, c.case_ref, c.vrm, cs.name AS status, c.on_hold, c.case_po, c.creat
  ORDER BY c.created_at DESC
  LIMIT 40;
 
-\echo '=== AFTER: retro audit action totals (compare enum-retro-audit-history.csv) ==='
+\echo '=== AFTER: retro audit action totals (compare enum-retro-audit-events.csv) ==='
 SELECT ca.name AS action, count(*) AS events,
        count(*) FILTER (WHERE ae.occurred_at >= now() - interval '12 hours') AS last_12h
   FROM audit_event ae

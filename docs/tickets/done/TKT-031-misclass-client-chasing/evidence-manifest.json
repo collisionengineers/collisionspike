@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-031",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "evidence/(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
+      "originalFilename": "(EREF12) RTA on 15_06_2026  Mr Daniel James Page (Our Ref SAB_46286_1, Vehicle HN13XMO).eml",
+      "sha256": "770e20cc052cbe90fcc2feea773bba75624ceb3598901bbc761d8d8f50652cb1",
+      "storagePath": "tests/fixtures/evidence/sha256/77/770e20cc052cbe90fcc2feea773bba75624ceb3598901bbc761d8d8f50652cb1.eml"
+    }
+  ]
+}

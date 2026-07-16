@@ -19,7 +19,7 @@ TKT tickets but never moves with ticket status changes.
 - [ ] Add plan: PLAN-NNN to every member ticket
 - [ ] Ensure the plan's tickets list includes every member ticket that points back
 - [ ] Link the plan from docs/tickets/README.md / BOARD.md as needed
-- [ ] node scripts/check-tickets.mjs && node scripts/check-doc-links.mjs
+- [ ] node scripts/checks/check-tickets.mjs && node scripts/checks/check-doc-links.mjs
 ```
 
 ## When to use a plan
@@ -72,8 +72,8 @@ Close a plan only after all member tickets are `done` or explicitly transferred/
 ## Finish
 
 ```bash
-node scripts/check-tickets.mjs
-node scripts/check-doc-links.mjs
+node scripts/checks/check-tickets.mjs
+node scripts/checks/check-doc-links.mjs
 ```
 
 ## Additional resources

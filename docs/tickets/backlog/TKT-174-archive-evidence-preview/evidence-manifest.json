@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-174",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/evidencepreview.png",
+      "originalFilename": "evidencepreview.png",
+      "sha256": "ff466e4f860462205c95d6308ea3e8fc437b8010dc95cbcc0219b25791ae329e",
+      "storagePath": "tests/fixtures/evidence/sha256/ff/ff466e4f860462205c95d6308ea3e8fc437b8010dc95cbcc0219b25791ae329e.png"
+    }
+  ]
+}

@@ -1,13 +1,16 @@
 ---
-description: Documentation freshness, tickets, and binding reviews
-globs: docs/**,LIVE_FACTS.json,docs/tickets/**
+description: Documentation authority, ticket lifecycle, and binding reviews
+globs: docs/**,LIVE_FACTS.json
 alwaysApply: false
 ---
 
 # Docs and tickets
 
-- **Registry protocol:** [docs/MAINTENANCE.md](docs/MAINTENANCE.md). After live Azure changes: update `LIVE_FACTS.json` (bump `lastVerified`) + mirror in `docs/architecture/live-environment.md` together.
-- **Gates:** `node scripts/check-doc-links.mjs` (broken links, orphans, live-number leakage); `node scripts/check-tickets.mjs` (ticket frontmatter).
-- **Binding reviews** (`docs/reviews/<DDMMYY>/`) outrank older docs/plans/ADRs — reconcile drift to the review.
-- **Tickets:** YAML frontmatter `id`, `title`, `status`, `priority`, `area`, `tickets-it-relates-to`, `research-link` per [docs/tickets/README.md](docs/tickets/README.md).
-- **Git pre-commit:** `git config core.hooksPath scripts/hooks` (once per clone).
+- Update `LIVE_FACTS.json` and `docs/operations/live-environment.md` together
+  after an approved live-state change.
+- Run the document-link and ticket-parity checks before committing.
+- Binding reviews under `docs/reviews/<DDMMYY>/` outrank earlier written
+  requirements in the areas they cover.
+- Ticket frontmatter and status folders are authoritative. BOARD, indexes, and
+  plan progress are generated; do not hand-maintain them.
+- Install the repository hooks with `git config core.hooksPath scripts/hooks`.

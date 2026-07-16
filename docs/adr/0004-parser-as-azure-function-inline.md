@@ -1,11 +1,21 @@
-# cedocumentmapper_v2.0 runs as an Azure Function, called inline from M1
+# ADR-0004 — Parsing is an inline service boundary
 
-**Status:** Accepted (2026-06-17).
+**Status:** Accepted (2026-06-17), extended by [ADR-0018](./0018-cedocumentmapper-dual-target-vendored-engine.md).
 
-The document parser is integrated from the **first milestone** as an HTTP **Azure Function** (exposed
-to the Power Apps Code App via a custom connector, gated by `PDF_MAPPER_ENABLED`), rather than left
-as an offline CLI or deferred to a later milestone. The Code App calls it on the instruction to
-pre-fill the 12 EVA fields, which staff then review (Review-auto). Chosen because the parser is the
-core IP and the spike should prove the parser→EVA path end-to-end early. Cost: pulls Azure Function
-infra — and the **PyMuPDF AGPL** resolution — into M1. Alternatives (manual field entry; hand-importing
-parser JSON) were rejected as a hollow loop / clunky UX.
+## Decision
+
+Run the deterministic document parser as a focused Azure Function service and invoke it during intake.
+It returns the versioned extracted record and settled EVA fields for staff review. The parser remains a
+separate boundary from the Data API and orchestration service.
+
+## Rationale
+
+Document extraction is core product value and must be exercised in the real intake path rather than by
+manual import. A bounded service isolates Python/document dependencies and gives every caller the same
+contract.
+
+## Consequences
+
+The service must be idempotent, fixture-driven, observable, and tolerant of a redundant base64 layer at
+its input boundary. It never treats extracted values as automatically authoritative over staff or source
+evidence.

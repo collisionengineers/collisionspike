@@ -45,7 +45,7 @@ without a method mismatch or malformed body.
   full reload (`ConfirmActionCard.test.ts`, `mutation-events.test.ts`, `rest-client.test.ts`).
 - A File Request click now advances a database generation and drains through
   `box_file_request_outbox`. Repeated clicks share the pending generation; remote failure stays
-  replayable; the public link and generation complete atomically. The legacy orchestration starter is
+  replayable; the public link and generation complete atomically. The earlier orchestration starter is
   a 410 tombstone, leaving the API/outbox as the only creator (`box-file-request-outbox.test.ts`,
   `box-maintenance-monitor.test.ts`).
 - The assistant drawer freezes each accepted attachment selection into an immutable batch, prevents a

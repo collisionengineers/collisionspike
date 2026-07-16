@@ -9,17 +9,17 @@ Record the fixture lifecycle tests, offline verification output, draft-PR public
 
 ## Current offline evidence
 
-- `node scripts/check-tickets.mjs` and `node scripts/check-doc-links.mjs` passed after staging the new ticket records.
+- `npm run check:tickets` and `npm run check:docs` passed after staging the current ticket records.
 - `npm run test:data-authority`, JavaScript syntax checks and `node scripts/worktree.mjs doctor TKT-205` passed.
 - **2026-07-15 (post-review):** `node --check` passes for `worktree.mjs`, `repository-hygiene.mjs`,
   `verify-offline.mjs`, `hooks/pre-push` and both new test files. `npm run test:worktree-governance`
-  passes **10/10** (`node:test`, isolated git fixtures, offline) — covering the create guard/rejection
+  passes **12/12** (`node:test`, isolated git fixtures, offline) — covering the create guard/rejection
   matrix, the `mkdirSync` non-crash regression, `remove` refusal, and the pre-push `refs/heads/main`
   refspec block + fallback. `node scripts/repository-hygiene.mjs` emits valid JSON and exits non-zero only
   on real pre-existing findings (stray local branches).
-- Full offline build/test evidence is pending a clean dependency installation: the earlier Windows worktree
-  `npm ci` stopped at `ENOTEMPTY` while removing generated Fluent icon files. No build/test result was
-  inferred from that environment failure.
+- **2026-07-15 final review:** the clean-install stage completed, all four TypeScript builds passed, and
+  domain 559 / Data API 993 / orchestration 508 / web 545 tests passed. The earlier Windows `ENOTEMPTY`
+  incident is superseded by this successful clean run.
 
 ## Still PENDING (live/signed-in proof)
 

@@ -1,0 +1,844 @@
+"""Offline tests for the box-webhook receiver + verification primitives.
+
+[BUILD] — ZERO network, NO secrets. HMAC dual-key verify (pass/fail/rotation),
+10-min replay reject, BOX-DELIVERY-ID dedup, FILE.UPLOADED-vs-FILE.MOVED
+disambiguation, and the full receiver order with a mocked DataApiClient.
+
+Run from the function folder:
+
+    python -m pytest -q
+"""
+
+from __future__ import annotations
+
+import base64
+import hashlib
+import hmac
+import json
+import sys
+import threading
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+# Make the function modules importable when pytest runs from anywhere.
+FN_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(FN_DIR))
+
+import function_app  # noqa: E402
+import webhook_verify as wv  # noqa: E402
+from webhook_verify import DeliveryDedup, is_replay, verify_signature  # noqa: E402
+
+# Recognisable fake keys (test-only, never real Box keys).
+PRIMARY_KEY = "FAKE-primary-signature-key-AAAA"  # noqa: S105
+SECONDARY_KEY = "FAKE-secondary-signature-key-BBBB"  # noqa: S105
+
+
+def _now_iso(offset_s: int = 0) -> str:
+    return (datetime.now(timezone.utc) + timedelta(seconds=offset_s)).isoformat()
+
+
+def _sign(body: bytes, timestamp: str, key: str) -> str:
+    mac = hmac.new(key.encode("utf-8"), digestmod=hashlib.sha256)
+    mac.update(body)
+    mac.update(timestamp.encode("utf-8"))
+    return base64.b64encode(mac.digest()).decode("ascii")
+
+
+# ==========================================================================
+# 1. Replay window (10 minutes)
+# ==========================================================================
+
+def test_replay_fresh_timestamp_accepted():
+    assert is_replay(_now_iso(0)) is False
+
+
+def test_replay_old_timestamp_rejected():
+    # 11 minutes old -> outside the 10-minute window -> reject.
+    assert is_replay(_now_iso(-660)) is True
+
+
+def test_replay_boundary_just_inside_window_accepted():
+    # 9m59s old -> still inside.
+    assert is_replay(_now_iso(-599)) is False
+
+
+def test_replay_far_future_rejected():
+    # Implausibly far in the future (beyond the small skew) -> reject.
+    assert is_replay(_now_iso(600)) is True
+
+
+def test_replay_missing_timestamp_rejected():
+    assert is_replay(None) is True
+    assert is_replay("not-a-timestamp") is True
+
+
+def test_replay_accepts_trailing_z_utc():
+    raw = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert is_replay(raw) is False
+
+
+# ==========================================================================
+# 2. Dual-key HMAC verify (pass / fail / rotation), timing-safe
+# ==========================================================================
+
+def test_verify_primary_key_passes():
+    body = b'{"trigger":"FILE.UPLOADED"}'
+    ts = _now_iso()
+    sig = _sign(body, ts, PRIMARY_KEY)
+    assert verify_signature(
+        body, timestamp=ts, primary_header=sig, secondary_header=None,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is True
+
+
+def test_verify_secondary_key_passes_rotation():
+    # The PRIMARY signature is computed with the SECONDARY key (mid-rotation:
+    # Box has switched primary, our secondary still holds the old). Accept via
+    # the secondary header/key pair.
+    body = b'{"trigger":"FILE.UPLOADED"}'
+    ts = _now_iso()
+    sig_secondary = _sign(body, ts, SECONDARY_KEY)
+    assert verify_signature(
+        body, timestamp=ts, primary_header=None, secondary_header=sig_secondary,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is True
+
+
+def test_verify_either_header_matches_is_accept():
+    # Both headers present; only the secondary is valid -> accept (dual-key OR).
+    body = b'{"x":1}'
+    ts = _now_iso()
+    bad = "AAAA" + base64.b64encode(b"nope").decode()
+    good_secondary = _sign(body, ts, SECONDARY_KEY)
+    assert verify_signature(
+        body, timestamp=ts, primary_header=bad, secondary_header=good_secondary,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is True
+
+
+def test_verify_wrong_signature_fails():
+    body = b'{"trigger":"FILE.UPLOADED"}'
+    ts = _now_iso()
+    forged = _sign(body, ts, "ATTACKER-KEY")
+    assert verify_signature(
+        body, timestamp=ts, primary_header=forged, secondary_header=forged,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is False
+
+
+def test_verify_tampered_body_fails():
+    body = b'{"trigger":"FILE.UPLOADED"}'
+    ts = _now_iso()
+    sig = _sign(body, ts, PRIMARY_KEY)
+    tampered = b'{"trigger":"FILE.UPLOADED","evil":true}'
+    assert verify_signature(
+        tampered, timestamp=ts, primary_header=sig, secondary_header=None,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is False
+
+
+def test_verify_timestamp_is_part_of_signed_material():
+    # A valid signature for ts1 must NOT validate when presented with ts2.
+    body = b'{"a":1}'
+    ts1 = _now_iso(-10)
+    ts2 = _now_iso(0)
+    sig = _sign(body, ts1, PRIMARY_KEY)
+    assert verify_signature(
+        body, timestamp=ts2, primary_header=sig, secondary_header=None,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is False
+
+
+def test_verify_missing_timestamp_fails():
+    body = b'{"a":1}'
+    sig = _sign(body, _now_iso(), PRIMARY_KEY)
+    assert verify_signature(
+        body, timestamp=None, primary_header=sig, secondary_header=None,
+        primary_key=PRIMARY_KEY, secondary_key=SECONDARY_KEY,
+    ) is False
+
+
+def test_verify_no_keys_configured_fails_closed():
+    body = b'{"a":1}'
+    ts = _now_iso()
+    sig = _sign(body, ts, PRIMARY_KEY)
+    assert verify_signature(
+        body, timestamp=ts, primary_header=sig, secondary_header=sig,
+        primary_key=None, secondary_key=None,
+    ) is False
+
+
+# ==========================================================================
+# 3. BOX-DELIVERY-ID dedup
+# ==========================================================================
+
+def test_dedup_first_begin_is_new_then_in_flight():
+    d = DeliveryDedup()
+    assert d.begin("delivery-1") == "new"
+    assert d.begin("delivery-1") == "in_flight"
+
+
+def test_dedup_distinguishes_in_flight_from_settled():
+    d = DeliveryDedup()
+    assert d.begin("delivery-1") == "new"
+    assert d.begin("delivery-1") == "in_flight"
+    d.settle("delivery-1")
+    assert d.begin("delivery-1") == "settled"
+
+
+def test_dedup_distinct_ids_independent():
+    d = DeliveryDedup()
+    assert d.begin("a") == "new"
+    assert d.begin("b") == "new"
+    assert d.begin("a") == "in_flight"
+
+
+def test_dedup_missing_id_never_swallowed():
+    d = DeliveryDedup()
+    assert d.begin(None) == "new"
+    assert d.begin(None) == "new"  # no id -> never reported as duplicate
+
+
+def test_dedup_ttl_eviction():
+    d = DeliveryDedup(ttl_s=100.0)
+    assert d.begin("x", now=0.0) == "new"
+    # After the TTL the entry is evicted and can be claimed again.
+    assert d.begin("x", now=200.0) == "new"
+
+
+def test_dedup_forget_allows_reprocessing():
+    d = DeliveryDedup()
+    assert d.begin("y") == "new"  # provisionally marked
+    d.forget("y")               # transient failure -> un-mark
+    assert d.begin("y") == "new"  # retry is treated as fresh, not a duplicate
+
+
+def test_dedup_forget_missing_or_none_is_noop():
+    d = DeliveryDedup()
+    d.forget(None)       # no id -> nothing to do
+    d.forget("never")    # absent id -> no error
+    assert d.begin("z") == "new"
+
+
+# ==========================================================================
+# 4. FILE.UPLOADED vs FILE.MOVED disambiguation
+# ==========================================================================
+
+def test_is_upload_true_for_file_uploaded():
+    assert wv.is_upload({"trigger": "FILE.UPLOADED"}) is True
+
+
+def test_is_upload_false_for_file_moved():
+    assert wv.is_upload({"trigger": "FILE.MOVED"}) is False
+
+
+def test_classify_trigger_uppercases():
+    assert wv.classify_trigger({"trigger": "file.uploaded"}) == "FILE.UPLOADED"
+    assert wv.classify_trigger({}) == ""
+
+
+def test_extract_folder_and_file_ids():
+    body = {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "999", "name": "IMG_1.jpg", "sha1": "abc",
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+    assert wv.extract_folder_id(body) == "777"
+    assert wv.extract_file_id(body) == "999"
+    assert wv.extract_file_name(body) == "IMG_1.jpg"
+    assert wv.extract_file_sha1(body) == "abc"
+
+
+# ==========================================================================
+# 5. The receiver, end to end (mocked DataApiClient)
+# ==========================================================================
+
+class _FakeDataApi:
+    """Stand-in DataApiClient: records calls, returns scripted answers."""
+
+    def __init__(self, *, case_id="CASE-1", evidence_exists=False, case_po=None):
+        self._case_id = case_id
+        self._case_po = case_po
+        self._evidence_exists = evidence_exists
+        self.created = []
+        self.audited = []
+        self.reinvoked = []
+        self.marked_done = []
+
+    def resolve_case_by_folder(self, folder_id):
+        return self._case_id
+
+    def resolve_case_context_by_folder(self, folder_id):
+        # Delegates to resolve_case_by_folder so subclass overrides (transient
+        # failure fakes) keep steering both entry points — mirrors the client.
+        return self.resolve_case_by_folder(folder_id), self._case_po
+
+    def evidence_exists_for_box_file(self, case_id, box_file_id):
+        return self._evidence_exists
+
+    def create_evidence(self, **kwargs):
+        self.created.append(kwargs)
+        return "EV-1"
+
+    def write_audit(self, **kwargs):
+        self.audited.append(kwargs)
+
+    def reinvoke_status_evaluate(self, case_id):
+        self.reinvoked.append(case_id)
+        return True
+
+    def mark_case_done(self, case_id, signal, detail=""):
+        self.marked_done.append((case_id, signal, detail))
+        return True
+
+    def close(self):
+        pass
+
+
+def _signed_request(body_obj: dict, *, key=PRIMARY_KEY, header="primary",
+                    delivery_id="d-1", ts_offset=0) -> function_app.func.HttpRequest:
+    body = json.dumps(body_obj).encode("utf-8")
+    ts = _now_iso(ts_offset)
+    sig = _sign(body, ts, key)
+    headers = {
+        "BOX-DELIVERY-TIMESTAMP": ts,
+        "BOX-DELIVERY-ID": delivery_id,
+    }
+    if header == "primary":
+        headers["BOX-SIGNATURE-PRIMARY"] = sig
+    else:
+        headers["BOX-SIGNATURE-SECONDARY"] = sig
+    return function_app.func.HttpRequest(
+        method="POST", url="/api/box-webhook", body=body, headers=headers,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _wire_keys_and_dedup(monkeypatch):
+    monkeypatch.setenv("BOX_WEBHOOK_PRIMARY_KEY", PRIMARY_KEY)
+    monkeypatch.setenv("BOX_WEBHOOK_SECONDARY_KEY", SECONDARY_KEY)
+    # No Box credentials in the test env: the best-effort sha256 fetch
+    # (TKT-133) then no-ops to None via BoxConfigError instead of ever
+    # reaching a network path.
+    monkeypatch.delenv("BOX_CONFIG_JSON", raising=False)
+    # Fresh dedup set per test (module-level singleton otherwise leaks state).
+    # The receiver now processes ON the request path (no background seam to patch).
+    monkeypatch.setattr(function_app, "_DEDUP", DeliveryDedup())
+
+
+def _patch_dv(monkeypatch, fake):
+    monkeypatch.setattr(function_app, "DataApiClient", lambda *a, **k: fake)
+
+
+_UPLOAD_BODY = {
+    "trigger": "FILE.UPLOADED",
+    "source": {"type": "file", "id": "999", "name": "IMG_1.jpg",
+               "parent": {"id": "777", "type": "folder"}},
+}
+
+
+def test_receiver_happy_path_writes_evidence_audit_and_reinvokes(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    # Processed ON the request path: a settled success returns 200 with work done.
+    assert resp.status_code == 200
+    out = json.loads(resp.get_body())
+    assert out["received"] is True
+    assert len(fake.created) == 1
+    assert fake.created[0]["box_file_id"] == "999"
+    assert len(fake.audited) == 1
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_processes_inline_before_responding(monkeypatch):
+    # No background deferral: by the time the response is produced the Data API
+    # writes have ALREADY happened, so a worker recycle after the response can
+    # never drop an acknowledged upload.
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert len(fake.created) == 1          # the write completed BEFORE the 200
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_rejects_replay_before_hmac(monkeypatch):
+    fake = _FakeDataApi()
+    _patch_dv(monkeypatch, fake)
+    # 11 minutes old -> 400 replay, no Data API work.
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY, ts_offset=-660))
+    assert resp.status_code == 400
+    assert fake.created == []
+
+
+def test_receiver_rejects_bad_signature(monkeypatch):
+    fake = _FakeDataApi()
+    _patch_dv(monkeypatch, fake)
+    req = _signed_request(_UPLOAD_BODY, key="ATTACKER-KEY")
+    resp = function_app.box_webhook(req)
+    assert resp.status_code == 403
+    assert fake.created == []
+
+
+def test_receiver_accepts_secondary_signature(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-2")
+    _patch_dv(monkeypatch, fake)
+    req = _signed_request(_UPLOAD_BODY, key=SECONDARY_KEY, header="secondary")
+    resp = function_app.box_webhook(req)
+    assert resp.status_code == 200
+    # Verified via the secondary key (rotation) -> processing reaches the case.
+    assert fake.reinvoked == ["CASE-2"]
+
+
+def test_receiver_dedups_repeated_delivery_id(monkeypatch):
+    fake = _FakeDataApi()
+    _patch_dv(monkeypatch, fake)
+    first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="dup"))
+    assert first.status_code == 200
+    # Same delivery id again -> in-process dedup fast-path no-op, no second write.
+    second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="dup"))
+    assert second.status_code == 200
+    assert json.loads(second.get_body()).get("deduped") is True
+    assert len(fake.created) == 1
+
+
+def test_receiver_skips_file_moved(monkeypatch):
+    fake = _FakeDataApi()
+    _patch_dv(monkeypatch, fake)
+    moved = dict(_UPLOAD_BODY, trigger="FILE.MOVED")
+    resp = function_app.box_webhook(_signed_request(moved))
+    # A MOVE is a settled no-op (not a fresh upload) -> 200, nothing written.
+    assert resp.status_code == 200
+    assert fake.created == []
+
+
+def test_receiver_durable_dedup_when_evidence_exists(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-3", evidence_exists=True)
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    # The durable Evidence-existence check prevents a second write (200, no create).
+    assert resp.status_code == 200
+    assert fake.created == []  # existing Evidence -> no duplicate write
+
+
+def test_receiver_unresolved_folder_routes_to_triage(monkeypatch):
+    fake = _FakeDataApi(case_id=None)
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    # No case resolves -> settled triage skip (200), never a guessed write.
+    assert resp.status_code == 200
+    assert fake.created == []
+
+
+def test_receiver_transient_data_api_error_returns_503_so_box_retries(monkeypatch):
+    from data_api_client import DataApiError
+
+    class _Boom(_FakeDataApi):
+        def resolve_case_by_folder(self, folder_id):
+            raise DataApiError("boom", status=500)
+
+    _patch_dv(monkeypatch, _Boom())
+    # A TRANSIENT Data API failure must surface as a non-2xx so Box RETRIES the
+    # delivery (Box does not retry after a 2xx). No exception escapes box_webhook.
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 503
+
+
+def test_receiver_transient_failure_then_box_retry_is_reprocessed(monkeypatch):
+    """A transient Data API fault on the FIRST delivery returns 503 (so Box
+    retries) and un-marks the in-process id, so a Box retry of the SAME id is
+    re-processed (not blocked by the fast-path) and persists Evidence once
+    the Data API recovers."""
+    from data_api_client import DataApiError
+
+    class _FlakyDataApi(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-RETRY")
+            self.calls = 0
+
+        def resolve_case_by_folder(self, folder_id):
+            self.calls += 1
+            if self.calls == 1:
+                raise DataApiError("throttled", status=429)  # transient
+            return self._case_id
+
+    fake = _FlakyDataApi()
+    _patch_dv(monkeypatch, fake)
+
+    # Delivery 1: the Data API throttles -> 503 (Box will retry), nothing written,
+    # and the delivery id is un-marked so a same-id retry can land.
+    first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-retry"))
+    assert first.status_code == 503
+    assert fake.created == []  # nothing persisted on the failed attempt
+
+    # Box retries the SAME delivery id (the Data API now healthy). It must be
+    # re-processed, not dropped as a duplicate no-op.
+    second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-retry"))
+    assert second.status_code == 200
+    assert json.loads(second.get_body()).get("deduped") is not True
+    assert len(fake.created) == 1  # the retry persisted Evidence
+    assert fake.reinvoked == ["CASE-RETRY"]
+
+
+def test_concurrent_duplicate_never_settles_before_first_failure(monkeypatch):
+    """A same-id duplicate arriving while the owning request is blocked gets 503,
+    never a false settled 200. Once the first fails and releases its claim, the
+    next retry is processed normally."""
+    from data_api_client import DataApiError
+
+    class _BlockedFirstFailure(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-CONCURRENT")
+            self.entered = threading.Event()
+            self.release = threading.Event()
+            self.calls = 0
+
+        def resolve_case_by_folder(self, folder_id):
+            self.calls += 1
+            if self.calls == 1:
+                self.entered.set()
+                assert self.release.wait(timeout=5)
+                raise DataApiError("first request failed", status=503)
+            return self._case_id
+
+    fake = _BlockedFirstFailure()
+    _patch_dv(monkeypatch, fake)
+    first_result = []
+    first = threading.Thread(
+        target=lambda: first_result.append(
+            function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-concurrent"))
+        )
+    )
+    first.start()
+    assert fake.entered.wait(timeout=5)
+
+    duplicate = function_app.box_webhook(
+        _signed_request(_UPLOAD_BODY, delivery_id="d-concurrent")
+    )
+    assert duplicate.status_code == 503
+    assert json.loads(duplicate.get_body()).get("deduped") is not True
+
+    fake.release.set()
+    first.join(timeout=5)
+    assert not first.is_alive()
+    assert first_result[0].status_code == 503
+
+    retry = function_app.box_webhook(
+        _signed_request(_UPLOAD_BODY, delivery_id="d-concurrent")
+    )
+    assert retry.status_code == 200
+    assert len(fake.created) == 1
+
+
+def test_receiver_status_evaluate_failure_then_retry_advances(monkeypatch):
+    """When Evidence is written but the (idempotent) status-evaluate re-invoke
+    FAILS, the receiver returns 503 so Box retries; on the retry the Evidence
+    already exists (write is once-only) but the case-advance must still fire so
+    the case moves Not Ready -> Review."""
+    from data_api_client import DataApiError
+
+    class _StrandThenAdvance(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-STRAND")
+            self._reinvoke_calls = 0
+
+        def evidence_exists_for_box_file(self, case_id, box_file_id):
+            # Reflects the durable store: True once an Evidence row was written.
+            return len(self.created) > 0
+
+        def reinvoke_status_evaluate(self, case_id):
+            self._reinvoke_calls += 1
+            if self._reinvoke_calls == 1:
+                raise DataApiError("status-evaluate 503", status=503)  # genuine failure
+            self.reinvoked.append(case_id)
+            return True
+
+    fake = _StrandThenAdvance()
+    _patch_dv(monkeypatch, fake)
+
+    # Delivery 1: Evidence written, but the status-evaluate re-invoke 503s -> 503.
+    first = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-strand"))
+    assert first.status_code == 503
+    assert len(fake.created) == 1          # Evidence landed
+    assert fake.reinvoked == []            # ...but the advance did NOT happen
+
+    # Box retries the SAME delivery id (the failure un-marked the fast-path). The
+    # durable Evidence-existence check now finds the row, so the WRITE is correctly
+    # deduped — but the idempotent case-advance must STILL fire (no second write).
+    second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-strand"))
+    assert second.status_code == 200
+    assert json.loads(second.get_body()).get("deduped") is True  # write skipped...
+    assert len(fake.created) == 1          # ...Evidence write stays once-only
+    assert fake.reinvoked == ["CASE-STRAND"]  # ...but the case finally advances
+
+
+def test_receiver_settled_move_keeps_dedup_mark(monkeypatch):
+    """A settled (non-transient) MOVE keeps the dedup mark so a retry of the same
+    delivery stays a no-op (we only un-mark on a transient failure)."""
+    fake = _FakeDataApi()
+    _patch_dv(monkeypatch, fake)
+    moved = dict(_UPLOAD_BODY, trigger="FILE.MOVED")
+    first = function_app.box_webhook(_signed_request(moved, delivery_id="d-move"))
+    assert first.status_code == 200
+    # Retry of the same MOVE delivery -> caught by the still-standing dedup mark.
+    second = function_app.box_webhook(_signed_request(moved, delivery_id="d-move"))
+    assert second.status_code == 200
+    assert json.loads(second.get_body()).get("deduped") is True
+    assert fake.created == []
+
+
+# ==========================================================================
+# 6. TKT-095 detector (b) — CE report PDF -> engineer_report evidence + mark-done
+# ==========================================================================
+
+def _report_body(name: str) -> dict:
+    return {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "555", "name": name,
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+
+
+def test_receiver_report_pdf_persists_engineer_report_and_marks_done(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    out = json.loads(resp.get_body())
+    # Persisted as the engineer_report kind, not the generic image class.
+    assert len(fake.created) == 1
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+    # The done transition was attempted with the box_pdf signal + the filename detail.
+    assert fake.marked_done == [("CASE-7", "box_pdf", "CCPY26050 Report.pdf")]
+    assert out.get("report") is True
+    assert out.get("markedDone") is True
+    # The ordinary settle path still ran in full (evidence + audit + re-evaluate).
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_report_by_case_po_in_filename_without_token(monkeypatch):
+    # Case/PO containment alone classifies (space/punct-tolerant) — no 'report' token.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("ccpy 26050-final.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+    assert len(fake.marked_done) == 1
+
+
+def test_receiver_non_report_pdf_gets_honest_kind_no_mark_done(monkeypatch):
+    # A PDF that neither carries the Case/PO nor a report/assessment token is
+    # ordinary evidence: NO done transition — and since TKT-133 the kind is
+    # derived honestly at source ('.pdf' -> instruction, no longer 'image').
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("invoice_scan.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "instruction"
+    assert fake.marked_done == []
+
+
+def test_receiver_image_upload_behaviour_unchanged_by_detector(monkeypatch):
+    # The pre-TKT-095 image path is byte-identical: image class, no mark-done.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "image"
+    assert fake.marked_done == []
+    assert "report" not in json.loads(resp.get_body())
+
+
+def test_receiver_mark_done_failure_returns_503_after_fresh_evidence(monkeypatch):
+    """A report is not settled while its required done transition is unknown."""
+    from data_api_client import DataApiError
+
+    class _MarkDoneBoom(_FakeDataApi):
+        def mark_case_done(self, case_id, signal, detail=""):
+            raise DataApiError("mark-done unavailable", status=503)
+
+    fake = _MarkDoneBoom(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 503
+    assert len(fake.created) == 1
+    assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_report_mark_done_failure_redelivers_without_duplicate_evidence(monkeypatch):
+    """Fresh evidence + failed done call returns 503; same-id redelivery uses the
+    durable evidence check and retries only the idempotent advance/done work."""
+    from data_api_client import DataApiError
+
+    class _RetryDone(_FakeDataApi):
+        def __init__(self):
+            super().__init__(case_id="CASE-7", case_po="CCPY26050")
+            self.done_calls = 0
+
+        def evidence_exists_for_box_file(self, case_id, box_file_id):
+            return len(self.created) > 0
+
+        def mark_case_done(self, case_id, signal, detail=""):
+            self.done_calls += 1
+            if self.done_calls == 1:
+                raise DataApiError("mark-done 503", status=503)
+            return super().mark_case_done(case_id, signal, detail)
+
+    fake = _RetryDone()
+    _patch_dv(monkeypatch, fake)
+    first = function_app.box_webhook(
+        _signed_request(_report_body("CCPY26050 Report.pdf"), delivery_id="d-report-retry")
+    )
+    assert first.status_code == 503
+    assert len(fake.created) == 1
+
+    second = function_app.box_webhook(
+        _signed_request(_report_body("CCPY26050 Report.pdf"), delivery_id="d-report-retry")
+    )
+    assert second.status_code == 200
+    assert len(fake.created) == 1
+    assert fake.done_calls == 2
+    assert fake.marked_done == [("CASE-7", "box_pdf", "CCPY26050 Report.pdf")]
+
+
+def test_receiver_report_redelivery_dedups_write_but_still_attempts_mark_done(monkeypatch):
+    # Evidence already recorded (durable dedup) -> no second write, but the
+    # idempotent mark-done still fires (a prior delivery may have died before it).
+    # The API's WHERE guard makes the repeat a server-side no-op.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050", evidence_exists=True)
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    assert fake.created == []
+    assert len(fake.marked_done) == 1
+
+
+def test_receiver_no_secret_or_key_in_response(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-9")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    body_text = resp.get_body().decode("utf-8")
+    assert PRIMARY_KEY not in body_text
+    assert SECONDARY_KEY not in body_text
+
+
+# ==========================================================================
+# 7. TKT-133 — honest kind + sha256 at source
+# ==========================================================================
+
+class _FakeBoxDownload:
+    """Stand-in BoxClient for the receiver's best-effort sha256 fetch."""
+
+    def __init__(self, content=b"img-bytes", error=None):
+        self.calls = []
+        self._content = content
+        self._error = error
+
+    def download_file(self, file_id):
+        self.calls.append(file_id)
+        if self._error is not None:
+            raise self._error
+        return {"id": file_id, "name": "IMG_1.jpg", "size": len(self._content),
+                "sha1": "s", "content": self._content}
+
+    def close(self):
+        pass
+
+
+def _named_body(name: str) -> dict:
+    return {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "999", "name": name,
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+
+
+def test_receiver_eml_upload_persists_email_kind(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("message.eml")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "email"
+
+
+def test_receiver_video_upload_persists_other_kind(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("dashcam.mp4")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "other"
+
+
+def test_receiver_report_override_still_wins_over_derived_kind(monkeypatch):
+    # TKT-095 stays on top: a classified CE report is engineer_report even
+    # though '.pdf' would derive 'instruction'.
+    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_named_body("CCPY26050 Report.pdf")))
+    assert resp.status_code == 200
+    assert fake.created[0]["evidence_class"] == "engineer_report"
+
+
+def test_receiver_fetches_sha256_within_cap(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(content=b"img-bytes")
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake_box.calls == ["999"]  # fetched once, for the file being written
+    assert fake.created[0]["sha256"] == hashlib.sha256(b"img-bytes").hexdigest()
+
+
+def test_receiver_over_cap_file_writes_sha256_none(monkeypatch):
+    from box_client import BoxError
+
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(
+        error=BoxError("file exceeds the facade download cap", status=413)
+    )
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    # Over-cap -> honest None; the Evidence write itself still lands.
+    assert resp.status_code == 200
+    assert len(fake.created) == 1
+    assert fake.created[0]["sha256"] is None
+
+
+def test_receiver_box_fault_on_sha256_fetch_never_fails_the_write(monkeypatch):
+    fake = _FakeDataApi(case_id="CASE-7")
+    fake_box = _FakeBoxDownload(error=RuntimeError("boom"))
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created[0]["sha256"] is None
+
+
+def test_receiver_no_sha256_fetch_when_evidence_deduped(monkeypatch):
+    # The extra download costs real bytes — it must ONLY run when the Evidence
+    # write will actually happen (not on the durable-dedup path).
+    fake = _FakeDataApi(case_id="CASE-7", evidence_exists=True)
+    fake_box = _FakeBoxDownload()
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake.created == []
+    assert fake_box.calls == []  # no write -> no fetch
+
+
+def test_receiver_no_sha256_fetch_for_unresolved_case(monkeypatch):
+    fake = _FakeDataApi(case_id=None)
+    fake_box = _FakeBoxDownload()
+    _patch_dv(monkeypatch, fake)
+    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert fake_box.calls == []  # triage skip -> no fetch

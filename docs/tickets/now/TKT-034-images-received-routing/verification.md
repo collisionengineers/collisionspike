@@ -55,7 +55,7 @@ specimens)
 
 ### Residuals (expected, non-blocking)
 1. **Step-2 gate (operator item):** `BOX_REG_FOLDER_ENABLED` flip + post-flip proof of one
-   reg-keyed folder create (folder-naming-semantic approval). **Add to docs/gated.md** (changes.md
+   reg-keyed folder create (folder-naming-semantic approval). **Add to docs/tickets/BOARD.md** (changes.md
    suggested; not yet present). The rung was always conditional ("if a registration is viewable")
    and the acceptance sample itself skips it.
 2. The literal sample .eml not re-intaken — superseded by the 8 live same-shape specimens.
@@ -73,6 +73,15 @@ folder named by reg under `BOX_FOLDER_ROOT_ID` + Box 409-reuse on repeat.
 
 Verified by: ticket-verifier dispatch, 2026-07-10.
 
+## Repository-reset regression check (2026-07-15)
+
+The final PR #100 review found that the path migration had omitted the existing Archive-client
+`rename_folder`, `move_file`, `delete_empty_folder` and strict write-scope methods from the new operations
+mixin. The implementations were restored from their reviewed repository history. The full Archive-function
+suite now passes **274/274**, including fresh source/destination ancestry, non-recursive empty-folder
+retirement, idempotent missing-source replay, and off-root conflict refusal. No live Archive write was used
+for this proof and the configured write boundary remains the test root.
+
 ---
 
 ## Initial sweep verdict (2026-07-10, pre-W6 — superseded by the final ruling above)
@@ -83,7 +92,7 @@ and the step-2 Box rung is deliberately dark behind an operator gate. Nothing FA
 ## Sweep verdict (transcribed verbatim, 2026-07-10)
 
 - **Line 1 — distinct Enquiries vs Case Queries: MET (deployed-live surfaces; subtype-level).**
-  `query_existing_work` (100000003) + `query_new_enquiry` (100000004) in the domain choicesets, DDL
+  `query_existing_work` (100000003) + `query_new_enquiry` (100000004) in the domain code tables, DDL
   lookup seed, and the classifier split (`provider_known ? existing_work : new_enquiry`). The
   deployed SPA bundle carries `Case query` / `New enquiry` labels + the `Queries/Enquiries`
   Outlook-folder plumbing. Note: delivered as two query SUBTYPES under category `query` per the
@@ -135,7 +144,7 @@ SELECT cs.name, count(*) FROM inbound_email ie
 ### Expected absences / notes (not bugs)
 No live `images_no_match` row yet (the identical rail is live-proven for `unable_to_locate`); step 2
 dark pending the operator gate decision — **distillation item: add `BOX_REG_FOLDER_ENABLED` to
-docs/gated.md** (changes.md suggested it; not yet there); the evidence sample never re-intaken live
+docs/tickets/BOARD.md** (changes.md suggested it; not yet there); the evidence sample never re-intaken live
 (worst-case shape pinned offline); the category split is subtype-granularity (documented re-scope);
 no dedicated unit test for the `imagesUnmatched` activity (decision layer covered; activity is
 best-effort glue by design).

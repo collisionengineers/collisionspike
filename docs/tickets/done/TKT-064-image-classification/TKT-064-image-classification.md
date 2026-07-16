@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: pipeline
 tickets-it-relates-to: [TKT-016, TKT-048, TKT-002]
-research-link: docs/adr/0009-image-ai-ocr-m1-classification-m2.md
+research-link: docs/adr/0009-image-processing-suggestion-first.md
 plan: PLAN-001
 ---
 
@@ -24,10 +24,10 @@ every case, and staff must open each photo and set the role by hand.
 Two distinct gaps, both real:
 
 1. **Image role (overview / damage_closeup / …) is not computed at all — by design, deferred to M2.**
-   `orchestration/src/functions/activities/extractImages.ts:126` hard-codes
+   `services/orchestration/src/workflows/evidence/extractImages.ts` hard-codes
    `imageRoleCode: 'unknown'` with the comment *"role tagging is M2 (ADR-0009); default unknown"*.
    There is no classifier anywhere in the pipeline; the Data-API seam accepts an `imageRoleCode`
-   (`orchestration/src/lib/data-api.ts:417`) but no producer ever sets a real value.
+   (`services/orchestration/src/adapters/data-api.ts`) but no producer ever sets a real value.
 
 2. **Registration-visible OCR runs on too narrow a slice.** `PLATE_OCR_ENABLED=true` and
    `callPlateOcr` sets `registration_visible`, but **only inside `extractImages`** — i.e. only for
@@ -58,7 +58,7 @@ A vision-classification pass over evidence images, producing `imageRoleCode` + `
   role dropdown / exclude toggle; never auto-accept into the EVA set without the human check.
 
 Supersedes the "role tagging is M2" deferral in
-[ADR-0009](../../../adr/0009-image-ai-ocr-m1-classification-m2.md); pairs with the AI image-analysis tooling in
+[ADR-0009](../../../adr/0009-image-processing-suggestion-first.md); pairs with the AI image-analysis tooling in
 [[TKT-016]] and needs the now-shipped preview byte-path from [[TKT-048]].
 
 ## Acceptance
@@ -75,6 +75,6 @@ Supersedes the "role tagging is M2" deferral in
 ## Resolution (2026-07-06)
 
 Done as the image pillar of the backfill/reverify-all-active-cases pass — see [changes.md](./changes.md)
-for what was built + run and the honest limit (the classifier + one-shot backfill are done; the
-**live-pipeline wiring for new images** is the remaining follow-up). Live counts: the registry
-[LIVE_FACTS.json](../../../../LIVE_FACTS.json).
+for what was built + run and [verification.md](./verification.md) for the retained proof. The honest
+limit is that the classifier + one-shot backfill are done while the **live-pipeline wiring for new
+images** remains a follow-up. Live counts: the registry [LIVE_FACTS.json](../../../../LIVE_FACTS.json).

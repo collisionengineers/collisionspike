@@ -14,7 +14,7 @@ direction is a payments/billing lane.)
 **Shipped (sibling-first, engine-v2.10, re-vendored):**
 - **Taxonomy v3**: new subtype `payment_remittance` under the existing `billing` category
   (classifier `SUBTYPE_PAYMENT_REMITTANCE`; `TAXONOMY_VERSION` 2→3). Full plumbing: TS
-  `InboundSubtype`/`INBOUND_SUBTYPES` (@cs/domain), choicesets JSON code **100000013**, api
+  `InboundSubtype`/`INBOUND_SUBTYPES` (@cs/domain), code-table JSON code **100000013**, api
   name↔code maps, SPA label "Payment received" under Billing, DDL delta
   `2026-07-09-taxonomy-v3-pre-instruction-payments.sql` (APPLIED live BEFORE the parser deploy).
 - **Rule 0d** (`payment_remittance`): a new `payment_phrases` collection (triage-rules.json, 14

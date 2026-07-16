@@ -29,7 +29,7 @@ evidence or reach the archive.
 
 ## Delivery
 
-Phase 2 of the [Rules Engine v2 plan](../../../plans/rules_engine_v2_plan_9ba034c4.plan.md); the engine
+Phase 2 of the [Rules Engine v2 plan](TKT-047-email-sigs-box.md); the engine
 side (sibling PR #4/#5 decorative filter) covers document-embedded rasters.
 
 ## Status update — 2026-07-08 (operator live-failure report)
@@ -45,7 +45,7 @@ signatures above the area floor and/or the PDF-extraction lane.
 
 `de7991d` (feat(orch): non-inline signature-image raster floor) is deployed live on `cespk-orch-dev`:
 a PNG/JPEG header dimension sniff applies the engine's 40,000 px² area floor to non-inline attachments at
-Graph fetch time (`orchestration/src/lib/image-sniff.ts`), with unknown dimensions kept unless under an
+Graph fetch time (`services/orchestration/src/platform/image-sniff.ts`), with unknown dimensions kept unless under an
 8KB byte-size floor (to protect tiny logos), every skip logged by name + reason, and a
 `GRAPH_IMAGE_FLOOR_DISABLED` kill switch. Unit-tested (`image-sniff.test.ts`). No live proof yet on a real
 signature-bearing email — the fix has not been exercised against an actual inbound message carrying a

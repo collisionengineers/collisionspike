@@ -32,24 +32,24 @@ loop still owns the ticket-status move, database delta, deployment and independe
 
 ## Files touched
 
-- `mockup-app/src/screens/ManualIntake.tsx`, `manual-intake-files.ts`,
+- `apps/web/src/features/intake/ManualIntake.tsx`, `manual-intake-files.ts`,
   `manual-intake-upload.ts`, and `data/rest-client.ts` — the instruction plus every selected extra
   file now uses the canonical staff upload route. The page navigates only after every selected file
   has a confirmed evidence identity; partial/total failure stays on a per-file recovery screen and
   retries the same case.
-- `api/src/functions/cases.ts`, `evidence-upload.ts`, `internal.ts`, and
+- `services/data-api/src/features/cases/`, `evidence-upload.ts`, `internal.ts`, and
   `lib/manual-intake-operation.ts` — one actor/request-bound case operation survives response loss or
   double submission, binds/rebinds the exact canonical upload retry, records the case-create audit
   once, and keeps source-evidence-incomplete cases Not Ready until the complete batch is confirmed.
 - `packages/domain/src/contracts/case-status.ts` and `dto/index.ts` — optional Manual Intake retry
   metadata plus the shared source-evidence readiness blocker.
-- `migration/assets/schema/196_manual_intake_case_create.sql`, its additive live delta, and
+- `database/baseline/196_manual_intake_case_create.sql`, its additive live delta, and
   `900_constraints.sql` — durable operation ownership, pending-source index, forced RLS and non-delete
   application grants.
-- `api/src/functions/archive-mirror-outbox.ts`, its request helper, the TKT-166 delta and
-  `mockup-app/src/screens/CaseDetail.tsx` — archive work stops after eight failed attempts, remains a
+- `services/data-api/src/features/archive/mirror-outbox-routes.ts`, its request helper, the TKT-166 delta and
+  `apps/web/src/features/cases/CaseDetail.tsx` — archive work stops after eight failed attempts, remains a
   Not Ready blocker for Manual Intake source files, and can be explicitly retried from Evidence.
-- `docs/azure/deploy.md` — binding rollout order: additive TKT-166 delta, API, then SPA.
+- `docs/operations/deployment.md` — binding rollout order: additive TKT-166 delta, API, then SPA.
 
 ## Summary
 
@@ -179,14 +179,14 @@ values. The TKT-024 form remains deliberately unmerged for its separate layout i
 ## Merge lifecycle follow-up — 2026-07-13
 
 - A merge now locks both cases' Manual Intake operations and refuses the merge while either create
-  side effects or selected source batch is incomplete. Completed historical operations are safe to
+  side effects or selected source batch is incomplete. Completed prior operations are safe to
   transfer to the survivor.
 - Non-colliding staff upload items, batches and Manual Intake operations move to the survivor with
   their evidence. For a SHA collision, every item that referenced the redundant source evidence is
   rebound to the canonical target evidence before the source retires. Content-dedup and rebound
   identities therefore continue to drive survivor readiness and retry.
 - The operation `case_id` is no longer unique: a merge can legitimately leave multiple completed
-  historical create operations on one survivor. Exact upload-key predicates keep their replay and
+  prior create operations on one survivor. Exact upload-key predicates keep their replay and
   completion bindings separate; operation/upload keys themselves remain unique.
 - The regression sequence merges a rebound old-key/content-dedup instruction, applies a later archive
   dead-letter to the canonical survivor evidence, proves the survivor evaluates Not Ready, then proves

@@ -55,7 +55,7 @@ Operator rulings captured in the [020726 review](../../../reviews/020726/decisio
 
 ## Acceptance
 - Mailbox chips name the real mailboxes (info@ / engineers@ / desk@) for new AND
-  historical email.
+  prior email.
 - Inbox shows VRM and Ref in separate columns; linked rows show a clickable
   "Case created / Linked to case · <Case/PO>" status that opens the case.
 - No tabs / triage-status links / Show toggles; one list, one type dropdown,

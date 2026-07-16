@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-155",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/current-dashboard.png",
+      "originalFilename": "current-dashboard.png",
+      "sha256": "dd713b23a197156c8ab6c2fdf13b7029a59396188b8c8161cdaf56939641c341",
+      "storagePath": "tests/fixtures/evidence/sha256/dd/dd713b23a197156c8ab6c2fdf13b7029a59396188b8c8161cdaf56939641c341.png"
+    },
+    {
+      "role": "ticket-image",
+      "originalPath": "evidence/current-needs-action.png",
+      "originalFilename": "current-needs-action.png",
+      "sha256": "60f5d76db07c937ebd250eb4500fa850c32349301439204d597feadabf01ee01",
+      "storagePath": "tests/fixtures/evidence/sha256/60/60f5d76db07c937ebd250eb4500fa850c32349301439204d597feadabf01ee01.png"
+    }
+  ]
+}

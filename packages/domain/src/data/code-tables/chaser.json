@@ -1,0 +1,36 @@
+{
+  "$schema": "../schema/_code-table.schema.json",
+  "kind": "code-table-bundle",
+  "description": "Chaser enums (ADR-0003). Three related code tables used by the Chaser table.",
+  "codeTables": [
+    {
+      "codeTableId": "chaser_target_type",
+      "displayName": "Chaser Target Type",
+      "options": [
+        { "value": 100000000, "name": "image_source",  "label": "Image Source" },
+        { "value": 100000001, "name": "repairer",      "label": "Repairer" },
+        { "value": 100000002, "name": "work_provider", "label": "Work Provider" }
+      ]
+    },
+    {
+      "codeTableId": "chaser_channel",
+      "displayName": "Chaser Channel",
+      "description": "email = draft + (later) Outlook send; whatsapp = draft + MANUAL send only (WhatsApp Business). Audatex out of scope.",
+      "options": [
+        { "value": 100000000, "name": "email",    "label": "Email" },
+        { "value": 100000001, "name": "whatsapp", "label": "WhatsApp" }
+      ]
+    },
+    {
+      "codeTableId": "chaser_status",
+      "displayName": "Chaser Status",
+      "default": "drafted",
+      "options": [
+        { "value": 100000000, "name": "drafted",   "label": "Drafted" },
+        { "value": 100000001, "name": "sent",      "label": "Sent" },
+        { "value": 100000002, "name": "responded", "label": "Responded" },
+        { "value": 100000003, "name": "overdue",   "label": "Overdue" }
+      ]
+    }
+  ]
+}

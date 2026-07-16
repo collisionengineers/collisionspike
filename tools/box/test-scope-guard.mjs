@@ -12,8 +12,8 @@ const ROOT = resolve(HERE, '..', '..');
 const GUARD = resolve(ROOT, '.claude', 'hooks', 'box-scope-guard.mjs');
 const POST = resolve(ROOT, '.claude', 'hooks', 'box-scope-postcreate.mjs');
 const CURSOR_GUARD = resolve(ROOT, '.cursor', 'hooks', 'cursor-box-scope-guard.mjs');
-const PHASE_A = resolve(HERE, 'phaseA-probe.mjs');
-const PHASE_B = resolve(HERE, 'phaseB-livetest.mjs');
+const IDENTITY_PROBE = resolve(HERE, 'identity-probe.mjs');
+const WEBHOOK_SMOKE = resolve(HERE, 'webhook-smoke.mjs');
 const CONFIG = resolve(ROOT, 'tools', 'box-scope.json');
 const TEST_ROOT = '392761581105';
 
@@ -82,24 +82,24 @@ const allow = [
   ['webhooks:create --help', 'box webhooks:create --help'],
   ['file-requests --help', 'box file-requests --help'],
   ['non-box npm', 'npm run build'],
-  ['non-box repo path', 'grep -r foo functions/box-webhook/'],
+  ['non-box repo path', 'grep -r foo services/functions/box-webhook/'],
   ['non-box cat', 'cat box-integration-pivot/README.md'],
 ];
 for (const [label, cmd] of allow) expect(`ALLOW ${label}`, run(GUARD, bash(cmd)).code, 0);
-expect('ALLOW test wrapper under pinned config', run(GUARD, bash('node tools/box/phaseA-probe.mjs')).code, 0);
+expect('ALLOW test wrapper under pinned config', run(GUARD, bash('node tools/box/identity-probe.mjs')).code, 0);
 expect('ALLOW Cursor test root', cursorPermission(`box folders:get ${TEST_ROOT}`), 'allow');
 
-// ---- Configuration bypasses are retired: any drift blocks every Box op ----
+// ---- Any configuration-schema or scope drift blocks every Box op ----
 const pristine = JSON.parse(snapshot);
-writeConfig({ ...pristine, liveReady: true });
-expect('DENY retired liveReady bypass', run(GUARD, bash(`box folders:get ${TEST_ROOT}`)).code, 2);
-expect('DENY Cursor retired liveReady bypass', cursorPermission(`box folders:get ${TEST_ROOT}`), 'deny');
+writeConfig({ ...pristine, unexpectedSetting: true });
+expect('DENY unexpected config key', run(GUARD, bash(`box folders:get ${TEST_ROOT}`)).code, 2);
+expect('DENY Cursor unexpected config key', cursorPermission(`box folders:get ${TEST_ROOT}`), 'deny');
 writeConfig({ ...pristine, mode: 'production' });
 expect('DENY non-test mode', run(GUARD, bash(`box folders:get ${TEST_ROOT}`)).code, 2);
 writeConfig({ ...pristine, allowedRoot: '999999', allowedIds: ['999999'] });
 expect('DENY configured-root drift', run(GUARD, bash('box folders:get 999999')).code, 2);
-expect('DENY phaseA wrapper configured-root drift', runNode(PHASE_A).status, 2);
-expect('DENY phaseB wrapper configured-root drift', runNode(PHASE_B, ['cleanup']).status, 2);
+expect('DENY identity probe configured-root drift', runNode(IDENTITY_PROBE).status, 2);
+expect('DENY webhook smoke configured-root drift', runNode(WEBHOOK_SMOKE, ['cleanup']).status, 2);
 writeConfig(pristine);
 
 // ---- PostToolUse grower: appends a child created under root ----

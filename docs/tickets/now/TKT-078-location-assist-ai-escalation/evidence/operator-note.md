@@ -4,7 +4,7 @@
 > plan is preserved at
 > [TKT-075 evidence](../../../done/TKT-075-inspection-corpus-pipeline/evidence/operator-note.md).
 
-Per `docs/plans/phase-4-address-and-chaser/gpt4o-reasoning-escalation.md`, as an escalation
+Per `docs/tickets/README.md`, as an escalation
 branch in the same Function:
 
 - Reuse the deployed AOAI (`digital-3339-resource`, `gpt-5` already live per the registry);
@@ -13,4 +13,4 @@ branch in the same Function:
   re-geocoded via Maps with `ai_reasoning` provenance.
 - UI: reviewer-pressed "Try a deeper photo-based suggestion" when the deterministic tier is
   weak.
-- Operator: production AI sign-off per docs/gated.md E2.
+- Operator: production AI sign-off per docs/tickets/BOARD.md E2.

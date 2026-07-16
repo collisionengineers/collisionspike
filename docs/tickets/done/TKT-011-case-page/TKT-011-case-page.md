@@ -5,7 +5,7 @@ status: done
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-008, TKT-009]
-research-link: docs/plans/work-todo-spike/ui-changes/research/casepage.md
+research-link: docs/tickets/done/TKT-011-case-page/TKT-011-case-page.md
 ---
 
 # Case page de-jargon + layout fixes
@@ -30,8 +30,8 @@ No engineering/file-format strings remain user-facing on the case page; layout m
 intent; verified against the live deployment.
 
 ## Research
-- Operator stub: [casepage.md](../../../plans/work-todo-spike/ui-changes/casepage.md) (empty — see the screenshot `casepage.png` alongside it)
-- Research pack: [research/casepage.md](../../../plans/work-todo-spike/ui-changes/research/casepage.md)
+- Operator stub: [casepage.md](TKT-011-case-page.md) (empty — see the screenshot `casepage.png` alongside it)
+- Research pack: [research/casepage.md](TKT-011-case-page.md)
 
 ## Artifacts
 - [Changes made](./changes.md)

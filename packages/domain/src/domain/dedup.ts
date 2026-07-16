@@ -9,8 +9,7 @@
    (registration/reference correlation, review-required ambiguity) WITHOUT
    importing or calling it.
 
-   NOT 1:1 with the live flow. The live Power Automate `Flow_CaseResolve`
-   (`flows/definitions/case-resolve.definition.json`, LIVE 2026-06-20) was
+   NOT 1:1 with the live resolver. The orchestration case resolver was
    rewritten to MERGE-BY-REGISTRATION: it auto-merges a complementary
    instructions/images pair that share a non-empty VRM (survivor = the Case/PO
    holder) and returns the outcomes `noop | merged | held_multiple |
@@ -245,7 +244,7 @@ export interface MergeProviderDecision {
  * TKT-052 — merging an image-only case (no provider) into/with an instructions case
  * must never LOSE the provider one side knew: the merged survivor ends with whichever
  * side carries a resolved provider. Pure decision — the caller (mergeCases,
- * api/src/functions/cases.ts, and the audited data-fix deltas) applies it.
+ * services/data-api/src/features/cases/merge-routes.ts, and the audited data-fix deltas) applies it.
  *   - both known + equal   -> keep (target)
  *   - both known + differ  -> crossProvider: REFUSE (ADR-0010 rule 2 — never merge across providers)
  *   - target only          -> keep (target)

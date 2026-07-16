@@ -23,12 +23,12 @@ unobserved-in-nature and is listed as a watch-item with queued SQL, not a blocke
 
 **Line 1 — email + Box mirror → ONE row (regression test):**
 - Regression test run by the verifier this pass: `cd api; npx vitest run
-  src/functions/internal-evidence-dedup.test.ts` → **8/8 passed** (7 original incl.
+  src/features/evidence/internal-persist-routes.test.ts` → **8/8 passed** (7 original incl.
   email-then-Box-mirror = ONE row + mirror-first direction + cross-case negative; 8th = the PR52-F1
   sameIdentity-redelivery pin).
-- Deployed api bundle carries the seam: `deploy/api/main.cjs` — `SHA256_HEX_RE` (:18200), twin
+- Deployed api bundle carries the seam: `.artifacts/deploy/data-api/main.cjs` — `SHA256_HEX_RE` (:18200), twin
   pre-check (:18230), `merged++` (:18268), response `{ persisted, updated, merged }` (:18371).
-  Deployed orch bundle carries the email-lane sha256: `deploy/orch/main.cjs` —
+  Deployed orch bundle carries the email-lane sha256: `.artifacts/deploy/orchestration/main.cjs` —
   `buildBaseEvidenceRows` (:50001, sha256 spread :50006/:50013), used by `classifyPersist` (:50021).
   Registry records the 2026-07-09 D2 publish naming TKT-133 on api + orch; counts api 96 / orch 74.
 - Live traffic through the dedup path (KQL, api component): `internalCasesEvidence` 571 requests
@@ -48,13 +48,13 @@ unobserved-in-nature and is listed as a watch-item with queued SQL, not a blocke
   pairs remaining — corroborating from a separate pass with full run artifacts.
 
 **Line 3 — box-webhook sends the true kind; guard stays:**
-- Source at seams: `functions/box-webhook/evidence_kind.py` + `function_app.py:685` (no hard-coded
+- Source at seams: `services/functions/box-webhook/evidence_kind.py` + `function_app.py:685` (no hard-coded
   'image') + `_fetch_box_sha256` (:597, invoked :678). Registry records the 2026-07-09 box-webhook
   publish ("TKT-133 true-kind + sha256 at source", boxWebhook 12 fns).
 - Live execution with the new call signature (KQL): three `Functions.box_webhook` executions
   Succeeded 2026-07-10T15:16Z, each span showing `GET /2.0/files/<id>?fields=id,name,size,sha1` +
   `GET /2.0/files/<id>/content` (the `_fetch_box_sha256` download) before the evidence write.
-- Guard intact: TKT-124 kind guard still in `api/src/functions/internal.ts:2456-2469` — preserved in
+- Guard intact: TKT-124 kind guard still in `services/data-api/src/features/` — preserved in
   the same deployed api build.
 
 ### Pending / gaps
@@ -71,10 +71,10 @@ unobserved-in-nature and is listed as a watch-item with queued SQL, not a blocke
   backfill armed the key — check created_at).
 
 ### How to re-verify
-- Regression test: `cd api && npx vitest run src/functions/internal-evidence-dedup.test.ts` (8 pass).
-- Bundle markers: grep `deploy/api/main.cjs` for `persisted, updated, merged`; `deploy/orch/main.cjs`
+- Regression test: `cd services/data-api && npx vitest run src/features/evidence/internal-persist-routes.test.ts` (8 pass).
+- Bundle markers: grep `.artifacts/deploy/data-api/main.cjs` for `persisted, updated, merged`; `.artifacts/deploy/orchestration/main.cjs`
   for `buildBaseEvidenceRows`.
-- KQL per docs/azure/logs-kql.md: api `requests | where name contains "internalCasesEvidence"`;
+- KQL per docs/operations/diagnostics.md: api `requests | where name contains "internalCasesEvidence"`;
   parser component traces for the box_webhook `fields=id,name,size,sha1` + `/content` span pair.
 - Queued SQL Q-A/Q-B1/Q-B2/Q-C/Q-C2/Q-D (cross-lane twins now; write-time holding; absorb candidates;
   FILE.UPLOADED kinds+sha coverage; non-image-as-image honesty check; marker-case EVA order) — full
@@ -107,7 +107,7 @@ Verdict stands: VERIFIED-LIVE.
 **Verdict: TESTED (offline) — deployment pending.**
 
 This block supersedes the stale `VERIFIED-LIVE` verdict for the PR 55 merge-path regression. The old
-live twin census remains historical evidence and does not prove the repaired merge code.
+live twin census remains prior evidence and does not prove the repaired merge code.
 
 - The merge transaction locks both evidence sets, canonicalises usable SHA-256 values, chooses one
   deterministic survivor, fills only missing Blob/Archive/review provenance and moves only
@@ -115,7 +115,7 @@ live twin census remains historical evidence and does not prove the repaired mer
   survivor duplicates; null/invalid hashes retain the normal move path.
 - Pending Archive work moves with the surviving row. A collision completes redundant source work and
   requests a copy for an eligible survivor, preventing dedup from discarding the only mirror request.
-- `api/src/functions/cases-merge.test.ts` covers target collisions, complementary provenance,
+- `services/data-api/src/features/cases/merge-routes.test.ts` covers target collisions, complementary provenance,
   deterministic source-twin collapse, ordinary different-hash moves and Archive-request transfer.
 - Deployment proof still required: deploy the API, merge a prepared same-SHA pair and confirm one
   active survivor photo in evidence/EVA ordering, preserved provenance and no duplicate readiness
@@ -150,14 +150,14 @@ PENDING
 - The repair is implemented and offline-covered: it locks both evidence sets, canonicalizes usable
   SHA-256 values, coalesces complementary provenance, keeps one active survivor, preserves null/invalid
   hash move behavior, and transfers/retires Archive work safely. Focused coverage is recorded in
-  `api/src/functions/cases-merge.test.ts` (`verification.md:112-120`). Commits `057f7a0` and `070a0bf` are
+  `services/data-api/src/features/cases/merge-routes.test.ts` (`verification.md:112-120`). Commits `057f7a0` and `070a0bf` are
   ancestors of PR 55's deployed merge `c7e78cc`, the corrected runtime `3cc4705`, and the later deployed
-  tree `54a04d`; `.azure/deployment-plan.md:334-341` proves the API was published.
+  tree `54a04d`; `docs/operations/live-environment.md:334-341` proves the API was published.
 
 ## Pending / gaps
 
 - There is no post-repair live witness of a legitimate case merge where source and target already hold
-  the same SHA. The historical twin census and normal intake/Archive dedup telemetry do not exercise this
+  the same SHA. The prior twin census and normal intake/Archive dedup telemetry do not exercise this
   superseding merge-path regression.
 - There is consequently no post-merge live readback proving exactly one active survivor photo,
   complementary provenance retained, the redundant source row still retired, null/invalid hashes still
@@ -187,7 +187,7 @@ PENDING
 
 ## Confidence + unread surfaces
 
-High confidence in the original email/Archive dedup contract, historical cleanup evidence, true-kind
+High confidence in the original email/Archive dedup contract, prior cleanup evidence, true-kind
 source/guard, regression implementation, offline coverage, and deployed ancestry. Insufficient confidence
 to certify the superseding merge-path behavior live. Unread/unexercised surfaces: a post-release live
 same-SHA merge transaction, current direct Postgres post-state, signed-in merge response, generated

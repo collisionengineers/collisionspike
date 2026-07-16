@@ -3,8 +3,8 @@
 // Answers ONE question cheaply: does Box deliver a webhook (esp. for a File-Request
 // upload) to a public endpoint? Logs every request's method/headers/body to console
 // and tools/box/.sink-events.log (JSON lines), and returns 200 so Box marks it
-// delivered. NOT the production receiver (that's functions/box-webhook/) — this has no
-// HMAC/Dataverse; it just proves delivery + shows the event shape. Run via run-receiver.mjs.
+// delivered. NOT the production receiver (that's services/functions/box-webhook/) — this has no
+// signature validation or persistence; it only proves delivery and shows the event shape.
 //   node tools/box/webhook-sink.mjs [port]      (default 7077)
 import { createServer } from 'node:http';
 import { appendFileSync } from 'node:fs';

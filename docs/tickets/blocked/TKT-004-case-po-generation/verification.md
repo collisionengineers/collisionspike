@@ -15,5 +15,5 @@ Archive root plus write/retarget authority is unapproved. Test/mirror/Viewer evi
 Only inside TKT-178's named future window, after all global inputs, restore proof and frozen ledger approval
 pass, prove fail-closed floor health, apply the exact approved ledger-derived floors and commit the exact
 approved production root last. Release the predesignated journaled genuine ingress canary exactly once and confirm it
-mints above the reconciled historical prefix maximum. Its database folder ID must resolve to the same exact
+mints above the reconciled prior prefix maximum. Its database folder ID must resolve to the same exact
 Archive object ID with `parent.id` equal to the approved root; do not create disposable live work.

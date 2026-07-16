@@ -49,7 +49,7 @@ PENDING
 
 ### Evidence
 
-- Historical live verification proved the instruction-only controls absent. The July 12 deployed
+- prior live verification proved the instruction-only controls absent. The July 12 deployed
   release independently confirmed Claimant name, Registration, Make, Vehicle model and Mileage
   grouped together with no Insured name.
 - Current source requires Received from, Received on, registration, vehicle model, location and at
@@ -57,7 +57,7 @@ PENDING
   mode.
 - Images-only mode renders no intake-status control; the API derives the resulting status from
   persisted fields and evidence.
-- Historical live case TE57IMG proved creation without Case/PO or instruction-only data and persisted
+- prior live case TE57IMG proved creation without Case/PO or instruction-only data and persisted
   the received-from note. This predates the reopened Insured-name/layout change.
 - The deployed July 12 Chrome record confirms no Insured name control. Current rendered tests and
   request-boundary tests prove images-only requests cannot leak `insuredName`, provider, principal or

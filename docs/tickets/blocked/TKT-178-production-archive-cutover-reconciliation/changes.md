@@ -17,7 +17,7 @@ mandatory EVA or production Archive execution gates.
 The go-live index, readiness matrix, operator checklist, cutover runbook, Case/PO sequence plan, day-0
 smoke and rollback/support guidance now repeat the same boundary. The signed sheet is the sole active-roster
 authority; EVA, Archive and read-only Outlook supply correlation/completion evidence. Before requesting a
-window, the procedure builds the complete source union and zero-write ledger, compiles historical floors and
+window, the procedure builds the complete source union and zero-write ledger, compiles prior floors and
 the Case/PO collision graph, proves backups/inverses, freezes exact artifacts/versions, and read-only
 nominates two genuine ledger-listed canaries: one pending ingress instruction and one pre-existing EVA-ready
 case. Inside the window it fences every scoped writer/manual create while keeping Graph
@@ -38,8 +38,8 @@ inverse journal that cannot rewind unrelated post-snapshot work. Accepted/unknow
 explicit irreversible boundary followed by forward recovery.
 
 The local Box safety path is now test-only with no `liveReady` escape: Claude, Codex and Cursor guards reject
-mode/root drift on Bash and PowerShell; the wrappers self-check the immutable test root; and the obsolete
-Power-Platform remaining-steps/production runbooks are non-executable pointers. The live facade's separate
+mode/root drift on Bash and PowerShell; the wrappers self-check the immutable test root; and only the approved
+TKT-178 execution path is runnable. The live facade's separate
 missing-root fail-open behavior remains a named TKT-178 implementation gate and was not deployed in this pass.
 
 Code-backed review also removed fictional readiness: the current job-sheet activity is only an audit stub,
@@ -52,5 +52,5 @@ the same signed run and both one-shot canaries.
 No TKT-178 cutover action ran: no service was paused for this cutover, EVA was not called, Graph
 subscriptions and Outlook items were not changed, and no production Archive content/configuration was
 written or retargeted. Separately, an interrupted TKT-009 rollout temporarily deployed an API artifact and
-applied its additive Phase-A schema; the API was restored to the exact pre-rollout artifact and the compatible
+applied its additive Phase-A schema; the API was restored to the exact pre-rollout artifact and the supported
 additive schema remains. It never engaged the TKT-178 fence, sequence, EVA or production Archive steps.

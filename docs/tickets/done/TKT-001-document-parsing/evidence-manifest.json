@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "ticket": "TKT-001",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-email",
+      "originalPath": "followup/(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
+      "originalFilename": "(EREF12) RTA on 30_06_2026  Miss Nicola Granger (Our Ref REB_46487_1, Vehicle VN64WNG).eml",
+      "sha256": "025f69046c554349c4187bc3de70f9498c230496a0cffdeb393d8a5385c070c2",
+      "storagePath": "tests/fixtures/evidence/sha256/02/025f69046c554349c4187bc3de70f9498c230496a0cffdeb393d8a5385c070c2.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "followup/LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "originalFilename": "LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "sha256": "3a58542956162f193794d6b3a468ea9f51129b114c889cdac237b3857dbb3f7b",
+      "storagePath": "tests/fixtures/evidence/sha256/3a/3a58542956162f193794d6b3a468ea9f51129b114c889cdac237b3857dbb3f7b.doc"
+    }
+  ]
+}

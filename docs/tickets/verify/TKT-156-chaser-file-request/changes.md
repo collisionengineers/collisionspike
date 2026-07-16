@@ -10,11 +10,11 @@ Merged, configured, deployed and core-path verified live. The designated AX26039
 - `ed3eccdc0f4946ce02bfc35dd60952a513880b56` — PR 77 merge commit on `main`.
 
 ## Files changed
-- `api/src/lib/box-file-request-outbox.ts`, `api/src/lib/functions-client.ts`, `api/src/lib/image-chasers.ts` — durable single-request creation, remote validation, expiry/inactive/deleted repair, folder/template drift handling, and selective image-chaser response.
-- `api/src/functions/cases.ts`, `api/src/functions/internal.ts` — fail-closed image-chaser logging/copying and new-upload-only response/readiness coupling.
-- `functions/box-webhook/box_client.py`, `functions/box-webhook/function_app.py` — expected-folder lifecycle validation, fresh allowed-root checks and restricted update fields.
-- `mockup-app/src/components/ChaserPanel.tsx`, `mockup-app/src/screens/CaseDetail.tsx` — one image-request choice whose editable message cannot be copied or logged without the active upload link.
-- `migration/assets/schema/090_chaser.sql`, `migration/assets/schema/195_box_file_request_outbox.sql`, `migration/assets/schema/deltas/2026-07-13-tkt156-chaser-file-request.sql` — persist the request used by a chase and the audited repair reason.
+- `services/data-api/src/features/archive/file-request-outbox.ts`, `services/data-api/src/platform/http/service-client.ts`, `services/data-api/src/features/cases/image-chasers.ts` — durable single-request creation, remote validation, expiry/inactive/deleted repair, folder/template drift handling, and selective image-chaser response.
+- `services/data-api/src/features/cases/`, `services/data-api/src/features/` — fail-closed image-chaser logging/copying and new-upload-only response/readiness coupling.
+- `services/functions/box-webhook/box_client.py`, `services/functions/box-webhook/function_app.py` — expected-folder lifecycle validation, fresh allowed-root checks and restricted update fields.
+- `apps/web/src/shared/ui/ChaserPanel.tsx`, `apps/web/src/features/cases/CaseDetail.tsx` — one image-request choice whose editable message cannot be copied or logged without the active upload link.
+- `database/baseline/090_chaser.sql`, `database/baseline/195_box_file_request_outbox.sql`, `database/migrations/2026-07-13-tkt156-chaser-file-request.sql` — persist the request used by a chase and the audited repair reason.
 - Focused API, SPA and Box-function tests cover creation, concurrent reuse, terminal/transient repair, root/folder containment, link copy, linkless refusal, webhook redelivery and response marking.
 
 ## Summary

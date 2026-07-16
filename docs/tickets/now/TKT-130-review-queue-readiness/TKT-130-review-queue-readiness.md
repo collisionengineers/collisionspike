@@ -76,7 +76,7 @@ complete case before submission, not acknowledging every imported field.
 - Merely opening a case, viewing a value or entering the Review queue does not write the case, change source
   lineage, clear a conflict or create a “reviewed” audit event.
 - Explicit edits, accepted suggestions, conflict resolutions and case submission remain audited user actions.
-- Legacy rows blocked solely by blanket field-review state are recomputed idempotently; cases with real
+- earlier rows blocked solely by blanket field-review state are recomputed idempotently; cases with real
   missing/invalid/conflicting data remain Not Ready with a specific reason.
 - The Case Detail checklist, queue membership, dashboard counts and submission endpoint all consume the same
   canonical outcome and never display “No unresolved field reviews” as an un-actionable blocker.

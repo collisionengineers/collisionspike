@@ -4,7 +4,7 @@
 // `func azure ... publish`, `psql`, KQL, Graph/Exchange-RBAC), inject a ONE-LINE reminder of which
 // skill/playbook/agent to reach for FIRST — so we route instead of hand-rolling and churning.
 // ALWAYS exits 0 (purely informational; never blocks). Low-noise: one hint per command, and only
-// for the specific high-value ops (see azure-guard-lib.mjs). See docs/azure/README.md + AGENTS.md.
+// for the specific high-value ops (see azure-guard-lib.mjs). See docs/operations/README.md + AGENTS.md.
 import { routeHint } from './azure-guard-lib.mjs';
 
 let raw = '';

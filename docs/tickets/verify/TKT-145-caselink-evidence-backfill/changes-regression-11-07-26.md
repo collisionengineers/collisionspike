@@ -49,12 +49,12 @@ idempotency is also case-wide rather than inbound-email-specific.
 - Each queued job now carries its recovery generation. Evidence rows, the completed generation and
   the exact committed `completed`/`partial` counts are written atomically; reporting reads that stored
   result instead of inferring success from a later snapshot. A lost response therefore replays the
-  same truth, while an older generation cannot overwrite a newer result. Legacy jobs without a
-  generation remain compatible but do not invent a completion marker.
-- Publisher paging advances beyond a full page of lineage-ineligible legacy rows, so a poison page
+  same truth, while an older generation cannot overwrite a newer result. earlier jobs without a
+  generation remain supported but do not invent a completion marker.
+- Publisher paging advances beyond a full page of lineage-ineligible earlier rows, so a poison page
   cannot starve later valid requests. A later generation remains bound to the case accepted for that
   generation and may follow only a verified `mergedInto` lineage; an unrelated relink is not silently
-  adopted. `api/src/functions/ai-suggestions.test.ts` pins poison-page progress, later generations and
+  adopted. `services/data-api/src/features/assistant/suggestion-generation-routes.test.ts` pins poison-page progress, later generations and
   real merge lineage.
 - A fixed-id eternal Durable monitor publishes pending recovery generations every five minutes via the
   service-authenticated API drain. Repeated starts are singleton-safe, and enqueue acknowledgement is

@@ -1,11 +1,11 @@
 # TKT-043 evidence — offline proof of the case_update relabel
 
-PII-safe per `scripts/eval-email/README.md` (ids + aggregate numbers + rule names only; no
+PII-safe per `scripts/evaluation/email/README.md` (ids + aggregate numbers + rule names only; no
 subject/body/VRM/ref tokens quoted).
 
 ## 1. The eval item flips (real open-case-ref context signal, not a hard-code)
 
-Corpus item `tkt043-images-existing-case` (`scripts/eval-email/manifest.json`) now carries
+Corpus item `tkt043-images-existing-case` (`scripts/evaluation/email/manifest.json`) now carries
 `context.open_case_ref_match: "one"` alongside its existing `provider_match_state: "one"` —
 the flow's open-case match result, fed to `classify_email` exactly as `provider_match_state`
 is (the classifier is told, never looks a Case up; ADR-0019).
@@ -22,7 +22,7 @@ is (the classifier is told, never looks a Case up; ADR-0019).
 | `receiving_work` precision | 0.85 | 0.895 (one fewer false-positive) |
 | `receiving_work` recall | ~94% | ~94% (held) |
 
-`--check scripts/eval-email/baseline-v2.json` → **No regression vs baseline** (only the
+`--check scripts/evaluation/email/baseline-v2.json` → **No regression vs baseline** (only the
 tkt043 row moved; every other of the 52 scored items is byte-identical).
 
 Kill-switch proof (no hard-code): with `open_case_ref_match` absent/`none` the same real
@@ -36,7 +36,7 @@ names the case ref, and attaches an instruction-kind PDF from a known provider �
 work-shaped email. Stage-A rule trace (default, no open-case signal):
 `rule:instruction_doc_existing_provider` → `receiving_work` at 0.95. The ONLY discriminator
 between "fresh instruction" and "update on an already-open case" is the open-case lookup,
-which lives on the flow side (ADR-0019) and is supplied as `open_case_ref_match`.
+which lives in orchestration (ADR-0019) and is supplied as `open_case_ref_match`.
 
 ## 3. Deterministic `@cs/domain` proof + the attach lane (TKT-093)
 

@@ -3,7 +3,7 @@
 > Regression follow-up (2026-07-11): [changes-regression-11-07-26.md](./changes-regression-11-07-26.md)
 
 ## Status
-Reopened to `now` on 2026-07-11 after PR 55 review found merge concurrency and UUID-canonicalisation gaps. The 2026-07-09 deployment record below remains historical evidence.
+Reopened to `now` on 2026-07-11 after PR 55 review found merge concurrency and UUID-canonicalisation gaps. The 2026-07-09 deployment record below remains prior evidence.
 
 ## What shipped
 
@@ -11,7 +11,7 @@ Reopened to `now` on 2026-07-11 after PR 55 review found merge concurrency and U
   **`decideMergeProvider(sourceProviderId, targetProviderId)`** — the merged survivor must end with
   whichever side carries a resolved provider; both-known-and-different re-asserts ADR-0010
   inviolable rule 2 (`crossProvider` → refuse, never resolved by preference).
-- **Merge seam** (`api/src/functions/cases.ts` `mergeCases`): after the evidence re-parent it now
+- **Merge seam** (`services/data-api/src/features/cases/` `mergeCases`): after the evidence re-parent it now
   (1) also re-points the source's `inbound_email` rows to the survivor (TKT-092 acceptance:
   "emails re-pointed at the surviving case"), and (2) when the target lacks a provider and the
   source has one, fills `work_provider_id` (+ `eva_work_provider` display name fill-if-empty) with

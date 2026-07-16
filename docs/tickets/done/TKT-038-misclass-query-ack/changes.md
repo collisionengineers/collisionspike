@@ -7,7 +7,7 @@ done — live-probed against the deployed engine 2026-07-02; locked in as an eva
   `non_actionable`/`acknowledgement`.
 - 2026-07-02 — rules-engine-v2 Phase 0/1 evidence pass: live-probed the evidence email against the
   deployed `/classify-email` route; result recorded as an eval-corpus regression pin (manifest id
-  `tkt038-bare-ack`, `scripts/eval-email/`). See [verification.md](./verification.md).
+  `tkt038-bare-ack`, `scripts/evaluation/email/`). See [verification.md](./verification.md).
 ## Summary
 A reply whose body is just "Thanks Ed" was falsely classified as a query; the classifier needs a low-content
 acknowledgement filter. Part of the email-classification cluster (relates TKT-006).

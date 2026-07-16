@@ -36,7 +36,7 @@ and Accept/Reject buttons:
 - **Damaged area** — 95% sure — "rear offside"
 - **Damaged area** — 95% sure — "rear nearside"
 
-Screenshot: [live-generate-5-suggestions-2026-07-08.png](./live-generate-5-suggestions-2026-07-08.png)
+Screenshot: [live-generate-5-suggestions-2026-07-08.png](../evidence-manifest.json)
 Postgres rows + audit: [ai-suggestion-rows-postgres-2026-07-08.txt](./ai-suggestion-rows-postgres-2026-07-08.txt)
 
 ## Note on the original "204"

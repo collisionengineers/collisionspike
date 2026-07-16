@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "ticket": "TKT-051",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-document",
+      "originalPath": "_EHR102814_Engineers Repair Images_08076836.pdf",
+      "originalFilename": "_EHR102814_Engineers Repair Images_08076836.pdf",
+      "sha256": "25beb484dc3035e55471142150ff8f58cab974738ff65b35a8e13a0906ca4bd4",
+      "storagePath": "tests/fixtures/evidence/sha256/25/25beb484dc3035e55471142150ff8f58cab974738ff65b35a8e13a0906ca4bd4.pdf"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "_EHR102814_Plus_.pdf",
+      "originalFilename": "_EHR102814_Plus_.pdf",
+      "sha256": "a55eef7e6d6147c4253b294f033f54e5ef6268a3473c9c5e221b319b2d786053",
+      "storagePath": "tests/fixtures/evidence/sha256/a5/a55eef7e6d6147c4253b294f033f54e5ef6268a3473c9c5e221b319b2d786053.pdf"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "_EHR102814_Plus_Report_.pdf",
+      "originalFilename": "_EHR102814_Plus_Report_.pdf",
+      "sha256": "9bb334b6c21baedb5c1baa86604cc17f3e1b8d51781a4bfe63fb1ed714041af1",
+      "storagePath": "tests/fixtures/evidence/sha256/9b/9bb334b6c21baedb5c1baa86604cc17f3e1b8d51781a4bfe63fb1ed714041af1.pdf"
+    },
+    {
+      "role": "ticket-email",
+      "originalPath": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
+      "originalFilename": "Enclosing Inspection Request to Engineers 2 (Collision Engineers Ltd)  577349.eml",
+      "sha256": "07bc19d2708137d29066c12ccb01683d50094930b284cff430860111b67d83f8",
+      "storagePath": "tests/fixtures/evidence/sha256/07/07bc19d2708137d29066c12ccb01683d50094930b284cff430860111b67d83f8.eml"
+    },
+    {
+      "role": "ticket-document",
+      "originalPath": "Inspection Request - Audit Report.DOC",
+      "originalFilename": "Inspection Request - Audit Report.DOC",
+      "sha256": "e9a481b242bece177360147fba4b30022cf9b154ae8707a60f43f5d50923f214",
+      "storagePath": "tests/fixtures/evidence/sha256/e9/e9a481b242bece177360147fba4b30022cf9b154ae8707a60f43f5d50923f214.doc"
+    }
+  ]
+}

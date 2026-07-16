@@ -23,7 +23,7 @@ When an email was processed while uncased (evidence extracted but unattached) an
 
 ## Interim mitigation — LIVE 2026-07-09 (PR47–52 review pass)
 
-Shipped a NON-silent safety net so the gap never loses photos: on case_link accept, when the linked `inbound_email.has_attachments` is true, `promoteAcceptedSuggestion` (api/src/functions/ai-suggestions.ts) writes a durable, handler-safe case **note** — "The linked email arrived with attachments … Please add them by hand from the email." Staff therefore attach the photos manually instead of the evidence silently vanishing. This is a mitigation, NOT the fix — the acceptance below still stands.
+Shipped a NON-silent safety net so the gap never loses photos: on case_link accept, when the linked `inbound_email.has_attachments` is true, `promoteAcceptedSuggestion` (services/data-api/src/features/assistant/register-suggestion-routes.ts) writes a durable, handler-safe case **note** — "The linked email arrived with attachments … Please add them by hand from the email." Staff therefore attach the photos manually instead of the evidence silently vanishing. This is a mitigation, NOT the fix — the acceptance below still stands.
 
 ## Proposed change
 
