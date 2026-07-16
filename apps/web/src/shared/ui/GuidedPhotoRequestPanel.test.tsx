@@ -90,13 +90,22 @@ describe('GuidedPhotoRequestPanel', () => {
     await user.click(await screen.findByRole('button', { name: 'Replace link' }));
     expect(screen.getByText('The old link will stop working. A new link will be added to the draft.'))
       .toBeTruthy();
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Replace link' }));
+    const replaceDialog = await screen.findByRole(
+      'dialog',
+      { hidden: true },
+      { timeout: 5_000 },
+    );
+    await user.click(await within(replaceDialog).findByRole(
+      'button',
+      { name: 'Replace link', hidden: true },
+      { timeout: 5_000 },
+    ));
 
     await waitFor(() => expect(rotateCaptureSession).toHaveBeenCalledWith('session-1'));
     expect(onLinkReady).toHaveBeenCalledWith(
       expect.objectContaining({ captureUrl: 'https://capture.test/#replacement-link' }),
     );
-  });
+  }, 15_000);
 
   it('requires confirmation before cancelling an open link', async () => {
     const user = userEvent.setup();
@@ -111,11 +120,20 @@ describe('GuidedPhotoRequestPanel', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Cancel link' }));
     expect(screen.getByText(/The link will stop working immediately/)).toBeTruthy();
-    await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel link' }));
+    const cancelDialog = await screen.findByRole(
+      'dialog',
+      { hidden: true },
+      { timeout: 5_000 },
+    );
+    await user.click(await within(cancelDialog).findByRole(
+      'button',
+      { name: 'Cancel link', hidden: true },
+      { timeout: 5_000 },
+    ));
 
     await waitFor(() => expect(revokeCaptureSession).toHaveBeenCalledWith('session-1'));
     expect(onLinkCancelled).toHaveBeenCalledWith('session-1');
-  });
+  }, 15_000);
 
   it('shows existing requests but blocks creation for a closed case', async () => {
     render(

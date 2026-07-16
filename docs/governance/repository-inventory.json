@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 933,
-    "files": 3087,
-    "entries": 4020
+    "files": 3089,
+    "entries": 4022
   },
-  "totalFileBytes": 508566907,
+  "totalFileBytes": 508578999,
   "entries": [
     {
       "path": ".",
@@ -10480,8 +10480,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 6372,
-      "sha256": "04fe6567462ff6c44baaafb21f676d89dad8bcc695302befac191a859914557f",
+      "size": 6380,
+      "sha256": "04ff0b3434a3927f616c7427bf8cd9d3b7b6e33a9468dd4499637fc194a604c4",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -10552,8 +10552,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 3688,
-      "sha256": "9f2f3d21cf25cb8664977cde44195d921a1643d3f9ea00a140a3be760671db4d",
+      "size": 4688,
+      "sha256": "9ad8670fcf62fa8a857929ab80df82936831c15a3152d884016065aa06e44b6a",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -11983,8 +11983,8 @@
     {
       "path": "apps/web/src/shared/ui/GuidedPhotoRequestPanel.test.tsx",
       "mediaType": "text/tsx",
-      "size": 4739,
-      "sha256": "e58081df5322833e41d3ae5c6f9bbd1f1577332a986e4c183a0255f97954df26",
+      "size": 5093,
+      "sha256": "cc1a00b02825315b408cfceea784e1782e44c73d7a44661257c63a33dc9b616c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -13801,7 +13801,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1256432,
+      "size": 1257063,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -13819,8 +13819,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 3883090,
-      "sha256": "9adbedf70b5940189fc7ccf3fa3bf4039e2a3870c95f397c661da5614188fd71",
+      "size": 3883973,
+      "sha256": "b6ff77a6fce264d0d3c3b45bdb7e4dec062309b2de1d96ea91c97051be1d0fa8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13873,8 +13873,8 @@
     {
       "path": "docs/operations/deployment.md",
       "mediaType": "text/markdown",
-      "size": 1812,
-      "sha256": "280e18f4c667fca9b1ebfef927935f4c957b00ec6231e9fa0862ff886293c25b",
+      "size": 2415,
+      "sha256": "f0fb52bc9765be40148222b42717e64544b42f47040b3de72b25d0a9408e1f3d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -13900,8 +13900,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 2765,
-      "sha256": "7b89c57a6cad96a6182fc5e418e742699b0805d8f27376f4d88fb78f1eb1a72e",
+      "size": 4146,
+      "sha256": "20b51c6a95fff8a4854cb59dff21f4e0f2a4050192d2eb32b711ed74ba781552",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14071,8 +14071,8 @@
     {
       "path": "docs/reviews/150726/final-review.md",
       "mediaType": "text/markdown",
-      "size": 7978,
-      "sha256": "ba7910c962998a00ca86cf48b1573c106f8253bdff73e803a73b4f5490e6b78c",
+      "size": 9366,
+      "sha256": "441271f8e18e2197cea86618ee703e16e205f128bd03305c74331718a061b6b4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14118,6 +14118,15 @@
       "mediaType": "text/markdown",
       "size": 5069,
       "sha256": "31e98a26d160a7a8f32ab53db5e340fb37796ab8f037233adabc538c29728d26",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/150726/release-validation.md",
+      "mediaType": "text/markdown",
+      "size": 3553,
+      "sha256": "688e260db471b150b1ff28b74c491803dad2aef439376d8755f538765695315c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -21487,8 +21496,8 @@
     {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/changes.md",
       "mediaType": "text/markdown",
-      "size": 9236,
-      "sha256": "32afa06193e11e7d4f42a79c0b535e81ecc32424ec0decf7354eabbf51b55c81",
+      "size": 9465,
+      "sha256": "179abc7648ccd53244a47cddda8bf46dc61777d4f9c4dd289c9d45fa12ea88fe",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21514,8 +21523,8 @@
     {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/verification.md",
       "mediaType": "text/markdown",
-      "size": 7391,
-      "sha256": "5ad366c3d0ab70e5b34adc0ba39506f84bd372d2b679a5e36893d76ac98c45f3",
+      "size": 7805,
+      "sha256": "9873db3e3966954c17184dd0a25d33a4b17f5fbc354132ddfe646479a310a665",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21568,8 +21577,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/changes.md",
       "mediaType": "text/markdown",
-      "size": 4246,
-      "sha256": "b4601644d190f4659691cca8c25c067bff7f972aa00be7797160791b18e09052",
+      "size": 4334,
+      "sha256": "2e3a43c29a9309e82e05dd61394a488f89d21a5df447eb0312e3507c93ac16f4",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21595,8 +21604,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/verification.md",
       "mediaType": "text/markdown",
-      "size": 3724,
-      "sha256": "522a22052149d2f920f74b276d179b29a80187d8447403b65b5896eb3ac7a92a",
+      "size": 3643,
+      "sha256": "82e945006e993366c4140c24b8425316e7b5174d26dd6d4fa977f8ba739a3a27",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21613,8 +21622,8 @@
     {
       "path": "docs/tickets/now/TKT-165-add-evidence-upload/changes.md",
       "mediaType": "text/markdown",
-      "size": 5914,
-      "sha256": "d6423335ea408ce0e46b2426e5c21533381a2ed83b339f765503e1fe135fa09c",
+      "size": 5935,
+      "sha256": "d85199f69abb1116e832b08f4f09f67de016b2131535cdde7c50a849d7f3eb23",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21640,8 +21649,8 @@
     {
       "path": "docs/tickets/now/TKT-165-add-evidence-upload/verification.md",
       "mediaType": "text/markdown",
-      "size": 13618,
-      "sha256": "a2c9be51030cddfa7f1a62590012a58057ef4917029b1b9d4c90aea75a4ef167",
+      "size": 13426,
+      "sha256": "a3254944e09254d4f20a2b33176ab28c4e386b5fb14731c4d5f8616c88cb0fde",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21775,8 +21784,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md",
       "mediaType": "text/markdown",
-      "size": 4418,
-      "sha256": "912dc981bbdfc2312289b575c0e4bdc439b3c433a4bdf8d54d42ea86f783eca4",
+      "size": 4357,
+      "sha256": "24fe68ce333c94cfe865b7bf300abe56740a044533a5015bb0c8e21235fccc00",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21784,8 +21793,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/changes.md",
       "mediaType": "text/markdown",
-      "size": 555,
-      "sha256": "e92bace69725e9bf065f58964c1f805eb1c0aeef37502117832cdbb69366cf5b",
+      "size": 599,
+      "sha256": "9ee89dd7e2399de9798c8233292945d90b543a783431edcf3f195343d20b00ae",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21802,8 +21811,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/verification.md",
       "mediaType": "text/markdown",
-      "size": 3593,
-      "sha256": "15f4565461ba6d07374773318442cbbf10347fb612c645feb78a5eb84607b58e",
+      "size": 3559,
+      "sha256": "64f2eafe91a2a3ead3d7b9c698b26806fee434ab405aec33a7cf06f0d99154a5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21910,8 +21919,8 @@
     {
       "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/verification.md",
       "mediaType": "text/markdown",
-      "size": 3069,
-      "sha256": "45dd145a7831349e77a621aefe42362fce8afae299f5d17fbfe4735f6d58276b",
+      "size": 3224,
+      "sha256": "38939ff64a91db0cd306a4d79877dae3bf9430d25fff216ba6a2cb9dafadd81d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21928,8 +21937,8 @@
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/changes.md",
       "mediaType": "text/markdown",
-      "size": 1102,
-      "sha256": "83dc81f01fd00220712ed8b0804d0b6bd2268e52bd622bb65abc2e6b4c8bfc2a",
+      "size": 1206,
+      "sha256": "70b49aa9349b76c8ea2ae650b36f397dc4371c90e250add2ef275ec1e2faa0a0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21946,8 +21955,8 @@
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/verification.md",
       "mediaType": "text/markdown",
-      "size": 1259,
-      "sha256": "6ffccbdd58b423708176fdafa20620abce31a7f14900fc581ab675f9678df4c6",
+      "size": 1679,
+      "sha256": "73be539c50bd37d293e1c9a090ab11eb460e6fa2a5e2290262e252706c142d0b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22333,8 +22342,8 @@
     {
       "path": "docs/tickets/verify/TKT-055-provider-api-intake/verification.md",
       "mediaType": "text/markdown",
-      "size": 7986,
-      "sha256": "e2d11e8576e9137a624dbce9c45e5a0e760d26e75f4dcc1b46a8831ffbe2163a",
+      "size": 7500,
+      "sha256": "40d414ef8a1b98dcf265789256c91091dda4675f5363bf289abc605f44d48794",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23899,8 +23908,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 3672,
-      "sha256": "2311c15a40f41514d6b52fbc25ac539b5131b761c0985b84ce806fb435eda240",
+      "size": 3768,
+      "sha256": "10047d879d60e047639c745969ab63e58ee31ed432e13e1db9562282ec885221",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -24774,6 +24783,15 @@
       "mediaType": "text/javascript",
       "size": 1641,
       "sha256": "9b4f70ba2a85421297b9b306055bc57207474b44e8e2d2cabe4d89a01071e400",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "generated"
+    },
+    {
+      "path": "scripts/build/install-function-dependencies.cjs",
+      "mediaType": "text/javascript",
+      "size": 1574,
+      "sha256": "ebca457164cc996ae450331267c92e665442c6358feff81abb045f5edf977fd4",
       "category": "automation",
       "owner": "engineering-automation",
       "lifecycle": "generated"

@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-14T01:45:51Z",
-  "verificationMode": "read-only registry snapshot",
+  "lastVerified": "2026-07-16T00:25:00Z",
+  "verificationMode": "authorized deployment validation plus read-only registry and database verification",
   "environment": {
     "resourceGroup": "rg-collisionspike-dev",
     "primaryRegion": "uksouth",
@@ -15,17 +15,17 @@
     "dataApi": {
       "resource": "cespk-api-dev",
       "source": "services/data-api",
-      "functionCount": 111
+      "functionCount": 144
     },
     "orchestration": {
       "resource": "cespk-orch-dev",
       "source": "services/orchestration",
-      "functionCount": 87
+      "functionCount": 101
     },
     "database": {
       "resource": "cespk-pg-dev",
       "database": "collisionspike",
-      "baseTableCount": 46,
+      "baseTableCount": 78,
       "applicationLogin": "cespk_app",
       "rowLevelSecurity": "enabled and forced"
     },
@@ -37,7 +37,7 @@
     "archiveEvents": {
       "resource": "cespkbox-fn-v76a47",
       "source": "services/functions/box-webhook",
-      "functionCount": 12
+      "functionCount": 16
     },
     "vehicleEnrichment": {
       "resource": "cespkenrich-fn-gi62sd",
@@ -45,7 +45,8 @@
     },
     "evaSentry": {
       "resource": "cespkeva-fn-ufa3ci",
-      "source": "services/functions/eva-sentry"
+      "source": "services/functions/eva-sentry",
+      "functionCount": 1
     },
     "evaValidation": {
       "resource": "cespkeval-fn-6c6fxd",
@@ -73,7 +74,9 @@
       "engineers@collisionengineers.co.uk",
       "desk@collisionengineers.co.uk"
     ],
-    "renewal": "durable subscription monitor running"
+    "renewal": "durable subscription monitor running",
+    "permissionBoundary": "Exchange-scoped application read access; no tenant-wide Microsoft Graph application role or delegated grant observed",
+    "outlookMutation": "disabled by OUTLOOK_MOVE_ENABLED=false on the Data API and orchestration"
   },
   "access": {
     "roles": [
@@ -104,8 +107,28 @@
   ],
   "deliberatelyUnavailable": [
     "EVA REST submission pending vendor multi-principal support and a parity test",
-    "valuation lookup pending separate approval"
+    "valuation lookup pending separate approval",
+    "public guided capture pending abuse-control and device acceptance",
+    "individual image deletion pending designated-test-case proof",
+    "capture cleanup pending designated-test-case proof",
+    "MCP image ingestion pending dedicated app-role and standard-client proof"
   ],
+  "safetyGates": {
+    "outlookMove": {
+      "dataApi": false,
+      "orchestration": false
+    },
+    "boxWrites": {
+      "allowedRootId": "392761581105",
+      "scope": "approved test folder only"
+    },
+    "evaSubmission": false,
+    "deleteCaseImage": false,
+    "publicCapture": false,
+    "captureCleanup": false,
+    "mcpImageIngestion": false,
+    "liveCutoverPerformed": false
+  },
   "operatorWatchItems": [
     "upgrade the subscription before the Free Trial expires",
     "retain evidence of an unattended mail-subscription renewal",

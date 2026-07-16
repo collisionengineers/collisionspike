@@ -2,9 +2,8 @@
 
 ## Verdict
 
-PENDING — the individual offline checks below are `TESTED (offline)`, but the database delta,
-deployment and designated-test-case Chrome/Postgres/Blob/Box proof are still outstanding. This is not
-a ticket-level verification verdict.
+PENDING — the database correction and deployables are live, but the designated-test-case
+Chrome/Postgres/Blob/Box proof is still outstanding. This is not a ticket-level verification verdict.
 
 ## Offline evidence
 
@@ -63,11 +62,12 @@ The focused tests prove:
 
 ## Honest gaps
 
-- The TKT-165 upload schema is present live. The new
-  `2026-07-15-tkt165-evidence-added-audit.sql` corrective delta is committed but not yet applied;
-  live code-table parity still fails only for missing `100000049 / evidence_added`.
-- API, orchestration and SPA changes have not been deployed.
-- No file, case, Blob object or Box folder was changed during this implementation pass.
+- The TKT-165 upload schema and `2026-07-15-tkt165-evidence-added-audit.sql` correction are live. All 22
+  code tables now match the repository, including `100000049 / evidence_added`.
+- API, orchestration and SPA changes were deployed on 2026-07-16. The API artifact included verified Linux
+  x64/glibc Sharp and libvips binaries and registered `uploadCaseEvidence`.
+- No file, case, Blob object or Box folder was changed during release validation, so the prior successful-
+  upload gap is not represented as closed.
 - TKT-166's New case document/manual upload lifecycle remains pending and is not certified by this
   ticket.
 - Browser accessibility and 200% zoom were implemented with native buttons, labelled inputs,
@@ -77,23 +77,19 @@ The focused tests prove:
 
 ## Live re-verification
 
-1. Apply the TKT-165 delta, then verify `staff_evidence_upload` and
-   `staff_evidence_upload_item` have forced RLS and `uq_evidence_staff_upload_item` exists.
-2. Deploy in the continuity-safe order: API first, orchestration second, SPA last. Smoke each
-   surface before continuing.
-3. In Chrome, use Add evidence on a designated test case whose archive folder is beneath test root
+1. In Chrome, use Add evidence on a designated test case whose archive folder is beneath test root
    `392761581105`: select Held as well as a normal open case; upload one harmless JPG and one PDF.
-4. Verify the response contains two evidence ids, the case Evidence tab shows both, Postgres has the
+2. Verify the response contains two evidence ids, the case Evidence tab shows both, Postgres has the
    two canonical rows plus understandable `evidence_added` audits, and Blob has the two deterministic
    paths.
-5. Repeat the same request/idempotency key and double-click simulation; prove row, audit, archive
+3. Repeat the same request/idempotency key and double-click simulation; prove row, audit, archive
    generation and Box file counts do not increase.
-6. Verify the PDF archive generation completes beneath the test root. Verify the photo is initially
+4. Verify the PDF archive generation completes beneath the test root. Verify the photo is initially
    pending its image check, then classification stamps the exact row, readiness is recomputed, and an
    eligible photo is mirrored once beneath the same test root.
-7. Repeat with one unsupported/masquerading file and one valid file; confirm the valid identity is
+5. Repeat with one unsupported/masquerading file and one valid file; confirm the valid identity is
    reported, the refused file remains visible for retry, and the page does not navigate.
-8. Probe the endpoint without a bearer token (expect 401), with a stale/removed/merged case (expect
+6. Probe the endpoint without a bearer token (expect 401), with a stale/removed/merged case (expect
    refusal before storage), and at narrow width plus 200% zoom with keyboard-only controls.
 
 ## Independent verification update — 2026-07-14

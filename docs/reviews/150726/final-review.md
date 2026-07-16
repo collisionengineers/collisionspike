@@ -2,9 +2,10 @@
 
 ## Current verdict
 
-**REMEDIATION COMPLETE; release validation pending.** The preliminary `REQUEST CHANGES` verdict remains
-binding until the exact reconciled commit passes GitHub checks, is deployed to the existing development
-environment under the safety constraints below, and the resulting live evidence is committed.
+**APPROVE FOR MERGE WHEN THIS EXACT EVIDENCE COMMIT PASSES REQUIRED CHECKS.** All preliminary blockers are
+resolved, the reviewed application has been deployed to the existing development environment under the
+required safety posture, and [release validation](./release-validation.md) records the resulting live
+evidence. No incomplete ticket is promoted merely because its code is deployed.
 
 ## Scope and method
 
@@ -19,7 +20,7 @@ conflict was resolved against runtime contracts and the later feature work alrea
 | --- | --- |
 | Stale base and feature reversion | Resolved. Current-main guided capture, Archive holding, MCP image ingestion, image deletion, schema changes, corpus seeds, routes and UI were carried into the new layout and covered by the full suites. |
 | TKT-207/TKT-208 collision | Resolved. The colliding current-main work is TKT-217/TKT-218; PLAN-006 retains its own 207/208 authority. Ticket generation rejects duplicate IDs. |
-| Merge conflict / dirty PR state | Locally resolved; remote confirmation awaits the pushed merge commit. |
+| Merge conflict / dirty PR state | Resolved in the pushed merge commit; GitHub reports the PR mergeable and all checks on the reviewed application commit passed. |
 | False reconciliation assurance | Resolved. A committed exact ledger is required; keep/move bytes are checked, rewrites must differ, final rows require origins, and deletions require a PLAN-006 retirement reason. |
 | Parser authoring-source proof and live verifier removed | Resolved. CI again checks the private authoring source and retains the live-verification job without changing the review-hook design. |
 | Higher-precedence ADR/review loss | Resolved by restoring the applicable ADR amendment and transcribing the current requirements. Obsolete visual artifacts are not restored because this later review supersedes their retired interface framing. |
@@ -48,8 +49,12 @@ conflict was resolved against runtime contracts and the later feature work alrea
   package. The exact 1.32.0 Linux x64 GNU package is now a root optional dependency beside the existing
   cross-platform native-package pins; the replacement push and pull-request runs passed.
 - Pre-deployment live parity found the canonical `100000049 / evidence_added` audit action absent from the
-  development database, matching TKT-165's recorded failed upload. A fail-closed, replay-safe corrective
-  migration is now part of the reviewed release; it must pass CI and apply before application publication.
+  development database, matching TKT-165's recorded failed upload. The fail-closed, replay-safe corrective
+  migration passed CI, was applied, and full live parity then passed for all 22 code tables.
+- The first Data API package registered zero functions because the source-bundle step writes lockfiles but
+  not runtime dependencies. The publish was stopped before orchestration, the documented dependency install
+  restored all 144 functions, and the API was republished with verified Linux x64/glibc Sharp/libvips
+  binaries. `npm run package:deploy` and CI now build that self-contained artifact directly.
 
 ## Safety decision
 
@@ -76,24 +81,32 @@ conflict was resolved against runtime contracts and the later feature work alrea
   tables.
 - Repository evidence: 638 logical uses, 618 unique blobs, 20 duplicate occurrences, 77,263,752 duplicate
   bytes removed, 294 reviewed image blobs.
-- Documentation/tickets: 1,121 Markdown files, 211 tickets and 6 plans passed before this final evidence
+- Documentation/tickets: 1,122 Markdown files, 211 tickets and 6 plans passed before this final evidence
   update; the final generated counts are rerun before release.
 - Dependency audit: no high or critical advisory. Two moderate `uuid` advisories are transitive through
   `durable-functions`; the offered forced remediation is an incompatible downgrade and is not applied.
 - Azure validation: signed-in existing subscription and `rg-collisionspike-dev` confirmed; five existing-
   resource Bicep/capture templates compile. No new resource, role, scale or region is requested.
+- Live release validation: database parity passed; the web app returned 200; Data API, orchestration,
+  Archive and EVA hosts were Running with 144, 101, 16 and one function respectively; post-recovery API and
+  orchestration telemetry contained zero exceptions and zero failed/5xx requests.
+- Safety readback: Outlook mutation false on both apps, Archive locked to the test folder, EVA false, and
+  public capture/image deletion/capture cleanup/MCP image ingestion default-off. No Outlook, Box or EVA
+  mutation and no live cutover was used as proof.
 
 ## Remaining release gates
 
 1. ~~Generate and verify the final staged repository inventory and committed reconciliation ledger.~~
-   Complete: 3,087 tracked files, 3,268 baseline files, 3,085 non-recursive final files, zero unexplained.
+   Complete: 3,089 tracked files, 3,268 baseline files, 3,087 non-recursive final files, zero unexplained.
 2. ~~Complete the final clean aggregate with zero failures.~~ Complete: 34 passed, 0 failed after a clean
    dependency install. The run includes all component suites, deployable bundle smoke loads and governance
    gates.
-3. Push the exact merge commit and require current GitHub checks; resolve the three review threads with links
-   to their remediations.
-4. Apply only missing additive migrations, publish only changed deployables, and complete non-mutating live
-   health/safety probes.
-5. Commit the observed live facts and ticket evidence, obtain green checks, then merge PR #100.
+3. ~~Push the exact merge commit and require current GitHub checks; resolve the three review threads with links
+   to their remediations.~~ Complete: all three threads are resolved and the reviewed application commit's
+   push, pull-request and capture-contract runs passed.
+4. ~~Apply only missing additive migrations, publish only changed deployables, and complete non-mutating live
+   health/safety probes.~~ Complete; see [release validation](./release-validation.md).
+5. Commit the observed live facts and ticket evidence and require green checks on that exact commit.
 
-Until all five gates are evidenced, this file does not approve merge.
+The review approves merge once gate 5's checks are green. The merge itself must then be followed by an
+exact local/remote `main` synchronization check.

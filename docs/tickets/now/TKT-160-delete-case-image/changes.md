@@ -1,7 +1,7 @@
 # Changes — TKT-160: Delete an individual case image from every active store
 
 ## Status
-implemented offline; awaiting independent live verification
+deployed dark on 2026-07-16; awaiting designated-test-case verification
 
 Rebased onto post-#83 `main` and merged 2026-07-15 (dark). Review remediation: added the default-off
 `DELETE_CASE_IMAGE_ENABLED` gate on the destructive delete route (server + SPA); renumbered the audit
@@ -55,4 +55,5 @@ The repository-reset review found that the reorg had omitted the existing Box de
 new operations mixin. Their reviewed implementation was restored; all 274 Archive-function tests pass,
 including the exact-folder and scope-lock suite. Live test-folder proof, deployment and the `now -> verify`
 verdict remain the independent verifier's
-work; no production or non-test Archive mutation is performed by this implementation branch.
+work. The database, Box façade, API and SPA were later deployed with `DELETE_CASE_IMAGE_ENABLED`
+default-off; no production or non-test Archive mutation was performed.

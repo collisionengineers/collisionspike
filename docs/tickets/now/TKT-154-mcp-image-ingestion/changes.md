@@ -1,7 +1,8 @@
 # Changes — TKT-154: Add a constrained MCP path for registration-based image ingestion
 
 ## Status
-Code-complete on the ticket branch; deliberately dark and not deployed.
+Deployed to the development database, Box façade, Data API and orchestration on 2026-07-16, deliberately
+dark pending the dedicated principal and standard-client live proof.
 
 Rebased onto post-#99 `main` (base `ae3bdb48`) on 2026-07-15 and remediated against a four-lane review
 (see "Rebase + review remediation" below). Head/base bind to the actual PR #73 branch tip and base
@@ -121,7 +122,8 @@ observability change to existing staff uploads, not scoped narrowly.
 ## Deliberately not done here
 
 - No Entra role/client/service-principal creation or assignment.
-- No live DDL, app-setting change, deployment, Box write or Outlook mutation.
+- The implementation/review branch made no live change. The later PR #100 release applied the already-
+  reviewed additive schema and deployed the services dark; it made no Box write or Outlook mutation.
 - No real authenticated standard-client/Box/classification/readiness proof. Those remain the live
   verification gate and are recorded in `verification.md`.
 - No live-model prompt-injection proof; only the deterministic raster/seam regression was run offline.

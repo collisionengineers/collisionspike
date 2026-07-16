@@ -20,21 +20,22 @@ PARTIAL — reopened on 2026-07-15
   before authenticated REST configuration.
 - Offline suites passed on 2026-07-15: domain 559 tests, Data API 993, orchestration 508 and web 545.
 - The aggregate Python run exposed omitted Archive mixin methods during the repository reorg. Those
-  existing implementations were restored and the focused 39-test scope/deletion suite passed; the full
-  aggregate rerun remains pending.
+  existing implementations were restored; the full Archive suite passed 274 tests and the final aggregate
+  passed 34/34 gates.
 - Route registration and REST behavior remain covered by the Data API suite. Code-table parity proves
   22 numeric code tables with the current append-only mapping fingerprint locked by the database check.
 - The runtime contract snapshot independently locks 189 route method/path/function-auth records,
   56 exported domain DTO declarations, seven JSON schemas and 64 Postgres tables. The PLAN-006 approval record identifies
   the intentional compatibility-alias removal; any further DTO or route drift fails the check.
-- No deployment or live-system write was performed.
-- The final fail-closed aggregate has not yet completed cleanly after this reopening; its final rerun is
-  required before the PR review can close.
+- The decomposition itself did not require a live write. The later authorized PR #100 release deployed the
+  reconciled application without changing this ticket's incomplete A2 verdict.
+- Push and pull-request CI passed the production dependency, source-size, runtime-contract and repository
+  hygiene gates on the reviewed application commit.
 
 ## Pending / gaps
 - Decompose every ratcheted source file below 800 nonblank lines without behavior drift, then delete the
   matching ratchet entry.
-- Remote CI and the final independent clean-checkout sample remain pending.
+- An independent feature-ownership review remains required as each ratcheted file is decomposed.
 
 ## How to re-verify
 Run `node scripts/checks/check-production-dependencies.mjs`, its controlled Node tests, the web

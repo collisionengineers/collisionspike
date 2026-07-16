@@ -2,8 +2,8 @@
 
 ## Status
 
-Implemented and tested offline on `codex/tkt-165-add-evidence`. The dispatching loop still owns the
-ticket-status move, live database delta, deployment and independent verification.
+Implemented, tested, and deployed on 2026-07-16. The ticket remains `now` because a successful designated-
+test-case upload, replay, Archive mirror and browser/accessibility proof are still outstanding.
 
 ## Commits
 

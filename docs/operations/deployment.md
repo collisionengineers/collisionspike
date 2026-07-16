@@ -16,8 +16,14 @@ separately authorized deployment task.
 
 ## Artifact rule
 
-Build bundles into ignored `.artifacts/deploy/`. Packaging must succeed from a clean clone. Never deploy a
-tracked ZIP or a local bundle whose source commit is unclear.
+Build self-contained Linux Azure Functions artifacts with `npm run package:deploy`. That command writes to
+ignored `.artifacts/deploy/`, installs production dependencies inside each artifact, and targets the Data
+API's Sharp/libvips packages to Azure's Linux x64/glibc runtime even when packaging on Windows. A plain
+`npm run bundle` writes source bundles and lockfiles only; it is not a deployable package. Confirm the Data
+API artifact contains `@azure/functions`, `@img/sharp-linux-x64`, and
+`@img/sharp-libvips-linux-x64`, and the orchestration artifact contains `@azure/functions` and
+`durable-functions`, before `func azure functionapp publish`. Packaging must succeed from a clean clone.
+Never deploy a tracked ZIP or a local bundle whose source commit is unclear.
 
 ## Order
 

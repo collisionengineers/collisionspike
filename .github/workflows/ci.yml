@@ -21,7 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npm run bundle
+      - run: npm run package:deploy
       - name: Smoke-load generated function bundles
         run: |
           node -e "require('./.artifacts/deploy/data-api/main.cjs')"

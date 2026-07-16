@@ -1,7 +1,7 @@
 # Live environment
 
 This is the readable view of [LIVE_FACTS.json](../../LIVE_FACTS.json), last verified there on
-2026-07-14. The JSON registry wins if values differ. Verify live before making a decision that depends on
+2026-07-16. The JSON registry wins if values differ. Verify live before making a decision that depends on
 current state.
 
 ## Core resources
@@ -29,14 +29,32 @@ West Europe.
 - The Data API validates the bearer audience and enforces `CollisionSpike.User` or
   `CollisionSpike.Superuser` before setting PostgreSQL request context.
 - Mail intake is live for `info@`, `engineers@`, and `desk@` using Microsoft Graph push notifications.
+- The Graph application has no tenant-wide Microsoft Graph application role or delegated grant. Mail reads
+  use the existing Exchange-scoped application boundary. Outlook mutation is disabled in both the Data API
+  and orchestration.
 - A durable monitor renews mail subscriptions.
 - PostgreSQL uses the non-owner `cespk_app` login with row-level security enabled and forced.
 - Document parsing, vehicle enrichment, OCR, Archive filing, location assistance, mail triage, and the
   approved AI/assistant capabilities listed in `LIVE_FACTS.json` are enabled.
 - EVA REST submission and valuation lookup remain deliberately unavailable.
+- Guided public capture, individual image deletion, capture cleanup and MCP image ingestion are deployed but
+  remain deliberately dark until their ticket-specific security and designated-test evidence is complete.
 - The EVA validation resource remains running but had no repository caller, caller configuration, or
   request telemetry in the focused 90-day read-only audit on 2026-07-15. Its duplicate repository
   implementation was removed; the shared domain readiness evaluator remains canonical.
+
+## Deployment validation — 2026-07-16
+
+- The staff web app returned 200 at its existing production URL after deployment.
+- The Data API, orchestration, Archive and EVA function hosts were Running with 144, 101, 16 and one
+  registered functions respectively.
+- The development database had 78 public base tables. All 22 numeric code tables matched the repository,
+  including the corrected `evidence_added` audit action; the new capture, Archive-holding, MCP image,
+  evidence-deletion and provider-idempotency tables had forced row-level security and policies.
+- Post-recovery telemetry from 00:08 UTC contained no API or orchestration exception, failed request or 5xx.
+- The Archive function remained locked to the approved test folder. EVA, public capture, image deletion,
+  capture cleanup and MCP image ingestion remained off. No Outlook write, EVA submission, Archive write or
+  live cutover was used as deployment proof.
 
 ## Operating constraints
 

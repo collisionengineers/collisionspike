@@ -5,9 +5,9 @@ PENDING
 
 ## Evidence
 
-PR #87 was rebased onto post-#83 `main` and **merged 2026-07-15** (shipped DARK — the destructive
-delete route is behind the new default-off `DELETE_CASE_IMAGE_ENABLED` gate; the Box leg is behind
-`BOX_API_ENABLED`; nothing deployed). A four-lane offline review (security, DB/schema, integration,
+PR #87 was rebased onto post-#83 `main` and **merged 2026-07-15**. The schema, Box façade, API and SPA
+were deployed on 2026-07-16 with the destructive `DELETE_CASE_IMAGE_ENABLED` gate absent/default-off;
+the Box leg remains test-root locked. A four-lane offline review (security, DB/schema, integration,
 docs) found **no BLOCKER**; the security-critical design was verified solid:
 
 - Authenticated `withRole('CollisionSpike.User')` route; wrong-case / non-image guards refuse before any
@@ -41,9 +41,9 @@ renumbered to **100000063/64/65** at rebase (TKT-200 took 56–62).
 
 ## Pending / gaps
 
-No production database, app-setting, deployment, Box write or live case was changed by this merge — the
-feature is dark. Live proof outstanding: apply `2026-07-13-tkt160-evidence-deletion.sql`, deploy Box
-Function → API → SPA in that order, flip `DELETE_CASE_IMAGE_ENABLED` (operator), then delete one test image
+The additive schema and deployables are live, but the feature is dark and no Box write or live case was
+changed. Live proof outstanding: flip `DELETE_CASE_IMAGE_ENABLED` only for an approved test window, then
+delete one test image
 inside Box root `392761581105` and read back Blob, Box, database, UI, readiness and audit state; prove
 partial-failure retry and replay suppression. This ticket cannot leave `now` until an independent verifier
 records that live proof.

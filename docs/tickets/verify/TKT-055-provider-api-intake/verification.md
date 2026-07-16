@@ -1,8 +1,7 @@
 # TKT-055 — verification
 
-> `done` means **live and proven**. The original provider intake channel is deployed, but this ticket
-> remains `verify`: no legitimate provider key/submission lifecycle is live-proven, and the 2026-07-15
-> idempotency migration and code require the deployment proof recorded below before they are claimed live.
+> `done` means **live and proven**. The idempotency schema and reviewed API were deployed on 2026-07-16,
+> but this ticket remains `verify`: no legitimate provider key/submission lifecycle is live-proven.
 
 ## 2026-07-15 final-review evidence
 
@@ -11,8 +10,8 @@
   replay, different-content conflict, and durable completion state.
 - The publishable contract now requires `Idempotency-Key` and documents `409` conflict and retryable
   `503` incomplete-evidence behavior.
-- Live application of `2026-07-15-provider-intake-idempotency.sql`, deployment and read-only route/schema
-  confirmation are still pending at this point in the review. No legitimate provider key is minted and
+- The provider idempotency table, forced RLS and policies were read back live, and the API deployment
+  registered `providerIntakeCase` plus the key-management routes. No legitimate provider key is minted and
   no fabricated provider case is used merely to close verification.
 
 ## Proven offline (this session)
@@ -32,16 +31,12 @@
   errors are pre-existing + unrelated (`DateField.tsx` missing `@fluentui/react-datepicker-continuity`).
   `rest-client.test.ts` 32/32 pass.
 
-## Not yet done — needs the orchestrator / operator
+## Remaining operator proof
 
-1. **Apply the delta** `database/migrations/2026-07-03-provider-api-intake.sql`
-   (BEFORE the api deploy — the routes reference the new table + choice rows). Runbook in the
-   delta header (transient firewall rule → AAD token → `SET ROLE csadmin` → `\i` → drop rule).
-2. **Deploy** the api Function App (`cespk-api-dev`) with the new routes.
-3. **Superuser** mints the first key in Admin (`POST /api/providers/{id}/api-keys`) and does an
+1. **Superuser** mints the first key in Admin (`POST /api/providers/{id}/api-keys`) and does an
    end-to-end `POST /api/provider-intake/cases` smoke test → expect `201 { caseId, casePo }`,
    the case visible in review, evidence in Blob.
-4. **Live-number registry** — no new live counts to record until a key is minted / a case lands
+2. **Live-number registry** — no new live counts to record until a key is minted / a case lands
    (all live facts stay in `LIVE_FACTS.json` / live-environment.md, never here).
 
 ## Not built (v1 scope boundary — see ADR-0020)

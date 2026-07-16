@@ -1,7 +1,7 @@
 # Changes — TKT-216: Repair the EVA Sentry route and body contract
 
 ## Status
-built offline — deployment and read-only telemetry proof remain pending
+deployed dark on 2026-07-16 — external invocation proof remains pending
 
 ## Files touched
 - `services/orchestration/src/activities/service-clients.ts`
@@ -17,4 +17,5 @@ The orchestration caller now uses the retained service's actual
 payload only from persisted case fields and ordered, accepted image bytes, and fails closed when the
 case/evidence is missing. The EVA adapter maps the canonical six-line inspection address to the vendor
 `InspLoc*` fields, handles Image Based Assessment without inventing an address, and supplies the required
-inspection type. No external EVA submission was made and the submission gate remains off.
+inspection type. The Data API, orchestration and EVA adapter were deployed, the canonical EVA function was
+registered, and the submission gate remained off. No external EVA submission was made.
