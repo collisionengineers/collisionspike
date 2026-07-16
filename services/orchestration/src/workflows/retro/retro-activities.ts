@@ -27,8 +27,8 @@ import {
   buildRetroEnvelopeFromEml,
   classifyArchiveFile,
   pickCaseFolder,
+  rankOutlookOriginals,
   refSearchVariants,
-  selectOutlookOriginal,
   type LandedAttachment,
   type OutlookSearchCandidate,
   type RetroSearchHit,
@@ -111,25 +111,30 @@ df.app.activity('retroBoxLocate', {
     // retro search keys are the external ref, VRM and claimant; a Case/PO is only ever
     // opportunistic) are CONTENT searches (they live INSIDE the archived instruction
     // files, not in any name).
+    // EXACT-PHRASE quoting (TKT-219 follow-up): Box's unquoted search fuzzy-matches term
+    // prefixes — 'WF69NDX' matched every WF-prefixed plate in the archive (47 folders of
+    // noise, measured live 2026-07-16). A double-quoted query is Box's exact-match form;
+    // the two reserved characters are stripped first (the kqlPhrase discipline).
+    const exactPhrase = (v: string): string => `"${v.replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim()}"`;
     const refHits: RetroSearchHit[] = [];
     const weakHits: RetroSearchHit[] = [];
     if (input.keys.casePo) {
-      const r = await box.searchContent({ query: input.keys.casePo, rootIds, type: 'folder' });
+      const r = await box.searchContent({ query: exactPhrase(input.keys.casePo), rootIds, type: 'folder' });
       refHits.push(...r.entries);
     }
     if (input.keys.externalRef) {
-      const r = await box.searchContent({ query: input.keys.externalRef, rootIds });
+      const r = await box.searchContent({ query: exactPhrase(input.keys.externalRef), rootIds });
       refHits.push(...r.entries);
     }
     // Skip the noisy weak-key sweeps (VRM / claimant) when the reference tier is decisive.
     let needWeak = Boolean(input.keys.vrm || input.keys.claimant);
     if (needWeak && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needWeak = false;
     if (needWeak && input.keys.vrm) {
-      const r = await box.searchContent({ query: input.keys.vrm, rootIds });
+      const r = await box.searchContent({ query: exactPhrase(input.keys.vrm), rootIds });
       weakHits.push(...r.entries);
     }
     if (needWeak && input.keys.claimant) {
-      const r = await box.searchContent({ query: input.keys.claimant, rootIds });
+      const r = await box.searchContent({ query: exactPhrase(input.keys.claimant), rootIds });
       weakHits.push(...r.entries);
     }
 
@@ -438,7 +443,8 @@ df.app.activity('retroOutlookLocate', {
           }
         }
       }
-      const pick = selectOutlookOriginal(candidates, { intakeMailboxes: mailboxes });
+      const ranked = rankOutlookOriginals(candidates, { intakeMailboxes: mailboxes });
+      const pick = ranked[0];
       if (pick) {
         ctx.log(JSON.stringify({
           evt: 'retroOutlookLocate', found: true, mailbox: pick.mailbox,
@@ -450,6 +456,13 @@ df.app.activity('retroOutlookLocate', {
           mailbox: pick.mailbox,
           resource: `users/${pick.mailbox}/messages/${pick.id}`,
           matchedKey: rung.matchedKey,
+          // TKT-219 follow-up — the ranked SHORTLIST so the orchestrator can fall back to
+          // the next candidate when a pick is refused (blocked-family) or uncorroborated.
+          candidates: ranked.slice(0, 3).map((c) => ({
+            messageId: c.id,
+            mailbox: c.mailbox,
+            resource: `users/${c.mailbox}/messages/${c.id}`,
+          })),
         };
       }
     }
@@ -561,21 +574,30 @@ df.app.activity('retroRecordFailure', {
       triggerCategory?: InboundCategory;
       rungsTried: string[];
       ambiguousFolders?: number;
+      /** TKT-219 follow-up — located candidates the create seam refused (blocked-family
+       *  classification): staff must see a candidate EXISTS and what blocks it. */
+      refusedOriginals?: Array<{ internetMessageId: string; category: string }>;
     },
     ctx,
   ): Promise<unknown> => {
     if (!gates.retroCase()) return { skipped: 'gate_off' };
     const env = input.trigger as { internetMessageId?: string; subject?: string };
+    const refused = input.refusedOriginals ?? [];
     await dataApi.recordAudit({
       action: 'retro_reconstruction_failed',
       severity: 'warning',
-      summary: `Retro: no case found or reconstructable for ${input.triggerCategory ?? 'update'} email (${
-        input.keys.casePo ?? input.keys.externalRef ?? input.keys.vrm ?? 'no key'
-      })`,
+      summary:
+        `Retro: no case found or reconstructable for ${input.triggerCategory ?? 'update'} email (${
+          input.keys.casePo ?? input.keys.externalRef ?? input.keys.vrm ?? 'no key'
+        })` +
+        (refused.length > 0
+          ? ` — a possible original WAS found but its classification ('${refused[0].category}') blocks it; review and reclassify that email, then re-run`
+          : ''),
       after: {
         keys: input.keys,
         rungsTried: input.rungsTried,
         ...(input.ambiguousFolders ? { ambiguousFolders: input.ambiguousFolders } : {}),
+        ...(refused.length > 0 ? { refusedOriginals: refused } : {}),
         messageId: env.internetMessageId,
         subject: env.subject,
       },

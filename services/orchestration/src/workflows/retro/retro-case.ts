@@ -403,6 +403,8 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     resource?: string;
     mailbox?: string;
     matchedKey?: string;
+    /** TKT-219 follow-up — the ranked shortlist for candidate fallback. */
+    candidates?: Array<{ messageId: string; mailbox: string; resource: string }>;
   }
 
   // Rungs 2+3 — TKT-219: the Box archive search and the Outlook $search are scheduled
@@ -493,9 +495,15 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     outcome?: string;
     caseId?: string;
     casePo?: string | null;
+    /** Set on refused_category — the located original's blocking classification. */
+    category?: string;
     resolvedProviderId?: string;
     providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }
+
+  // TKT-219 follow-up (surfacing): every found-but-refused original is remembered so the
+  // failure record can tell staff a candidate EXISTS and what blocks it (review/reclassify).
+  const refusedOriginals: Array<{ internetMessageId: string; category: string }> = [];
 
   /** The record-keeping chain a live arrival gets (TKT-219 parity: classifyPersist WITH
    *  the case VRM + resolved provider so the per-provider AI opt-out holds, extractImages
@@ -630,10 +638,12 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
    *  literally in the message text, or the parsed reference / VRM must agree. The
    *  contradiction flag mirrors the Box arm's demotion rule (BOTH ref and VRM parsed and
    *  BOTH disagree → the located material is suspect). */
-  function* prepareOutlookOriginal(): Generator<Task, OutlookPrepared, never> {
+  function* prepareOutlookOriginal(
+    target: { messageId: string; resource: string },
+  ): Generator<Task, OutlookPrepared, never> {
     const original = (yield ctx.df.callActivityWithRetry('fetchMessage', retry, {
-      messageId: outlook.messageId,
-      resource: outlook.resource,
+      messageId: target.messageId,
+      resource: target.resource,
     })) as InboundEnvelope;
 
     let parseResult: RetroParseResult = {};
@@ -762,23 +772,34 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   function* createFromOutlook(
     withBoxIdentity: boolean,
   ): Generator<Task, Record<string, unknown> | null, never> {
+    // TKT-219 follow-up (candidate fallback): a refused or uncorroborated first pick must
+    // not sink the arm when the real original ranks just below it — the WF69NDX live shape
+    // was exactly a blocked-family sibling outranking the genuine instruction. Try the
+    // ranked shortlist in order (retroOutlookLocate caps it at 3).
+    const shortlist =
+      outlook.candidates && outlook.candidates.length > 0
+        ? outlook.candidates
+        : outlook.messageId && outlook.resource
+          ? [{ messageId: outlook.messageId, mailbox: outlook.mailbox ?? '', resource: outlook.resource }]
+          : [];
+    for (const outlookCandidate of shortlist) {
     let prep: OutlookPrepared;
     try {
-      prep = (yield* prepareOutlookOriginal()) as OutlookPrepared;
+      prep = (yield* prepareOutlookOriginal(outlookCandidate)) as OutlookPrepared;
     } catch (e) {
       if (!ctx.df.isReplaying) {
-        ctx.log(`[retro] Outlook original fetch/parse failed (best-effort): ${String(e)}`);
+        ctx.log(`[retro] Outlook original fetch/parse failed (best-effort, next candidate): ${String(e)}`);
       }
-      return null;
+      continue;
     }
     if (!prep.corroborated || prep.contradicted) {
       if (!ctx.df.isReplaying) {
         ctx.log(
-          `[retro] outlook hit ${prep.contradicted ? 'contradicted' : 'uncorroborated'} (key not in message; parse disagrees) — not used`,
+          `[retro] outlook hit ${prep.contradicted ? 'contradicted' : 'uncorroborated'} (key not in message; parse disagrees) — next candidate`,
         );
       }
       rungsTried.push(prep.contradicted ? 'outlook_contradicted' : 'outlook_uncorroborated');
-      return null;
+      continue;
     }
 
     const contentType = decideCaseType({
@@ -839,10 +860,14 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
     if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
     if (persisted.outcome === 'refused_category') {
-      // TKT-119 — the API refused this original (ack/digest family): fall through so the
-      // email still gets its visible outcome.
+      // TKT-119 — the API refused this original (ack/digest family). TKT-219 follow-up:
+      // remember it for the failure record, then try the next ranked candidate.
+      refusedOriginals.push({
+        internetMessageId: prep.original.internetMessageId,
+        category: persisted.category ?? 'unknown',
+      });
       rungsTried.push('outlook_refused_category');
-      return null;
+      continue;
     }
     if (persisted.outcome === 'ambiguous') {
       return { outcome: 'ambiguous', candidateCount: (persisted as { candidateCount?: number }).candidateCount };
@@ -873,6 +898,8 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       ...(boxIdentity ? { combined: true } : {}),
       providerRecovery: providerRecoveryOut,
     };
+    }
+    return null; // shortlist exhausted — the ladder falls to its visible failure record
   }
 
   /* ----------  the combination arms (planRetroReconstruction matrix)  ---------- */
@@ -999,6 +1026,10 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         // TKT-119 — the API's mint guard refused this original (an ack/digest-family
         // email can never be the case source). TKT-219: the Outlook result is already in
         // hand — fall back to it instead of re-searching (then the failure record).
+        refusedOriginals.push({
+          internetMessageId: original.internetMessageId,
+          category: persisted.category ?? 'unknown',
+        });
         rungsTried.push('box_refused_category');
         if (outlookUsable) {
           const viaOutlook = (yield* createFromOutlook(false)) as Record<string, unknown> | null;
@@ -1100,6 +1131,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     triggerCategory: category,
     rungsTried,
     ...(boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}),
+    ...(refusedOriginals.length > 0 ? { refusedOriginals } : {}),
   });
   return { outcome: 'no_source', ...(boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}) };
 });

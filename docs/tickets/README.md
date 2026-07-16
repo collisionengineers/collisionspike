@@ -22,13 +22,13 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) — Harden and extend AI and agent capabilities | active | 8/17 (47%) |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) — Case done lifecycle | active | 1/3 (33%) |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) — Operator review and fix-up wave | active | 28/37 (75%) |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/61 (4%) |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/62 (4%) |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (23)
+## Now (24)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -49,6 +49,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | P0 | evidence | PLAN-004 |
 | [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | P1 | ui | PLAN-004 |
 | [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 | ui | PLAN-004 |
+| [TKT-194](./now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 | email | PLAN-004 |
 | [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 | docs | PLAN-004 |
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
 | [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 | platform | PLAN-004 |
@@ -253,13 +254,13 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-191](./backlog/TKT-191-actionable-email-suggestions/TKT-191-actionable-email-suggestions.md) | Suggest email replies and urgency only when justified | P2 | email | PLAN-004 |
 | [TKT-192](./backlog/TKT-192-triage-precase-category/TKT-192-triage-precase-category.md) | Keep triage requests outside the case queue until instructions arrive | P1 | intake | PLAN-004 |
 | [TKT-193](./backlog/TKT-193-precase-evidence-holding-adoption/TKT-193-precase-evidence-holding-adoption.md) | Hold pre-case evidence and adopt it when instructions arrive | P1 | intake | PLAN-004 |
-| [TKT-194](./backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 | email | PLAN-004 |
 | [TKT-195](./backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) | Manage staff access with Microsoft work accounts | P1 | platform | PLAN-004 |
 | [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | P3 | evidence | — |
 | [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | P1 | intake | PLAN-004 |
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 | evidence | PLAN-004 |
 | [TKT-217](./backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 | platform | PLAN-004 |
 | [TKT-218](./backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 | integration | PLAN-004 |
+| [TKT-224](./backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md) | Re-classify historically mislabeled un-cased emails after classifier fixes | P1 | intake | PLAN-004 |
 
 ## Blocked (8)
 

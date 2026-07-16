@@ -201,10 +201,22 @@ export function selectOutlookOriginal(
   candidates: readonly OutlookSearchCandidate[],
   opts: { intakeMailboxes: readonly string[] },
 ): OutlookSearchCandidate | null {
+  return rankOutlookOriginals(candidates, opts)[0] ?? null;
+}
+
+/**
+ * TKT-219 follow-up (candidate fallback): the FULL ranked external-candidate list behind
+ * {@link selectOutlookOriginal}. The orchestrator may try the next-ranked candidate when a
+ * pick is refused as a case anchor (blocked-family classification) or fails corroboration —
+ * a noisy first hit must not sink a matter whose real original ranks second.
+ */
+export function rankOutlookOriginals(
+  candidates: readonly OutlookSearchCandidate[],
+  opts: { intakeMailboxes: readonly string[] },
+): OutlookSearchCandidate[] {
   const own = new Set(opts.intakeMailboxes.map((m) => m.trim().toLowerCase()).filter(Boolean));
   const external = candidates.filter((c) => c.from && !own.has(c.from));
-  if (external.length === 0) return null;
-  const ranked = [...external].sort((a, b) => {
+  return [...external].sort((a, b) => {
     const aAtt = a.hasAttachments ? 0 : 1;
     const bAtt = b.hasAttachments ? 0 : 1;
     if (aAtt !== bAtt) return aAtt - bAtt;
@@ -216,7 +228,6 @@ export function selectOutlookOriginal(
     if (at !== bt) return at < bt ? -1 : 1;
     return a.id.localeCompare(b.id);
   });
-  return ranked[0] ?? null;
 }
 
 /** Evidence class for a byte-less archive-file registration (link-only rows).

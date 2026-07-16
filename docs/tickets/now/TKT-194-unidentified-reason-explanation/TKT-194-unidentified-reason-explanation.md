@@ -1,11 +1,11 @@
 ---
 id: TKT-194
 title: Explain why an email needs sorting
-status: backlog
+status: now
 priority: P2
 area: email
 tickets-it-relates-to: [TKT-006, TKT-137, TKT-157, TKT-191]
-research-link: docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md
+research-link: docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md
 plan: PLAN-004
 ---
 
@@ -15,7 +15,7 @@ plan: PLAN-004
 An email labelled Unidentified can show a “Why this label” section containing broad clues such as a recognised company, an automatic-reply pattern or ongoing conversation. Those clues do not explain why a suitable category could not be chosen and can contradict a separate assistant suggestion. The handler is left without a concrete next action.
 
 ## Evidence
-- [Operator source material](./evidence/operator-source/) shows an Unidentified email whose explanation lists generic positive clues while a separate suggestion proposes Acknowledgement.
+- [Operator source material](./evidence/operator-source) shows an Unidentified email whose explanation lists generic positive clues while a separate suggestion proposes Acknowledgement.
 - TKT-137 owns accepting or ignoring a pending suggestion; this ticket keeps that pending suggestion distinct from the reason the current email still needs sorting.
 - The reason mapping and post-deployment example are to be recorded at [unidentified-reason-live.md](./evidence/unidentified-reason-live.md).
 
