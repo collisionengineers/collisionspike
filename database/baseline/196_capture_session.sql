@@ -127,6 +127,12 @@ CREATE UNIQUE INDEX uq_evidence_capture_asset
   ON evidence (source_message_id)
   WHERE source_label = 'public_guided_capture';
 
+-- The dedup index above no-ops on NULL source_message_id; this CHECK guarantees
+-- capture evidence always carries its asset-embedding identity (TKT-200 follow-up).
+ALTER TABLE evidence ADD CONSTRAINT ck_evidence_capture_source_message
+  CHECK (source_label IS DISTINCT FROM 'public_guided_capture'
+         OR (source_message_id IS NOT NULL AND source_message_id LIKE 'public-capture:%'));
+
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cespk_app') THEN

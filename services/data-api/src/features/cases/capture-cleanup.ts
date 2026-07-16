@@ -6,6 +6,8 @@ import {
   isCaptureManagedBlobPath,
 } from '../evidence/blob-store.js';
 import { query } from '../../platform/db/client.js';
+import { gates } from '../settings/gates.js';
+import { purgeStaleCaptureRateLimitWindows } from './capture-rate-limit.js';
 import { withResolvedCaseMutationTarget } from './case-mutation-target.js';
 
 const CLEANUP_BATCH_SIZE = 100;
@@ -17,6 +19,7 @@ export interface CaptureCleanupResult {
   candidates: number;
   deleted: number;
   failed: number;
+  rateLimitWindowsPurged?: number;
 }
 
 interface CaptureCleanupCandidate extends Record<string, unknown> {
@@ -34,10 +37,6 @@ interface LockedCaptureCleanupCandidate extends CaptureCleanupCandidate {
   state: string;
   materialised_at: Date | string | null;
   staging_deleted_at: Date | string | null;
-}
-
-function enabled(name: string): boolean {
-  return (process.env[name] ?? '').trim().toLowerCase() === 'true';
 }
 
 export function configuredCaptureRetentionDays(
@@ -139,7 +138,7 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     deleted: 0,
     failed: 0,
   };
-  if (!enabled('CAPTURE_CLEANUP_ENABLED')) return disabled;
+  if (!gates.captureCleanup()) return disabled;
 
   const retentionDays = configuredCaptureRetentionDays();
   if (!retentionDays) {
@@ -240,6 +239,13 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     [CLEANUP_BATCH_SIZE],
   )) ?? [];
 
+  let rateLimitWindowsPurged = 0;
+  try {
+    rateLimitWindowsPurged = await purgeStaleCaptureRateLimitWindows();
+  } catch {
+    ctx.warn('[capture-cleanup] rate-limit window purge failed');
+  }
+
   const result: CaptureCleanupResult = {
     enabled: true,
     expiredSessions: expired.length,
@@ -247,6 +253,7 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     candidates: candidates.length,
     deleted,
     failed,
+    rateLimitWindowsPurged,
   };
   // Aggregate-only operational evidence: no case/session/asset ids, filenames or paths.
   ctx.log('[capture-cleanup] completed', result);

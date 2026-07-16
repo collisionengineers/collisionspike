@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1002,
-    "files": 3295,
-    "entries": 4297
+    "files": 3299,
+    "entries": 4301
   },
-  "totalFileBytes": 701606174,
+  "totalFileBytes": 701649436,
   "entries": [
     {
       "path": ".",
@@ -13036,8 +13036,8 @@
     {
       "path": "contracts/capture.v1.yaml",
       "mediaType": "application/yaml",
-      "size": 27104,
-      "sha256": "608b7db2f10f30fcec5092766028d50a6f75fd5bbf317875515ae9c63ce9fd0e",
+      "size": 28180,
+      "sha256": "1b0537a72055a0673da38a402e47072b22ac0c8cac3c86e9c5b095d845a1ae17",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -13063,8 +13063,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "mediaType": "application/json",
-      "size": 155430,
-      "sha256": "ae93e3137fbe7159fb0c0a50bd377803fdf829db2431595bc3fd880be79fbcf6",
+      "size": 155852,
+      "sha256": "8e5d4883d0b2cc32f27beeed735433ac6a8dedb3c8603b75c4e8764d2d09fc29",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -13297,8 +13297,8 @@
     {
       "path": "database/baseline/196_capture_session.sql",
       "mediaType": "application/sql",
-      "size": 6975,
-      "sha256": "f3fcba01bd7935bf6ed67852685106e4f2fd55a98301f2d4de92abf26fa8772b",
+      "size": 7368,
+      "sha256": "74e22367c3871e27f4c65eda2c9ccb317143c2a9a9ba6e9b4d40f4e94b289702",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -13326,6 +13326,15 @@
       "mediaType": "application/sql",
       "size": 6387,
       "sha256": "32d8ef8903b3573536e33e19eb6f3b89c83c48ad5274c6354867a0b2408d9c41",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/baseline/197_capture_rate_limit.sql",
+      "mediaType": "application/sql",
+      "size": 1337,
+      "sha256": "02e2d5d4816a60a30441acc607b04b3988b7aa5ec73c2a0ad3a054cdf61e8269",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -13378,8 +13387,8 @@
     {
       "path": "database/baseline/900_constraints.sql",
       "mediaType": "application/sql",
-      "size": 17823,
-      "sha256": "6c13805f7fa5e39e88afc2ace90d9cd9b201750b115b0e4cb462a24d7102c026",
+      "size": 18350,
+      "sha256": "c69977edc54521d625fea14fbf2f0189c96b3be8fe208c9ef2e07d025d0ad52c",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -13857,6 +13866,15 @@
       "mediaType": "application/sql",
       "size": 522,
       "sha256": "d70ead4cffb09cd0564886500cf2767dbbdb8161e9401617c4de5eb00ba0d4e4",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/migrations/2026-07-16-capture-rate-limit.sql",
+      "mediaType": "application/sql",
+      "size": 1756,
+      "sha256": "ae632b67e892c97095b3d1ed0dfc4518ed48ffea69c346a1f2b4784ca28f4fb3",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -14422,7 +14440,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1343225,
+      "size": 1344478,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -22414,8 +22432,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/changes.md",
       "mediaType": "text/markdown",
-      "size": 599,
-      "sha256": "9ee89dd7e2399de9798c8233292945d90b543a783431edcf3f195343d20b00ae",
+      "size": 4007,
+      "sha256": "8a561446efd7530278b3e20a84c3cfc3beb3273ba6200b7a47903105bc6eca20",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22432,8 +22450,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/verification.md",
       "mediaType": "text/markdown",
-      "size": 3559,
-      "sha256": "64f2eafe91a2a3ead3d7b9c698b26806fee434ab405aec33a7cf06f0d99154a5",
+      "size": 4203,
+      "sha256": "b1a42b4fc389399960cf9781e2680e66ca45f820e90a86adf535ed099974d16a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27022,8 +27040,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 17360,
-      "sha256": "16439d8f3e79dd623ab6f49851825c25f0f6c3086a73252d0586e7aa21757ece",
+      "size": 18315,
+      "sha256": "89556ac104c9574af366765a1cbfee7b211c51a25cfe923e29311cc90cd2221f",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -27410,7 +27428,7 @@
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
       "size": 422,
-      "sha256": "70402bde4798b38faa3f71e22d72c1e0b2e0902ea9bc1a366a449d37a8526f08",
+      "sha256": "e1f178c9f95deabd9fab022569dbddf3f74ddd3875ca2fd65ec0524e21164214",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -28255,8 +28273,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-auth.test.ts",
       "mediaType": "text/typescript",
-      "size": 3664,
-      "sha256": "d692a2f36090d34cba07c54f3228e576adb01f3e351f6ff09ed9c0fc8e13d6f7",
+      "size": 4418,
+      "sha256": "f0b04ecabab1cc5461f771eb1223494af83428acde334204ae1f10c9f4a3ae5c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28264,8 +28282,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-auth.ts",
       "mediaType": "text/typescript",
-      "size": 3875,
-      "sha256": "7daa07e5167e1c2fde23558c7938babe2a2c77c8bba2d379a51619e16f5a8ddc",
+      "size": 3904,
+      "sha256": "c7e7072875ea6a3c8bf91c8cea22e62915ef01bef373a49e2b5c88025c0cb273",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28273,8 +28291,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-blob-security.test.ts",
       "mediaType": "text/typescript",
-      "size": 2563,
-      "sha256": "02e2cc6e5bb0508e9db14b27188ab8074fa97156ea52372be9d7d1136362ea02",
+      "size": 3084,
+      "sha256": "2726b4e82741b0783e721acf1f2c1206cf2d6797c93fb243743a4af7704420cf",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28282,8 +28300,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-cleanup.test.ts",
       "mediaType": "text/typescript",
-      "size": 16498,
-      "sha256": "32b3fc1af8aa35ec2dfb04a45f65d29dd89efbc2cc53dcdf1b888f0692157ad2",
+      "size": 16564,
+      "sha256": "f49ad2073b1e852cb069d3d262d20d92d693b240e8f822c3ee8f57aaaf63a931",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28291,8 +28309,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-cleanup.ts",
       "mediaType": "text/typescript",
-      "size": 9568,
-      "sha256": "c4af888bfa4d12042398569cf9a59e6d3a43b3c072a3ebc64eefb707c33a0728",
+      "size": 9826,
+      "sha256": "7e43fea6b5d263f9a6218594bb8be434ee66aa759508c4c4a6bbfc0a45baf8b7",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28316,10 +28334,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/capture-rate-limit.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6284,
+      "sha256": "21094ddfc77c9c84c8a6c35976a6ea7ef45be1a1320eab072894789e99afb378",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-rate-limit.ts",
+      "mediaType": "text/typescript",
+      "size": 7240,
+      "sha256": "b14c4527dcb48e01a42da6a6a320327e79509820ad1b73e0fd3dd1ee36fb43ed",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/capture-schema.test.ts",
       "mediaType": "text/typescript",
-      "size": 6051,
-      "sha256": "fccdadf9d10f16148d41c3623b2f0acc41050b523ed01a1443a52adcd3fbbb31",
+      "size": 7450,
+      "sha256": "44ef32361b0ffe80dcc7367cfca348d7c96a9470a488829f620b20d42ffce481",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28327,8 +28363,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.test.ts",
       "mediaType": "text/typescript",
-      "size": 84989,
-      "sha256": "f055c1853fa8509eaf647da997e3064bedfd3e3144f5c3ae9e27e31817d47284",
+      "size": 90990,
+      "sha256": "1036685d731f155794a615c6f654707a5b2faf161ffd9428735642754a03213e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28336,8 +28372,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.ts",
       "mediaType": "text/typescript",
-      "size": 71617,
-      "sha256": "1354766dc7012b2b13d8b9e4ea009bc1093ac82653de44fd0a43f8a6c5d733ae",
+      "size": 73044,
+      "sha256": "d2e1713bc80dfba1b92fd0e13d433c4b0b20dd93ba4ae8ed9cec3c7a1b8d28a2",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28903,8 +28939,8 @@
     {
       "path": "services/data-api/src/features/evidence/blob-store.ts",
       "mediaType": "text/typescript",
-      "size": 11704,
-      "sha256": "f33d13026e846df5486695f1e1e6222555e34187e3aa7ff2472318c7396e76b4",
+      "size": 14207,
+      "sha256": "e6ad03b066d6e8f2e3cc033fc5ff2682c6552b0c72cc0f1df2979e0beaf13337",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29029,8 +29065,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-validate.test.ts",
       "mediaType": "text/typescript",
-      "size": 11527,
-      "sha256": "37bd410460495b6f3aaa732a9aed806fb2d2845221505878da74f4161d31dfac",
+      "size": 13646,
+      "sha256": "65055f05e491b488ab199563739cc2a1477a654aa0e2dfd573dd04008d3f4c7e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29038,8 +29074,8 @@
     {
       "path": "services/data-api/src/features/evidence/upload-validate.ts",
       "mediaType": "text/typescript",
-      "size": 12798,
-      "sha256": "d69089612a47a605e3a495660b71bede5efcf27fd81d8f973dea5d4a0c5ef91c",
+      "size": 14167,
+      "sha256": "ce4671e7989aa85447fb09efddcfa1d77cb965f44b087c9fc7ed9590501bae23",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29506,8 +29542,8 @@
     {
       "path": "services/data-api/src/generated/capture-api.ts",
       "mediaType": "text/typescript",
-      "size": 27599,
-      "sha256": "daa05791663222108949e0b508d11547989f3766cedacd04f769eeacfe598e0c",
+      "size": 28652,
+      "sha256": "a880129a05ff98068eb34d320250cd6a0fba20aaccabc605a9c61cd9fa4bd60e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29677,8 +29713,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.test.ts",
       "mediaType": "text/typescript",
-      "size": 6197,
-      "sha256": "7b7b62b432eeffcc8b0889f07a0c591314b528e509fca7cfb6253287484ea4a8",
+      "size": 6665,
+      "sha256": "f64a61a3d99ccf97c20205ce953044e3c51800651b0aac018419cd7fff8917a3",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"

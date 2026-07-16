@@ -167,6 +167,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '423':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -201,6 +203,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '423':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -231,6 +235,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '423':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -292,6 +298,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '503':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -337,6 +345,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '503':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -377,6 +387,8 @@ paths:
           $ref: '#/components/responses/PublicProblem'
         '503':
           $ref: '#/components/responses/PublicProblem'
+        '429':
+          $ref: '#/components/responses/PublicRateLimited'
         '500':
           $ref: '#/components/responses/PublicProblem'
 
@@ -451,8 +463,26 @@ components:
         Clears __Host-collisioncapture-resume after successful capture submission.
       schema:
         type: string
+    RetryAfter:
+      description: Whole seconds to wait before retrying a rate-limited request.
+      schema:
+        type: string
 
   responses:
+    PublicRateLimited:
+      description: >-
+        Too many requests for this caller or capture session in the current
+        one-minute window. Wait for the Retry-After hint, then retry the same
+        request unchanged.
+      headers:
+        Cache-Control:
+          $ref: '#/components/headers/NoStore'
+        Retry-After:
+          $ref: '#/components/headers/RetryAfter'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CaptureApiProblem'
     Problem:
       description: Request refused.
       content:

@@ -120,4 +120,25 @@ describe('guided capture schema', () => {
       expect(sql).toContain("100000062, 'capture_session_locked'");
     }
   });
+
+  it('keeps canonical and live-delta rate-limit and capture-evidence contracts aligned', () => {
+    const baseline = schema('baseline/197_capture_rate_limit.sql');
+    const delta = schema('migrations/2026-07-16-capture-rate-limit.sql');
+    for (const sql of [baseline, delta]) {
+      expect(sql).toContain('capture_rate_limit');
+      expect(sql).toMatch(/scope_key\s+varchar\(200\)\s+PRIMARY KEY/u);
+      expect(sql).toContain('window_started_at  timestamptz NOT NULL');
+      expect(sql).toContain('CHECK (request_count >= 1)');
+      expect(sql).toContain('GRANT SELECT, INSERT, UPDATE, DELETE ON capture_rate_limit TO cespk_app');
+    }
+    const evidenceCheck = /ck_evidence_capture_source_message[\s\S]*?source_label IS DISTINCT FROM 'public_guided_capture'[\s\S]*?source_message_id LIKE 'public-capture:%'/u;
+    expect(schema('baseline/196_capture_session.sql')).toMatch(evidenceCheck);
+    expect(delta).toMatch(evidenceCheck);
+    // The delta carries explicit policies for the already-built live DB; fresh
+    // builds get the same posture from 900_constraints.sql (rw, no no-delete).
+    expect(delta).toContain('CREATE POLICY p_capture_rate_limit_rw ON capture_rate_limit');
+    const constraints = schema('baseline/900_constraints.sql');
+    expect(constraints).toContain('p_capture_rate_limit_rw');
+    expect(constraints).not.toMatch(/p_capture_rate_limit_no_delete/u);
+  });
 });

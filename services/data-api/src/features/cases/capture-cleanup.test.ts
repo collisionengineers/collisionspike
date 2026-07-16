@@ -132,6 +132,7 @@ describe('capture retention cleanup', () => {
       candidates: 1,
       deleted: 1,
       failed: 0,
+      rateLimitWindowsPurged: 0,
     });
     expect(blobs.remove.mock.calls.map(([path]) => path)).toEqual([
       'capture/session-1/asset-1',
@@ -357,6 +358,7 @@ describe('capture retention cleanup', () => {
       candidates: 2,
       deleted: 1,
       failed: 1,
+      rateLimitWindowsPurged: 0,
     });
 
     const retrySql = String(db.query.mock.calls[3]?.[0]);

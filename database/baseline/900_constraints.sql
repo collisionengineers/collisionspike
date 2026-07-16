@@ -243,6 +243,13 @@ BEGIN
   EXECUTE $p$CREATE POLICY p_capture_session_resume_token_rw ON capture_session_resume_token
       USING (current_setting('app.role', true) IN ('staff','admin'))
       WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
+  -- capture_rate_limit: staff deletes are the stale-window purge (cleanup timer),
+  -- so it deliberately has no restrictive no-delete policy (like resume tokens).
+  EXECUTE 'ALTER TABLE capture_rate_limit ENABLE ROW LEVEL SECURITY;';
+  EXECUTE 'ALTER TABLE capture_rate_limit FORCE ROW LEVEL SECURITY;';
+  EXECUTE $p$CREATE POLICY p_capture_rate_limit_rw ON capture_rate_limit
+      USING (current_setting('app.role', true) IN ('staff','admin'))
+      WITH CHECK (current_setting('app.role', true) IN ('staff','admin'));$p$;
 END $$;
 
 -- Evidence keeps the generic read/write posture. The PRIMARY control on the staff

@@ -60,6 +60,14 @@ describe('humanActorName — the internal-id guard', () => {
     expect(humanActorName('J. Mercer')).toBe('J. Mercer');
     expect(humanActorName('alex@collisionengineers.co.uk')).toBe('alex');
   });
+
+  it('keeps legitimate names containing hex letters and dashes (TKT-200 regression)', () => {
+    // The GUID-anywhere broadening must only drop real 8-4-4-4-12 identifiers,
+    // never a hyphenated human name built from hex-alphabet letters.
+    expect(humanActorName('Anne-Marie Deacon')).toBe('Anne-Marie Deacon');
+    expect(humanActorName('Abba-Fabb De-Cade')).toBe('Abba-Fabb De-Cade');
+    expect(humanActorName('Ada Bede-Cafe')).toBe('Ada Bede-Cafe');
+  });
 });
 
 describe('plainDetail — the TKT-134 detail-line safety filter', () => {

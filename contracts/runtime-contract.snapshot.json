@@ -2971,7 +2971,7 @@
       },
       {
         "path": "database/baseline/196_capture_session.sql",
-        "sha256": "ad78be775a8bc0c51798fc334dc613d1dfde4776b764d514279ebeae1dbc8dd5"
+        "sha256": "854720695afc22dd8600a20e529628273ab6ddbeb4218a6880a4819a9b62610f"
       },
       {
         "path": "database/baseline/196_manual_intake_case_create.sql",
@@ -2984,6 +2984,10 @@
       {
         "path": "database/baseline/197_archive_holding.sql",
         "sha256": "253013d208df087ed99fba5c05dc43aad9dbbf9695823bf96142bf0f419bae10"
+      },
+      {
+        "path": "database/baseline/197_capture_rate_limit.sql",
+        "sha256": "a6cdae3c6d1ab319f0b3e68b99f07c57fd821b9e0df2d6cd0dd6756651037060"
       },
       {
         "path": "database/baseline/197_mcp_http_session.sql",
@@ -3007,7 +3011,7 @@
       },
       {
         "path": "database/baseline/900_constraints.sql",
-        "sha256": "83fccdb9c22901fcc76ced6ef804863875c069ba0a0500ecbc3f7647c83df21e"
+        "sha256": "ac19db40eb9db2d87c12b7611b469503aec0e303efdcc0b78b7f6b7b6a2dc8ac"
       }
     ],
     "tables": [
@@ -3237,6 +3241,16 @@
           "updated_at"
         ],
         "source": "database/baseline/196_capture_session.sql"
+      },
+      {
+        "name": "capture_rate_limit",
+        "columns": [
+          "scope_key",
+          "window_started_at",
+          "request_count",
+          "updated_at"
+        ],
+        "source": "database/baseline/197_capture_rate_limit.sql"
       },
       {
         "name": "capture_session_resume_token",
@@ -4116,7 +4130,7 @@
         "source": "database/baseline/010_work_provider.sql"
       }
     ],
-    "sha256": "260a964b81c716eab1132b0f278fe98e8d8685e81b67d947c1473bcf21c5fd90"
+    "sha256": "fcf7735b8bacf3a75d1e32acf0dde94dfbd903e9a3c2080f73e4afacd3314324"
   },
   "numericCodes": {
     "tableCount": 22,
