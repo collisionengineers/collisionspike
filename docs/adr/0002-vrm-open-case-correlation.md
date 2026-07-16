@@ -5,8 +5,7 @@
 ## Decision
 
 Use VRM to find compatible open-case candidates for separately arriving instructions and images. Multiple
-historical or same-day cases may share a VRM. Ambiguous candidates go to staff review rather than being
-merged automatically.
+historical or same-day cases may share a VRM. Ambiguous candidates go to staff review rather than being merged automatically.
 
 ## Rationale
 

@@ -118,6 +118,27 @@
       "dataApi": false,
       "orchestration": false
     },
+    "retroReconstruction": {
+      "lastVerified": "2026-07-16T13:00:00Z",
+      "evidence": "read-only az functionapp appsettings sweep, both apps",
+      "RETRO_CASE_ENABLED": {
+        "dataApi": true,
+        "orchestration": true
+      },
+      "RETRO_OUTLOOK_SEARCH_ENABLED": {
+        "orchestration": true
+      },
+      "RETRO_BOX_ARCHIVE_ROOT_IDS": {
+        "dataApi": "4077648161",
+        "orchestration": "4077648161",
+        "orchestrationSetAt": "2026-07-16T15:25:00Z",
+        "note": "Box locate rung is configuration-lit but BLOCKED upstream: box/search against root 4077648161 returns Box 404 (service account has no Viewer grant on the archive root — the TKT-058 D11 operator item). Live proof 2026-07-16T15:38Z: retroBoxLocate faulted, the TKT-219 fan-out salvaged the run (Completed, visible failure record). Operator action: grant the Box service account Viewer on the archive root."
+      },
+      "RETRO_ADOPT_ARCHIVE_PO_ENABLED": {
+        "dataApi": false,
+        "note": "TKT-219 dev/test posture: retro creates mint via the normal allocator; the discovered archive PO is recorded as case_ref only. Flip at production cutover after TKT-004 floor seeding (TKT-178 runbook)."
+      }
+    },
     "boxWrites": {
       "allowedRootId": "392761581105",
       "scope": "approved test folder only"

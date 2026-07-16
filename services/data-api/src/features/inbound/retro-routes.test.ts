@@ -15,7 +15,13 @@ vi.mock('@azure/functions', () => ({
 const db = vi.hoisted(() => ({ query: vi.fn(), tx: vi.fn() }));
 vi.mock('../../platform/db/client.js', () => ({ query: db.query, tx: db.tx }));
 
-const gates = vi.hoisted(() => ({ retroCase: vi.fn(() => true), auditCases: vi.fn(() => false) }));
+const gates = vi.hoisted(() => ({
+  retroCase: vi.fn(() => true),
+  auditCases: vi.fn(() => false),
+  // TKT-219 — default OFF = the dev/test posture (normal allocator mints; the discovered
+  // archive PO is recorded as case_ref + note only).
+  retroAdoptArchivePo: vi.fn(() => false),
+}));
 vi.mock('../settings/gates.js', () => ({ gates }));
 
 const audit = vi.hoisted(() => ({ writeAudit: vi.fn() }));
@@ -98,6 +104,7 @@ beforeEach(() => {
   dbCalls.length = 0;
   gates.retroCase.mockReturnValue(true);
   gates.auditCases.mockReturnValue(false);
+  gates.retroAdoptArchivePo.mockReturnValue(false);
   internal.mintBlockedByCategory.mockResolvedValue(null);
   internal.upsertInboundEmail.mockResolvedValue(undefined);
   audit.writeAudit.mockResolvedValue(undefined);
@@ -141,6 +148,7 @@ describe('POST /api/internal/retro/create provider completion', () => {
         caseId: 'case-retro',
         casePo: 'QDOS26088',
         newClient: false,
+        resolvedProviderId: 'wp-qdos',
         providerRecovery: 'identity_ready',
       },
     });
@@ -153,7 +161,8 @@ describe('POST /api/internal/retro/create provider completion', () => {
     }));
   });
 
-  it('keeps an unverified discovered Archive identity held and never authorises a fork', async () => {
+  it('keeps an unverified discovered Archive identity held and never authorises a fork (adoption ON)', async () => {
+    gates.retroAdoptArchivePo.mockReturnValue(true);
     internal.applyParserFields.mockResolvedValue({
       providerResolutionSource: 'instruction_content',
       resolvedProviderId: 'wp-qdos',
@@ -180,6 +189,7 @@ describe('POST /api/internal/retro/create provider completion', () => {
         caseId: 'case-retro',
         casePo: null,
         newClient: false,
+        resolvedProviderId: 'wp-qdos',
         providerRecovery: 'blocked',
       },
     });
@@ -190,6 +200,85 @@ describe('POST /api/internal/retro/create provider completion', () => {
     expect(dbCalls.some(({ sql, params }) =>
       sql.includes('INSERT INTO case_') && params.includes('provider_unresolved') && params.includes('historical-folder'),
     )).toBe(true);
+  });
+
+  // TKT-219 — the dev/live Case-PO adoption split (RETRO_ADOPT_ARCHIVE_PO_ENABLED).
+  it('adoption ON: a principal-verified discovered PO is stored verbatim and never re-minted', async () => {
+    gates.retroAdoptArchivePo.mockReturnValue(true);
+    internal.applyParserFields.mockResolvedValue({ providerResolutionSource: 'none' });
+
+    const response = await registrations.get('internalRetroCreate')!.handler(
+      request(retroBody({
+        reconstructionSource: 'box_eml',
+        casePo: 'A.PCH261269',
+        boxFolder: { id: 'archive-folder' },
+      })),
+      context(),
+    );
+
+    expect(response).toMatchObject({
+      status: 200,
+      jsonBody: { outcome: 'created', caseId: 'case-retro', casePo: 'A.PCH261269' },
+    });
+    const insert = dbCalls.find(({ sql }) => sql.includes('INSERT INTO case_'));
+    expect(insert?.sql).toContain('case_po');
+    expect(insert?.params).toContain('A.PCH261269');
+    expect(internal.applyParserFields.mock.calls[0][7]).toMatchObject({ allowCasePoMint: false });
+  });
+
+  it('adoption OFF (dev/test default): the discovered PO lands in case_ref, the normal allocator may mint, and the case is held', async () => {
+    internal.applyParserFields.mockResolvedValue({ providerResolutionSource: 'none' });
+
+    const response = await registrations.get('internalRetroCreate')!.handler(
+      request(retroBody({
+        // The orchestrator may legitimately request terminal for a verified billing
+        // reconstruction — dev-mint mode must still demote it (identity is never
+        // "verified" while adoption is off).
+        statusName: 'eva_submitted',
+        onHold: false,
+        actionReason: '',
+        reconstructionSource: 'box_eml',
+        casePo: 'A.PCH261269',
+        boxFolder: { id: 'archive-folder' },
+        keys: { externalRef: '' },
+      })),
+      context(),
+    );
+
+    expect(response).toMatchObject({
+      status: 200,
+      jsonBody: { outcome: 'created', caseId: 'case-retro', casePo: null },
+    });
+    const insert = dbCalls.find(({ sql }) => sql.includes('INSERT INTO case_'));
+    expect(insert?.sql).not.toContain('case_po');
+    expect(insert?.sql).toContain('case_ref');
+    expect(insert?.params).toContain('A.PCH261269'); // the discovered PO, as the reference
+    expect(insert?.sql).toContain('on_hold'); // demoted despite the caller's eva_submitted
+    expect(internal.applyParserFields.mock.calls[0][7]).toMatchObject({ allowCasePoMint: true });
+    // The honest dev-mode note names the recorded reference.
+    const note = dbCalls.find(({ sql }) => sql.includes('INSERT INTO note'));
+    expect(String(note?.params?.[3] ?? '')).toContain('archive-PO adoption is off');
+  });
+
+  it('forwards the trigger sender intermediary match into applyParserFields (TKT-021/TKT-219)', async () => {
+    internal.applyParserFields.mockResolvedValue({ providerResolutionSource: 'none' });
+    const intermediary = { imageSourceId: 'is-connexus', candidateProviderIds: ['wp-pch', 'wp-sbl'] };
+
+    await registrations.get('internalRetroCreate')!.handler(
+      request(retroBody({ intermediary })),
+      context(),
+    );
+
+    expect(internal.applyParserFields).toHaveBeenCalledWith(
+      'case-retro',
+      undefined,
+      undefined,
+      undefined,
+      { work_provider: 'QDOS', claimant_name: 'Jane Driver' },
+      null,
+      intermediary,
+      expect.anything(),
+    );
   });
 
   it('re-applies parser fields and exposes recovery when locked get-or-create finds an existing case', async () => {
@@ -231,6 +320,7 @@ describe('POST /api/internal/retro/create provider completion', () => {
         outcome: 'already_exists_linked',
         caseId: 'case-existing',
         casePo: 'QDOS26089',
+        resolvedProviderId: 'wp-qdos',
         providerRecovery: 'identity_ready',
       },
     });

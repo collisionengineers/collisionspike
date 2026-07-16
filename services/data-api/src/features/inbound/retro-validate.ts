@@ -23,17 +23,21 @@ export type RetroAllowedStatus = (typeof RETRO_ALLOWED_STATUSES)[number];
 export const RETRO_RECONSTRUCTION_SOURCES = ['box_eml', 'box_doc', 'outlook', 'minimal'] as const;
 export type RetroReconstructionSourceDto = (typeof RETRO_RECONSTRUCTION_SOURCES)[number];
 
-/** The reconstruction search keys as they arrive on the wire (domain RetroKeys). */
+/** The reconstruction search keys as they arrive on the wire (domain RetroKeys).
+ *  TKT-219: `claimant` is a SEARCH key for the Box/Outlook rungs only — the
+ *  resolve-existing case probes never link on a person's name. */
 export interface RetroKeysDto {
   casePo?: string;
   externalRef?: string;
   vrm?: string;
+  claimant?: string;
 }
 
 export interface NormalisedRetroKeys {
   casePo?: string;
   externalRef?: string;
   vrm?: string;
+  claimant?: string;
 }
 
 export type RetroValidationErrorCode =
@@ -86,6 +90,8 @@ export function normalizeRetroKeys(
   if (ref) out.externalRef = ref;
   const vrm = (keys?.vrm ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (vrm) out.vrm = vrm;
+  const claimant = (keys?.claimant ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+  if (claimant) out.claimant = claimant;
   return out;
 }
 
@@ -107,8 +113,12 @@ export function validateRetroResolveExisting(
   }
   const keys = normalizeRetroKeys(b.keys);
   if ('ok' in keys) return keys;
-  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
-    return { ok: false, code: 'missing_keys', message: 'at least one of keys.casePo/externalRef/vrm required' };
+  if (!keys.casePo && !keys.externalRef && !keys.vrm && !keys.claimant) {
+    return {
+      ok: false,
+      code: 'missing_keys',
+      message: 'at least one of keys.casePo/externalRef/vrm/claimant required',
+    };
   }
   return { ok: true, value: { keys } };
 }

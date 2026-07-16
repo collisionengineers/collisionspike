@@ -75,6 +75,12 @@ df.app.activity('retroResolveExisting', {
   },
 });
 
+/** TKT-219 — per (mailbox × variant) total-result bound for the retro `$search` sweep.
+ *  500 = two 250-result pages: deep enough to reach OLD originals behind recurring refs
+ *  (the documented `$search` ceiling is 1,000, sent-date-sorted) while keeping a junk-ish
+ *  key's worst case at two sequential Graph calls. Truncation is logged, never silent. */
+const RETRO_SEARCH_TOTAL_LIMIT = 500;
+
 /** The archive roots the Box rung may search — RETRO_BOX_ARCHIVE_ROOT_IDS (orch side;
  *  the box-webhook Function enforces the same ids via its own BOX_READONLY_ROOT_IDS). */
 function archiveRootIds(): string[] {
@@ -96,10 +102,12 @@ df.app.activity('retroBoxLocate', {
     if (rootIds.length === 0) return { skipped: 'no_archive_roots' };
 
     // Key ladder, strongest first. The Case/PO (when quoted) is a FOLDER-NAME search;
-    // the external ref + VRM are CONTENT searches (the claim ref / registration lives
-    // INSIDE the archived instruction files, not in any name).
+    // the external ref + VRM + claimant name (TKT-219 — operator directive: the primary
+    // retro search keys are the external ref, VRM and claimant; a Case/PO is only ever
+    // opportunistic) are CONTENT searches (they live INSIDE the archived instruction
+    // files, not in any name).
     const refHits: RetroSearchHit[] = [];
-    const vrmHits: RetroSearchHit[] = [];
+    const weakHits: RetroSearchHit[] = [];
     if (input.keys.casePo) {
       const r = await box.searchContent({ query: input.keys.casePo, rootIds, type: 'folder' });
       refHits.push(...r.entries);
@@ -108,15 +116,19 @@ df.app.activity('retroBoxLocate', {
       const r = await box.searchContent({ query: input.keys.externalRef, rootIds });
       refHits.push(...r.entries);
     }
-    // Skip the noisy VRM sweep when the reference tier is already decisive.
-    let needVrm = Boolean(input.keys.vrm);
-    if (needVrm && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needVrm = false;
-    if (needVrm && input.keys.vrm) {
+    // Skip the noisy weak-key sweeps (VRM / claimant) when the reference tier is decisive.
+    let needWeak = Boolean(input.keys.vrm || input.keys.claimant);
+    if (needWeak && refHits.length > 0 && pickCaseFolder(refHits, []).folder) needWeak = false;
+    if (needWeak && input.keys.vrm) {
       const r = await box.searchContent({ query: input.keys.vrm, rootIds });
-      vrmHits.push(...r.entries);
+      weakHits.push(...r.entries);
+    }
+    if (needWeak && input.keys.claimant) {
+      const r = await box.searchContent({ query: input.keys.claimant, rootIds });
+      weakHits.push(...r.entries);
     }
 
-    const pick = pickCaseFolder(refHits, vrmHits);
+    const pick = pickCaseFolder(refHits, weakHits);
     if (!pick.folder) {
       ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, candidates: pick.candidateCount }));
       return { found: false, reason: pick.candidateCount > 1 ? 'ambiguous_folders' : 'no_hits', candidateCount: pick.candidateCount };
@@ -135,15 +147,16 @@ df.app.activity('retroBoxLocate', {
       principals.map((p) => p.principalCode),
     );
 
-    // A VRM-only pick (weakest key) additionally requires the folder's principal to
-    // agree with the sender-matched provider — never link across providers on a
-    // registration alone (ADR-0010 applied to the archive).
-    const vrmOnly = !input.keys.casePo && !input.keys.externalRef;
-    if (vrmOnly) {
+    // A weak-key-only pick (VRM and/or claimant — TKT-219) additionally requires the
+    // folder's principal to agree with the sender-matched provider — never link across
+    // providers on a registration or a person's name alone (ADR-0010 applied to the
+    // archive).
+    const weakKeysOnly = !input.keys.casePo && !input.keys.externalRef;
+    if (weakKeysOnly) {
       const sender = (input.providerPrincipal ?? '').trim().toUpperCase();
       if (!match || !sender || match.principal !== sender) {
-        ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, reason: 'vrm_only_uncorroborated' }));
-        return { found: false, reason: 'vrm_only_uncorroborated', candidateCount: pick.candidateCount };
+        ctx.log(JSON.stringify({ evt: 'retroBoxLocate', found: false, reason: 'weak_key_uncorroborated' }));
+        return { found: false, reason: 'weak_key_uncorroborated', candidateCount: pick.candidateCount };
       }
     }
 
@@ -299,6 +312,8 @@ df.app.activity('retroCreatePersist', {
       actionReason?: 'needs_review';
       reconstructionSource: RetroReconstructionSource;
       providerId?: string;
+      /** TKT-219 — the trigger sender's Image-Source intermediary match (TKT-021). */
+      intermediary?: { imageSourceId: string; candidateProviderIds: string[] };
       parserVrm?: string;
       parserRef?: string;
       parserMileage?: string;
@@ -324,6 +339,7 @@ df.app.activity('retroCreatePersist', {
       actionReason: input.actionReason,
       reconstructionSource: input.reconstructionSource,
       providerId: input.providerId,
+      intermediary: input.intermediary,
       parserVrm: input.parserVrm,
       parserRef: input.parserRef,
       parserMileage: input.parserMileage,
@@ -373,24 +389,36 @@ df.app.activity('retroOutlookLocate', {
 
     // Key ladder, strongest-first; a decisive earlier key skips the noisier later
     // sweeps. Each mailbox searched independently — one failing mailbox (throttle,
-    // RBAC cache) must not sink the rung.
+    // RBAC cache) must not sink the rung. TKT-219: claimant is the weakest rung.
     const ladder: Array<{ key: string; matchedKey: string }> = [];
     if (input.keys.externalRef) ladder.push({ key: input.keys.externalRef, matchedKey: 'external_ref' });
     if (input.keys.casePo) ladder.push({ key: input.keys.casePo, matchedKey: 'case_po' });
     if (input.keys.vrm) ladder.push({ key: input.keys.vrm, matchedKey: 'vrm' });
+    if (input.keys.claimant) ladder.push({ key: input.keys.claimant, matchedKey: 'claimant' });
 
     for (const rung of ladder) {
       // TKT-139 — Graph $search tokenization: a compact ref (PHA5007) does not match
       // the spaced form (PHA 5007) and vice versa. Issue EVERY variant (compact +
       // spaced at the alpha/digit boundaries) per mailbox and UNION the hits,
-      // deduped by (mailbox, message id), before the single ranked pick.
-      const variants = refSearchVariants(rung.key);
+      // deduped by (mailbox, message id), before the single ranked pick. A claimant
+      // NAME is already a natural phrase — compact/spaced ref variants would be
+      // nonsense, so it searches as given only.
+      const variants = rung.matchedKey === 'claimant' ? [rung.key] : refSearchVariants(rung.key);
       const candidates: OutlookSearchCandidate[] = [];
       const seen = new Set<string>();
       for (const mailbox of mailboxes) {
         for (const variant of variants) {
           try {
-            const hits = await searchMessages(mailbox, kqlPhrase(variant), 25);
+            // TKT-219: the retro original is by definition OLD mail and `$search`
+            // results are SENT-date-sorted — sweep deep (bounded; pages sequential
+            // inside searchMessages) instead of one 25-newest page, and surface a
+            // truncated sweep instead of silently missing older matches.
+            const hits = await searchMessages(
+              mailbox,
+              kqlPhrase(variant),
+              RETRO_SEARCH_TOTAL_LIMIT,
+              (message) => ctx.warn(`[retroOutlookLocate] ${message}`),
+            );
             for (const h of hits) {
               const k = `${mailbox}\u0000${h.id}`;
               if (seen.has(k)) continue;

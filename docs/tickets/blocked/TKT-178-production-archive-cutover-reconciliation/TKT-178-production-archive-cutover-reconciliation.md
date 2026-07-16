@@ -225,3 +225,4 @@ authorize execution.
 - [Verification](./verification.md)
 - [Operator cutover note](./evidence/cutover.md)
 - [Operator clarification](./evidence/operator-clarification-2026-07-13.md)
+- [Retro Case/PO adoption flip — cutover step recorded by TKT-219 (2026-07-16)](./evidence/retro-po-adoption-flip-2026-07-16.md)

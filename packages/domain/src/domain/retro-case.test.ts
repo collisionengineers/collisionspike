@@ -4,10 +4,13 @@ import {
   RETRO_TRIGGER_CATEGORIES,
   decideRetro,
   decideRetroStatus,
+  hasUsableRetroKey,
+  isJunkRetroKey,
   matchPrincipalByCasePo,
   markerToCaseType,
   normalizeCasePo,
   parseCasePoMarker,
+  planRetroReconstruction,
   selectBoxInstructionCandidate,
   type BoxFolderEntry,
 } from './retro-case';
@@ -90,7 +93,7 @@ describe('decideRetro — trigger eligibility', () => {
     expect(d.reasons).toContain('no_usable_key');
   });
 
-  it.each(['non_actionable', 'other', 'receiving_work'] as const)(
+  it.each(['non_actionable', 'receiving_work'] as const)(
     'category %s never attempts even with keys present',
     (category) => {
       const d = decideRetro({ ...base, category, bodyJobref: '575689', bodyVrm: 'KA08XTR' });
@@ -98,6 +101,43 @@ describe('decideRetro — trigger eligibility', () => {
       expect(d.reasons[0]).toBe(`category_not_eligible:${category}`);
     },
   );
+
+  // TKT-219 — `other` (unidentified mail) is locate-only eligible: it may enter the ladder
+  // with a usable key, and the create seam's blocked-original list still prevents it from
+  // ever anchoring a case on itself.
+  it("'other' with a usable key attempts (locate-only, TKT-219)", () => {
+    const d = decideRetro({ ...base, category: 'other', bodyJobref: '575689' });
+    expect(d.attempt).toBe(true);
+    expect(d.reasons).toContain('other_locate_eligible');
+    expect(d.keys.externalRef).toBe('575689');
+  });
+
+  it("'other' with no usable key still never attempts", () => {
+    const d = decideRetro({ ...base, category: 'other' });
+    expect(d.attempt).toBe(false);
+    expect(d.reasons).toContain('no_usable_key');
+  });
+
+  it("'other' whose only keys are junk never attempts (guard blocks the search)", () => {
+    const d = decideRetro({ ...base, category: 'other', bodyJobref: '768.00', bodyVrm: 'CL500' });
+    expect(d.attempt).toBe(false);
+    expect(d.reasons).toContain('junk_key_skipped:external_ref');
+    expect(d.reasons).toContain('junk_key_skipped:vrm');
+    expect(d.reasons).toContain('no_usable_key');
+  });
+
+  // TKT-219 — claimant name: forename+surname shape only, weakest key, search-only.
+  it('a claimant name from the trigger body becomes the weakest key', () => {
+    const d = decideRetro({ ...base, category: 'query', bodyClaimant: '  Jane   Driver ' });
+    expect(d.attempt).toBe(true);
+    expect(d.keys).toEqual({ claimant: 'JANE DRIVER' });
+    expect(d.reasons).toContain('key:claimant');
+  });
+
+  it('a single-word or too-short claimant is not a key', () => {
+    expect(decideRetro({ ...base, category: 'query', bodyClaimant: 'Jane' }).attempt).toBe(false);
+    expect(decideRetro({ ...base, category: 'query', bodyClaimant: 'J D' }).attempt).toBe(false);
+  });
 
   // TKT-119 — the PHA5007 shape: "Re: Our ref: PHA 5007 - Reg: MT25 FXW" classified
   // non_actionable/acknowledgement. An ack cites exactly one matter, so it may LOCATE
@@ -157,6 +197,125 @@ describe('decideRetro — trigger eligibility', () => {
 
   it('a reply with NO link outcome (manual drain — the reply lane never ran) proceeds', () => {
     expect(decideRetro({ category: 'billing', bodyJobref: '575689', isReply: true }).attempt).toBe(true);
+  });
+});
+
+describe('isJunkRetroKey — the TKT-140 junk-key guard (TKT-219)', () => {
+  // The 13 measured junk keys from the TKT-140 dry-run, with their enumerated kinds.
+  it.each([
+    ['2025/09', 'external_ref'],
+    ['768.00', 'external_ref'],
+    ['AT850', 'vrm'],
+    ['CL500', 'vrm'],
+    ['KW20VEH', 'vrm'],
+    ['MAY2026', 'vrm'],
+    ['ON2', 'vrm'],
+    ['ON10', 'vrm'],
+    ['ON16', 'vrm'],
+    ['ON23', 'vrm'],
+    ['ON27', 'vrm'],
+    ['ON29', 'vrm'],
+    ['RTA2', 'vrm'],
+  ] as const)('rejects the measured junk key %s (%s)', (token, kind) => {
+    expect(isJunkRetroKey(token, kind)).toBe(true);
+  });
+
+  it.each([
+    ['PHA5007', 'external_ref'], // letters+digits refs are GENUINE as external refs (TKT-119)
+    ['HD4110', 'external_ref'], // ditto (TKT-071 — junk only when sniffed as a VRM)
+    ['575689', 'external_ref'],
+    ['46458/1', 'external_ref'],
+    ['30230-01', 'external_ref'],
+    ['DIK/JMO/46440/1', 'external_ref'],
+    ['KA08XTR', 'vrm'], // current-format plate
+    ['MT25FXW', 'vrm'],
+    ['A123BCD', 'vrm'], // prefix-format plate (digits are followed by letters)
+  ] as const)('passes the genuine corpus key %s (%s)', (token, kind) => {
+    expect(isJunkRetroKey(token, kind)).toBe(false);
+  });
+
+  it('the dateless-plate shape is junk ONLY for the VRM key kind', () => {
+    expect(isJunkRetroKey('HD4110', 'vrm')).toBe(true);
+    expect(isJunkRetroKey('HD4110', 'external_ref')).toBe(false);
+  });
+
+  it('tolerates spacing and case', () => {
+    expect(isJunkRetroKey('may 2026', 'external_ref')).toBe(true);
+    expect(isJunkRetroKey(' on 10 ', 'vrm')).toBe(true);
+    expect(isJunkRetroKey(undefined, 'vrm')).toBe(false);
+    expect(isJunkRetroKey('', 'external_ref')).toBe(false);
+  });
+});
+
+describe('hasUsableRetroKey', () => {
+  it('any single key qualifies, including the claimant', () => {
+    expect(hasUsableRetroKey({})).toBe(false);
+    expect(hasUsableRetroKey(undefined)).toBe(false);
+    expect(hasUsableRetroKey({ claimant: 'JANE DRIVER' })).toBe(true);
+    expect(hasUsableRetroKey({ vrm: 'KA08XTR' })).toBe(true);
+  });
+});
+
+describe('planRetroReconstruction — the parallel-rung combination matrix (TKT-219)', () => {
+  const searched = { skipped: false } as const;
+
+  it('a parseable Box instruction wins regardless of the Outlook result', () => {
+    for (const boxInstruction of ['box_eml', 'box_doc'] as const) {
+      for (const outlookFound of [true, false]) {
+        const d = planRetroReconstruction({
+          box: { ...searched, found: true },
+          outlook: { ...searched, found: outlookFound },
+          boxInstruction,
+        });
+        expect(d.arm).toBe('box_source');
+      }
+    }
+  });
+
+  it('folder found + nothing parseable + Outlook original -> COMBINED (Box identity, Outlook material)', () => {
+    const d = planRetroReconstruction({
+      box: { ...searched, found: true },
+      outlook: { ...searched, found: true },
+      boxInstruction: 'minimal',
+    });
+    expect(d.arm).toBe('combined');
+    expect(d.reasons).toContain('outlook_fills_material');
+  });
+
+  it('folder found + nothing parseable anywhere -> minimal anchor (as today)', () => {
+    const d = planRetroReconstruction({
+      box: { ...searched, found: true },
+      outlook: { ...searched, found: false },
+      boxInstruction: 'minimal',
+    });
+    expect(d.arm).toBe('minimal_anchor');
+  });
+
+  it('no folder + Outlook original -> outlook_only; the gate-off asymmetries hold', () => {
+    expect(
+      planRetroReconstruction({ box: { ...searched, found: false }, outlook: { ...searched, found: true } })
+        .arm,
+    ).toBe('outlook_only');
+    expect(
+      planRetroReconstruction({ box: { skipped: true, found: false }, outlook: { ...searched, found: true } })
+        .arm,
+    ).toBe('outlook_only');
+    expect(
+      planRetroReconstruction({
+        box: { ...searched, found: true },
+        outlook: { skipped: true, found: false },
+        boxInstruction: 'box_eml',
+      }).arm,
+    ).toBe('box_source');
+  });
+
+  it('nothing found anywhere -> none (the failure record)', () => {
+    const d = planRetroReconstruction({
+      box: { ...searched, found: false },
+      outlook: { skipped: true, found: false },
+    });
+    expect(d.arm).toBe('none');
+    expect(d.reasons).toEqual(['box:not_found', 'outlook:skipped']);
   });
 });
 

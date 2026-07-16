@@ -22,7 +22,10 @@ const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const MAX_ATTACHMENT_PAGES = 100;
 const MAX_MESSAGE_SEARCH_PAGES = 100;
 const MAX_MESSAGE_SEARCH_RESULTS = 1_000;
-const MESSAGE_SEARCH_PAGE_SIZE = 25;
+// TKT-219: 250 per page (was 25) — a `$search` yields up to 1,000 SENT-date-sorted results
+// and the retro original is by definition OLD mail, so a small page + small caller total
+// meant the oldest hits were never fetched. Callers still bound the TOTAL via `top`.
+const MESSAGE_SEARCH_PAGE_SIZE = 250;
 
 /* ---------- token (client-credentials, cached until ~60 s before expiry) ---------- */
 
@@ -427,6 +430,9 @@ export async function searchMessages(
   mailbox: string,
   phrase: string,
   top = 25,
+  /** TKT-219 "no silent caps": called when the total-result bound cut the sweep short
+   *  while Graph still offered a nextLink (an older original may exist beyond the cap). */
+  onTruncated?: (message: string) => void,
 ): Promise<
   Array<{
     id: string;
@@ -490,6 +496,11 @@ export async function searchMessages(
       });
     }
     path = page['@odata.nextLink']?.trim() || null;
+  }
+  if (path && found.length >= totalLimit) {
+    onTruncated?.(
+      `graph message search truncated at ${totalLimit} results (${pageCount} page(s)) for ${mailbox} — older matches may exist beyond the cap`,
+    );
   }
   return found;
 }

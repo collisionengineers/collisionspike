@@ -258,7 +258,7 @@ export const dataApi = {
    */
   retroResolveExisting(payload: {
     trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
     providerId?: string;
     triggerCategory?: string;
   }): Promise<{
@@ -277,7 +277,7 @@ export const dataApi = {
   retroCreate(payload: {
     original: unknown;
     trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
     casePo?: string;
     vrm?: string;
     statusName: 'eva_submitted' | 'needs_review';
@@ -285,6 +285,8 @@ export const dataApi = {
     actionReason?: 'needs_review';
     reconstructionSource: 'box_eml' | 'box_doc' | 'outlook' | 'minimal';
     providerId?: string;
+    /** TKT-219 — the trigger sender's Image-Source intermediary match (TKT-021). */
+    intermediary?: { imageSourceId: string; candidateProviderIds: string[] };
     parserVrm?: string;
     parserRef?: string;
     parserMileage?: string;
@@ -300,6 +302,9 @@ export const dataApi = {
     casePo?: string | null;
     newClient?: boolean;
     candidateCount?: number;
+    /** TKT-219 — the provider the create actually resolved (PO principal / parser content /
+     *  recovery), so the orchestrator's evidence chain can honour the AI opt-out. */
+    resolvedProviderId?: string;
     providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }> {
     return request('POST', '/api/internal/retro/create', payload);

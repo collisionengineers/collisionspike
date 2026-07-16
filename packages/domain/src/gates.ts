@@ -122,6 +122,14 @@ export const gates = {
   retroCase: (): boolean => process.env.RETRO_CASE_ENABLED === 'true',
   retroOutlookSearch: (): boolean => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === 'true',
   retroBoxArchiveRootIds: (): string => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? '',
+  // TKT-219 — the dev/live Case-PO adoption split (operator decision 2026-07-16). OFF
+  // (default, dev/test — Case/PO sequences are not aligned to live): a retro create MINTS
+  // via the normal allocator and records the DISCOVERED archive-folder PO as case_ref +
+  // note + audit only. ON (production, flipped at cutover AFTER the TKT-004 floors are
+  // seeded — see the TKT-178 runbook): the discovered folder name is adopted verbatim as
+  // case_po (the ADR-0022 never-fork-archive-identity behaviour). Read by the Data API's
+  // /api/internal/retro/create route.
+  retroAdoptArchivePo: (): boolean => process.env.RETRO_ADOPT_ARCHIVE_PO_ENABLED === 'true',
 
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself

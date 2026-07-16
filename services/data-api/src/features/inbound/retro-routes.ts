@@ -246,6 +246,10 @@ app.http('internalRetroCreate', {
         actionReason?: string;
         reconstructionSource?: string;
         providerId?: string;
+        /** TKT-219 — the trigger sender's Image-Source intermediary match (TKT-021):
+         *  lets applyParserFields corroborate a content-detected provider and use the
+         *  single-candidate fallback, exactly as the live create seam does. */
+        intermediary?: { imageSourceId: string; candidateProviderIds: string[] };
         parserVrm?: string;
         parserRef?: string;
         parserMileage?: string;
@@ -297,7 +301,14 @@ app.http('internalRetroCreate', {
         }
       }
       const principalResolved = Boolean(poProviderId);
-      const identityVerified = principalResolved && Boolean(casePo);
+      // TKT-219 — the dev/live Case-PO adoption split (operator decision 2026-07-16).
+      // Gate ON (production, post-cutover): a principal-verified DISCOVERED archive PO is
+      // adopted verbatim as case_po (the ADR-0022 never-fork behaviour). Gate OFF
+      // (dev/test — Case/PO sequences are not aligned to live): the discovered PO is
+      // recorded as case_ref + note only and the NORMAL allocator may mint; identity is
+      // then never "verified" here, so a dev reconstruction can never land terminal.
+      const adoptArchivePo = gates.retroAdoptArchivePo();
+      const identityVerified = adoptArchivePo && principalResolved && Boolean(casePo);
 
       // DEFENCE IN DEPTH: an unverified identity may never land terminal — re-asserted
       // here regardless of what the (trusted, but never blindly) caller decided.
@@ -471,11 +482,13 @@ app.http('internalRetroCreate', {
           body.parserMileageUnit,
           body.parserEva,
           poProviderId,
-          null,
+          body.intermediary ?? null,
           {
             caseType: auditGateOn ? caseType : 'standard',
             caseTypeDual: false,
-            allowCasePoMint: !casePo && !body.boxFolder?.id,
+            // TKT-219: with archive-PO adoption OFF (dev/test) the NORMAL allocator may
+            // mint even though a folder/PO was discovered (recorded as case_ref only).
+            allowCasePoMint: adoptArchivePo ? !casePo && !body.boxFolder?.id : true,
           },
         );
         const effectiveCasePo =
@@ -486,12 +499,15 @@ app.http('internalRetroCreate', {
           summary: `Retro: reconstruction found existing case (${result.matchedBy}); linked instead of creating`,
           after: { matchedBy: result.matchedBy, keys, casePo, messageId: trigger.internetMessageId },
         });
+        const linkedResolvedProviderId =
+          parserFieldsResult.resolvedProviderId ?? poProviderId ?? undefined;
         return {
           status: 200,
           jsonBody: {
             outcome: 'already_exists_linked',
             caseId: hit.id,
             casePo: effectiveCasePo,
+            ...(linkedResolvedProviderId ? { resolvedProviderId: linkedResolvedProviderId } : {}),
             providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
           },
         };
@@ -512,13 +528,15 @@ app.http('internalRetroCreate', {
         body.parserMileageUnit,
         body.parserEva,
         poProviderId,
-        null,
+        body.intermediary ?? null,
         {
           caseType: auditGateOn ? caseType : 'standard',
           caseTypeDual: false,
-          // A discovered historical PO/folder is never forked. Outlook-only recovery has
-          // neither, so a provider resolved from its instruction may complete normally.
-          allowCasePoMint: !casePo && !body.boxFolder?.id,
+          // A discovered historical PO/folder is never forked WHEN ADOPTION IS ON.
+          // Outlook-only recovery has neither, so a provider resolved from its
+          // instruction may complete normally. TKT-219: adoption OFF (dev/test) always
+          // permits the normal allocator — the discovered PO lives in case_ref only.
+          allowCasePoMint: adoptArchivePo ? !casePo && !body.boxFolder?.id : true,
         },
       );
       const effectiveCasePo =
@@ -567,17 +585,18 @@ app.http('internalRetroCreate', {
       }
 
       if (!effectiveIdentityVerified) {
+        // TKT-219: three honest shapes — dev-mint mode with a genuinely discovered PO
+        // (adoption gated off), an unmatched PO-shaped token, and no discovered PO at all.
+        const noteText =
+          casePo && !adoptArchivePo && principalResolved
+            ? `Archive folder Case/PO ${casePo} recorded as the case reference — archive-PO adoption is off in this environment (dev/test), so the Case/PO is minted by the normal allocator. Confirm the details before any further processing.`
+            : (casePo
+                ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal — stored as the case reference, no Case/PO set. `
+                : `No Case/PO could be discovered for this reconstruction. `) +
+              `Confirm the provider and Case/PO before any further processing.`;
         await query(
           `INSERT INTO note (name, case_id, author, text, occurred_at) VALUES ($1, $2, $3, $4, now())`,
-          [
-            'Retro reconstruction',
-            caseId,
-            'Retro reconstruction (auto)',
-            (casePo
-              ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal — stored as the case reference, no Case/PO set. `
-              : `No Case/PO could be discovered for this reconstruction. `) +
-              `Confirm the provider and Case/PO before any further processing.`,
-          ],
+          ['Retro reconstruction', caseId, 'Retro reconstruction (auto)', noteText],
         ).catch(() => { /* note is supplementary */ });
         await writeAudit({
           action: AUDIT_ACTION.inbound_routed,
@@ -606,6 +625,7 @@ app.http('internalRetroCreate', {
           caseId,
           casePo: effectiveCasePo,
           newClient: !effectivePrincipalResolved,
+          ...(effectiveProviderId ? { resolvedProviderId: effectiveProviderId } : {}),
           providerRecovery: parserFieldsResult.providerRecovery?.outcome ?? 'not_needed',
         },
       };

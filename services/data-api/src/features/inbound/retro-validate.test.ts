@@ -20,6 +20,12 @@ describe('normalizeRetroKeys', () => {
     expect(normalizeRetroKeys(undefined)).toEqual({});
   });
 
+  // TKT-219 — the claimant search key keeps its internal space (a name is a phrase).
+  it('normalizes the claimant name with collapsed internal whitespace', () => {
+    expect(normalizeRetroKeys({ claimant: '  jane   driver ' })).toEqual({ claimant: 'JANE DRIVER' });
+    expect(normalizeRetroKeys({ claimant: '   ' })).toEqual({});
+  });
+
   it('a present-but-misshapen casePo is an error, never silently reclassified', () => {
     const r = normalizeRetroKeys({ casePo: 'RTA135983.001' });
     expect(r).toMatchObject({ ok: false, code: 'invalid_case_po' });
@@ -39,6 +45,13 @@ describe('validateRetroResolveExisting', () => {
     expect(validateRetroResolveExisting({ trigger, keys: { externalRef: '575689' } })).toMatchObject({
       ok: true,
       value: { keys: { externalRef: '575689' } },
+    });
+  });
+
+  it('a claimant-only key satisfies the key requirement (TKT-219 — search-only key)', () => {
+    expect(validateRetroResolveExisting({ trigger, keys: { claimant: 'Jane Driver' } })).toMatchObject({
+      ok: true,
+      value: { keys: { claimant: 'JANE DRIVER' } },
     });
   });
 });
