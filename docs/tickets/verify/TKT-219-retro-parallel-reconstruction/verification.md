@@ -63,3 +63,16 @@ Same-day KQL (window shrinks intra-day): traces where message startswith "{" and
 "retroPlan" / "retroRecordFailure". Drain lever: `POST /api/retro-case` with a fresh
 internetMessageId+mailbox from the TKT-140 backlog rows; instances dedupe on
 `retro-<sanitized-id>` so pick a never-run row.
+
+## 2026-07-16 ~18:28–18:31Z — deep-sweep reachability proven on the failed-row rerun
+
+Post TKT-220/222 deploy (api 145 fns / orch 102 fns, both Running), the 7-row force rerun shows
+the paging fix working: **6 of 7 rows now locate Outlook candidates** (`retroPlan
+arm:outlook_only, outlook:found`) where the TKT-140 probe had measured them unlocatable. None
+converted — for principled reasons recorded per row: `outlook_uncorroborated` (PE19UDH ×2,
+DF25LZE, AE63SON — corroboration correctly refused thread noise), `outlook_refused_category`
+(WF69NDX rows — the located original is itself blocked-family), `outlook:not_found` (46458/1).
+`box:skipped` on every run — the service-account Viewer grant on archive root 4077648161 is
+STILL the single outstanding enabler (collaborator list read via the new guard allowance shows
+staff editors only, no automation user). After the grant: rerun the same seven with force —
+the Box/combined arms get their first live shot and several may convert.

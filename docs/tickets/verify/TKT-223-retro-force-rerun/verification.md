@@ -15,3 +15,8 @@ evidence is outstanding (blocked on the same Box Viewer grant as TKT-219).
 
 - Post-grant re-drain of the failed pile (6 no_source + 19 trigger_not_found TKT-140 rows) —
   record `rungsTried` containing `box_archive` per row when the operator grant lands.
+
+## 2026-07-16 ~18:28–18:31Z — force rerun at scale (post TKT-220/222 deploy)
+
+All SEVEN failed rows (6 TKT-140 no_source + the withheld 46458/1) force-reran in one pass — no
+dedupes, every instance restarted and completed. Acceptance line 1 fully proven.
