@@ -47,9 +47,20 @@ to the existing case, which by design returns before the related-ingest seam (th
 related-backfill is the documented follow-up seam in TKT-225). Live ingest-chain proof is
 expected from fresh creates during the sweep.
 
-## Outstanding live lines (appended when the sweep evidence lands)
-- A fresh `box_upload_received` audit whose `after` carries `{filename, evidenceClass, origin}`;
-  `origin='archive_mirror'` on the system's own mirror echo rendering "Archived".
-- `inboundTaxonomyUnmapped` KQL count = 0 across the sweep window.
-- A reconstruction that links related rows persisting `subtype_code=100000016`, shown as
-  'Related (retro-linked)' in the SPA inbox.
+## Sweep-window live lines (2026-07-17 01:26–03:05Z, 286-row backlog sweep + 3-agent panel)
+- Fresh `box_upload_received` audits carry the new `after` shape — CONFIRMED:
+  `{"filename":"message-c1eb75bc.eml","evidenceClass":"email","origin":"external_upload"}` (03:05Z);
+  107 sweep-window audits all well-formed.
+- `inboundTaxonomyUnmapped` = **0** across the full window (Data API component KQL) — CONFIRMED.
+- `retro_related` live — CONFIRMED: the SPA inbox type filter `?type=retro_related` returns
+  **77 rows**, every one rendering 'Related (retro-linked)' with "Linked to case" status.
+- Chip honesty at scale — CONFIRMED: Not Ready pages 1–2 (30 rows) contain ZERO dishonest chips;
+  the single "Images received" chip (QDOS26104) is backed by 8 genuine damage photos; FW26029
+  reads "Files received" with an honest 0-image Readiness panel.
+- **DEFECT found by the panel (remediation ticketed)**: `origin='archive_mirror'` has never fired
+  — boxArchiveEvidence stamps `box_file_id` before the webhook arrives, the sha256 twin then
+  matches by identity, and `internal-persist-routes.ts:263-278` doesn't count it in `merged` →
+  every mirror echo audits as `external_upload` (label-only; the dedup itself worked — zero
+  duplicate rows). The 'Archived' rung of the label table is therefore live-unproven; also Box
+  redeliveries re-audit (the `evidence_exists_for_box_file` shim always returns False). Fixed
+  under the post-sweep remediation batch.

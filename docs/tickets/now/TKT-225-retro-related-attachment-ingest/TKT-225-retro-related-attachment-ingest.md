@@ -68,3 +68,4 @@ implementation plan was produced against the PR #102 branch (TKT-219/TKT-222 cod
 ## Artifacts
 
 - [Changes made](./changes.md)
+- [Verification record](./verification.md)
