@@ -6,10 +6,12 @@ if (typeof window !== 'undefined' && typeof window.ResizeObserver !== 'function'
   }
   Object.defineProperty(window, 'ResizeObserver', {
     configurable: true,
+    writable: true,
     value: TestResizeObserver,
   });
   Object.defineProperty(globalThis, 'ResizeObserver', {
     configurable: true,
+    writable: true,
     value: TestResizeObserver,
   });
 }

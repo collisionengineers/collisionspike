@@ -1,13 +1,14 @@
 
 import { useMemo } from 'react';
-import { Badge, Button, Link, Menu, MenuDivider, MenuItem, MenuList, MenuPopover, MenuTrigger, Popover, PopoverSurface, PopoverTrigger, Spinner, Tooltip, createTableColumn, mergeClasses, type TableColumnDefinition, type TableColumnSizingOptions } from '@fluentui/react-components';
-import { AlertCircle, AlertTriangle, Ban, Briefcase, CheckCircle2, CircleHelp, Eye, FileText, Folder, Link2, Mail, MailCheck, MailQuestion, MoreHorizontal, Hourglass, Paperclip, PencilLine, Receipt, RotateCcw, Tags, XCircle } from 'lucide-react';
+import { Badge, Button, Link, Menu, MenuDivider, MenuItem, MenuList, MenuPopover, MenuTrigger, Spinner, Tooltip, createTableColumn, mergeClasses, type TableColumnDefinition, type TableColumnSizingOptions } from '@fluentui/react-components';
+import { AlertCircle, AlertTriangle, Ban, Briefcase, CheckCircle2, CircleHelp, Eye, FileText, Folder, Link2, Mail, MailCheck, MailQuestion, MoreHorizontal, Hourglass, PencilLine, Receipt, RotateCcw, Tags, XCircle } from 'lucide-react';
 import { VrmPlate, useSeverityChipStyles, severityClassName, type ChipSeverity } from '../../shared/ui';
 import { formatReceivedCompact } from '../../shared/ui/date-format';
 import { whyClassifiedReasons } from './why-classified';
 import { CATEGORY_LABEL, SUBTYPE_LABEL } from './inbox-email-type';
 import { attentionDetailText, inboxStatus, inboxStatusText } from './inbox-status';
 import { suggestedAction } from './inbox-suggested-action';
+import { SubjectPreviewCell } from './subject-preview';
 import type { InboundCategory, InboundEmail, TriageState } from '@cs/domain';
 
 const isHandledState = (state: TriageState): boolean => state === 'actioned' || state === 'dismissed';
@@ -154,55 +155,7 @@ export function useInboxColumns(args: Record<string, any>) {
         columnId: 'subject',
         renderHeaderCell: () => 'Subject',
         renderCell: (e) => (
-          <span className={styles.subjCell}>
-            <span className={styles.subjLine}>
-              {e.hasAttachments && (
-                <Tooltip content="Has attachments" relationship="label">
-                  <span className={styles.clip}>
-                    <Paperclip size={13} aria-hidden />
-                  </span>
-                </Tooltip>
-              )}
-              {/* A linked email's subject opens its Case; an unlinked one opens the
-                  stored email body — every subject is a clickable affordance. */}
-              <Link
-                as="button"
-                className={mergeClasses(
-                  tt.cellPrimary,
-                  styles.subjLink,
-                  selectedEmail?.id === e.id && styles.subjLinkSelected,
-                )}
-                title={`View email · ${e.subject}`}
-                onClick={() => selectEmail(e)}
-              >
-                {e.subject || '(no subject)'}
-              </Link>
-            </span>
-            {e.bodyPreview && (
-              <Popover
-                openOnHover
-                withArrow
-                positioning={{ position: 'after', align: 'center', offset: 8 }}
-              >
-                <PopoverTrigger>
-                  <span
-                    className={mergeClasses(tt.cellSecondary, styles.preview)}
-                    tabIndex={0}
-                    aria-label="Preview email text"
-                  >
-                    {e.bodyPreview}
-                  </span>
-                </PopoverTrigger>
-                <PopoverSurface
-                  className={styles.snippetPreviewSurface}
-                  aria-label="Email text preview"
-                  tabIndex={0}
-                >
-                  {e.bodyPreview}
-                </PopoverSurface>
-              </Popover>
-            )}
-          </span>
+          <SubjectPreviewCell e={e} selected={selectedEmail?.id === e.id} onSelect={selectEmail} />
         ),
       }),
       createTableColumn<InboundEmail>({
