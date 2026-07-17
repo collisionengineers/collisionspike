@@ -65,3 +65,14 @@
   not-found verdict is throttle-tainted); the full-pile re-drive runs SEQUENTIALLY
   (ledger: scratchpad redrive-tnf-ledger.jsonl, to be banked on completion).
 - **retroCaseFolderWritable** ran live on the linked case (rung-1 mirror probe fired).
+
+## Full-pile re-drive — 2026-07-17 ~05:45Z (sequential, 56 rows)
+Outcome histogram: **linked 11**, not_eligible 9 (predominantly receiving_work re-labels,
+now surfaced by the eligibility stamping), **ambiguous 4** (each now minting passive
+attach-to-case suggestions via TKT-231), poll_timeout_still_running 10 (completing
+server-side under deterministic instance ids — the sweep precedent says most end cased),
+trigger_not_found 22 (absent from ALL THREE intake mailboxes — genuinely deleted;
+`retro-deleted-probe` is the follow-up instrument). Combined with the 5-row sample:
+of the 61 rows the multi-mailbox fallback re-opened, ~12 linked + 1 created + ~11
+surfaced as instructions + 4 ambiguous-suggested; only 23 remain hard-not-found.
+Ledger: session scratchpad `redrive-tnf-ledger.jsonl`.
