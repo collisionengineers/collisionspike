@@ -7,12 +7,12 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4429
+    "entries": 4430
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3395,
+    "finalFiles": 3396,
     "finalDirectories": 1034,
     "dispositions": {
       "delete": 1302,
@@ -115293,6 +115293,20 @@
       "kind": "file",
       "size": 1314,
       "sha256": "105d4ad41c6023a7d7c01f5ef42fe9871bb8d48e45f299200140abaaad024b1b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/adr-rewrite.txt",
+      "kind": "file",
+      "size": 20771,
+      "sha256": "fda280f026448ecdb2e7181e65b6caf5b640f740e60a3bae81bbaffcd9038441",
       "category": "working-document",
       "owner": "user-workspace",
       "lifecycle": "working",
