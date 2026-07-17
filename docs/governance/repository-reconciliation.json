@@ -7,13 +7,13 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4431
+    "entries": 4440
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3397,
-    "finalDirectories": 1034,
+    "finalFiles": 3405,
+    "finalDirectories": 1035,
     "dispositions": {
       "delete": 1308,
       "keep": 1107,
@@ -62441,6 +62441,20 @@
       "ticket": "TKT-209"
     },
     {
+      "path": "scripts/maintenance/cloud-inventory",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
       "path": "services",
       "kind": "directory",
       "size": 0,
@@ -75557,8 +75571,8 @@
     {
       "path": "docs/operations/README.md",
       "kind": "file",
-      "size": 870,
-      "sha256": "b2749dabd60f5d611dc8024d0bc73c585f7bfda983d8f9740a222bfa4645e7f6",
+      "size": 985,
+      "sha256": "667e124a2fda6e4da69a86c8dd2846eb7c79434f8ee3ebbbbc5edd66a800e018",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -75573,6 +75587,20 @@
       "kind": "file",
       "size": 998,
       "sha256": "8b9e9b7a224fa0c5fc408f10d7414ee7bcd8d46b5603c03ecdd039e3b94ccb6e",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-020"
+    },
+    {
+      "path": "docs/operations/cloud-inventory-2026-07-17.md",
+      "kind": "file",
+      "size": 32772,
+      "sha256": "e3eedfdf85e3586df19ddbd937989cf6b0862e9afdb0e9ac4975fde2f9a107d4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -98069,6 +98097,104 @@
       ],
       "state": "created",
       "ticket": "TKT-209"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/00-common.ps1",
+      "kind": "file",
+      "size": 12119,
+      "sha256": "65715a12b84999e6a08cde2cf4e2d3e5140b1366707d506ab6d731dc24aea8cf",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/01-collect-arm.ps1",
+      "kind": "file",
+      "size": 26863,
+      "sha256": "0622986576f9298dfaa66aefdc916e5efa76376e3650e18aac43dbfb6f06fb22",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/02-collect-graph.ps1",
+      "kind": "file",
+      "size": 8659,
+      "sha256": "6ee2c1818fe5582f103e241abd47926e9244727963b75384e03b0ce089b04c36",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/03-collect-cost.ps1",
+      "kind": "file",
+      "size": 2168,
+      "sha256": "d931d51bcdeebd0ddfddade96c8def86280a94e4cba4e8d3ec2662fe9a82e68d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/04-redact-sweep.ps1",
+      "kind": "file",
+      "size": 2272,
+      "sha256": "3dc0bdbad202111e98eb83838989746f8f57e3cdf575eee6de60fc24c517f057",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/05-digest.ps1",
+      "kind": "file",
+      "size": 28767,
+      "sha256": "026ce9642d37533bf521fe92cd1e449c5c089e6c9c538766c61811dbf6c040d8",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/README.md",
+      "kind": "file",
+      "size": 2323,
+      "sha256": "24960ce2f2856c5638fcb2251eb001c9eadbdf312cf72b9bb9315cc5f81a147e",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-214"
     },
     {
       "path": "scripts/maintenance/evidence-catalog.mjs",
