@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1034,
-    "files": 3397,
-    "entries": 4431
+    "files": 3398,
+    "entries": 4432
   },
-  "totalFileBytes": 702426529,
+  "totalFileBytes": 702447982,
   "entries": [
     {
       "path": ".",
@@ -14746,7 +14746,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1385982,
+      "size": 1386279,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -14764,8 +14764,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4107514,
-      "sha256": "2ccc73d70380c2084403965e934bd5ca3706944083b5bcc93fb0eaae8891f6e4",
+      "size": 4107899,
+      "sha256": "5d079d6bd5a56b698ac79038ad66d85af5f99344cf75f04b0168e60066683d3c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -39768,6 +39768,15 @@
       "mediaType": "text/markdown",
       "size": 1314,
       "sha256": "105d4ad41c6023a7d7c01f5ef42fe9871bb8d48e45f299200140abaaad024b1b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/adr-rewrite.txt",
+      "mediaType": "text/plain",
+      "size": 20771,
+      "sha256": "fda280f026448ecdb2e7181e65b6caf5b640f740e60a3bae81bbaffcd9038441",
       "category": "working-document",
       "owner": "user-workspace",
       "lifecycle": "working"
