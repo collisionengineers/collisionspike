@@ -231,7 +231,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (35)
+## Backlog (39)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -270,6 +270,10 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-217](./backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 | platform | PLAN-004 |
 | [TKT-218](./backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 | integration | PLAN-004 |
 | [TKT-224](./backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md) | Re-classify historically mislabeled un-cased emails after classifier fixes | P1 | intake | PLAN-004 |
+| [TKT-234](./backlog/TKT-234-own-report-recognition/TKT-234-own-report-recognition.md) | Recognise our own delivered report on inbound email — route as correspondence, never mint | P1 | intake | — |
+| [TKT-235](./backlog/TKT-235-no-instruction-mint-hold/TKT-235-no-instruction-mint-hold.md) | Hold receiving_work mints that have no instruction anywhere (post-parse backstop) | P1 | intake | — |
+| [TKT-236](./backlog/TKT-236-pre-mint-archive-probe/TKT-236-pre-mint-archive-probe.md) | Probe the archive for an existing matter before minting from receiving_work | P2 | intake | — |
+| [TKT-237](./backlog/TKT-237-qdos26007-abstain-eval-fixture/TKT-237-qdos26007-abstain-eval-fixture.md) | Pin the QDOS26007 provider-query email as a classifier eval fixture (expected abstain) | P2 | email | — |
 
 ## Blocked (8)
 
