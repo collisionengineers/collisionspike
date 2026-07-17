@@ -39,9 +39,14 @@ app.http('internalInboundAttention', {
         ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: false, reason: 'column_absent' }));
         return { status: 200, jsonBody: { stamped: false, detail: 'column_absent' } };
       }
+      // TKT-230 (item 4 hardening) — 'unable_to_locate' means "no case could be found", so a
+      // late-arriving failure stamp must never land on a row a parallel path just LINKED:
+      // guard that reason (only) with case_id IS NULL. Other reasons (images_no_match) apply
+      // to linked rows by design and stay unguarded.
+      const unlinkedGuard = reason === 'unable_to_locate' ? ' AND case_id IS NULL' : '';
       const rows = await query<Row>(
         `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
-          WHERE source_message_id = $1 RETURNING id`,
+          WHERE source_message_id = $1${unlinkedGuard} RETURNING id`,
         [sourceMessageId, reason],
       );
       ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: Boolean(rows[0]), reason }));
@@ -103,10 +108,16 @@ app.http('internalCasesEvidence', {
       const persistRows = async (
         q: TxQuery,
         persistCaseId: string,
-      ): Promise<{ persisted: number; updated: number; merged: number; statusGeneration?: number }> => {
+      ): Promise<{ persisted: number; updated: number; merged: number; mirrored: number; statusGeneration?: number }> => {
       let persisted = 0;
       let updated = 0;
       let merged = 0; // TKT-133: sha256 content twins linked onto an existing row instead of inserted
+      // TKT-229: Box-lane deliveries whose sha256 twin carries BLOB provenance (storage_path
+      // set) — the system already owned these bytes from the email/blob lane, so the Box
+      // delivery is our own archive mirror echoing back, not new external material. Additive
+      // to `merged` (which keeps its exact TKT-133/TKT-226 semantics): a sameIdentity retry
+      // never counted as merged, but its blob-provenance twin still marks it `mirrored`.
+      let mirrored = 0;
       let readinessChanged = false;
       let boxImageArrived = false;
       for (const row of body.rows ?? []) {
@@ -198,6 +209,13 @@ app.http('internalCasesEvidence', {
           );
           const ex = twin[0];
           if (ex) {
+            // TKT-229 discriminator: a Box-lane external upload's own row has storage_path
+            // NULL (Box rows mirror bytes to Blob later), while a mirror echo's twin is the
+            // classifyPersist blob row with storage_path SET — so `ex.storage_path IS NOT
+            // NULL` exactly means "the system already owned these bytes from the email/blob
+            // lane". Timing note: the nightly purge NULLs storage_path, but the webhook echo
+            // arrives seconds after upload, hours before any purge — no interaction.
+            const blobTwin = ex.storage_path != null;
             const sameIdentity = isBoxRow
               ? (boxFileId != null && ex.box_file_id === boxFileId) ||
                 (sourceMessageId != null && ex.source_message_id === sourceMessageId)
@@ -258,6 +276,7 @@ app.http('internalCasesEvidence', {
                 readinessChanged ||= applied.readinessChanged;
               }
               merged++;
+              if (blobTwin && isBoxRow) mirrored++; // TKT-229: cross-lane mirror echo of owned bytes
               continue; // never insert a same-case content twin (cross-lane mirror)
             }
             // sameIdentity: an exact at-least-once retry / Box redelivery of a row that already
@@ -275,6 +294,7 @@ app.http('internalCasesEvidence', {
               updated += applied.updated;
               readinessChanged ||= applied.readinessChanged;
             }
+            if (blobTwin && isBoxRow) mirrored++; // TKT-229: Box redelivery of an already-mirrored row
             continue; // idempotent: the identical row already exists on this case
           }
         }
@@ -421,6 +441,9 @@ app.http('internalCasesEvidence', {
         persisted,
         updated,
         merged,
+        // TKT-229: additive, deploy-order safe — an older box-webhook ignores the field; the
+        // new webhook falls back to `merged` when an older API omits it.
+        mirrored,
         ...(statusGeneration == null ? {} : { statusGeneration }),
       };
       };
@@ -517,6 +540,10 @@ app.http('internalCasesEvidence', {
                   persisted: completedResult?.persisted ?? 0,
                   updated: 0,
                   merged: completedResult?.merged ?? 0,
+                  // TKT-229: the durable completion marker predates the counter — honest 0
+                  // (this replay path is never the box-webhook lane, which sends no
+                  // expectedInboundEmailId).
+                  mirrored: 0,
                   backfillGeneration,
                   alreadyCompleted: true,
                   ...(completedResult ? { completedResult } : {}),

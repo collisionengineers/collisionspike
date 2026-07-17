@@ -141,7 +141,7 @@ describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptanc
       return [];
     });
     const res = await evidenceRoute(req('case-1', [EMAIL_ROW]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, mirrored: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(1); // the sha pre-check DID run (sha supplied)
     expect(inserts()).toHaveLength(1);
   });
@@ -166,7 +166,9 @@ describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptanc
     const res = await evidenceRoute(req('case-1', [BOX_ROW]), ctx);
 
     // ONE row total: nothing inserted, the twin merged.
-    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 1 });
+    // TKT-229: the twin carried blob provenance (storage_path set) on a Box-lane call
+    // -> mirrored:1 rides ALONGSIDE merged (merged semantics unchanged).
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 1, mirrored: 1 });
     expect(inserts()).toHaveLength(0);
 
     // The sha lookup keys on (case_id, sha256).
@@ -203,7 +205,8 @@ describe('TKT-133 (a) — email arrival then Box mirror = ONE row (the acceptanc
       return [];
     });
     const res = await evidenceRoute(req('case-1', [EMAIL_ROW]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 1 });
+    // TKT-229: the EMAIL lane is never a mirror echo -> mirrored stays 0.
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 1, mirrored: 0 });
     expect(inserts()).toHaveLength(0);
     const updIdx = sqls.findIndex((s) => /UPDATE evidence/i.test(s) && /storage_path/.test(s));
     expect(updIdx).toBeGreaterThanOrEqual(0);
@@ -226,7 +229,7 @@ describe('TKT-133 (c) — NEGATIVE: same sha256, DIFFERENT case → no merge, no
       return [];
     });
     const res = await evidenceRoute(req('case-2', [BOX_ROW]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, mirrored: 0, statusGeneration: 1 });
     // The lookup asked about case-2 (never a cross-case probe), and the row inserted.
     const lookupIdx = sqls.findIndex((s) => /FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(s));
     expect(params[lookupIdx]).toEqual(['case-2', SHA]);
@@ -244,7 +247,7 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
     });
     const { sha256: _drop, ...noSha } = EMAIL_ROW;
     const res = await evidenceRoute(req('case-1', [noSha]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, mirrored: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(0);
   });
 
@@ -254,7 +257,7 @@ describe('TKT-133 (d) — no/implausible sha256 → exactly the pre-existing beh
       return [];
     });
     const res = await evidenceRoute(req('case-1', [{ ...EMAIL_ROW, sha256: 'abc123' }]), ctx);
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, mirrored: 0, statusGeneration: 1 });
     expect(shaLookups()).toHaveLength(0);
   });
 });
@@ -272,7 +275,7 @@ describe('TKT-089 ownership compatibility', () => {
       ctx,
     );
 
-    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, statusGeneration: 1 });
+    expect(res.jsonBody).toEqual({ persisted: 1, updated: 0, merged: 0, mirrored: 0, statusGeneration: 1 });
     const insertIdx = sqls.findIndex((sql) => /INSERT INTO evidence/i.test(sql));
     // Email INSERT params 16..19 are the four decision-source columns.
     expect(params[insertIdx].slice(15, 19)).toEqual([null, null, null, null]);
@@ -319,7 +322,7 @@ describe('TKT-089 ownership compatibility', () => {
       ctx,
     );
 
-    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0 });
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0, mirrored: 0 });
     expect(
       sqls.some(
         (sql) => /UPDATE evidence/i.test(sql) && /image_role_source|accepted_for_eva_source/.test(sql),
@@ -392,6 +395,7 @@ describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256
       persisted: 0,
       updated: 1,
       merged: 0,
+      mirrored: 0, // TKT-229: same-identity Box twin with storage_path NULL = NOT a mirror echo
       statusGeneration: 1,
     });
     expect(sqls.some((sql) => /UPDATE chaser/.test(sql))).toBe(false);
@@ -435,12 +439,103 @@ describe('TKT-133 (e) — a retry of the SAME identity is absorbed in the sha256
       ctx,
     );
     // Idempotent: no duplicate insert (the old bug), no merge; at most a metadata update.
+    // TKT-229: the merged row's storage_path is SET, so the redelivery is marked mirrored
+    // (the bytes were already owned via the email lane) without touching merged.
     expect(res.jsonBody).toEqual({
       persisted: 0,
       updated: 1,
       merged: 0,
+      mirrored: 1,
       statusGeneration: 1,
     });
     expect(sqls.some((s) => /INSERT INTO evidence/i.test(s))).toBe(false);
+  });
+});
+
+describe('TKT-229 — the mirrored counter (blob-provenance twins on the Box lane)', () => {
+  it('the LIVE echo sequence: boxArchiveEvidence stamped box_file_id, the webhook POSTs the same file -> sameIdentity twin with storage_path SET reports mirrored:1 (merged stays 0)', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        // The classifyPersist blob row, ALREADY carrying the Box provenance the archive
+        // mirror stamped seconds earlier — the exact TKT-229 root-cause shape.
+        return [
+          {
+            id: 'ev-echo',
+            box_file_id: '9900',
+            box_file_url: 'https://app.box.com/file/9900',
+            storage_path: 'cases/case-1/photo.jpg',
+            source_message_id: null,
+          },
+        ];
+      }
+      return [];
+    });
+    const res = await evidenceRoute(req('case-1', [BOX_ROW]), ctx);
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0, mirrored: 1 });
+    expect(inserts()).toHaveLength(0);
+  });
+
+  it('a genuine external redelivery (sameIdentity twin with storage_path NULL) reports mirrored:0', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        return [
+          {
+            id: 'ev-box-only',
+            box_file_id: '9900',
+            box_file_url: null,
+            storage_path: null, // the system never owned these bytes through email/blob
+            source_message_id: 'box:file:9900',
+          },
+        ];
+      }
+      return [];
+    });
+    const res = await evidenceRoute(req('case-1', [BOX_ROW]), ctx);
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 0, mirrored: 0 });
+  });
+
+  it('a cross-lane (!sameIdentity) Box mirror of an email-first row reports merged:1 AND mirrored:1', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/FROM evidence WHERE case_id = \$1 AND sha256 = \$2/.test(sql)) {
+        // Email-lane twin, blob-backed, no Box provenance yet -> the merge fills it.
+        return [
+          {
+            id: 'ev-email',
+            box_file_id: null,
+            box_file_url: null,
+            storage_path: 'cases/case-1/photo.jpg',
+            source_message_id: null,
+          },
+        ];
+      }
+      if (/UPDATE evidence/i.test(sql)) return [{ id: 'ev-email' }];
+      return [];
+    });
+    const res = await evidenceRoute(req('case-1', [BOX_ROW]), ctx);
+    expect(res.jsonBody).toEqual({ persisted: 0, updated: 0, merged: 1, mirrored: 1 });
+    expect(inserts()).toHaveLength(0);
+  });
+});
+
+describe('TKT-230 (item 4 hardening) — unable_to_locate stamp never lands on a linked row', () => {
+  const attentionRoute = () => registrations.get('internalInboundAttention')!.handler;
+
+  it("guards the UPDATE with case_id IS NULL for reason='unable_to_locate' only", async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/information_schema\.columns/.test(sql)) return [{ column_name: 'attention_reason' }];
+      if (/UPDATE inbound_email/.test(sql)) return [{ id: 'ie-1' }];
+      return [];
+    });
+    const mkReq = (reason: string): HttpRequest =>
+      ({ json: async () => ({ sourceMessageId: '<m@x>', reason }) }) as unknown as HttpRequest;
+
+    await attentionRoute()(mkReq('unable_to_locate'), ctx);
+    const guarded = sqls.find((s) => /UPDATE inbound_email SET attention_reason/.test(s));
+    expect(guarded).toContain('AND case_id IS NULL');
+
+    sqls.length = 0;
+    await attentionRoute()(mkReq('images_no_match'), ctx);
+    const unguarded = sqls.find((s) => /UPDATE inbound_email SET attention_reason/.test(s));
+    expect(unguarded).not.toContain('AND case_id IS NULL');
   });
 });

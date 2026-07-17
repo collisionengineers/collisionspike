@@ -43,18 +43,37 @@ df.app.activity('retroFindTrigger', {
   handler: async (
     input: { internetMessageId: string; mailbox: string },
     ctx,
-  ): Promise<{ skipped?: string; found?: boolean; messageId?: string; resource?: string }> => {
+  ): Promise<{ skipped?: string; found?: boolean; messageId?: string; resource?: string; mailbox?: string }> => {
     if (!gates.retroCase()) return { skipped: 'gate_off' };
-    const hit = await findMessageByInternetMessageId(input.mailbox, input.internetMessageId);
-    if (!hit) {
-      ctx.log(JSON.stringify({ evt: 'retroFindTrigger', found: false, mailbox: input.mailbox }));
-      return { found: false };
+    // TKT-230 (item 5) — multi-mailbox fallback: the stored source_mailbox may no longer
+    // hold the message (moved/filed cross-mailbox twins), which stranded 61 drain rows as
+    // terminal trigger_not_found. Probe the stored mailbox FIRST, then every other
+    // configured intake mailbox (the retroOutlookLocate per-mailbox try/catch idiom).
+    // Bounded (3 mailboxes × 1 $filter), read-only, same Mail.Read scope. The additive
+    // `mailbox` return field is informational; downstream fetchMessage consumes `resource`.
+    const configured = intakeMailboxes().map((m) => m.mailbox);
+    const primary = input.mailbox.trim().toLowerCase();
+    const ordered = [
+      input.mailbox,
+      ...configured.filter((m) => m.trim().toLowerCase() !== primary),
+    ];
+    for (const mailbox of ordered) {
+      try {
+        const hit = await findMessageByInternetMessageId(mailbox, input.internetMessageId);
+        if (hit) {
+          return {
+            found: true,
+            messageId: hit.id,
+            resource: `users/${mailbox}/messages/${hit.id}`,
+            mailbox,
+          };
+        }
+      } catch (e) {
+        ctx.warn(`[retroFindTrigger] probe failed on ${mailbox} (continuing): ${String(e)}`);
+      }
     }
-    return {
-      found: true,
-      messageId: hit.id,
-      resource: `users/${input.mailbox}/messages/${hit.id}`,
-    };
+    ctx.log(JSON.stringify({ evt: 'retroFindTrigger', found: false, mailboxesTried: ordered.length }));
+    return { found: false };
   },
 });
 
@@ -95,6 +114,50 @@ function archiveRootIds(): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 }
+
+/** TKT-230 (item 6) — rung-1 writability probe. The rung-1 linked lane historically skipped
+ *  boxArchiveEvidence because a retro-linked case's folder MAY sit under the read-only
+ *  archive roots — but many rung-1 cases have folders created by live intake under the
+ *  WRITABLE pinned root, and their fresh evidence never mirrored. This activity reads the
+ *  gates INSIDE the activity (the parse/enrich convention) and answers "may boxArchiveEvidence
+ *  upload into this case's folder?" so the orchestrator branches only on the checkpointed
+ *  result. Gating mirrors boxArchiveEvidence's own gate pair (boxApi + boxFolderAtIntake).
+ *  Fail-closed: any read failure answers NOT writable — never upload blind. */
+df.app.activity('retroCaseFolderWritable', {
+  handler: async (
+    input: { caseId: string },
+    ctx,
+  ): Promise<{ writable: boolean; reason?: string }> => {
+    if (!gates.retroCase()) return { writable: false, reason: 'gate_off' };
+    if (!gates.boxApi() || !gates.boxFolderAtIntake()) {
+      return { writable: false, reason: 'box_gated_off' };
+    }
+    let folderId: string | null = null;
+    try {
+      folderId = (await dataApi.getCaseBoxFolder(input.caseId)).boxFolderId;
+    } catch {
+      return { writable: false, reason: 'folder_unreadable' };
+    }
+    if (!folderId) return { writable: false, reason: 'no_folder' };
+    const roRoots = archiveRootIds();
+    if (roRoots.length === 0) return { writable: true };
+    try {
+      // The facade GET returns path_collection (functions-client.ts box.getFolder): the
+      // folder is read-only when it IS an RO root or has one among its ancestors.
+      const info = await box.getFolder(folderId);
+      const ancestors = (info.path_collection?.entries ?? [])
+        .map((e) => e.id)
+        .filter((id): id is string => Boolean(id));
+      const underRo = roRoots.some((r) => r === folderId || ancestors.includes(r));
+      ctx.log(JSON.stringify({
+        evt: 'retroCaseFolderWritable', caseId: input.caseId, folderId, writable: !underRo,
+      }));
+      return { writable: !underRo, ...(underRo ? { reason: 'readonly_archive_root' } : {}) };
+    } catch {
+      return { writable: false, reason: 'folder_unreadable' }; // fail-closed
+    }
+  },
+});
 
 df.app.activity('retroBoxLocate', {
   handler: async (

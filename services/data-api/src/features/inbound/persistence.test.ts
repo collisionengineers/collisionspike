@@ -20,10 +20,14 @@ vi.mock('./internal/service-support.js', () => ({
 }));
 
 import {
+  INBOUND_ATTENTION_CLEAR_ON_LINK_SQL,
   INBOUND_SUBTYPE_PAIR_REFRESH_SQL,
   categoryCodeFor,
   subtypeCodeFor,
+  upsertInboundEmail,
 } from './persistence.js';
+import { query } from '../../platform/db/client.js';
+import { tableColumns } from '../../platform/db/schema-introspection.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -104,5 +108,59 @@ describe('INBOUND_SUBTYPE_PAIR_REFRESH_SQL — subtype refreshes with category (
     expect(INBOUND_SUBTYPE_PAIR_REFRESH_SQL).toContain(
       'ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)',
     );
+  });
+});
+
+/* ============================================================
+   TKT-230 (item 4) — attention_reason cleared on the FIRST link
+   ============================================================ */
+describe('INBOUND_ATTENTION_CLEAR_ON_LINK_SQL — stale unable_to_locate cleared on link (TKT-230)', () => {
+  it('clears ONLY on the unlinked→linked transition and preserves the reason otherwise', () => {
+    expect(INBOUND_ATTENTION_CLEAR_ON_LINK_SQL).toContain(
+      'WHEN inbound_email.case_id IS NULL AND EXCLUDED.case_id IS NOT NULL',
+    );
+    expect(INBOUND_ATTENTION_CLEAR_ON_LINK_SQL).toContain('THEN NULL');
+    expect(INBOUND_ATTENTION_CLEAR_ON_LINK_SQL).toContain('ELSE inbound_email.attention_reason');
+  });
+
+  const envelope = {
+    internetMessageId: '<m1@example.test>',
+    subject: 'RE: REF-123',
+    senderAddress: 'sender@example.test',
+    sourceMailbox: 'intake@example.test',
+    receivedAt: '2026-07-14T10:00:00.000Z',
+    attachments: [],
+  } as unknown as Parameters<typeof upsertInboundEmail>[0];
+
+  it('emits the fragment when the live table HAS attention_reason (schema-tolerant, present)', async () => {
+    vi.mocked(tableColumns).mockResolvedValue(new Set(['attention_reason']));
+    const captured: string[] = [];
+    vi.mocked(query).mockImplementation((async (sql: string) => {
+      captured.push(sql);
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-1' }] : [];
+    }) as never);
+
+    const id = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    expect(id).toBe('ie-1');
+    const upsert = captured.find((s) => /INSERT INTO inbound_email/.test(s))!;
+    expect(upsert).toContain(INBOUND_ATTENTION_CLEAR_ON_LINK_SQL);
+    // The TKT-226 pair-refresh CASE and the human-mode freeze are UNDISTURBED.
+    expect(upsert).toContain(INBOUND_SUBTYPE_PAIR_REFRESH_SQL);
+    expect(upsert).toContain("WHEN inbound_email.classifier_mode = 'human'");
+  });
+
+  it('omits the fragment when the column is absent (older DB — the whole upsert must not 500)', async () => {
+    vi.mocked(tableColumns).mockResolvedValue(new Set<string>());
+    const captured: string[] = [];
+    vi.mocked(query).mockImplementation((async (sql: string) => {
+      captured.push(sql);
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-2' }] : [];
+    }) as never);
+
+    const id = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    expect(id).toBe('ie-2');
+    const upsert = captured.find((s) => /INSERT INTO inbound_email/.test(s))!;
+    expect(upsert).not.toContain('attention_reason');
+    expect(upsert).toContain(INBOUND_SUBTYPE_PAIR_REFRESH_SQL);
   });
 });

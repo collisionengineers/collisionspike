@@ -32,6 +32,10 @@ vi.mock('../../shared/audit.js', () => ({
     inbound_routed: 3,
     duplicate_flagged: 4,
     parser_called: 5,
+    // TKT-231 — the shared suggestion writer's audit actions.
+    inbound_link_suggested: 6,
+    cancellation_proposed: 7,
+    ai_suggestion_created: 8,
   },
   writeAudit: audit.writeAudit,
 }));
@@ -584,5 +588,135 @@ describe('POST /api/internal/retro/backfill-fields (TKT-225)', () => {
     expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('over-length VRM'));
     expect(locks.acquireTriageLocks).not.toHaveBeenCalled();
     expect(dbCalls.some(({ sql }) => sql.includes('UPDATE case_ SET vrm'))).toBe(false);
+  });
+});
+
+/* ============================================================
+   TKT-231 — ambiguous resolve-existing mints case_link suggestions
+   ============================================================ */
+describe('POST /api/internal/retro/resolve-existing — ambiguous rows become case_link suggestions (TKT-231)', () => {
+  const caseRow = (id: string) => ({
+    id,
+    case_po: null,
+    case_ref: 'REF-123',
+    vrm: null,
+    status_code: 100000002,
+  });
+
+  /** db.query mock for the ambiguous seam. `candidates` drives the any-status ladder;
+   *  `pendingTwin` makes every pending-suggestion probe hit (the re-run/dedupe shape). */
+  function mockAmbiguousDb(opts: { candidates: number; pendingTwin?: boolean }) {
+    const ids = Array.from({ length: opts.candidates }, (_, i) => `case-${i + 1}`);
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      dbCalls.push({ sql, params });
+      if (sql.includes('SELECT case_id FROM inbound_email')) return []; // trigger unlinked
+      if (sql.startsWith('SELECT case_po FROM case_')) return [{ case_po: 'QDOS26001' }];
+      if (sql.includes('status_code FROM case_') && sql.includes('upper(case_po) = upper($1)')) {
+        return ids.map(caseRow);
+      }
+      if (sql.includes('SELECT id FROM inbound_email')) return [{ id: 'ie-trigger' }];
+      if (sql.includes('FROM ai_suggestion')) {
+        return opts.pendingTwin ? [{ id: 'sug-existing' }] : [];
+      }
+      if (sql.includes('INSERT INTO ai_suggestion')) return [{ id: `sug-${params[3] as string}` }];
+      return [];
+    });
+    return ids;
+  }
+
+  const resolveBody = () => ({
+    trigger: envelope('trigger', 'Later update'),
+    keys: { externalRef: 'REF-123' },
+    triggerCategory: 'billing',
+  });
+
+  it('writes one PASSIVE pending case_link suggestion per candidate and keeps the duplicate_flagged audit', async () => {
+    const ids = mockAmbiguousDb({ candidates: 3 });
+
+    const response = await registrations.get('internalRetroResolveExisting')!.handler(
+      request(resolveBody()),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: { outcome: 'ambiguous', candidateCount: 3 },
+    });
+    // The audit trail keeps the existing duplicate_flagged record...
+    expect(audit.writeAudit).toHaveBeenCalledWith(expect.objectContaining({
+      action: 4, // duplicate_flagged
+      after: expect.objectContaining({ candidateCount: 3, candidateIds: ids }),
+    }));
+    // ...and each fresh suggestion rides the shared writer's inbound_link_suggested audit.
+    const linkAudits = audit.writeAudit.mock.calls.filter(([opts]) => opts.action === 6);
+    expect(linkAudits).toHaveLength(3);
+
+    const inserts = dbCalls.filter(({ sql }) => sql.includes('INSERT INTO ai_suggestion'));
+    expect(inserts).toHaveLength(3);
+    for (const [index, insert] of inserts.entries()) {
+      expect(insert.params[0]).toBe('ie-trigger'); // resolved inbound_email id
+      expect(insert.params[1]).toBe('case_link');
+      const value = JSON.parse(String(insert.params[2]));
+      expect(value.targetCaseId).toBe(ids[index]); // rows ordering preserved
+      expect(value.decisionInputs).toMatchObject({
+        matchedBy: 'external_ref',
+        candidateIds: ids,
+        source: 'retro_ambiguous',
+      });
+      // Plain business language, no internal tokens; passive — autoAttach is NEVER set.
+      expect(String(insert.params[3])).toContain('matched more than one case by the provider reference');
+      expect(value.autoAttach).toBeUndefined();
+    }
+  });
+
+  it('caps the suggestions at 5 in rows ordering (a 7-way ambiguity mints 5)', async () => {
+    mockAmbiguousDb({ candidates: 7 });
+
+    const response = await registrations.get('internalRetroResolveExisting')!.handler(
+      request(resolveBody()),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: { outcome: 'ambiguous', candidateCount: 7 },
+    });
+    const inserts = dbCalls.filter(({ sql }) => sql.includes('INSERT INTO ai_suggestion'));
+    expect(inserts).toHaveLength(5);
+    expect(inserts.map(({ params }) => JSON.parse(String(params[2])).targetCaseId)).toEqual(
+      ['case-1', 'case-2', 'case-3', 'case-4', 'case-5'],
+    );
+  });
+
+  it('a re-run dedupes to ZERO new rows (pending twins short-circuit the writer)', async () => {
+    mockAmbiguousDb({ candidates: 3, pendingTwin: true });
+
+    const response = await registrations.get('internalRetroResolveExisting')!.handler(
+      request(resolveBody()),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: { outcome: 'ambiguous', candidateCount: 3 },
+    });
+    expect(dbCalls.filter(({ sql }) => sql.includes('INSERT INTO ai_suggestion'))).toHaveLength(0);
+    // No fresh suggestion -> no inbound_link_suggested audit either (only duplicate_flagged).
+    expect(audit.writeAudit.mock.calls.filter(([opts]) => opts.action === 6)).toHaveLength(0);
+  });
+
+  it('the linked (single-hit) branch writes NO suggestions', async () => {
+    mockAmbiguousDb({ candidates: 1 });
+
+    const response = await registrations.get('internalRetroResolveExisting')!.handler(
+      request(resolveBody()),
+      context(),
+    );
+
+    expect(response).toMatchObject({
+      status: 200,
+      jsonBody: { outcome: 'linked', caseId: 'case-1', candidateCount: 1 },
+    });
+    expect(dbCalls.filter(({ sql }) => sql.includes('ai_suggestion'))).toHaveLength(0);
   });
 });

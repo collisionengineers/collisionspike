@@ -54,6 +54,7 @@ import {
 import { applyParserFields, applyParserFieldsUsing } from './internal/parser-fields.js';
 import { isUniqueViolation } from './internal/unique-violation.js';
 import { mintBlockedByCategory, withServiceAuth } from './internal/service-support.js';
+import { insertPendingSuggestion } from './suggestion-write.js';
 import { upsertInboundEmail } from './persistence.js';
 import {
   type InboundClassificationDto,
@@ -65,6 +66,18 @@ import { clampVarchar, vrmOrEmpty } from '../../shared/validation/varchar.js';
  *  Literal, per the PROVIDER_API_CHANNEL_CODE precedent (provider-intake.ts / ADR-0020):
  *  the shared intakeChannelKindCodec union lags the DDL by design until the R4 widening. */
 const RETRO_CHANNEL_CODE = 100000003;
+
+/** TKT-231 — per-trigger cap on ambiguous-resolution case_link suggestions (rows ordering,
+ *  i.e. oldest case first). A wildly ambiguous key (6 live rows today, but unbounded in
+ *  principle) must not carpet the banner queue. */
+const RETRO_AMBIGUOUS_SUGGESTION_CAP = 5;
+
+/** TKT-231 — plain business language for the banner rationale (never internal tokens). */
+const MATCHED_BY_LABEL: Record<string, string> = {
+  case_po: 'its Case/PO reference',
+  external_ref: 'the provider reference',
+  vrm: 'the vehicle registration',
+};
 
 /** The classification stamped on the RECONSTRUCTED ORIGINAL's inbound_email row — it is a
  *  receiving_work instruction recovered after the fact (signals mark the provenance). */
@@ -215,6 +228,46 @@ app.http('internalRetroResolveExisting', {
           summary: `Retro: ${body.triggerCategory ?? 'update'} email matched ${rows.length} cases (${matchedBy}); held for manual linking`,
           after: { candidateCount: rows.length, matchedBy, keys, candidateIds: rows.map((r) => r.id) },
         });
+        // TKT-231 — "held for manual linking" now has a staff-visible surface: one pending
+        // `case_link` suggestion per candidate (capped, rows ordering) feeding the EXISTING
+        // "Attach to case" banner + review routes. Passive by design — autoAttach is NEVER
+        // set (never auto-mint; a human picks the right case). Idempotent per
+        // (inbound_email, target case): a re-run mints zero new rows. Best-effort: a
+        // suggestion hiccup never changes the ambiguous outcome. Known v1 limitation: the
+        // banner renders the FIRST pending suggestion per row, so multiple candidates
+        // surface sequentially — a picker UI is a follow-up.
+        try {
+          // The trigger's inbound_email row exists by now on the orchestrated path
+          // (classifyInbound upserted it earlier in the same run); a missing row degrades
+          // to the sourceMessageId-subject idempotency key inside the shared writer.
+          const trig = await query<Row>(
+            `SELECT id FROM inbound_email WHERE source_message_id = $1`,
+            [body.trigger.internetMessageId],
+          );
+          const inboundEmailId = (trig[0]?.id as string | undefined) ?? null;
+          const candidateIds = rows.map((r) => r.id);
+          let written = 0;
+          for (const candidate of rows.slice(0, RETRO_AMBIGUOUS_SUGGESTION_CAP)) {
+            const suggestion = await insertPendingSuggestion({
+              suggestionType: 'case_link',
+              inboundEmailId,
+              sourceMessageId: body.trigger.internetMessageId ?? null,
+              targetCaseId: candidate.id,
+              rationale: `This email matched more than one case by ${MATCHED_BY_LABEL[matchedBy ?? ''] ?? 'its reference'}; choose the right one`,
+              confidence: null,
+              decisionInputs: { matchedBy, keys, candidateIds, source: 'retro_ambiguous' },
+            });
+            if (suggestion.created) written++;
+          }
+          ctx.log(JSON.stringify({
+            evt: 'retroAmbiguousSuggestions',
+            candidates: rows.length,
+            capped: Math.min(rows.length, RETRO_AMBIGUOUS_SUGGESTION_CAP),
+            written,
+          }));
+        } catch (e) {
+          ctx.warn(`[retro/resolve-existing] ambiguous case_link suggestions failed (best-effort): ${String(e)}`);
+        }
         ctx.log(JSON.stringify({ evt: 'retroResolveExisting', outcome: 'ambiguous', count: rows.length }));
         return { status: 200, jsonBody: { outcome: 'ambiguous', candidateCount: rows.length } };
       }

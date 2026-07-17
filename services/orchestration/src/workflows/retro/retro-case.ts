@@ -330,12 +330,49 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       isReply: classification.isReply,
     });
     if (!decision.attempt) {
+      // TKT-230 (item 7) — a drain trigger the LIVE classifier re-labelled receiving_work is
+      // an instruction sitting un-cased. classifyInbound has already PERSISTED that
+      // classification itself (classifyInbound → recordInboundEmail — this early return
+      // discards only the retro DECISION, never the label), so give the row the VISIBLE
+      // failure home (the unable_to_locate attention chip) instead of a silent not_eligible.
+      // Best-effort: the stamp can never alter the returned outcome. Never auto-mint.
+      if (classification.category === 'receiving_work') {
+        try {
+          yield ctx.df.callActivityWithRetry('retroRecordFailure', retry, {
+            trigger,
+            keys: decision.keys ?? {},
+            triggerCategory: classification.category,
+            rungsTried: ['eligibility'],
+          });
+        } catch (e) {
+          if (!ctx.df.isReplaying) {
+            ctx.log(`[retro] not_eligible stamp failed (best-effort): ${String(e)}`);
+          }
+        }
+      }
       return { outcome: 'not_eligible', reasons: decision.reasons };
     }
     keys = decision.keys;
   }
 
   if (!hasUsableRetroKey(keys)) {
+    // TKT-230 (item 7) — the analogous visible-home guard on the keyless return; `category`
+    // here is checkpointed from the classify activity (drain path) or the caller (intake
+    // path). Best-effort; the outcome is unchanged either way.
+    if (category === 'receiving_work') {
+      try {
+        yield ctx.df.callActivityWithRetry('retroRecordFailure', retry, {
+          trigger,
+          keys: keys ?? {},
+          triggerCategory: category,
+          rungsTried: ['eligibility'],
+        });
+      } catch (e) {
+        if (!ctx.df.isReplaying) {
+          ctx.log(`[retro] no_usable_key stamp failed (best-effort): ${String(e)}`);
+        }
+      }
+    }
     return { outcome: 'not_eligible', reasons: ['no_usable_key'] };
   }
   const searchKeys = keys as RetroKeys;
@@ -351,9 +388,12 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   if (resolved.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
   if (resolved.outcome === 'linked' && resolved.caseId) {
     // TKT-220 (G7) — a rung-1 link now gets the linked-reply lane's record-keeping too:
-    // the trigger's own attachments become evidence and status realigns (all best-effort;
-    // boxArchiveEvidence stays deliberately absent — a retro-linked case's archive folder
-    // may be under the read-only roots, which refuse uploads by design).
+    // the trigger's own attachments become evidence and status realigns (all best-effort).
+    // TKT-230 (item 6) — the D8 doctrine now extends to rung 1 via the checkpointed
+    // retroCaseFolderWritable probe below: evidence mirrors ONLY into a folder proven
+    // writable (a live-intake folder under the pinned root); folders under the read-only
+    // archive roots stay untouched (uploads refused by design). Gates are read INSIDE the
+    // probe activity; this orchestrator branches only on its checkpointed result.
     const trig = trigger as InboundEnvelope;
     if (Array.isArray(trig.attachments)) {
       try {
@@ -372,6 +412,17 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
           ...(providerPrincipal ? { providerPrincipal } : {}),
         });
         yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId: resolved.caseId });
+        // TKT-230 (item 6) — mirror fresh rung-1 evidence into a WRITABLE folder only.
+        // boxArchiveEvidence is idempotent, so re-runs are safe; the whole block stays
+        // inside this best-effort try so a probe/mirror failure never unwinds the link.
+        const writable = (yield ctx.df.callActivityWithRetry('retroCaseFolderWritable', retry, {
+          caseId: resolved.caseId,
+        })) as { writable: boolean; reason?: string };
+        if (writable.writable) {
+          yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
+            caseId: resolved.caseId,
+          });
+        }
       } catch (e) {
         if (!ctx.df.isReplaying) {
           ctx.log(`[retro] rung-1 link record-keeping failed (additive, non-blocking): ${String(e)}`);

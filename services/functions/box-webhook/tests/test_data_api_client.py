@@ -6,12 +6,13 @@ is injected). respx mocks the Data API ``/api/internal/*`` routes.
 Covered:
 * resolve_case_by_folder GETs box/case-by-folder/{id} and returns { caseId } (or
   None when the folder resolves to no case).
-* evidence_exists_for_box_file is the interface-compat shim → always False, no
-  HTTP (the durable dedup is the idempotent evidence POST).
+* evidence_exists_for_box_file is GONE (TKT-229) — the idempotent evidence POST is
+  the single dedup authority; the removal is pinned so nothing resurrects the seam.
 * create_evidence POSTs ONE Box row to cases/{id}/evidence with the box:file:<id>
   dedup tag + boxFileId mirror + evidenceClass=image + acceptedForEva=true, leaves
   storage_path to the API (blank), and returns an EvidenceWriteResult whose ``tag``
-  is truthy only when persisted (TKT-226: ``merged``/``updated`` surfaced too).
+  is truthy only when persisted (TKT-226: ``merged``/``updated`` surfaced too;
+  TKT-229: ``mirrored`` parsed with None preserved for older API builds).
 * write_audit POSTs the action NAME ('box_upload_received') + summary + after, and
   is best-effort (a non-2xx does NOT raise). TKT-226: ``after_fields`` upgrades
   ``after`` to an object payload; the no-kwarg call stays byte-identical (string).
@@ -117,13 +118,15 @@ def test_resolve_case_context_empty_id_short_circuits():
 
 
 # ===========================================================================
-# evidence_exists_for_box_file (interface-compat shim)
+# evidence_exists_for_box_file — REMOVED (TKT-229)
 # ===========================================================================
 
-def test_evidence_exists_is_false_shim_no_http():
-    # Always False (the idempotent POST is the dedup authority); makes no HTTP call.
+def test_evidence_exists_shim_is_gone():
+    # TKT-229 removed the always-False interface-compat shim: the idempotent POST is
+    # the single evidence-write dedup authority and the audit onceKey is the audit
+    # dedup authority. Nothing must quietly resurrect the dead seam.
     c = _client()
-    assert c.evidence_exists_for_box_file("CASE-1", "999") is False
+    assert not hasattr(c, "evidence_exists_for_box_file")
     c.close()
 
 
@@ -187,6 +190,39 @@ def test_create_evidence_surfaces_merged_twin_counter():
     )
     assert result.tag == ""  # no fresh row -> falsy tag (legacy semantics kept)
     assert result.persisted == 0
+    assert result.merged == 1
+    # TKT-229: an older API build omits `mirrored` -> preserved as None (NOT 0) so the
+    # receiver's rolling-deploy fallback can fire.
+    assert result.mirrored is None
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_parses_mirrored_counter():
+    # TKT-229: the new API reports `mirrored` — parsed as an int and kept distinct
+    # from `merged` (a sameIdentity echo is mirrored without ever being merged).
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 0, "merged": 0, "mirrored": 1})
+    )
+    c = _client()
+    result = c.create_evidence(
+        case_id="CASE-1", filename="message-ab12cd34.eml", box_file_id="998",
+        evidence_class="email",
+    )
+    assert result.mirrored == 1
+    assert result.merged == 0
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_parses_mirrored_zero_as_zero():
+    # mirrored: 0 is a REAL answer ("not a mirror echo"), distinct from None ("old API").
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 0, "merged": 1, "mirrored": 0})
+    )
+    c = _client()
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.mirrored == 0
     assert result.merged == 1
     c.close()
 

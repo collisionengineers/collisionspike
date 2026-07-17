@@ -28,6 +28,21 @@ import { Pool } from 'pg';
 let _pool: Pool | undefined;
 
 /**
+ * Per-instance pool cap (TKT-227). Reads PGPOOL_MAX and clamps to 1..20; absent or
+ * garbage falls back to 10 — the historical hard-coded cap, so there is NO behaviour
+ * change without an explicit app-setting. The knob exists because the nightly box
+ * purge showed dev-tier `max_connections` can be exhausted when data-api scales out
+ * (instances × pool max); the operator MAY set PGPOOL_MAX=5 on cespk-api-dev after
+ * verifying headroom. This caps the shared staff pool only — it does not create or
+ * widen any other role pool (see header).
+ */
+export function poolMax(): number {
+  const parsed = Number.parseInt(process.env.PGPOOL_MAX ?? '', 10);
+  if (!Number.isFinite(parsed)) return 10;
+  return Math.min(20, Math.max(1, parsed));
+}
+
+/**
  * Returns the shared connection pool, creating it on first call.
  * Uses PGHOST / PGDATABASE / PGUSER / PGPASSWORD / PGSSLMODE from process.env
  * (set via app-settings on the Function App; locally via local.settings.json).
@@ -44,7 +59,7 @@ export function getPool(): Pool {
       password: process.env.PGPASSWORD,
       ssl: process.env.PGSSLMODE !== 'disable' ? { rejectUnauthorized: false } : false,
       options: `-c app.role=${appRole}`,
-      max: 10,
+      max: poolMax(),
       idleTimeoutMillis: 30_000,
       connectionTimeoutMillis: 5_000,
     });

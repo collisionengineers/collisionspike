@@ -774,19 +774,15 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
         # evidence kind below + the required, retry-safe mark-done call at the end.
         is_report = is_ce_report(filename, case_po)
 
-        # Step 7 (durable dedup): write Evidence only if this Box file is not
-        # already recorded. The Evidence write is once-only, but the case-advance
-        # below is NOT short-circuited here: a prior delivery may have written
+        # Step 7 (durable dedup): the evidence POST is itself IDEMPOTENT on the
+        # box:file:<id> tag, so it is the single evidence-write dedup authority —
+        # a redelivery re-POSTs and the API answers persisted:0 (TKT-229 removed
+        # the old always-False client-side existence shim). The case-advance below
+        # is NOT short-circuited either way: a prior delivery may have written
         # Evidence yet failed the (idempotent) status-evaluate re-invoke, leaving
-        # the case un-advanced. Box's retry of that same delivery lands here with
-        # Evidence already present — we must still re-invoke so the case advances,
-        # not return early and re-strand it.
-        evidence_exists = bool(box_file_id) and dv.evidence_exists_for_box_file(case_id, box_file_id)
+        # the case un-advanced — Box's retry must still re-invoke it.
         evidence_id = ""
-        if evidence_exists:
-            logger.info("box webhook: Evidence already exists for this Box file; skipping the write")
-            result["deduped"] = True
-        elif box_file_id:
+        if box_file_id:
             # Step 7: write Evidence (storagePath stays Blob; record the Box file id).
             # A classified CE report persists as kind `engineer_report`
             # (choice_evidence_kind 100000007 — the API maps the evidenceClass NAME
@@ -813,23 +809,35 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
                 evidence_class=evidence_class,
             )
             evidence_id = write_result.tag
-            # TKT-226: merged>0 with no fresh row = the API collapsed this delivery
-            # onto an existing sha256 twin — this upload is the system's OWN archive
-            # mirror echoing back (classifyPersist wrote the blob rows before
-            # boxArchiveEvidence uploaded), not new external material. If the sha256
-            # fetch failed (over-cap), merge is undetected and the audit stays
-            # external_upload — the label then falls back to the class-derived
-            # string (for an image-class mirror echo that means "Images received":
-            # honest about the file, wrong about its origin — accepted edge case).
+            # TKT-229: the API's `mirrored` counter is the honest mirror-echo signal —
+            # the sha256 twin carried BLOB provenance (storage_path set), i.e. the
+            # system already owned these bytes from the email/blob lane and this
+            # delivery is our OWN archive echo (boxArchiveEvidence stamps box_file_id
+            # on the evidence row, so the echo lands sameIdentity and never counted
+            # as `merged`; the old merged-based rule therefore never fired for the
+            # live echo sequence). Rolling-deploy fallback: an older API omits
+            # `mirrored` (None) -> fall back to the legacy merged>0 heuristic. Once
+            # `mirrored` is present, a genuine external duplicate re-upload (twin
+            # WITHOUT blob provenance, merged>0, mirrored=0) is no longer mislabeled
+            # archive_mirror. If the sha256 fetch failed (over-cap), the echo is
+            # undetected and the audit stays external_upload — honest about the
+            # file, wrong about its origin; accepted edge case.
+            mirror_echo = (
+                write_result.mirrored > 0 if write_result.mirrored is not None
+                else write_result.merged > 0  # rolling-deploy fallback: old API omits `mirrored`
+            )
             origin = (
                 "archive_mirror"
-                if write_result.merged > 0 and write_result.persisted == 0
+                if (write_result.persisted == 0 and mirror_echo)
                 else "external_upload"
             )
-            # Step 7: audit box_upload_received (only on a fresh Evidence write —
-            # the append-only audit row is not re-emitted on a dedup retry).
-            # `name` format is stable — it is the legacy read-time fallback key
-            # (the label seam parses the filename back out of it for old rows).
+            # Step 7: audit box_upload_received. Once-ness is keyed SERVER-SIDE on the
+            # onceKey below (TKT-229): a mirror echo never writes a fresh row, so
+            # "fresh write" could never be the audit criterion — instead the Data API
+            # skips the write when an audit with the same (case, action, onceKey)
+            # already exists, keeping exactly ONE audit per Box file across
+            # redeliveries. `name` format is stable — it is the legacy read-time
+            # fallback key (the label seam parses the filename back out of it).
             dv.write_audit(
                 action=AUDIT_BOX_UPLOAD_RECEIVED,
                 case_id=case_id,
@@ -839,6 +847,8 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
                     "filename": filename,
                     "evidenceClass": evidence_class,
                     "origin": origin,
+                    "boxFileId": box_file_id,
+                    "onceKey": f"box_upload_received:{box_file_id}",
                 },
             )
 

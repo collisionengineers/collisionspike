@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (26)
+## Now (31)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -32,6 +32,11 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 · integration · PLAN-004 |
 | [TKT-225](./now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps | P1 · intake · PLAN-004 |
 | [TKT-226](./now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md) | Box uploads mislabel the queue as "Images received"; retro_related subtype silently nulls | P1 · intake |
+| [TKT-227](./now/TKT-227-box-purge-connection-exhaustion/TKT-227-box-purge-connection-exhaustion.md) | Nightly box-purge fan-out exhausts Postgres connections; nothing purges | P1 · archive |
+| [TKT-228](./now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md) | Archive-holding recovery loop 500s on two Postgres type bugs | P1 · archive |
+| [TKT-229](./now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md) | The "Archived" (archive_mirror) label never fires and Box redeliveries duplicate audits | P2 · intake |
+| [TKT-230](./now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md) | Retro post-sweep batch — stale stamps, multi-mailbox trigger, rung-1 writable mirror, receiving_work surfacing | P2 · email |
+| [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 · email |
 
 ## Verify (41)
 

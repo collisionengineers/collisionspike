@@ -1,13 +1,13 @@
 /** internal-triage-routes — cohesive Data API module. */
 
 import { app } from '@azure/functions';
-import { TRIAGE_POLICY_VERSION } from '@cs/domain';
 import { caseStatusCodec } from '@cs/domain/codecs';
 import { query, tx } from '../../platform/db/client.js';
 import { AUDIT_ACTION, writeAudit } from '../../shared/audit.js';
-import { INBOUND_CATEGORY_TO_INT, INBOUND_SUBTYPE_TO_INT, deriveSuggestionIdempotencyKey, mergedIntoFrom, type Row } from '../../shared/mapping/index.js';
+import { INBOUND_CATEGORY_TO_INT, INBOUND_SUBTYPE_TO_INT, mergedIntoFrom, type Row } from '../../shared/mapping/index.js';
 import { hasColumn } from '../../platform/db/schema-introspection.js';
 import { acquireTriageLocks } from './triage-locks.js';
+import { insertPendingSuggestion } from './suggestion-write.js';
 import { markOutstandingChasersResponded, TERMINAL_INT_CODES, withServiceAuth } from './internal/service-support.js';
 
 app.http('internalTriageContext', {
@@ -189,94 +189,31 @@ app.http('internalTriageSuggestLink', {
         inboundEmailId = (rows[0]?.id as string | undefined) ?? null;
       }
 
-      // Idempotency: a PENDING suggestion for the SAME (type, subject, targetCaseId) already
-      // exists -> return it unchanged, created:false.
-      const idemKey = deriveSuggestionIdempotencyKey({
+      // The idempotency check, Case/PO enrichment, INSERT and type-specific audit live in
+      // the SHARED writer (suggestion-write.ts) — TKT-231 extracted them so the retro
+      // ambiguous-resolution seam mints identical case_link suggestions.
+      const written = await insertPendingSuggestion({
         suggestionType,
         inboundEmailId,
         sourceMessageId,
         targetCaseId,
+        rationale,
+        confidence,
+        decisionInputs,
+        triageCategory,
+        triageSubtype,
+        modelVersion: (body.modelVersion ?? '').trim() || undefined,
       });
-      let existing: Row[] = [];
-      if (idemKey) {
-        existing =
-          idemKey.subjectKind === 'inbound_email_id'
-            ? await query<Row>(
-                `SELECT id FROM ai_suggestion
-                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id = $2
-                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
-                  LIMIT 1`,
-                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
-              )
-            : await query<Row>(
-                `SELECT id FROM ai_suggestion
-                  WHERE suggestion_type = $1 AND review_state = 'pending' AND inbound_email_id IS NULL
-                    AND (suggested_value->>'sourceMessageId') IS NOT DISTINCT FROM $2
-                    AND (suggested_value->>'targetCaseId') IS NOT DISTINCT FROM $3
-                  LIMIT 1`,
-                [idemKey.suggestionType, idemKey.subject, idemKey.targetCaseId],
-              );
+      if (written.suggestionId && !written.created) {
+        return { status: 200, jsonBody: { suggestionId: written.suggestionId, created: false } };
       }
-      if (existing[0]) {
-        return { status: 200, jsonBody: { suggestionId: existing[0].id, created: false } };
-      }
-
-      // Best-effort enrichment: the target case's own Case/PO, so the suggestion can render
-      // a human-readable reference without a second lookup. Absent when the target case has
-      // no case_po yet (e.g. a Held new-client case) or no target was resolved at all
-      // (always the case for 'triage_category' — targetCaseId is forced null above).
-      let casePo: string | null = null;
-      if (targetCaseId) {
-        const caseRows = await query<Row>('SELECT case_po FROM case_ WHERE id = $1', [targetCaseId]);
-        casePo = (caseRows[0]?.case_po as string | null) ?? null;
-      }
-
-      const suggestedValue =
-        suggestionType === 'triage_category'
-          ? {
-              category: triageCategory,
-              subtype: triageSubtype,
-              // Carry sourceMessageId so the source_message_id-subject idempotency SELECT (used
-              // when the inbound_email row isn't resolvable yet — inboundEmailId null) can match a
-              // prior PENDING copy on a Durable at-least-once retry. Without it the dedup filters
-              // on `suggested_value->>'sourceMessageId'`, a field this branch never wrote, so it
-              // never matches and inserts a duplicate 'AI suggested category' banner.
-              ...(sourceMessageId ? { sourceMessageId } : {}),
-            }
-          : {
-              ...(targetCaseId ? { targetCaseId } : {}),
-              ...(casePo ? { casePo } : {}),
-              ...(sourceMessageId ? { sourceMessageId } : {}),
-              decisionInputs,
-            };
-      // 'triage_category' stamps the CALLER's model_version ('<deployment>:<modelVersion>',
-      // triage-classify.ts); the other two types are this endpoint's own deterministic
-      // policy output, aligned with the current deterministic policy version.
-      const modelVersion =
-        suggestionType === 'triage_category'
-          ? (body.modelVersion ?? '').trim() || 'unknown'
-          : TRIAGE_POLICY_VERSION;
-      const inserted = await query<Row>(
-        `INSERT INTO ai_suggestion
-           (inbound_email_id, suggestion_type, suggested_value, rationale, confidence, model_version)
-         VALUES ($1, $2, $3::jsonb, $4, $5, $6)
-         RETURNING id`,
-        [inboundEmailId, suggestionType, JSON.stringify(suggestedValue), rationale, confidence, modelVersion],
-      );
-      const suggestionId = inserted[0]?.id as string | undefined;
+      const suggestionId = written.suggestionId;
       if (!suggestionId) {
         return { status: 500, jsonBody: { error: 'suggestion insert returned no id' } };
       }
 
       let autoAttached = false;
       if (suggestionType === 'case_link') {
-        await writeAudit({
-          action: AUDIT_ACTION.inbound_link_suggested,
-          ...(targetCaseId ? { caseId: targetCaseId } : {}),
-          summary: 'A message was suggested for linking to an existing case',
-          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
-        });
-
         // TKT-093 (DARK) — auto-attach: self-accept the suggestion and perform the SAME
         // reversible attach as accepting it from the inbox (promoteAcceptedSuggestion's
         // case_link branch): FILL-IF-EMPTY link + triage_state='routed' + the case-scoped
@@ -307,25 +244,8 @@ app.http('internalTriageSuggestLink', {
             autoAttached = true;
           }
         }
-      } else if (suggestionType === 'cancellation') {
-        await writeAudit({
-          action: AUDIT_ACTION.cancellation_proposed,
-          ...(targetCaseId ? { caseId: targetCaseId } : {}),
-          summary: 'A message reported a case cancelled or closed — flagged for review',
-          after: { suggestionId, targetCaseId, sourceMessageId, inboundEmailId },
-        });
-      } else {
-        // 'triage_category' (rules-engine-v2 Phase 4, Stage C) — the GENERIC "an AI
-        // producer created a suggestion" audit (the same code generateAiSuggestions writes
-        // for every other AI-produced suggestion kind, ai-suggestions.ts). Distinct from
-        // inbound_link_suggested/cancellation_proposed, which name the Stage-B ref-gate/
-        // cancellation actions specifically — no new audit code minted for this one.
-        await writeAudit({
-          action: AUDIT_ACTION.ai_suggestion_created,
-          summary: 'An AI-suggested category was proposed for a message',
-          after: { suggestionId, sourceMessageId, inboundEmailId, category: triageCategory, subtype: triageSubtype },
-        });
       }
+      // (The cancellation / triage_category audits ride the shared writer above.)
 
       ctx.log(JSON.stringify({ evt: 'triageSuggestLink', suggestionType, suggestionId, targetCaseId, autoAttached }));
       return { status: 200, jsonBody: { suggestionId, created: true, ...(autoAttached ? { autoAttached: true } : {}) } };
