@@ -716,6 +716,9 @@ export interface InboundFacet {
   subtype?: InboundSubtype;
   /** Active-first list scope (default 'active'). work-todo-spike: email-management. */
   view?: InboundView;
+  /** Case-scoped slice (`?caseId=`): server-side `case_id` filter that INCLUDES retro
+   *  reconstruction anchor rows — the un-scoped triage list excludes them (TKT-233). */
+  caseId?: string;
 }
 
 /** Body for `PATCH /api/inbound/{id}/classification` — the staff reclassify/override

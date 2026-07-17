@@ -68,6 +68,14 @@ export const INBOUND_ATTENTION_CLEAR_ON_LINK_SQL = `attention_reason = CASE
                               ELSE inbound_email.attention_reason
                             END`;
 
+export interface UpsertInboundEmailResult {
+  inboundEmailId: string | null;
+  /** The row's case_id AFTER the upsert. First link wins atomically (the ON CONFLICT
+   *  SET keeps an existing link), so a caller offering a caseId must compare this
+   *  against what it offered — a differing value is a lost link race, not a link. */
+  linkedCaseId: string | null;
+}
+
 export async function upsertInboundEmail(
   inbound: InboundEnvelope,
   workProviderId: string | null,
@@ -77,7 +85,7 @@ export async function upsertInboundEmail(
   /** When set (e.g. 'routed' for a linked reply), stamps triage_state on INSERT and ON
    *  CONFLICT; when omitted, INSERT defaults to 'new' and an existing state is preserved. */
   triageState?: string,
-): Promise<string | null> {
+): Promise<UpsertInboundEmailResult> {
   const subject = (inbound.subject ?? '').trim();
   // TKT-073: this helper's own varchar columns, clamped so a long value degrades instead
   // of silently losing the whole triage row (the catch below swallows DB errors).
@@ -140,7 +148,7 @@ export async function upsertInboundEmail(
       ? `${INBOUND_ATTENTION_CLEAR_ON_LINK_SQL},\n         `
       : '';
 
-    const rows = await query<{ id: string }>(
+    const rows = await query<{ id: string; case_id: string | null }>(
       `INSERT INTO inbound_email
          (name, source_message_id, subject, from_address, sender_domain,
           source_mailbox, received_on, has_attachments, category_code, subtype_code,
@@ -148,7 +156,7 @@ export async function upsertInboundEmail(
           body_preview, case_id, work_provider_id${optionalColsFragment})
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'deterministic',$12,COALESCE($18, 'new'),$13,$14,$15,$16,$17${optionalValsFragment})
        ON CONFLICT (source_mailbox, source_message_id) DO UPDATE SET
-         case_id          = COALESCE(EXCLUDED.case_id, inbound_email.case_id),
+         case_id          = COALESCE(inbound_email.case_id, EXCLUDED.case_id), -- FIRST link wins (never re-point); the attention CASE below still keys on the null→non-null transition
          ${attentionClearFragment}category_code    = CASE
                               WHEN inbound_email.classifier_mode = 'human'
                                 THEN inbound_email.category_code
@@ -175,7 +183,7 @@ export async function upsertInboundEmail(
                               ELSE COALESCE($18, inbound_email.triage_state)
                             END,
          updated_at       = now()
-       RETURNING id`,
+       RETURNING id, case_id`,
       [
         name,
         inbound.internetMessageId ?? null,
@@ -199,6 +207,7 @@ export async function upsertInboundEmail(
       ],
     );
     const inboundEmailId = rows[0]?.id ?? null;
+    const linkedCaseId = rows[0]?.case_id ?? null;
     // Stamp the classifier SUGGESTION distinctly (fill-if-null) so a later staff override is
     // visible (work-todo-spike: suggested-tags). Guarded: the suggested_* columns may be
     // absent on a not-yet-migrated DB — a failure here must not block intake.
@@ -211,9 +220,9 @@ export async function upsertInboundEmail(
         [inboundEmailId, categoryCode, subtypeCode],
       ).catch(() => { /* suggested_* columns absent pre-migration — best-effort */ });
     }
-    return inboundEmailId;
+    return { inboundEmailId, linkedCaseId };
   } catch {
     // inbound_email is triage provenance; failure must not block primary intake.
-    return null;
+    return { inboundEmailId: null, linkedCaseId: null };
   }
 }

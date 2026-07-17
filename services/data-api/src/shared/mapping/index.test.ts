@@ -257,6 +257,25 @@ describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_evidence_class');
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_origin');
   });
+
+  it('nests the ::jsonb cast INSIDE the validity CASE (PostgreSQL AND order is not guaranteed)', () => {
+    // A flat `pg_input_is_valid(…) AND jsonb_typeof(ae.after::jsonb) = …` may evaluate the
+    // cast first and error on a non-JSON memo, sinking every queue read — the typeof probe
+    // must only run once the validity CASE has passed (mirroring the `suggested` guard).
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(
+      "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+        "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+        "THEN ae.after::jsonb->>'evidenceClass' END END",
+    );
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(
+      "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+        "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+        "THEN ae.after::jsonb->>'origin' END END",
+    );
+    expect(CASE_SELECT_WITH_ACTIVITY).not.toMatch(
+      /pg_input_is_valid\(ae\.after, 'jsonb'\) AND jsonb_typeof/,
+    );
+  });
 });
 
 describe('rowToCase — honest Box-upload chip (TKT-226)', () => {

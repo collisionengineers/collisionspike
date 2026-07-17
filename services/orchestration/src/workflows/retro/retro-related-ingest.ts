@@ -147,12 +147,16 @@ df.app.orchestration('retroRelatedIngestOrchestrator', function* (
       });
 
       // 5. Embedded images (additive, best-effort — intake step-3.5 parity).
+      //    PR-review fix (CHANGE 8) — when the CASE has no VRM yet, an UNCONTRADICTED
+      //    parsed VRM from THIS related email constrains the image lane instead of
+      //    nothing. Deterministic: both values are checkpointed activity results.
+      const imagesVrm = input.caseVrm || (!contradicted ? mapped.parserVrm : '');
       try {
         yield ctx.df.callActivityWithRetry('extractImages', retry, {
           caseId: input.caseId,
           messageId: env.messageId,
           attachments: env.attachments,
-          ...(input.caseVrm ? { caseVrm: input.caseVrm } : {}),
+          ...(imagesVrm ? { caseVrm: imagesVrm } : {}),
           ...(input.workProviderId ? { workProviderId: input.workProviderId } : {}),
           ...(input.providerPrincipal ? { providerPrincipal: input.providerPrincipal } : {}),
         });

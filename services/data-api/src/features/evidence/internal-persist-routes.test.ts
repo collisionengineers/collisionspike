@@ -538,4 +538,36 @@ describe('TKT-230 (item 4 hardening) — unable_to_locate stamp never lands on a
     const unguarded = sqls.find((s) => /UPDATE inbound_email SET attention_reason/.test(s));
     expect(unguarded).not.toContain('AND case_id IS NULL');
   });
+
+  it('qualifies the stamp by mailbox when the caller supplies sourceMailbox (optional field)', async () => {
+    rowsFor.mockImplementation((sql: string) => {
+      if (/information_schema\.columns/.test(sql)) return [{ column_name: 'attention_reason' }];
+      if (/UPDATE inbound_email/.test(sql)) return [{ id: 'ie-1' }];
+      return [];
+    });
+    // The dedup key is (source_mailbox, source_message_id): the same Internet-Message-Id
+    // can exist under two mailboxes, so a forwarded mailbox must scope the stamp.
+    const withMailbox = {
+      json: async () => ({
+        sourceMessageId: '<m@x>',
+        reason: 'unable_to_locate',
+        sourceMailbox: 'Intake@Example.Test',
+      }),
+    } as unknown as HttpRequest;
+    await attentionRoute()(withMailbox, ctx);
+    const i = sqls.findIndex((s) => /UPDATE inbound_email SET attention_reason/.test(s));
+    expect(sqls[i]).toContain('AND source_mailbox = $3');
+    expect(sqls[i]).toContain('AND case_id IS NULL'); // the unable_to_locate guard survives
+    expect(params[i]).toEqual(['<m@x>', 'unable_to_locate', 'intake@example.test']); // normalised
+
+    // Omitted mailbox keeps the pre-existing unqualified shape (older orchestration callers).
+    sqls.length = 0;
+    params.length = 0;
+    const withoutMailbox = {
+      json: async () => ({ sourceMessageId: '<m@x>', reason: 'unable_to_locate' }),
+    } as unknown as HttpRequest;
+    await attentionRoute()(withoutMailbox, ctx);
+    const bare = sqls.find((s) => /UPDATE inbound_email SET attention_reason/.test(s));
+    expect(bare).not.toContain('source_mailbox');
+  });
 });

@@ -25,10 +25,18 @@ app.http('internalInboundAttention', {
       const body = (await req.json().catch(() => ({}))) as {
         sourceMessageId?: unknown;
         reason?: unknown;
+        /** Optional mailbox qualifier — the dedup key is (source_mailbox,
+         *  source_message_id), so an unqualified stamp can hit the WRONG row when the
+         *  same Internet-Message-Id exists under two mailboxes (e.g. an eml-arm retro
+         *  anchor sharing its Message-ID with the live delivery). Optional so an older
+         *  orchestration caller keeps working. */
+        sourceMailbox?: unknown;
       };
       const sourceMessageId =
         typeof body.sourceMessageId === 'string' ? body.sourceMessageId.trim() : '';
       const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+      const sourceMailbox =
+        typeof body.sourceMailbox === 'string' ? body.sourceMailbox.trim().toLowerCase() : '';
       if (!sourceMessageId) {
         return { status: 400, jsonBody: { error: 'sourceMessageId is required' } };
       }
@@ -44,10 +52,11 @@ app.http('internalInboundAttention', {
       // guard that reason (only) with case_id IS NULL. Other reasons (images_no_match) apply
       // to linked rows by design and stay unguarded.
       const unlinkedGuard = reason === 'unable_to_locate' ? ' AND case_id IS NULL' : '';
+      const mailboxGuard = sourceMailbox ? ' AND source_mailbox = $3' : '';
       const rows = await query<Row>(
         `UPDATE inbound_email SET attention_reason = $2, updated_at = now()
-          WHERE source_message_id = $1${unlinkedGuard} RETURNING id`,
-        [sourceMessageId, reason],
+          WHERE source_message_id = $1${mailboxGuard}${unlinkedGuard} RETURNING id`,
+        [sourceMessageId, reason, ...(sourceMailbox ? [sourceMailbox] : [])],
       );
       ctx.log(JSON.stringify({ evt: 'inboundAttention', stamped: Boolean(rows[0]), reason }));
       return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };

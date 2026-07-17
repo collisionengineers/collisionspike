@@ -97,7 +97,27 @@ const DEFAULT_SUBTYPE_FOR_CATEGORY: Record<InboundCategory, InboundSubtype> = {
   website_enquiry: 'website_general_enquiry',
 };
 
-// 27 — GET /api/inbound?category=&subtype=&view=active|handled|all   (ACTIVE-FIRST; honest [])
+/** TKT-219 (operator decision) — retro reconstruction ANCHOR rows are not triage work:
+ *  the synthetic reconstructed-original rows the retro workflow persists
+ *  (services/orchestration/src/workflows/retro/retro-envelope.ts builders) must not sit in
+ *  the Triage Inbox as if new mail arrived. No single column marks all three builder
+ *  variants (the Graph messageId `retro-box-…` is never persisted — upsertInboundEmail
+ *  stores graph_message_id only with a complete Outlook webLink tuple), so the exclusion
+ *  is the union of the persisted discriminators:
+ *   - doc-arm / eml-arm-without-Message-ID anchors: source_message_id `retro:box:…`
+ *     (minimal anchors never get an inbound_email row at all);
+ *   - anchors with no real To address: source_mailbox 'box-archive';
+ *   - eml-arm anchors carrying the eml's REAL Message-ID + To address: the
+ *     retroOriginalClassification signals marker 'retro_reconstructed' (retro-routes.ts).
+ *  NULL-safe on purpose (a NULL column must not exclude a live row). Applied to the
+ *  INBOX list slice only — a case-scoped read (?caseId=) still returns anchors, since
+ *  they are real case history on the Emails tab. Exported so the test can pin the SQL. */
+export const INBOUND_RETRO_ANCHOR_EXCLUSION_SQL =
+  "(inbound_email.source_message_id IS NULL OR inbound_email.source_message_id NOT LIKE 'retro:box:%')" +
+  " AND inbound_email.source_mailbox IS DISTINCT FROM 'box-archive'" +
+  " AND (inbound_email.signals IS NULL OR inbound_email.signals NOT LIKE '%retro_reconstructed%')";
+
+// 27 — GET /api/inbound?category=&subtype=&view=active|handled|all&caseId=   (ACTIVE-FIRST; honest [])
 app.http('inboundEmails', {
   methods: ['GET'],
   authLevel: 'anonymous',
@@ -107,11 +127,24 @@ app.http('inboundEmails', {
       const category = req.query.get('category') as InboundCategory | null;
       const subtype = req.query.get('subtype') as InboundSubtype | null;
       const view = req.query.get('view'); // active (default) | handled | all
+      // Case-scoped slice (the case Emails tab): filter server-side by the linked case
+      // and KEEP retro anchor rows — they are that case's reconstructed history.
+      const caseId = (req.query.get('caseId') ?? '').trim();
+      if (caseId && !isUuid(caseId)) {
+        return { status: 400, jsonBody: { error: 'invalid caseId' } };
+      }
       const clauses: string[] = [];
       const params: unknown[] = [];
       if (category && category in INBOUND_CATEGORY_TO_INT) {
         params.push(INBOUND_CATEGORY_TO_INT[category]);
         clauses.push(`inbound_email.category_code = $${params.length}`);
+      }
+      if (caseId) {
+        params.push(caseId);
+        clauses.push(`inbound_email.case_id = $${params.length}`);
+      } else {
+        // The inbox slice only — reconstruction anchors are not triage work.
+        clauses.push(`(${INBOUND_RETRO_ANCHOR_EXCLUSION_SQL})`);
       }
       // Active-first: default hides handled (actioned/dismissed) rows; view= switches the slice.
       const viewClause = inboundViewWhere(view);

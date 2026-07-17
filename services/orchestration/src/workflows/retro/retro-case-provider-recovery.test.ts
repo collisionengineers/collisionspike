@@ -66,6 +66,8 @@ function makeCtx(input: unknown): {
       // TKT-219 — the parallel locate fan-out awaits ONE Task.all over both rungs.
       Task: { all: (tasks: TaskCall[]): TaskCall => ({ kind: 'task-all', name: 'Task.all', tasks }) },
       isReplaying: false,
+      // Durable's replay-safe orchestration clock (the minimal-anchor receivedAt fallback).
+      currentUtcDateTime: new Date('2026-07-16T12:00:00.000Z'),
     },
     log: vi.fn(),
   };
@@ -77,6 +79,16 @@ function nextTask(
   value?: unknown,
 ): TaskCall {
   const step = generator.next(value);
+  expect(step.done).toBe(false);
+  return step.value as TaskCall;
+}
+
+/** Resume the generator by THROWING into the pending yield (a faulted activity). */
+function throwTask(
+  generator: Generator<unknown, unknown, unknown>,
+  error: unknown,
+): TaskCall {
+  const step = generator.throw!(error);
   expect(step.done).toBe(false);
   return step.value as TaskCall;
 }
@@ -306,7 +318,7 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
     expect(callSubOrchestratorWithRetry).not.toHaveBeenCalled();
   });
 
-  it('a Box-arm refused_category falls back to the IN-HAND Outlook result without re-searching', () => {
+  it('a Box-arm refused_category falls back to the IN-HAND Outlook result without re-searching, KEEPING the Box identity (casePo + folder)', () => {
     const { ctx, callActivityWithRetry } = makeCtx({
       trigger: {
         internetMessageId: '<trigger@example.test>',
@@ -354,16 +366,23 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
 
     expect(nextTask(generator, OUTLOOK_ORIGINAL)).toMatchObject({ name: 'parse' });
     const create = nextTask(generator, { reference: { value: 'REF-123' }, extraction: {} });
+    // PR-review fix (CHANGE 9, F18) — the fallback keeps the Box IDENTITY: the located
+    // casePo + archive folder ride the Outlook-material create (combined), instead of
+    // being discarded as they were pre-fix.
     expect(create).toMatchObject({
       name: 'retroCreatePersist',
-      input: expect.objectContaining({ reconstructionSource: 'outlook' }),
+      input: expect.objectContaining({
+        reconstructionSource: 'outlook',
+        casePo: 'QDOS26050',
+        boxFolder: expect.objectContaining({ id: 'F1' }),
+        caseTypeSignals: expect.arrayContaining(['combined_reconstruction']),
+      }),
     });
-    expect((create.input as { casePo?: string }).casePo).toBeUndefined();
 
     nextTask(generator, {
       outcome: 'created',
       caseId: 'case-fallback',
-      casePo: null,
+      casePo: 'QDOS26050',
       providerRecovery: 'not_needed',
     }); // classifyPersist
     nextTask(generator, undefined); // extractImages
@@ -374,11 +393,172 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
       value: {
         outcome: 'created',
         caseId: 'case-fallback',
-        casePo: null,
+        casePo: 'QDOS26050',
         source: 'outlook',
+        combined: true,
         providerRecovery: 'not_needed',
       },
     });
+  });
+
+  it('CHANGE 9 (F15): a located folder whose FETCH faults still plans COMBINED when Outlook found', () => {
+    const { ctx } = makeCtx({
+      trigger: {
+        internetMessageId: '<trigger@example.test>',
+        receivedAt: '2026-07-14T10:00:00.000Z',
+      },
+      category: 'case_update',
+      keys: { externalRef: 'REF-123' },
+    });
+    const generator = orchestrations.get('retroCaseOrchestrator')!(ctx as never);
+
+    nextTask(generator); // retroResolveExisting
+    nextTask(generator, { outcome: 'none' }); // Task.all fan-out
+    expect(nextTask(generator, [
+      {
+        found: true,
+        folder: { id: 'F1', name: 'A.PCH261269' },
+        discoveredPo: 'A.PCH261269',
+        principalCode: 'PCH',
+        marker: 'A.',
+        candidateCount: 1,
+      },
+      OUTLOOK_HIT,
+    ])).toMatchObject({ name: 'retroBoxFetchInstruction' });
+
+    // The instruction FETCH faults (retries exhausted). Pre-fix the plan demoted to
+    // outlook_only and the Box IDENTITY (casePo + folder) was silently lost; the located
+    // identity now rides the combined create.
+    expect(throwTask(generator, new Error('box 502'))).toMatchObject({ name: 'fetchMessage' });
+    expect(nextTask(generator, OUTLOOK_ORIGINAL)).toMatchObject({ name: 'parse' });
+    const create = nextTask(generator, { reference: { value: 'REF-123' }, extraction: {} });
+    expect(create).toMatchObject({
+      name: 'retroCreatePersist',
+      input: expect.objectContaining({
+        reconstructionSource: 'outlook',
+        casePo: 'A.PCH261269',
+        boxFolder: expect.objectContaining({ id: 'F1' }),
+        caseType: 'audit', // the archive marker stays ground truth
+        otherFiles: [], // no fetch result — nothing to register
+        caseTypeSignals: expect.arrayContaining(['combined_reconstruction', 'archive_marker:A.']),
+      }),
+    });
+
+    nextTask(generator, {
+      outcome: 'created',
+      caseId: 'case-combined',
+      casePo: 'A.PCH261269',
+      resolvedProviderId: 'wp-pch',
+      providerRecovery: 'not_needed',
+    }); // classifyPersist
+    nextTask(generator, undefined); // extractImages
+    expect(nextTask(generator, undefined)).toMatchObject({ name: 'statusEvaluate' });
+    expect(nextTask(generator, undefined)).toMatchObject({ name: 'retroLinkRelated' });
+    expect(generator.next({ linked: 0, scanned: 0 })).toEqual({
+      done: true,
+      value: {
+        outcome: 'created',
+        caseId: 'case-combined',
+        casePo: 'A.PCH261269',
+        source: 'outlook',
+        combined: true,
+        providerRecovery: 'not_needed',
+      },
+    });
+  });
+
+  it('CHANGE 9 (F15): located folder + faulted fetch + NO Outlook creates the Held minimal anchor with casePo + boxFolder + reconstructionSource minimal', () => {
+    const { ctx } = makeCtx({
+      trigger: {
+        internetMessageId: '<trigger@example.test>',
+        receivedAt: '2026-07-14T10:00:00.000Z',
+      },
+      category: 'case_update',
+      keys: { externalRef: 'REF-123' },
+    });
+    const generator = orchestrations.get('retroCaseOrchestrator')!(ctx as never);
+
+    nextTask(generator); // retroResolveExisting
+    nextTask(generator, { outcome: 'none' }); // Task.all fan-out
+    expect(nextTask(generator, [
+      {
+        found: true,
+        folder: { id: 'F1', name: 'A.PCH261269' },
+        discoveredPo: 'A.PCH261269',
+        principalCode: 'PCH',
+        marker: 'A.',
+        candidateCount: 1,
+      },
+      { found: false },
+    ])).toMatchObject({ name: 'retroBoxFetchInstruction' });
+
+    // Fetch faults → the orchestrator SYNTHESIZES the deterministic folder-keyed anchor
+    // (the checkpointed trigger receivedAt — never wall-clock) and lands the identity.
+    const create = throwTask(generator, new Error('box 502'));
+    expect(create).toMatchObject({
+      name: 'retroCreatePersist',
+      input: expect.objectContaining({
+        reconstructionSource: 'minimal',
+        casePo: 'A.PCH261269',
+        boxFolder: expect.objectContaining({ id: 'F1' }),
+        statusName: 'needs_review',
+        onHold: true,
+        caseType: 'audit',
+        otherFiles: [],
+      }),
+    });
+    expect(
+      (create.input as { original: Record<string, unknown> }).original,
+    ).toMatchObject({
+      messageId: 'retro-box-folder-F1',
+      internetMessageId: 'retro:box:folder:F1',
+      receivedAt: '2026-07-14T10:00:00.000Z',
+    });
+
+    // source 'minimal' → finishPersisted skips classify/extract; status + backfill run.
+    expect(nextTask(generator, {
+      outcome: 'created',
+      caseId: 'case-anchor',
+      casePo: 'A.PCH261269',
+    })).toMatchObject({ name: 'statusEvaluate' });
+    expect(nextTask(generator, undefined)).toMatchObject({ name: 'retroLinkRelated' });
+    expect(generator.next({ linked: 0, scanned: 0 })).toEqual({
+      done: true,
+      value: {
+        outcome: 'created',
+        caseId: 'case-anchor',
+        casePo: 'A.PCH261269',
+        source: 'minimal',
+      },
+    });
+  });
+
+  it('CHANGE 9 (F15): the synthesized anchor falls back to ctx.df.currentUtcDateTime when the trigger has no receivedAt (replay-safe, never Date.now)', () => {
+    const { ctx } = makeCtx({
+      trigger: { internetMessageId: '<trigger@example.test>' },
+      category: 'case_update',
+      keys: { externalRef: 'REF-123' },
+    });
+    const generator = orchestrations.get('retroCaseOrchestrator')!(ctx as never);
+
+    nextTask(generator); // retroResolveExisting
+    nextTask(generator, { outcome: 'none' }); // Task.all fan-out
+    nextTask(generator, [
+      {
+        found: true,
+        folder: { id: 'F1', name: 'A.PCH261269' },
+        discoveredPo: 'A.PCH261269',
+        principalCode: 'PCH',
+        marker: 'A.',
+        candidateCount: 1,
+      },
+      { found: false },
+    ]); // retroBoxFetchInstruction
+    const create = throwTask(generator, new Error('box 502'));
+    expect(create).toMatchObject({ name: 'retroCreatePersist' });
+    expect(
+      (create.input as { original: { receivedAt: string } }).original.receivedAt,
+    ).toBe('2026-07-16T12:00:00.000Z'); // the mocked orchestration clock
   });
 
   it('maps document/body claimant conflicts with a stable source reference', () => {

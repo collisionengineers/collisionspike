@@ -100,7 +100,9 @@ export interface LinkedEmailsPanelProps {
 /** Linked inbound emails for a case — accordion inline previews. */
 export function LinkedEmailsPanel({ caseId, emails }: LinkedEmailsPanelProps) {
   const styles = useStyles();
-  const inbox = useInbox({ view: 'all' });
+  // Case-scoped slice: the server filters by case_id AND keeps retro reconstruction
+  // anchor rows, which the un-scoped triage list deliberately hides (TKT-233).
+  const inbox = useInbox({ view: 'all', caseId });
   const usePayload = emails !== undefined;
   const linked = useMemo(
     () => (usePayload ? emails! : (inbox.data ?? []).filter((e) => e.caseId === caseId)),

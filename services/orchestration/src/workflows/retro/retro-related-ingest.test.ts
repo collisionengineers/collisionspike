@@ -262,6 +262,62 @@ describe('retroRelatedIngestOrchestrator', () => {
     });
   });
 
+  it('CHANGE 8: when the case has NO VRM, an uncontradicted parsed VRM from the related email constrains extractImages', () => {
+    const { caseVrm: _dropped, ...noVrmInput } = INPUT;
+    const generator = run({ ...noVrmInput, keys: { externalRef: 'REF-123' }, rows: [ROW_1] });
+
+    nextTask(generator); // fetchMessage
+    nextTask(generator, ENV_1); // parse
+    // The parse yields a VRM; the keys carry no VRM, so nothing contradicts it.
+    expect(nextTask(generator, {
+      vrm: { value: 'KA08XTR' },
+      reference: { value: 'REF-123' },
+      extraction: {},
+    })).toMatchObject({
+      name: 'classifyPersist',
+      // classifyPersist still sees NO caseVrm — the handoff is scoped to the image lane.
+      input: expect.not.objectContaining({ caseVrm: expect.anything() }),
+    });
+    expect(nextTask(generator, { persisted: 1 })).toMatchObject({
+      name: 'extractImages',
+      input: expect.objectContaining({ caseVrm: 'KA08XTR' }),
+    });
+    nextTask(generator, { extracted: 0, registrationVisible: false }); // retroBackfillFields
+    expect(nextTask(generator, { outcome: 'applied', vrmFilled: true })).toMatchObject({
+      name: 'statusEvaluate',
+    });
+    expect(generator.next(undefined)).toEqual({
+      done: true,
+      value: { processed: 1, failed: 0, fieldsApplied: 1 },
+    });
+  });
+
+  it('CHANGE 8: a CONTRADICTED parse never hands its VRM to extractImages', () => {
+    const { caseVrm: _dropped, ...noVrmInput } = INPUT;
+    // Keys carry ref + VRM; the parse disagrees on BOTH → contradicted.
+    const generator = run({ ...noVrmInput, rows: [ROW_1] });
+
+    nextTask(generator); // fetchMessage
+    nextTask(generator, ENV_1); // parse
+    nextTask(generator, {
+      vrm: { value: 'BD51SMR' },
+      reference: { value: 'ZZZ-999' },
+      extraction: {},
+    }); // classifyPersist
+    expect(nextTask(generator, { persisted: 1 })).toMatchObject({
+      name: 'extractImages',
+      input: expect.not.objectContaining({ caseVrm: expect.anything() }),
+    });
+    // Contradicted → no backfill either; straight to the batch statusEvaluate.
+    expect(nextTask(generator, { extracted: 0, registrationVisible: false })).toMatchObject({
+      name: 'statusEvaluate',
+    });
+    expect(generator.next(undefined)).toEqual({
+      done: true,
+      value: { processed: 1, failed: 0, fieldsApplied: 0 },
+    });
+  });
+
   it('empty parse: evidence persists, the backfill is skipped entirely', () => {
     const generator = run({ ...INPUT, rows: [ROW_2] });
 

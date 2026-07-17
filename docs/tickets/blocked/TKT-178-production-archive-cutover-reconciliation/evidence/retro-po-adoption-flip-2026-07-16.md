@@ -26,7 +26,11 @@ retro reconstruction treats a DISCOVERED archive-folder Case/PO
 2. Set `RETRO_ADOPT_ARCHIVE_PO_ENABLED=true` on **cespk-api-dev**'s production successor at the
    window, alongside the archive-root reconfiguration this ticket already owns.
 3. Note for the A19 ledger: retro-adopted POs are **valid prior allocations** and must feed the
-   per-prefix floor maximum exactly like every other historical allocation.
+   per-prefix floor maximum exactly like every other historical allocation. Every retro create
+   also stamps the discovered folder identity into the `retro_case_created` audit event's
+   `after.discoveredArchivePo` (alongside `after.boxFolderId`), so reconciliation can query
+   which reconstructions — including dev-mode mints — carry an archive PO regardless of what
+   landed in `case_po`/`case_ref`.
 
 ## Where the behaviour is specified
 

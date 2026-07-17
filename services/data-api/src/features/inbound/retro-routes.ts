@@ -26,7 +26,11 @@
  *  - TERMINAL ONLY WHEN VERIFIED: 'eva_submitted' is accepted solely with a resolved
  *    principal + discovered PO (re-asserted here — the domain decideRetroStatus already
  *    guarantees it, but this route never trusts the caller alone).
- *  - NEVER RE-POINT: an inbound_email row that already carries a case_id is left alone.
+ *  - NEVER RE-POINT: an inbound_email row that already carries a case_id is left alone —
+ *    enforced ATOMICALLY by the upsert SQL itself (persistence.ts's ON CONFLICT keeps
+ *    inbound_email.case_id first: COALESCE(inbound_email.case_id, EXCLUDED.case_id)), so
+ *    the pre-flight reads here are fast-path courtesies, not the guarantee; callers
+ *    compare the RETURNING'd linkedCaseId to detect a lost link race.
  */
 
 import { app } from '@azure/functions';
@@ -137,26 +141,36 @@ async function findExistingCases(
   return { rows: [], matchedBy: null };
 }
 
-/** The trigger row's current case link, if the row exists (NEVER RE-POINT guard). */
-async function currentInboundCaseId(internetMessageId: string): Promise<string | null> {
-  const rows = await query<Row>(`SELECT case_id FROM inbound_email WHERE source_message_id = $1`, [
-    internetMessageId,
-  ]);
-  return (rows[0]?.case_id as string | null) ?? null;
+/** The trigger row's presence + current case link, MAILBOX-QUALIFIED to the dedup key
+ *  (source_mailbox, source_message_id) — an eml-arm anchor can share an Internet-Message-Id
+ *  with the live delivery in a real mailbox, and an unqualified read would see the wrong
+ *  row (NEVER RE-POINT guard + the exists probe for classification preservation). */
+async function currentInboundLink(
+  internetMessageId: string,
+  sourceMailbox: string,
+): Promise<{ exists: boolean; caseId: string | null }> {
+  const rows = await query<Row>(
+    `SELECT case_id FROM inbound_email WHERE source_message_id = $1 AND source_mailbox = $2`,
+    [internetMessageId, (sourceMailbox ?? '').trim().toLowerCase()],
+  );
+  return { exists: rows.length > 0, caseId: (rows[0]?.case_id as string | null) ?? null };
 }
 
-/** Link one envelope's inbound_email row to a case ('routed'), honouring the
- *  never-re-point guard. Returns whether a stamp was applied. */
+/** Link one envelope's inbound_email row to a case ('routed'). The upsert SQL enforces
+ *  first-link-wins atomically; true means THIS case holds the link (pre-existing or
+ *  stamped now) — a lost race to another case, or a swallowed upsert failure, is false. */
 async function linkEnvelopeRow(
   envelope: InboundEnvelope,
   providerId: string | null,
   caseId: string,
   classification?: InboundClassificationDto,
 ): Promise<boolean> {
-  const existing = await currentInboundCaseId(envelope.internetMessageId);
-  if (existing) return existing === caseId;
-  await upsertInboundEmail(envelope, providerId, caseId, classification, undefined, 'routed');
-  return true;
+  const existing = await currentInboundLink(envelope.internetMessageId, envelope.sourceMailbox);
+  if (existing.caseId) return existing.caseId === caseId;
+  const { linkedCaseId } = await upsertInboundEmail(
+    envelope, providerId, caseId, classification, undefined, 'routed',
+  );
+  return linkedCaseId === caseId;
 }
 
 /* ============================================================
@@ -183,9 +197,15 @@ app.http('internalRetroResolveExisting', {
       const providerId = body.providerId ?? null;
 
       // NEVER RE-POINT: a trigger already linked (staff or an earlier run) short-circuits.
-      const already = await currentInboundCaseId(body.trigger.internetMessageId);
-      if (already) {
-        return { status: 200, jsonBody: { outcome: 'linked', caseId: already, candidateCount: 1 } };
+      const already = await currentInboundLink(
+        body.trigger.internetMessageId,
+        body.trigger.sourceMailbox,
+      );
+      if (already.caseId) {
+        return {
+          status: 200,
+          jsonBody: { outcome: 'linked', caseId: already.caseId, candidateCount: 1 },
+        };
       }
 
       // Same lock keys the live mint / linkReply / triage-context take for this ref/vrm, so
@@ -202,7 +222,22 @@ app.http('internalRetroResolveExisting', {
       if (rows.length === 1) {
         const hit = rows[0];
         const statusName = caseStatusCodec.toName(hit.status_code) ?? String(hit.status_code);
-        await upsertInboundEmail(body.trigger, providerId, hit.id, undefined, undefined, 'routed');
+        const { linkedCaseId } = await upsertInboundEmail(
+          body.trigger, providerId, hit.id, undefined, undefined, 'routed',
+        );
+        if (linkedCaseId && linkedCaseId !== hit.id) {
+          // Lost link race: a concurrent path stamped the trigger onto ANOTHER case between
+          // the pre-flight read and the upsert (first-link-wins kept that link). The honest
+          // resolution is the case that actually holds the row — no retro_case_linked audit
+          // for a link this run did not make.
+          ctx.log(JSON.stringify({
+            evt: 'retroResolveExisting', outcome: 'linked', caseId: linkedCaseId, lostRaceTo: linkedCaseId,
+          }));
+          return {
+            status: 200,
+            jsonBody: { outcome: 'linked', caseId: linkedCaseId, candidateCount: 1 },
+          };
+        }
         await writeAudit({
           action: AUDIT_ACTION.retro_case_linked,
           caseId: hit.id,
@@ -241,8 +276,11 @@ app.http('internalRetroResolveExisting', {
           // (classifyInbound upserted it earlier in the same run); a missing row degrades
           // to the sourceMessageId-subject idempotency key inside the shared writer.
           const trig = await query<Row>(
-            `SELECT id FROM inbound_email WHERE source_message_id = $1`,
-            [body.trigger.internetMessageId],
+            `SELECT id FROM inbound_email WHERE source_message_id = $1 AND source_mailbox = $2`,
+            [
+              body.trigger.internetMessageId,
+              (body.trigger.sourceMailbox ?? '').trim().toLowerCase(),
+            ],
           );
           const inboundEmailId = (trig[0]?.id as string | undefined) ?? null;
           const candidateIds = rows.map((r) => r.id);
@@ -280,6 +318,13 @@ app.http('internalRetroResolveExisting', {
 /* ============================================================
    POST /api/internal/retro/link-related  (TKT-222)
    ============================================================ */
+/** Per-run cap on NEW related-email links. The caller sends EVERY corroborated candidate
+ *  (uncapped since the F12 fix); this route walks them all but only the first
+ *  RELATED_LINK_CAP rows that would create a NEW link actually link. alreadyLinked rows
+ *  never consume cap, so a re-run advances past the previous run's links instead of
+ *  re-counting them. */
+const RELATED_LINK_CAP = 25;
+
 app.http('internalRetroLinkRelated', {
   methods: ['POST'],
   authLevel: 'anonymous',
@@ -297,54 +342,82 @@ app.http('internalRetroLinkRelated', {
       }
       let linked = 0;
       let skipped = 0;
+      let skippedByCap = 0;
       // TKT-225 — identify WHICH rows are ingest-eligible (additive; count consumers
       // unchanged): freshly linked rows, plus rows ALREADY linked to THIS case so a
       // force re-run can heal the TKT-222 v1 pile (row-links without evidence).
       const linkedIds: string[] = [];
       const alreadyLinkedIds: string[] = [];
-      for (const row of rows.slice(0, 50)) {
+      for (const row of rows) {
         const imid = (row?.internetMessageId ?? '').trim();
         if (!imid) {
           skipped++;
           continue;
         }
         // NEVER RE-POINT: a row already linked anywhere (this case included — idempotent
-        // replays) is left alone.
-        const existing = await currentInboundCaseId(imid);
-        if (existing) {
-          if (existing === caseId) alreadyLinkedIds.push(imid);
+        // replays) is left alone. Mailbox-qualified: the same Internet-Message-Id may
+        // exist under another mailbox's row.
+        const existing = await currentInboundLink(imid, row.sourceMailbox);
+        if (existing.caseId) {
+          if (existing.caseId === caseId) alreadyLinkedIds.push(imid);
           skipped++;
           continue;
         }
-        await upsertInboundEmail(
+        if (linked >= RELATED_LINK_CAP) {
+          skippedByCap++;
+          continue;
+        }
+        // Preserve an EXISTING row's triage classification: only a row this run INSERTS
+        // gets the retro_related tuple — persistence's COALESCE(EXCLUDED.category_code, …)
+        // then leaves an already-triaged row's category/subtype untouched while the
+        // case link still lands.
+        const classification: InboundClassificationDto | undefined = existing.exists
+          ? undefined
+          : {
+              category: 'case_update',
+              subtype: 'retro_related',
+              confidence: 0,
+              signals: ['retro_related_linked'],
+              bodyVrm: '',
+              bodyCaseref: '',
+              bodyJobref: '',
+            };
+        const { linkedCaseId } = await upsertInboundEmail(
           row,
           null,
           caseId,
-          {
-            category: 'case_update',
-            subtype: 'retro_related',
-            confidence: 0,
-            signals: ['retro_related_linked'],
-            bodyVrm: '',
-            bodyCaseref: '',
-            bodyJobref: '',
-          },
+          classification,
           undefined,
           'routed',
         );
-        linkedIds.push(imid);
-        linked++;
+        if (linkedCaseId === caseId) {
+          linkedIds.push(imid);
+          linked++;
+        } else {
+          // A lost first-link race (the row went to another case) or a swallowed upsert
+          // failure — either way THIS case gained no mail, so the row must not feed
+          // linkedIds (ingest eligibility stays honest).
+          skipped++;
+        }
       }
       if (linked > 0) {
         await writeAudit({
           action: AUDIT_ACTION.retro_case_linked,
           caseId,
           summary: `Retro: ${linked} related email(s) linked from mailbox history`,
-          after: { linked, skipped, seam: 'retro/link-related' },
+          after: { linked, skipped, skippedByCap, seam: 'retro/link-related' },
         });
       }
-      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked, skipped }));
-      return { status: 200, jsonBody: { linked, skipped, linkedIds, alreadyLinkedIds } };
+      if (skippedByCap > 0) {
+        ctx.log(JSON.stringify({
+          evt: 'retroLinkRelatedCapped', caseId, cap: RELATED_LINK_CAP, skippedByCap,
+        }));
+      }
+      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked, skipped, skippedByCap }));
+      return {
+        status: 200,
+        jsonBody: { linked, skipped, skippedByCap, linkedIds, alreadyLinkedIds },
+      };
     }),
 });
 
@@ -740,6 +813,10 @@ app.http('internalRetroCreate', {
             // TKT-219: with archive-PO adoption OFF (dev/test) the NORMAL allocator may
             // mint even though a folder/PO was discovered (recorded as case_ref only).
             allowCasePoMint: adoptArchivePo ? !casePo && !body.boxFolder?.id : true,
+            // Adoption OFF also acknowledges the stamped archive folder: the discovered
+            // identity is noted in the audit/note by design, so the archive-folder mint
+            // guard must not hold the case for a fork that mode can never make.
+            archiveIdentityAcknowledged: !adoptArchivePo,
           },
         );
         const effectiveCasePo =
@@ -788,6 +865,10 @@ app.http('internalRetroCreate', {
           // instruction may complete normally. TKT-219: adoption OFF (dev/test) always
           // permits the normal allocator — the discovered PO lives in case_ref only.
           allowCasePoMint: adoptArchivePo ? !casePo && !body.boxFolder?.id : true,
+          // Adoption OFF also acknowledges the stamped archive folder: the discovered
+          // identity is noted in the audit/note by design, so the archive-folder mint
+          // guard must not hold the case for a fork that mode can never make.
+          archiveIdentityAcknowledged: !adoptArchivePo,
         },
       );
       const effectiveCasePo =
@@ -805,6 +886,9 @@ app.http('internalRetroCreate', {
         summary: `Case reconstructed retroactively (${reconstructionSource}): ${name}`,
         after: {
           casePo: effectiveCasePo,
+          // The archive folder's own Case/PO, distinct from the (possibly dev-minted)
+          // casePo above — the reconciliation query key for dev-mode reconstructions.
+          discoveredArchivePo: casePo ?? null,
           status,
           onHold: effectiveOnHold,
           reconstructionSource,
@@ -838,9 +922,12 @@ app.http('internalRetroCreate', {
       if (!effectiveIdentityVerified) {
         // TKT-219: three honest shapes — dev-mint mode with a genuinely discovered PO
         // (adoption gated off), an unmatched PO-shaped token, and no discovered PO at all.
+        // The dev-mode wording says "noted", not "recorded as the case reference": case_ref
+        // usually holds keys.externalRef (the caseRefValue chain above), so the PO's durable
+        // home is this note + the retro_case_created audit's discoveredArchivePo field.
         const noteText =
           casePo && !adoptArchivePo && principalResolved
-            ? `Archive folder Case/PO ${casePo} recorded as the case reference — archive-PO adoption is off in this environment (dev/test), so the Case/PO is minted by the normal allocator. Confirm the details before any further processing.`
+            ? `Archive folder Case/PO ${casePo} noted — archive-PO adoption is off in this environment (dev/test), so the case number was minted by the normal allocator. Confirm the details before any further processing.`
             : (casePo
                 ? `Reference ${casePo} is Case/PO-shaped but matches no known work-provider principal — stored as the case reference, no Case/PO set. `
                 : `No Case/PO could be discovered for this reconstruction. `) +

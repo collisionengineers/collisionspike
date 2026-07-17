@@ -4,6 +4,7 @@ import { gates } from '@cs/domain/gates';
 import {
   CASE_PO_SHAPE_RE,
   matchPrincipalByCasePo,
+  matchSenderIdentity,
   normalizeCasePo,
   selectBoxInstructionCandidate,
   type BoxFolderEntry,
@@ -12,6 +13,7 @@ import {
   type RetroReconstructionSource,
 } from '@cs/domain';
 import { dataApi, type ParserEvaFields } from '../../adapters/data-api.js';
+import type { ProviderMatchRecordsResult } from '../../adapters/data-api-contracts.js';
 import {
   findMessageByInternetMessageId,
   getMessageIdentity,
@@ -29,9 +31,11 @@ import {
   pickCaseFolder,
   rankOutlookOriginals,
   refSearchVariants,
+  senderProviderAgrees,
   type LandedAttachment,
   type OutlookSearchCandidate,
   type RetroSearchHit,
+  type RetroTriggerIdentity,
 } from './retro-envelope.js';
 import { hashPayload, type InboundEnvelope } from '../intake/fetchMessage.js';
 
@@ -351,8 +355,10 @@ df.app.activity('retroBoxFetchInstruction', {
       }
     }
     if (!envelope) {
+      // buildMinimalAnchorEnvelope now REQUIRES receivedAt (deterministic — it also runs
+      // inside the orchestrator); this activity supplies its own wall-clock fallback.
       envelope = buildMinimalAnchorEnvelope(
-        { receivedAt: input.triggerReceivedAt },
+        { receivedAt: fallbackReceivedAt },
         input.discoveredPo,
         input.folderId,
       );
@@ -454,12 +460,67 @@ df.app.activity('retroCreatePersist', {
   },
 });
 
+/* ----------  Provider corroboration plumbing (PR-review fix, 3×P1)  ---------- */
+
+/** Resolve a sender address to work-provider ids exactly as intake's providerMatch does
+ *  (`matchSenderIdentity` over the SAME provider-match corpus): a direct match yields
+ *  that one id; an ambiguity yields the colliding ids; an Image-Source intermediary
+ *  yields its candidate ids; none/unparseable (or no corpus) yields []. */
+function senderProviderIds(
+  from: string,
+  corpus: ProviderMatchRecordsResult | null,
+): string[] {
+  if (!from || !corpus) return [];
+  const identity = matchSenderIdentity(from, corpus.providers, corpus.imageSources);
+  if (identity.kind === 'provider') {
+    if (identity.result.outcome === 'matched' && identity.result.workProviderId) {
+      return [identity.result.workProviderId];
+    }
+    return identity.result.ambiguousProviderIds ?? [];
+  }
+  if (identity.kind === 'intermediary') return [...identity.candidateProviderIds];
+  return [];
+}
+
+/** The trigger side of the corroboration: the checkpointed providerMatch facts
+ *  (direct provider id and/or intermediary candidate ids), deduped. */
+function triggerProviderIdsOf(trigger: RetroTriggerIdentity | undefined): string[] {
+  const ids = [
+    ...(trigger?.providerId ? [trigger.providerId] : []),
+    ...(trigger?.intermediaryCandidateProviderIds ?? []),
+  ];
+  return [...new Set(ids.map((v) => v.trim()).filter(Boolean))];
+}
+
 df.app.activity('retroOutlookLocate', {
-  handler: async (input: { keys: RetroKeys }, ctx): Promise<unknown> => {
+  handler: async (
+    input: { keys: RetroKeys; trigger?: RetroTriggerIdentity },
+    ctx,
+  ): Promise<unknown> => {
     if (!gates.retroCase()) return { skipped: 'gate_off' };
     if (!gates.retroOutlookSearch()) return { skipped: 'outlook_gate_off' };
     const mailboxes = intakeMailboxes().map((m) => m.mailbox);
     if (mailboxes.length === 0) return { skipped: 'no_intake_mailboxes' };
+
+    // PR-review fix (3×P1) — the trigger's checkpointed sender identity, corroborating
+    // weak-keyed candidates below. The corpus is loaded lazily, ONCE per invocation, and
+    // only when a gated rung actually has candidates; a load failure fails weak keys
+    // CLOSED (drop) and external_ref OPEN ('unknown' — same_domain still works corpus-free).
+    const triggerFrom = (input.trigger?.senderAddress ?? '').trim();
+    const triggerIds = triggerProviderIdsOf(input.trigger);
+    const triggerIdentityKnown = Boolean(triggerFrom) || triggerIds.length > 0;
+    let corpus: ProviderMatchRecordsResult | null | undefined;
+    const loadCorpus = async (): Promise<ProviderMatchRecordsResult | null> => {
+      if (corpus === undefined) {
+        try {
+          corpus = await dataApi.providerMatchRecords();
+        } catch (e) {
+          corpus = null;
+          ctx.warn(`[retroOutlookLocate] provider corpus load failed (weak keys fail closed): ${String(e)}`);
+        }
+      }
+      return corpus;
+    };
 
     // Key ladder, strongest-first; a decisive earlier key skips the noisier later
     // sweeps. Each mailbox searched independently — one failing mailbox (throttle,
@@ -506,7 +567,52 @@ df.app.activity('retroOutlookLocate', {
           }
         }
       }
-      const ranked = rankOutlookOriginals(candidates, { intakeMailboxes: mailboxes });
+      // PR-review fix (3×P1) — provider corroboration per rung, BEFORE ranking:
+      //   vrm / claimant (weak)  → the candidate's sender must corroborate the trigger's
+      //     provider identity ('agreed' or 'same_domain'), else it is DROPPED; an unknown
+      //     trigger identity drops ALL weak candidates (the retroBoxLocate
+      //     weak_key_uncorroborated rule applied to the mailbox — never link across
+      //     providers on a registration or a person's name alone);
+      //   external_ref → only a POSITIVE 'mismatch' drops; 'unknown' passes through and
+      //     is surfaced as `providerCorroboration` for the audit trail;
+      //   case_po → exempt (the PO names the case — self-corroborating).
+      const weakRung = rung.matchedKey === 'vrm' || rung.matchedKey === 'claimant';
+      const refRung = rung.matchedKey === 'external_ref';
+      let gated = candidates;
+      const verdicts = new Map<OutlookSearchCandidate, ReturnType<typeof senderProviderAgrees>>();
+      if ((weakRung || refRung) && candidates.length > 0) {
+        if (weakRung && !triggerIdentityKnown) {
+          gated = [];
+          ctx.log(JSON.stringify({
+            evt: 'retroOutlookLocate', matchedKey: rung.matchedKey,
+            reason: 'weak_key_uncorroborated', dropped: candidates.length,
+          }));
+        } else if (triggerIdentityKnown) {
+          const loaded = await loadCorpus();
+          gated = candidates.filter((c) => {
+            const verdict = senderProviderAgrees({
+              candidateFrom: c.from,
+              candidateProviderIds: senderProviderIds(c.from, loaded),
+              triggerFrom,
+              triggerProviderIds: triggerIds,
+            });
+            verdicts.set(c, verdict);
+            return weakRung
+              ? verdict === 'agreed' || verdict === 'same_domain'
+              : verdict !== 'mismatch';
+          });
+          if (gated.length < candidates.length) {
+            ctx.log(JSON.stringify({
+              evt: 'retroOutlookLocate', matchedKey: rung.matchedKey,
+              reason: weakRung ? 'weak_key_uncorroborated' : 'provider_mismatch',
+              dropped: candidates.length - gated.length,
+            }));
+          }
+        }
+        // refRung with an unknown trigger identity: nothing can positively mismatch —
+        // every candidate passes as 'unknown' (no corpus load needed).
+      }
+      const ranked = rankOutlookOriginals(gated, { intakeMailboxes: mailboxes });
       const pick = ranked[0];
       if (pick) {
         ctx.log(JSON.stringify({
@@ -519,6 +625,16 @@ df.app.activity('retroOutlookLocate', {
           mailbox: pick.mailbox,
           resource: `users/${pick.mailbox}/messages/${pick.id}`,
           matchedKey: rung.matchedKey,
+          // PR-review fix — external_ref surfaces the pick's provider corroboration so
+          // the orchestrator can stamp `outlook_provider:<value>` into caseTypeSignals.
+          ...(refRung
+            ? {
+                providerCorroboration: (verdicts.get(pick) ?? 'unknown') as
+                  | 'agreed'
+                  | 'same_domain'
+                  | 'unknown',
+              }
+            : {}),
           // TKT-219 follow-up — the ranked SHORTLIST so the orchestrator can fall back to
           // the next candidate when a pick is refused (blocked-family) or uncorroborated.
           candidates: ranked.slice(0, 3).map((c) => ({
@@ -534,12 +650,13 @@ df.app.activity('retroOutlookLocate', {
   },
 });
 
-/** TKT-222 bounds: per-(mailbox × variant) search top for the related sweep, and the
- *  per-case link cap (truncation is logged — no silent caps). */
+/** TKT-222 bounds: per-(mailbox × variant) search top for the related sweep. The
+ *  25-new-links per-case cap moved SERVER-SIDE (PR-review fix): the link route caps
+ *  new links itself (already-linked rows don't consume it) and reports `skippedByCap`,
+ *  so the activity no longer pre-caps candidates before identity resolution. */
 const RELATED_SEARCH_TOP = 50;
-const RELATED_LINK_CAP = 25;
-/** TKT-225 — per-case cap on the rows offered to the related-INGEST child (matches
- *  RELATED_LINK_CAP; truncation logged, never silent). */
+/** TKT-225 — per-case cap on the rows offered to the related-INGEST child
+ *  (truncation logged, never silent). */
 const RELATED_INGEST_CAP = 25;
 
 /** TKT-225 — one ingest-eligible related row as the child orchestrator consumes it. */
@@ -555,7 +672,14 @@ interface RelatedIngestRow {
 
 df.app.activity('retroLinkRelated', {
   handler: async (
-    input: { caseId: string; keys: RetroKeys; excludeInternetMessageIds?: string[] },
+    input: {
+      caseId: string;
+      keys: RetroKeys;
+      excludeInternetMessageIds?: string[];
+      /** PR-review fix (3×P1) — the checkpointed trigger identity for weak-key
+       *  corroboration of third-party candidates. Optional; unknown fails closed. */
+      trigger?: RetroTriggerIdentity;
+    },
     ctx,
   ): Promise<unknown> => {
     if (!gates.retroCase()) return { skipped: 'gate_off' };
@@ -569,6 +693,12 @@ df.app.activity('retroLinkRelated', {
       input.keys.claimant,
     ].filter((k): k is string => Boolean(k));
     if (keyList.length === 0) return { skipped: 'no_keys' };
+    // PR-review fix — key strength split: a subject carrying ONLY a weak key (vrm /
+    // claimant) is not a licence to link third-party mail on its own.
+    const strongKeys = [input.keys.casePo, input.keys.externalRef].filter(
+      (k): k is string => Boolean(k),
+    );
+    const weakKeys = [input.keys.vrm, input.keys.claimant].filter((k): k is string => Boolean(k));
 
     const norm = (v: string): string => v.trim().toUpperCase().replace(/\s+/g, '');
     const exclude = new Set((input.excludeInternetMessageIds ?? []).map((v) => v.trim()));
@@ -576,13 +706,26 @@ df.app.activity('retroLinkRelated', {
     // Sweep every key across every mailbox; own-mailbox senders are INCLUDED on purpose —
     // our filed replies and chasers belong to the case too (ADR-0022, TKT-222 directive).
     const seen = new Set<string>();
-    const candidates: Array<{ mailbox: string; id: string; subject: string }> = [];
+    const candidates: Array<{
+      mailbox: string;
+      id: string;
+      subject: string;
+      from: string;
+      weakOnly: boolean;
+    }> = [];
     for (const key of keyList) {
       const variants = key === input.keys.claimant ? [key] : refSearchVariants(key);
       for (const mailbox of mailboxes) {
         for (const variant of variants) {
           try {
-            const hits = await searchMessages(mailbox, kqlPhrase(variant), RELATED_SEARCH_TOP);
+            const hits = await searchMessages(
+              mailbox,
+              kqlPhrase(variant),
+              RELATED_SEARCH_TOP,
+              // PR-review fix — the locate sweep's "no silent caps" doctrine applies to
+              // the related sweep too: a truncated page run is surfaced, never swallowed.
+              (message) => ctx.warn(`[retroLinkRelated] ${message}`),
+            );
             for (const h of hits) {
               const k = `${mailbox}\u0000${h.id}`;
               if (seen.has(k)) continue;
@@ -590,8 +733,16 @@ df.app.activity('retroLinkRelated', {
               // Conservative v1 corroboration: the SUBJECT must carry one of the case keys
               // ($search relevance alone is not a licence to link).
               const subjectNorm = norm(h.subject);
-              if (keyList.some((candidateKey) => subjectNorm.includes(norm(candidateKey)))) {
-                candidates.push({ mailbox, id: h.id, subject: h.subject });
+              const strongInSubject = strongKeys.some((ck) => subjectNorm.includes(norm(ck)));
+              const weakInSubject = weakKeys.some((ck) => subjectNorm.includes(norm(ck)));
+              if (strongInSubject || weakInSubject) {
+                candidates.push({
+                  mailbox,
+                  id: h.id,
+                  subject: h.subject,
+                  from: h.from,
+                  weakOnly: !strongInSubject,
+                });
               }
             }
           } catch (e) {
@@ -603,17 +754,71 @@ df.app.activity('retroLinkRelated', {
       }
     }
 
-    if (candidates.length > RELATED_LINK_CAP) {
-      ctx.warn(
-        `[retroLinkRelated] ${candidates.length} corroborated candidates capped at ${RELATED_LINK_CAP} for case ${input.caseId} — re-run to pick up the remainder`,
-      );
+    // PR-review fix (3×P1) — weak-subject-only candidates need provenance: our OWN filed
+    // mail (from-address ∈ the configured intake mailboxes) or a sender whose provider
+    // identity corroborates the trigger's ('agreed'/'same_domain' — the retroOutlookLocate
+    // rule). Third-party weak-only mail is otherwise SKIPPED and counted (never silent);
+    // an unknown trigger identity fails those candidates closed. Corpus loaded lazily,
+    // ONCE, only when a third-party weak-only candidate actually appears.
+    const ownMailboxes = new Set(mailboxes.map((m) => m.trim().toLowerCase()));
+    const triggerFrom = (input.trigger?.senderAddress ?? '').trim();
+    const triggerIds = triggerProviderIdsOf(input.trigger);
+    let corpus: ProviderMatchRecordsResult | null | undefined;
+    let weakUncorroborated = 0;
+    const corroborated: typeof candidates = [];
+    for (const c of candidates) {
+      if (!c.weakOnly || ownMailboxes.has(c.from.trim().toLowerCase())) {
+        corroborated.push(c);
+        continue;
+      }
+      if (corpus === undefined && (triggerFrom || triggerIds.length > 0)) {
+        try {
+          corpus = await dataApi.providerMatchRecords();
+        } catch (e) {
+          corpus = null;
+          ctx.warn(
+            `[retroLinkRelated] provider corpus load failed (weak-only candidates fail closed): ${String(e)}`,
+          );
+        }
+      }
+      const verdict = senderProviderAgrees({
+        candidateFrom: c.from,
+        candidateProviderIds: senderProviderIds(c.from, corpus ?? null),
+        triggerFrom,
+        triggerProviderIds: triggerIds,
+      });
+      if (verdict === 'agreed' || verdict === 'same_domain') {
+        corroborated.push(c);
+        continue;
+      }
+      weakUncorroborated += 1;
     }
+    if (weakUncorroborated > 0) {
+      ctx.log(JSON.stringify({
+        evt: 'retroLinkRelated', caseId: input.caseId,
+        reason: 'weak_key_uncorroborated', weakUncorroborated,
+      }));
+    }
+
     const rows: InboundEnvelope[] = [];
     // TKT-225 — retain the (mailbox, Graph-id, receivedAt) behind each posted row so the
     // route's linkedIds/alreadyLinkedIds can be mapped back into ingest-eligible rows.
+    // PR-review fix — NO activity-side pre-cap: identities resolve for EVERY corroborated
+    // candidate and all surviving rows go to the link route (the route caps new links at
+    // 25 itself and reports `skippedByCap`; already-linked rows don't consume the cap).
     const byInternetMessageId = new Map<string, { messageId: string; mailbox: string; receivedAt: string }>();
-    for (const c of candidates.slice(0, RELATED_LINK_CAP)) {
-      const identity = await getMessageIdentity(c.mailbox, c.id);
+    for (const c of corroborated) {
+      // PR-review fix — per-candidate salvage: one Graph 429/5xx on the identity read
+      // must not discard the rows already accumulated (the per-mailbox catch's twin).
+      let identity: Awaited<ReturnType<typeof getMessageIdentity>>;
+      try {
+        identity = await getMessageIdentity(c.mailbox, c.id);
+      } catch (e) {
+        ctx.warn(
+          `[retroLinkRelated] identity read failed on ${c.mailbox}/${c.id} (continuing): ${String(e)}`,
+        );
+        continue;
+      }
       if (!identity || exclude.has(identity.internetMessageId.trim())) continue;
       byInternetMessageId.set(identity.internetMessageId.trim(), {
         messageId: c.id,
@@ -639,20 +844,29 @@ df.app.activity('retroLinkRelated', {
       } as InboundEnvelope);
     }
     if (rows.length === 0) {
-      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId: input.caseId, linked: 0, scanned: candidates.length }));
-      return { linked: 0, scanned: candidates.length };
+      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId: input.caseId, linked: 0, scanned: candidates.length, weakUncorroborated }));
+      return { linked: 0, scanned: candidates.length, weakUncorroborated };
     }
     const persisted = await dataApi.retroLinkRelated({ caseId: input.caseId, rows });
     ctx.log(JSON.stringify({
       evt: 'retroLinkRelated', caseId: input.caseId,
       linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length,
+      skippedByCap: persisted.skippedByCap ?? 0, weakUncorroborated,
     }));
     const result: {
       linked: number;
       skippedRows: number;
       scanned: number;
+      skippedByCap: number;
+      weakUncorroborated: number;
       ingestRows?: RelatedIngestRow[];
-    } = { linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length };
+    } = {
+      linked: persisted.linked,
+      skippedRows: persisted.skipped,
+      scanned: candidates.length,
+      skippedByCap: persisted.skippedByCap ?? 0,
+      weakUncorroborated,
+    };
     // TKT-225 — the checkpointed gate decision: `ingestRows` is present ONLY when the
     // ingest gate is on (the orchestrator branches purely on this activity result).
     // Newly linked rows AND rows already linked to THIS case are eligible — the latter
@@ -731,11 +945,19 @@ df.app.activity('retroRecordFailure', {
       /** TKT-219 follow-up — located candidates the create seam refused (blocked-family
        *  classification): staff must see a candidate EXISTS and what blocks it. */
       refusedOriginals?: Array<{ internetMessageId: string; category: string }>;
+      /** PR-review fix (CHANGE 2) — the trigger row's source mailbox so the attention
+       *  stamp's UPDATE can scope to (source_message_id, source_mailbox). Optional —
+       *  omitted when unknown; the trigger envelope's own sourceMailbox is the fallback. */
+      sourceMailbox?: string;
     },
     ctx,
   ): Promise<unknown> => {
     if (!gates.retroCase()) return { skipped: 'gate_off' };
-    const env = input.trigger as { internetMessageId?: string; subject?: string };
+    const env = input.trigger as {
+      internetMessageId?: string;
+      subject?: string;
+      sourceMailbox?: string;
+    };
     const refused = input.refusedOriginals ?? [];
     await dataApi.recordAudit({
       action: 'retro_reconstruction_failed',
@@ -761,9 +983,13 @@ df.app.activity('retroRecordFailure', {
     // Best-effort (schema-tolerant server-side) — the audit above is the durable record.
     if (env.internetMessageId) {
       try {
+        // PR-review fix (CHANGE 2) — forward the known mailbox so the route can scope
+        // its UPDATE; optional (omitted when neither the caller nor the envelope has it).
+        const sourceMailbox = (input.sourceMailbox ?? env.sourceMailbox ?? '').trim();
         await dataApi.markInboundAttention({
           sourceMessageId: env.internetMessageId,
           reason: 'unable_to_locate',
+          ...(sourceMailbox ? { sourceMailbox } : {}),
         });
       } catch (e) {
         ctx.warn(`[retroRecordFailure] attention stamp failed (best-effort): ${String(e)}`);

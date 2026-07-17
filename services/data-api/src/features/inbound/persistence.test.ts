@@ -137,11 +137,11 @@ describe('INBOUND_ATTENTION_CLEAR_ON_LINK_SQL — stale unable_to_locate cleared
     const captured: string[] = [];
     vi.mocked(query).mockImplementation((async (sql: string) => {
       captured.push(sql);
-      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-1' }] : [];
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-1', case_id: 'case-1' }] : [];
     }) as never);
 
-    const id = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
-    expect(id).toBe('ie-1');
+    const result = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    expect(result).toEqual({ inboundEmailId: 'ie-1', linkedCaseId: 'case-1' });
     const upsert = captured.find((s) => /INSERT INTO inbound_email/.test(s))!;
     expect(upsert).toContain(INBOUND_ATTENTION_CLEAR_ON_LINK_SQL);
     // The TKT-226 pair-refresh CASE and the human-mode freeze are UNDISTURBED.
@@ -154,13 +154,62 @@ describe('INBOUND_ATTENTION_CLEAR_ON_LINK_SQL — stale unable_to_locate cleared
     const captured: string[] = [];
     vi.mocked(query).mockImplementation((async (sql: string) => {
       captured.push(sql);
-      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-2' }] : [];
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-2', case_id: 'case-1' }] : [];
     }) as never);
 
-    const id = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
-    expect(id).toBe('ie-2');
+    const result = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    expect(result).toEqual({ inboundEmailId: 'ie-2', linkedCaseId: 'case-1' });
     const upsert = captured.find((s) => /INSERT INTO inbound_email/.test(s))!;
     expect(upsert).not.toContain('attention_reason');
     expect(upsert).toContain(INBOUND_SUBTYPE_PAIR_REFRESH_SQL);
+  });
+});
+
+/* ============================================================
+   Atomic first-link-wins — the upsert SQL is the guarantee
+   ============================================================ */
+describe('upsertInboundEmail — atomic first-link-wins on case_id', () => {
+  const envelope = {
+    internetMessageId: '<race@example.test>',
+    subject: 'RE: REF-999',
+    senderAddress: 'sender@example.test',
+    sourceMailbox: 'intake@example.test',
+    receivedAt: '2026-07-17T10:00:00.000Z',
+    attachments: [],
+  } as unknown as Parameters<typeof upsertInboundEmail>[0];
+
+  it('keeps the EXISTING link first in the ON CONFLICT SET and returns case_id via RETURNING', async () => {
+    vi.mocked(tableColumns).mockResolvedValue(new Set<string>());
+    const captured: string[] = [];
+    vi.mocked(query).mockImplementation((async (sql: string) => {
+      captured.push(sql);
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-3', case_id: 'case-1' }] : [];
+    }) as never);
+
+    await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    const upsert = captured.find((s) => /INSERT INTO inbound_email/.test(s))!;
+    // Existing link wins — a concurrent second caller can never re-point a linked row.
+    expect(upsert).toContain('COALESCE(inbound_email.case_id, EXCLUDED.case_id)');
+    expect(upsert).not.toContain('COALESCE(EXCLUDED.case_id, inbound_email.case_id)');
+    // RETURNING exposes the SURVIVING link so callers can detect a lost race.
+    expect(upsert).toContain('RETURNING id, case_id');
+  });
+
+  it('reports the surviving link — not the offered one — after a lost race', async () => {
+    vi.mocked(tableColumns).mockResolvedValue(new Set<string>());
+    vi.mocked(query).mockImplementation((async (sql: string) => {
+      return /INSERT INTO inbound_email/.test(sql) ? [{ id: 'ie-4', case_id: 'case-other' }] : [];
+    }) as never);
+
+    const result = await upsertInboundEmail(envelope, null, 'case-1', undefined, undefined, 'routed');
+    expect(result).toEqual({ inboundEmailId: 'ie-4', linkedCaseId: 'case-other' });
+  });
+
+  it('returns both nulls when the write fails (triage provenance never blocks intake)', async () => {
+    vi.mocked(tableColumns).mockResolvedValue(new Set<string>());
+    vi.mocked(query).mockRejectedValue(new Error('db down'));
+
+    const result = await upsertInboundEmail(envelope, null, 'case-1');
+    expect(result).toEqual({ inboundEmailId: null, linkedCaseId: null });
   });
 });

@@ -33,12 +33,18 @@ export const CASE_SELECT_WITH_ACTIVITY =
   // TKT-226 — the audit summary plus the honest-label fields carried in the
   // OBJECT `after` payload. Legacy rows hold a JSON string SCALAR (valid jsonb,
   // jsonb_typeof = 'string'), so the object guard yields NULL there — the label
-  // seam then falls back to parsing the filename out of the summary.
+  // seam then falls back to parsing the filename out of the summary. The
+  // jsonb_typeof probe is NESTED inside the validity CASE (mirroring `suggested`
+  // above): PostgreSQL does not guarantee AND operand order, so a flat
+  // `pg_input_is_valid(…) AND jsonb_typeof(ae.after::jsonb) = …` may evaluate the
+  // cast first and error on a non-JSON memo, sinking every queue read.
   'ae.name AS summary, ' +
-  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') AND jsonb_typeof(ae.after::jsonb) = 'object' " +
-  "THEN ae.after::jsonb->>'evidenceClass' END AS evidence_class, " +
-  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') AND jsonb_typeof(ae.after::jsonb) = 'object' " +
-  "THEN ae.after::jsonb->>'origin' END AS origin " +
+  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+  "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+  "THEN ae.after::jsonb->>'evidenceClass' END END AS evidence_class, " +
+  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+  "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+  "THEN ae.after::jsonb->>'origin' END END AS origin " +
   'FROM audit_event ae WHERE ae.case_id = c.id ' +
   'UNION ALL ' +
   "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer, false, NULL::text, NULL::text, NULL::text FROM note n WHERE n.case_id = c.id " +

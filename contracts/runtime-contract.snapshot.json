@@ -2593,8 +2593,8 @@
         "name": "InboundFacet",
         "kind": "InterfaceDeclaration",
         "source": "packages/domain/src/dto/index.ts",
-        "signature": "export interface InboundFacet {\n    category?: InboundCategory;\n    subtype?: InboundSubtype;\n    view?: InboundView;\n}",
-        "sha256": "504d5b80867cbb9615e97e6519101bc81b83920954b4a57e0d82901d87005ff5"
+        "signature": "export interface InboundFacet {\n    category?: InboundCategory;\n    subtype?: InboundSubtype;\n    view?: InboundView;\n    caseId?: string;\n}",
+        "sha256": "e4943d7a2878ff2cd6a829403272d59b872ab93581ab8c2e3562782b6d43040a"
       },
       {
         "name": "InboundSubtype",

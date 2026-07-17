@@ -67,8 +67,15 @@ const BOX_CLI_CHAIN_RE =
 export function isReadOnlyBoxCommand(cmd) {
   if (BOX_SDK_RE.test(cmd) || BOX_TOOL_RE.test(cmd)) return false;
   if (BOX_REST_RE.test(cmd)) {
-    if (/(-X|--request)[=\s]+["']?(?!GET\b)[A-Z]+/i.test(cmd)) return false;
-    if (/(\s|^)(-d|--data(?:-[a-z]+)?|--upload-file|-T|-F|--form)\b/i.test(cmd)) return false;
+    // Explicit method: spaced (-X DELETE), attached (-XDELETE), and = (-X=DELETE) forms all
+    // disqualify; every separator variant of GET (-X GET / -XGET / -X=GET) stays allowed
+    // because \b after GET holds at a following space, quote, or end-of-string.
+    if (/(-X|--request)[=\s]*["']?(?!GET\b)[A-Z]+/i.test(cmd)) return false;
+    // Body/upload flags imply a write (--json also implies POST). Short forms match
+    // case-sensitively with NO trailing \b so attached values (-dDELETE, -Tfile, -Fname=x)
+    // are caught — curl short flags are case-sensitive (-d data vs -D dump-header) — while
+    // the (\s|^) anchor keeps unrelated long flags like --dump-header from matching.
+    if (/(\s|^)(-[dTF]|--data(?:-[a-z]+)?\b|--json\b|--upload-file\b|--form\b)/.test(cmd)) return false;
   }
   const chains = [...cmd.matchAll(BOX_CLI_CHAIN_RE)];
   if (chains.length === 0 && !BOX_REST_RE.test(cmd)) return false;

@@ -202,6 +202,8 @@ export interface ProviderRecoveryContext {
   caseType?: CaseWorkType;
   caseTypeDual?: boolean;
   allowCasePoMint?: boolean;
+  /** Retro dev/test (adoption off) only — see CompleteProviderRecoveryInput. */
+  archiveIdentityAcknowledged?: boolean;
 }
 
 export interface ApplyParserFieldsResult {

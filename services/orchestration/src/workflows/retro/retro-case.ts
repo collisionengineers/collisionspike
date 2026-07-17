@@ -77,7 +77,11 @@ import {
 } from '../../platform/supplement-parse.js';
 import type { InboundEnvelope } from '../intake/fetchMessage.js';
 import type { InboundClassification } from '../intake/classifyInbound.js';
-import { relatedParseContradictsKeys } from './retro-envelope.js';
+import {
+  buildMinimalAnchorEnvelope,
+  relatedParseContradictsKeys,
+  type RetroTriggerIdentity,
+} from './retro-envelope.js';
 
 /** The parse activity's envelope shape as the retro rungs consume it. */
 interface RetroParseResult {
@@ -221,12 +225,42 @@ app.http('retro-case-start', {
     // when the caller says so: Failed/Terminated always could be; TKT-223 adds force=true for
     // Completed instances whose outcome was a failure (no_source / trigger_not_found) so the
     // pile can be re-driven once conditions change (e.g. the Box archive grant lands).
+    // PR-review fix (CHANGE 10) — force is SCOPED to the failure family: the prior
+    // instance's recorded output decides. A Completed run whose outcome created or linked
+    // a case ('created' / 'linked' / 'already_exists_linked') is finished business — the
+    // caller gets the prior outcome back instead of a re-drive. Everything else
+    // (trigger_not_found / no_source / not_eligible / ambiguous / skipped / bad_input —
+    // the complement of the success family) stays force-restartable.
     const isLive = runtimeStatus === 'Running' || runtimeStatus === 'Pending';
-    const isRestartable =
-      runtimeStatus === 'Failed' || runtimeStatus === 'Terminated' || input.force === true;
+    let priorOutcome: string | undefined;
+    let isRestartable = runtimeStatus === 'Failed' || runtimeStatus === 'Terminated';
+    if (!isRestartable && !isLive && runtimeStatus === 'Completed' && input.force === true) {
+      const out = existing?.output as { outcome?: unknown } | null | undefined;
+      priorOutcome =
+        out && typeof out === 'object' && typeof out.outcome === 'string'
+          ? out.outcome
+          : undefined;
+      const succeeded =
+        priorOutcome === 'created' ||
+        priorOutcome === 'linked' ||
+        priorOutcome === 'already_exists_linked';
+      isRestartable = !succeeded;
+    }
     if (runtimeStatus && (isLive || !isRestartable)) {
-      ctx.log(`[retro-case] instance ${instanceId} already ${runtimeStatus} — not restarted`);
-      return { status: 200, jsonBody: { instanceId, deduped: true, runtimeStatus } };
+      ctx.log(
+        `[retro-case] instance ${instanceId} already ${runtimeStatus}` +
+          (priorOutcome ? ` (outcome ${priorOutcome})` : '') +
+          ' — not restarted',
+      );
+      return {
+        status: 200,
+        jsonBody: {
+          instanceId,
+          deduped: true,
+          runtimeStatus,
+          ...(priorOutcome ? { outcome: priorOutcome } : {}),
+        },
+      };
     }
     if (runtimeStatus && input.force === true) {
       ctx.log(`[retro-case] force rerun of ${runtimeStatus} instance ${instanceId} (TKT-223)`);
@@ -270,6 +304,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
           trigger: { internetMessageId: input.internetMessageId },
           keys: {},
           rungsTried: ['find_trigger'],
+          // PR-review fix (CHANGE 2) — scope the attention stamp's UPDATE to the drain
+          // row's stored mailbox.
+          ...(input.mailbox ? { sourceMailbox: input.mailbox } : {}),
         });
       } catch (e) {
         if (!ctx.df.isReplaying) {
@@ -343,6 +380,8 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
             keys: decision.keys ?? {},
             triggerCategory: classification.category,
             rungsTried: ['eligibility'],
+            // PR-review fix (CHANGE 2) — the drain row's stored mailbox scopes the stamp.
+            ...(input.mailbox ? { sourceMailbox: input.mailbox } : {}),
           });
         } catch (e) {
           if (!ctx.df.isReplaying) {
@@ -355,6 +394,12 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     keys = decision.keys;
   }
 
+  // PR-review fix (CHANGE 2) — the failure stamp's mailbox scope, pure over checkpointed
+  // facts: the drain row's stored mailbox when driven manually, else the trigger
+  // envelope's own source mailbox (the intake path's checkpointed fetch).
+  const failureSourceMailbox =
+    input.mailbox ?? (trigger as { sourceMailbox?: string }).sourceMailbox;
+
   if (!hasUsableRetroKey(keys)) {
     // TKT-230 (item 7) — the analogous visible-home guard on the keyless return; `category`
     // here is checkpointed from the classify activity (drain path) or the caller (intake
@@ -366,6 +411,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
           keys: keys ?? {},
           triggerCategory: category,
           rungsTried: ['eligibility'],
+          ...(failureSourceMailbox ? { sourceMailbox: failureSourceMailbox } : {}),
         });
       } catch (e) {
         if (!ctx.df.isReplaying) {
@@ -376,6 +422,19 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     return { outcome: 'not_eligible', reasons: ['no_usable_key'] };
   }
   const searchKeys = keys as RetroKeys;
+
+  // PR-review fix (CHANGE 6) — the trigger's sender identity, pure over checkpointed
+  // facts (the envelope from the caller / fetchMessage; providerId + intermediary from
+  // providerMatch): threaded into the Outlook search activities so weak-keyed candidates
+  // are provider-corroborated exactly as the Box weak-key rule requires.
+  const triggerSenderAddress = (trigger as { senderAddress?: string }).senderAddress;
+  const triggerIdentity: RetroTriggerIdentity = {
+    ...(triggerSenderAddress ? { senderAddress: triggerSenderAddress } : {}),
+    ...(providerId ? { providerId } : {}),
+    ...(intermediary && intermediary.candidateProviderIds.length > 0
+      ? { intermediaryCandidateProviderIds: intermediary.candidateProviderIds }
+      : {}),
+  };
 
   // Rung 1 — ANY-status existence check + link (the billing fix). A hit ends the ladder.
   const resolved = (yield ctx.df.callActivityWithRetry('retroResolveExisting', retry, {
@@ -455,6 +514,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     resource?: string;
     mailbox?: string;
     matchedKey?: string;
+    /** PR-review fix (CHANGE 6) — the external_ref pick's provider corroboration
+     *  ('mismatch' candidates were dropped inside the activity), audit-stamped below. */
+    providerCorroboration?: 'agreed' | 'same_domain' | 'unknown';
     /** TKT-219 follow-up — the ranked shortlist for candidate fallback. */
     candidates?: Array<{ messageId: string; mailbox: string; resource: string }>;
   }
@@ -470,6 +532,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   });
   const outlookLocateTask = ctx.df.callActivityWithRetry('retroOutlookLocate', retry, {
     keys: searchKeys,
+    trigger: triggerIdentity,
   });
   let located: BoxLocateResult = { skipped: 'rung_failed' };
   let outlook: OutlookLocateResult = { skipped: 'rung_failed' };
@@ -524,12 +587,19 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   const outlookUsable = Boolean(
     !outlook.skipped && outlook.found && outlook.messageId && outlook.resource,
   );
+  // PR-review fix (CHANGE 9, F15) — the Box IDENTITY (folder + discovered PO) counts as
+  // located even when the instruction FETCH faulted or was skipped: a fetch hiccup must
+  // not discard a real archive identity. A located-but-unfetched folder plans exactly as
+  // a located-but-unparseable one ('minimal' instruction → combined / minimal_anchor).
+  const boxLocated = Boolean(
+    !located.skipped && located.found && located.folder && located.discoveredPo,
+  );
   const plan = planRetroReconstruction({
-    box: { skipped: Boolean(located.skipped), found: Boolean(fetched) },
+    box: { skipped: Boolean(located.skipped), found: boxLocated },
     outlook: { skipped: Boolean(outlook.skipped), found: outlookUsable },
-    ...(fetched
+    ...(boxLocated
       ? {
-          boxInstruction: (fetched.instructionSource ?? 'minimal') as
+          boxInstruction: (fetched ? (fetched.instructionSource ?? 'minimal') : 'minimal') as
             | 'box_eml'
             | 'box_doc'
             | 'minimal',
@@ -666,10 +736,16 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         caseId,
         keys: searchKeys,
         excludeInternetMessageIds,
+        // PR-review fix (CHANGE 6) — the checkpointed trigger identity for the weak-key
+        // corroboration of third-party related candidates.
+        trigger: triggerIdentity,
       })) as {
         skipped?: string;
         linked?: number;
         scanned?: number;
+        /** PR-review fix — the route's own 25-new-links cap, surfaced (never silent). */
+        skippedByCap?: number;
+        weakUncorroborated?: number;
         ingestRows?: Array<{
           internetMessageId: string;
           messageId: string;
@@ -679,7 +755,10 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         }>;
       };
       if (!ctx.df.isReplaying && !linked.skipped) {
-        ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked: linked.linked, scanned: linked.scanned }));
+        ctx.log(JSON.stringify({
+          evt: 'retroLinkRelated', caseId, linked: linked.linked, scanned: linked.scanned,
+          skippedByCap: linked.skippedByCap, weakUncorroborated: linked.weakUncorroborated,
+        }));
       }
       // TKT-225 — the initial reconstruction is like receiving a new case: each linked
       // related email is INGESTED like a new intake (attachments → evidence, embedded
@@ -802,8 +881,22 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
   /** The minimal-anchor create (folder identity, no material). Returns the terminal
    *  result object, or null when the create could not land (fall to the failure record). */
   function* createMinimalAnchor(): Generator<Task, Record<string, unknown> | null, never> {
-    if (!fetched?.envelope || !located.folder || !located.discoveredPo) return null;
-    const original = fetched.envelope;
+    if (!located.folder || !located.discoveredPo) return null;
+    // PR-review fix (CHANGE 9, F15) — a located folder whose instruction fetch faulted
+    // still anchors: synthesize the deterministic folder-keyed envelope here. Replay-safe
+    // time: the checkpointed trigger receivedAt, else Durable's orchestration clock
+    // (ctx.df.currentUtcDateTime — NEVER Date.now in an orchestrator body).
+    const original =
+      fetched?.envelope ??
+      buildMinimalAnchorEnvelope(
+        {
+          receivedAt:
+            (trigger as { receivedAt?: string }).receivedAt ??
+            ctx.df.currentUtcDateTime.toISOString(),
+        },
+        located.discoveredPo,
+        located.folder.id,
+      );
     const statusDecision = decideRetroStatus({
       triggerCategory: category ?? 'other',
       reconstruction: 'minimal',
@@ -831,7 +924,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         url: `https://app.box.com/folder/${encodeURIComponent(located.folder.id)}`,
       },
       triggerCategory: category,
-      otherFiles: fetched.otherFiles ?? [],
+      otherFiles: fetched?.otherFiles ?? [],
     })) as PersistResult;
     if (persisted.skipped) return { outcome: 'skipped', reason: persisted.skipped };
     if (persisted.outcome === 'gated_off') return { outcome: 'skipped', reason: 'api_gate_off' };
@@ -939,6 +1032,11 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         ...contentType.signals,
         ...statusDecision.signals,
         `outlook_match:${outlook.matchedKey ?? 'unknown'}`,
+        // PR-review fix (CHANGE 6) — the external_ref pick's provider corroboration,
+        // audit-visible on the created case.
+        ...(outlook.providerCorroboration
+          ? [`outlook_provider:${outlook.providerCorroboration}`]
+          : []),
         ...(boxIdentity ? ['combined_reconstruction'] : []),
       ],
       ...(boxIdentity && located.folder
@@ -1128,7 +1226,10 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         });
         rungsTried.push('box_refused_category');
         if (outlookUsable) {
-          const viaOutlook = (yield* createFromOutlook(false)) as Record<string, unknown> | null;
+          // PR-review fix (CHANGE 9, F18) — the fallback keeps the Box IDENTITY (casePo +
+          // archive folder): box_source arm entry guarantees located.folder +
+          // located.discoveredPo, which is all createFromOutlook(true) needs.
+          const viaOutlook = (yield* createFromOutlook(true)) as Record<string, unknown> | null;
           if (viaOutlook) return viaOutlook;
         }
       } else {
@@ -1165,7 +1266,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       }
       if (outlookUsable) {
         try {
-          const viaOutlook = (yield* createFromOutlook(false)) as Record<string, unknown> | null;
+          // PR-review fix (CHANGE 9, F18) — the catch fallback keeps the Box identity too
+          // (same guarantee: the arm ran only with located.folder + located.discoveredPo).
+          const viaOutlook = (yield* createFromOutlook(true)) as Record<string, unknown> | null;
           if (viaOutlook) return viaOutlook;
         } catch (e2) {
           if (e2 instanceof ProviderArchivePendingError) throw e2;
@@ -1226,6 +1329,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     keys: searchKeys,
     triggerCategory: category,
     rungsTried,
+    ...(failureSourceMailbox ? { sourceMailbox: failureSourceMailbox } : {}),
     ...(boxAmbiguity ? { ambiguousFolders: boxAmbiguity } : {}),
     ...(refusedOriginals.length > 0 ? { refusedOriginals } : {}),
   });

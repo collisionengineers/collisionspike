@@ -326,6 +326,9 @@ export const dataApi = {
     skipped: number;
     linkedIds?: string[];
     alreadyLinkedIds?: string[];
+    /** PR-review fix — the route now applies the 25-new-links per-case cap itself
+     *  (already-linked rows don't consume it) and reports how many rows it skipped. */
+    skippedByCap?: number;
   }> {
     return request('POST', '/api/internal/retro/link-related', payload);
   },
@@ -359,6 +362,9 @@ export const dataApi = {
   markInboundAttention(payload: {
     sourceMessageId: string;
     reason: 'unable_to_locate' | 'images_no_match';
+    /** PR-review fix (CHANGE 2) — the trigger row's source mailbox; when present the
+     *  route scopes its UPDATE to (source_message_id, source_mailbox). Optional. */
+    sourceMailbox?: string;
   }): Promise<{ stamped: boolean; detail?: string }> {
     return request('POST', '/api/internal/inbound/attention', payload);
   },

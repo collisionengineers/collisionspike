@@ -28,7 +28,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 
 [Open the generated board](./BOARD.md).
 
-## Now (31)
+## Now (33)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -63,6 +63,8 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-229](./now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md) | The "Archived" (archive_mirror) label never fires and Box redeliveries duplicate audits | P2 | intake | — |
 | [TKT-230](./now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md) | Retro post-sweep batch — stale stamps, multi-mailbox trigger, rung-1 writable mirror, receiving_work surfacing | P2 | email | — |
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 | email | — |
+| [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
+| [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 
 ## Verify (41)
 

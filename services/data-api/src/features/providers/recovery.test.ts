@@ -168,6 +168,25 @@ describe('completeProviderRecoveryUsing', () => {
     expect(calls.some((c) => c.sql.startsWith('UPDATE case_'))).toBe(false);
   });
 
+  it('mints past a stamped Archive folder when the retro dev seam acknowledges the identity', async () => {
+    const { q, calls } = recoveryRunner({ box_folder_id: 'historical-folder' });
+
+    const result = await completeProviderRecoveryUsing(q, {
+      caseId: 'case-1',
+      resolvedProviderId: 'wp-pch',
+      allowCasePoMint: true,
+      archiveIdentityAcknowledged: true,
+    });
+
+    expect(result).toMatchObject({
+      outcome: 'identity_ready',
+      casePo: 'PCH26008',
+      casePoSource: 'minted',
+      holdCleared: false,
+    });
+    expect(calls.some((c) => c.sql.includes('pg_advisory_xact_lock'))).toBe(true);
+  });
+
   it('blocks a saved Case/PO that belongs to a different provider principal', async () => {
     const { q, calls } = recoveryRunner({ case_po: 'SAB26001' });
 

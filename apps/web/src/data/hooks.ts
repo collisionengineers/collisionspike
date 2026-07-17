@@ -294,11 +294,12 @@ export function useInbox(facet?: InboundFacet): QueryState<InboundEmail[]> {
   const category = facet?.category;
   const subtype = facet?.subtype;
   const view: InboundView = facet?.view ?? 'active';
+  const caseId = facet?.caseId;
   const run = useCallback(
-    () => getDataAccess().inboundEmails({ category, subtype, view }),
-    [category, subtype, view],
+    () => getDataAccess().inboundEmails({ category, subtype, view, caseId }),
+    [category, subtype, view, caseId],
   );
-  return useAsync(run, [category, subtype, view], { kind: 'inbound' });
+  return useAsync(run, [category, subtype, view, caseId], { kind: 'inbound' });
 }
 
 /** Per-category ACTIVE-first triage counts (+ untriaged backlog). Failures are
