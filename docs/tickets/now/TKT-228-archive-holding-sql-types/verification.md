@@ -53,3 +53,10 @@ Post-deploy (bank outputs here):
 - The ~36/hr failure rate (running since 2026-07-16 13:00Z) drops to zero after deploy.
 - DB: previously stuck holding epochs drain (adoptable folders with all files uploaded get
   discovered and adopted on the next monitor pass).
+
+## Live proof — 2026-07-17 ~05:00Z (post-deploy)
+Data-api KQL after the deploy: `internalArchiveHoldingAdoptionCandidates` returns
+**200** (x2) and `internalArchiveHoldingRegister` **200** (x1) — the first non-500
+responses since 2026-07-16 13:00Z (the 9 x500 in the same window are pre-deploy
+residue). The 36/hr `archiveHoldingRecoverUploads` failure signature stops at the
+deploy boundary.

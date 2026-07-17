@@ -50,3 +50,18 @@
 | 3 rung-1 writable mirror | activity matrix + generator walks; SWAN26007 re-check |
 | 4 receiving_work visibility | generator walks; ops SQL section-2 counts; chip screenshot |
 | 5 durable rules hold | generator walks (checkpointed probe, salvage paths); code review of gate placement |
+
+## Live proof — 2026-07-17 ~05:00–05:30Z (post-deploy)
+- **Operational SQL executed** (separately authorized, transient firewall rule):
+  section 1 — stale stamps 12 → 0 (pre/post counts as scripted); section 2 —
+  21 unsurfaced receiving_work instructions stamped (21 → 0 unsurfaced, 21 surfaced).
+- **Multi-mailbox fallback proven on a 5-row sample** of the sweep's trigger_not_found
+  pile (force re-drives): 1 `linked` (case 540108ca), 1 **`created` via a full Box-arm
+  reconstruction** (case 91d1bbe3, source box_eml), 2 found-and-reclassified
+  `receiving_work` (correctly refused auto-mint; now stamped by the new eligibility
+  surfacing), 1 still `trigger_not_found`. KQL shows the fallback probing up to
+  `mailboxesTried:3` with per-mailbox salvage. CAVEAT: the 5 CONCURRENT sample runs
+  briefly tripped Graph `MailboxConcurrency` (429s salvaged as skipped probes — one
+  not-found verdict is throttle-tainted); the full-pile re-drive runs SEQUENTIALLY
+  (ledger: scratchpad redrive-tnf-ledger.jsonl, to be banked on completion).
+- **retroCaseFolderWritable** ran live on the linked case (rung-1 mirror probe fired).

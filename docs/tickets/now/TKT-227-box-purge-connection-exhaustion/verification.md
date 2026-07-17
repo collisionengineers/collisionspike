@@ -48,3 +48,12 @@ Post-deploy (next 03:00Z run; bank outputs here):
   → 2xx only.
 - DB: `SELECT count(*) FROM evidence WHERE box_file_id IS NOT NULL AND storage_path IS NOT NULL;`
   → ~0 after the run.
+
+## Live proof — 2026-07-17 ~05:00Z (manually triggered timer run, post-deploy)
+The fixed orchestrator ran the full backlog sequentially: data-api KQL shows
+`internalBoxMarkPurged` **204 x186 with ZERO connection-exhaustion exceptions**
+(`exceptions | where outerMessage has "remaining connection slots"` = 0 in-window) —
+against last night's 440 failures / 0 purged. The timer was invoked early via the admin
+API to prove the fix ahead of the scheduled 03:00Z run; the nightly run should now be
+routine. PGPOOL_MAX left unset (default 10) — the fan-out bound alone resolved the
+exhaustion; the knob remains available.
