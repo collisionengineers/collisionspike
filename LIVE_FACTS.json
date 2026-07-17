@@ -119,8 +119,8 @@
       "orchestration": false
     },
     "retroReconstruction": {
-      "lastVerified": "2026-07-16T13:00:00Z",
-      "evidence": "read-only az functionapp appsettings sweep, both apps",
+      "lastVerified": "2026-07-17T02:20:00Z",
+      "evidence": "az appsettings list both apps + live force re-drive of the FW26029 trigger (rung-1 dedupe/link, Completed) after the 58d7ca09 deploy of all four components",
       "RETRO_CASE_ENABLED": {
         "dataApi": true,
         "orchestration": true
@@ -129,14 +129,18 @@
         "orchestration": true
       },
       "RETRO_BOX_ARCHIVE_ROOT_IDS": {
-        "dataApi": "4077648161",
-        "orchestration": "4077648161",
-        "orchestrationSetAt": "2026-07-16T15:25:00Z",
-        "note": "Box locate rung is configuration-lit but BLOCKED upstream: box/search against root 4077648161 returns Box 404 (service account has no Viewer grant on the archive root — the TKT-058 D11 operator item). Live proof 2026-07-16T15:38Z: retroBoxLocate faulted, the TKT-219 fan-out salvaged the run (Completed, visible failure record). Operator action: grant the Box service account Viewer on the archive root."
+        "dataApi": "3221031282",
+        "orchestration": "3221031282",
+        "note": "Repointed 2026-07-16 evening to the Workflow/Reports/Reports archive root (operator decision). Matched pair with the Box facade's BOX_READONLY_ROOT_IDS — all three settings must stay aligned. Service-account Viewer grant on 4077648161 created 2026-07-16 (collab 74177634786, accepted); rung proven live (WF69NDX located its case folder)."
       },
       "RETRO_ADOPT_ARCHIVE_PO_ENABLED": {
         "dataApi": false,
         "note": "TKT-219 dev/test posture: retro creates mint via the normal allocator; the discovered archive PO is recorded as case_ref only. Flip at production cutover after TKT-004 floor seeding (TKT-178 runbook)."
+      },
+      "RETRO_RELATED_INGEST_ENABLED": {
+        "orchestration": true,
+        "setAt": "2026-07-17T02:05:00Z",
+        "note": "TKT-225 related-correspondence ingest lit after the dark deploy. Rung-1 re-drives of already-linked cases stop before the ingest seam by design; live chain proof comes from fresh reconstructions (sweep of 2026-07-17)."
       }
     },
     "boxWrites": {

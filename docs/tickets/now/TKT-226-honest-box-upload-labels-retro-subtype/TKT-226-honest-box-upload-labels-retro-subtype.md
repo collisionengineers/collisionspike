@@ -103,3 +103,4 @@ telemetry). See [incident-summary-2026-07-16.md](./evidence/incident-summary-202
 ## Artifacts
 
 - [Changes made](./changes.md)
+- [Verification record](./verification.md)
