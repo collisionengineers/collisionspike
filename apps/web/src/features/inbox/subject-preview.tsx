@@ -28,7 +28,16 @@ interface PreviewContextValue {
   requestOpenImmediate: (rowId: string, target: HTMLElement, content: PreviewContent) => void;
   requestClose: () => void;
   cancelClose: () => void;
+  /** Called when a row's cell unmounts (search/filter/page change) — drops
+   *  it if it owns the currently-open preview or a still-pending open, so a
+   *  row that disappears mid-hover never leaves the shared surface orphaned,
+   *  anchored to a now-detached element. */
+  releaseRow: (rowId: string) => void;
 }
+
+/** The single shared surface's DOM id — referenced by every trigger's
+ *  `aria-controls` regardless of which row currently owns it. */
+const PREVIEW_SURFACE_ID = 'inbox-subject-preview-surface';
 
 const PreviewContext = createContext<PreviewContextValue | null>(null);
 
@@ -69,12 +78,16 @@ export function PreviewControllerProvider({ children }: { children: ReactNode })
   const [content, setContent] = useState<PreviewContent | null>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout>>();
   const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+  // Which row a pending (not-yet-fired) open timer belongs to — lets
+  // `releaseRow` cancel it if that row unmounts before the 150ms elapses.
+  const pendingOpenRowId = useRef<string | null>(null);
 
   const clearOpenTimer = useCallback(() => {
     if (openTimer.current) {
       clearTimeout(openTimer.current);
       openTimer.current = undefined;
     }
+    pendingOpenRowId.current = null;
   }, []);
   const clearCloseTimer = useCallback(() => {
     if (closeTimer.current) {
@@ -86,6 +99,7 @@ export function PreviewControllerProvider({ children }: { children: ReactNode })
   const openNow = useCallback(
     (rowId: string, el: HTMLElement, c: PreviewContent) => {
       clearOpenTimer();
+      pendingOpenRowId.current = null;
       setTarget(el);
       setContent(c);
       setOpenRowId(rowId);
@@ -106,6 +120,7 @@ export function PreviewControllerProvider({ children }: { children: ReactNode })
       clearCloseTimer();
       if (openRowId === rowId) return;
       clearOpenTimer();
+      pendingOpenRowId.current = rowId;
       openTimer.current = setTimeout(() => openNow(rowId, el, c), OPEN_DELAY_MS);
     },
     [openRowId, clearCloseTimer, clearOpenTimer, openNow],
@@ -131,14 +146,30 @@ export function PreviewControllerProvider({ children }: { children: ReactNode })
     clearCloseTimer();
   }, [clearCloseTimer]);
 
+  // A row that unmounts (search/filter/page change removes it from
+  // `pageItems`) while it owns the open preview or a still-pending open
+  // timer must not leave the shared surface orphaned — cancel the pending
+  // open, or close immediately if it was the open row.
+  const releaseRow = useCallback(
+    (rowId: string) => {
+      if (pendingOpenRowId.current === rowId) clearOpenTimer();
+      setOpenRowId((cur) => {
+        if (cur !== rowId) return cur;
+        clearCloseTimer();
+        return null;
+      });
+    },
+    [clearOpenTimer, clearCloseTimer],
+  );
+
   useEffect(() => () => {
     clearOpenTimer();
     clearCloseTimer();
   }, [clearOpenTimer, clearCloseTimer]);
 
   const value = useMemo<PreviewContextValue>(
-    () => ({ openRowId, requestOpen, requestOpenImmediate, requestClose, cancelClose }),
-    [openRowId, requestOpen, requestOpenImmediate, requestClose, cancelClose],
+    () => ({ openRowId, requestOpen, requestOpenImmediate, requestClose, cancelClose, releaseRow }),
+    [openRowId, requestOpen, requestOpenImmediate, requestClose, cancelClose, releaseRow],
   );
 
   return (
@@ -153,6 +184,7 @@ export function PreviewControllerProvider({ children }: { children: ReactNode })
         positioning={{ ...previewPositioning, target: target ?? undefined }}
       >
         <PopoverSurface
+          id={PREVIEW_SURFACE_ID}
           className={styles.snippetPreviewSurface}
           aria-label={`Email preview — ${content?.subject || 'no subject'}`}
           tabIndex={0}
@@ -180,13 +212,19 @@ export function SubjectPreviewCell({
 }) {
   const styles = useStyles();
   const tt = useTableTypography();
-  const { requestOpen, requestOpenImmediate, requestClose } = useSubjectPreview();
+  const { openRowId, requestOpen, requestOpenImmediate, requestClose, releaseRow } = useSubjectPreview();
   const linkRef = useRef<HTMLButtonElement>(null);
+  const isOpen = openRowId === e.id;
 
   const previewContent = useMemo<PreviewContent>(
     () => ({ subject: e.subject || '(no subject)', bodyPreview: e.bodyPreview ?? '' }),
     [e.subject, e.bodyPreview],
   );
+
+  // Filtering, searching, or paging away a row this is currently previewing
+  // (or about to preview) must not leave the shared surface orphaned,
+  // anchored to what is now a detached element.
+  useEffect(() => () => releaseRow(e.id), [releaseRow, e.id]);
 
   const handlePointerEnter = () => {
     if (e.bodyPreview && linkRef.current) requestOpen(e.id, linkRef.current, previewContent);
@@ -224,6 +262,10 @@ export function SubjectPreviewCell({
           onPointerLeave={handlePointerLeave}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          // Bypassing <PopoverTrigger> (see PreviewControllerProvider) means
+          // Fluent doesn't auto-wire the trigger-side ARIA — set it by hand.
+          {...(e.bodyPreview ? { 'aria-haspopup': 'dialog' as const, 'aria-controls': PREVIEW_SURFACE_ID } : {})}
+          aria-expanded={e.bodyPreview ? isOpen : undefined}
         >
           {e.subject || '(no subject)'}
         </Link>

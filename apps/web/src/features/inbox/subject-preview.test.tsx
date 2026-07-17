@@ -35,16 +35,20 @@ function email(overrides: Partial<InboundEmail> = {}): InboundEmail {
   };
 }
 
-function renderCells(emails: InboundEmail[]) {
-  return render(
+function treeFor(emails: InboundEmail[]) {
+  return (
     <FluentProvider theme={webLightTheme}>
       <PreviewControllerProvider>
         {emails.map((e) => (
           <SubjectPreviewCell key={e.id} e={e} selected={false} onSelect={() => {}} />
         ))}
       </PreviewControllerProvider>
-    </FluentProvider>,
+    </FluentProvider>
   );
+}
+
+function renderCells(emails: InboundEmail[]) {
+  return render(treeFor(emails));
 }
 
 function trigger(subject: string) {
@@ -183,6 +187,52 @@ describe('subject hover/focus preview — single active row', () => {
 
     expect(surfaceFor('Alpha')).toBeNull();
     expect(surfaceFor('Bravo')).not.toBeNull();
+  });
+});
+
+describe('subject hover/focus preview — row unmount cleanup', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it('a pending open never fires once its row is filtered away before 150ms', () => {
+    const a = email({ id: 'a', subject: 'Alpha', bodyPreview: 'Alpha body text' });
+    const b = email({ id: 'b', subject: 'Bravo', bodyPreview: 'Bravo body text' });
+    const { rerender } = renderCells([a, b]);
+
+    fireEvent.pointerEnter(trigger('Alpha'));
+    act(() => {
+      vi.advanceTimersByTime(80);
+    });
+    // Simulate a search/filter change removing Alpha's row before its
+    // 150ms open-intent timer would otherwise fire.
+    rerender(treeFor([b]));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(surfaceFor('Alpha')).toBeNull();
+    expect(surfaceFor('Bravo')).toBeNull();
+    expect(screen.queryAllByLabelText(/Email preview —/)).toHaveLength(0);
+  });
+
+  it('closes immediately when its row is filtered away while its preview is open', () => {
+    const a = email({ id: 'a', subject: 'Alpha', bodyPreview: 'Alpha body text' });
+    const b = email({ id: 'b', subject: 'Bravo', bodyPreview: 'Bravo body text' });
+    const { rerender } = renderCells([a, b]);
+
+    fireEvent.pointerEnter(trigger('Alpha'));
+    act(() => {
+      vi.advanceTimersByTime(150);
+    });
+    expect(surfaceFor('Alpha')).not.toBeNull();
+
+    // Simulate a search/filter change removing Alpha's row while its preview
+    // is still open — the shared surface must not stay anchored to it.
+    rerender(treeFor([b]));
+
+    expect(surfaceFor('Alpha')).toBeNull();
+    expect(screen.queryAllByLabelText(/Email preview —/)).toHaveLength(0);
   });
 });
 
