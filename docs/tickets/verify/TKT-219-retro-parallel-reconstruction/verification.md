@@ -64,6 +64,29 @@ Same-day KQL (window shrinks intra-day): traces where message startswith "{" and
 internetMessageId+mailbox from the TKT-140 backlog rows; instances dedupe on
 `retro-<sanitized-id>` so pick a never-run row.
 
+## 2026-07-16 ~20:00–22:55Z — Box rung lit end-to-end; FIRST FULL CONVERSION (FW26029)
+
+The blocking gap closed in three operator/config steps, each live-proven: (1) Box service-account
+Viewer grant created on 4077648161 (collab 74177634786, accepted); (2) archive root repointed to
+the correct PO-shaped tree `Workflow/Reports/Reports` = 3221031282 (operator decision) — on BOTH
+apps AND the facade's `BOX_READONLY_ROOT_IDS` (the settings are a matched pair: a facade mismatch
+produced `box:skipped` salvages until aligned); (3) facade exact-phrase quoting (commit 1d3a9c2b)
+killed the 47-folder `WF*` prefix-noise. Then the WF69NDX matter converted end-to-end at 22:54Z:
+force-drain re-labelled the PAVPR02 abstained instruction to `receiving_work` via live
+classifyInbound (`not_eligible category_not_eligible:receiving_work` on its own row — the drain
+lever's upsert IS the remediation mechanism), and the query-row drain created case
+`62778371-3e8b-4a8a-9138-f131ec652a3a` / casePo `FW26029` (`retroCreatePersist outcome:"created"`,
+source outlook, providerRecovery completed; Box folder 400654960481 created + 2 evidence files
+mirrored; second query row rung-1 `linked` to the same case). Dev-mint end-to-end line proven.
+
+## 2026-07-17 — parallel ladder at sweep scale
+
+Commit 58d7ca09 deployed (all four components); complete backlog re-sweep of 286 un-cased
+non-human rows driven through the drain lever sequentially — checkpoints showed ~25% of rows
+linking or minting with zero hard errors and every refusal an honest terminal state
+(`not_eligible` / `trigger_not_found` / `no_source`). Full ledger + outcome histogram: the sweep
+record banked with TKT-226's evidence and the sweep report (see PR #102).
+
 ## 2026-07-16 ~18:28–18:31Z — deep-sweep reachability proven on the failed-row rerun
 
 Post TKT-220/222 deploy (api 145 fns / orch 102 fns, both Running), the 7-row force rerun shows

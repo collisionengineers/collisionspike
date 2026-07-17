@@ -20,3 +20,12 @@ evidence is outstanding (blocked on the same Box Viewer grant as TKT-219).
 
 All SEVEN failed rows (6 TKT-140 no_source + the withheld 46458/1) force-reran in one pass — no
 dedupes, every instance restarted and completed. Acceptance line 1 fully proven.
+
+## 2026-07-16 22:53–54Z — the force lever converted its first case
+
+Force re-drain of the WF69NDX query rows (after the drain's classifyInbound re-label unblocked
+the anchor) → case `62778371-…` / FW26029 created; the outstanding "post-grant re-drain"
+line above is closed by this and by the 2026-07-17 full-backlog sweep (286 rows, force:true
+throughout, poll-timeout rows left to complete server-side under their deterministic instance
+ids — never re-POSTed). Rung-1 dedupe/link on an already-reconstructed case re-proven
+2026-07-17 ~02:10Z (re-drive of the FW26029 trigger → `linked`, no double-run).
