@@ -115053,8 +115053,8 @@
     {
       "path": "tests/fixtures/manifests/evidence.json",
       "kind": "file",
-      "size": 438066,
-      "sha256": "8df16971b92ec2570239caf392ede5c8cc705be936eb64ed2721b80639ef03dc",
+      "size": 438075,
+      "sha256": "c6949713c92c4e4191ee39928abc2b07bfcf20c0e91cbf35adad083362f6f4ea",
       "category": "fixture",
       "owner": "quality-and-evaluation",
       "lifecycle": "active",
