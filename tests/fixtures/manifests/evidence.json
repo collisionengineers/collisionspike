@@ -6008,33 +6008,6 @@
       "consumers": []
     },
     {
-      "owner": "TKT-169",
-      "role": "ticket-image",
-      "originalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/ex1.png",
-      "originalFilename": "ex1.png",
-      "size": 331909,
-      "sha256": "a6f18e5bf23d03fa5475d3e62b6fb879a938089e825201828c377ec47bee656e",
-      "consumers": []
-    },
-    {
-      "owner": "TKT-169",
-      "role": "ticket-image",
-      "originalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/ex2.png",
-      "originalFilename": "ex2.png",
-      "size": 316181,
-      "sha256": "b2c024fefcee0f62da2506f2176252c2ecd239d75d6e00de2d7c2ef0df879d4d",
-      "consumers": []
-    },
-    {
-      "owner": "TKT-169",
-      "role": "ticket-image",
-      "originalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/hover-preview-overflow-live.png",
-      "originalFilename": "hover-preview-overflow-live.png",
-      "size": 345757,
-      "sha256": "5e30910717ee72a09c9d08f4c715416a143c815f2eefccf498bf4c8d71234ffa",
-      "consumers": []
-    },
-    {
       "owner": "TKT-024",
       "role": "ticket-image",
       "originalPath": "docs/tickets/verify/TKT-024-image-based-new-case/evidence/1.png",
@@ -6187,6 +6160,33 @@
       "originalFilename": "current-needs-action.png",
       "size": 50482,
       "sha256": "60f5d76db07c937ebd250eb4500fa850c32349301439204d597feadabf01ee01",
+      "consumers": []
+    },
+    {
+      "owner": "TKT-169",
+      "role": "ticket-image",
+      "originalPath": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/ex1.png",
+      "originalFilename": "ex1.png",
+      "size": 331909,
+      "sha256": "a6f18e5bf23d03fa5475d3e62b6fb879a938089e825201828c377ec47bee656e",
+      "consumers": []
+    },
+    {
+      "owner": "TKT-169",
+      "role": "ticket-image",
+      "originalPath": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/ex2.png",
+      "originalFilename": "ex2.png",
+      "size": 316181,
+      "sha256": "b2c024fefcee0f62da2506f2176252c2ecd239d75d6e00de2d7c2ef0df879d4d",
+      "consumers": []
+    },
+    {
+      "owner": "TKT-169",
+      "role": "ticket-image",
+      "originalPath": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/hover-preview-overflow-live.png",
+      "originalFilename": "hover-preview-overflow-live.png",
+      "size": 345757,
+      "sha256": "5e30910717ee72a09c9d08f4c715416a143c815f2eefccf498bf4c8d71234ffa",
       "consumers": []
     },
     {

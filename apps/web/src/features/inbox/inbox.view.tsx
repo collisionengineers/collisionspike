@@ -9,6 +9,7 @@ import type { InboundEmail } from '@cs/domain';
 
 import type { useInboxController } from './inbox.controller';
 import { EmailPreviewPanel, ReclassifyDialog } from './inbox-panels';
+import { PreviewControllerProvider } from './subject-preview';
 
 type InboxViewModel = ReturnType<typeof useInboxController>;
 
@@ -195,40 +196,45 @@ export function InboxView(props: InboxViewModel) {
         <div className={styles.workspace}>
           <div className={mergeClasses(styles.gridPane, selectedEmail != null && styles.gridPaneWithSidebar)}>
             <div className={styles.grid}>
-              <DataGrid
-                items={pageItems}
-                columns={columns}
-                getRowId={(e) => e.id}
-                resizableColumns
-                columnSizingOptions={columnSizing}
-                aria-label="Inbound email"
-              >
-                <DataGridHeader>
-                  <DataGridRow>
-                    {({ renderHeaderCell }) => (
-                      <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
-                    )}
-                  </DataGridRow>
-                </DataGridHeader>
-                <DataGridBody<InboundEmail>>
-                  {({ item, rowId }) => (
-                    <DataGridRow<InboundEmail>
-                      key={rowId}
-                      // Handled rows stay in the single list, muted (020726 E1);
-                      // the Status text carries the state — mute is redundant.
-                      className={mergeClasses(
-                        isHandledState(item.triageState) && styles.rowHandled,
+              {/* TKT-169 — one shared hover/focus preview controller (and one
+                  rendered popover surface) for every row's subject cell, so
+                  at most one preview is ever open at a time. */}
+              <PreviewControllerProvider>
+                <DataGrid
+                  items={pageItems}
+                  columns={columns}
+                  getRowId={(e) => e.id}
+                  resizableColumns
+                  columnSizingOptions={columnSizing}
+                  aria-label="Inbound email"
+                >
+                  <DataGridHeader>
+                    <DataGridRow>
+                      {({ renderHeaderCell }) => (
+                        <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>
                       )}
-                      // Focus-restore target for the peek drawer (linked rows only).
-                      data-case-row={item.caseId ?? undefined}
-                      onMouseEnter={() => setHoveredRowId(item.id)}
-                      onMouseLeave={() => setHoveredRowId(null)}
-                    >
-                      {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
                     </DataGridRow>
-                  )}
-                </DataGridBody>
-              </DataGrid>
+                  </DataGridHeader>
+                  <DataGridBody<InboundEmail>>
+                    {({ item, rowId }) => (
+                      <DataGridRow<InboundEmail>
+                        key={rowId}
+                        // Handled rows stay in the single list, muted (020726 E1);
+                        // the Status text carries the state — mute is redundant.
+                        className={mergeClasses(
+                          isHandledState(item.triageState) && styles.rowHandled,
+                        )}
+                        // Focus-restore target for the peek drawer (linked rows only).
+                        data-case-row={item.caseId ?? undefined}
+                        onMouseEnter={() => setHoveredRowId(item.id)}
+                        onMouseLeave={() => setHoveredRowId(null)}
+                      >
+                        {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+                      </DataGridRow>
+                    )}
+                  </DataGridBody>
+                </DataGrid>
+              </PreviewControllerProvider>
             </div>
             {/* TKT-098 — inbox pager. Sits BELOW the grid, inside the grid branch,
                 so it never shows over the empty / skeleton / error states; the

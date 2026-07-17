@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1034,
-    "files": 3398,
-    "entries": 4432
+    "directories": 1035,
+    "files": 3407,
+    "entries": 4442
   },
-  "totalFileBytes": 702447982,
+  "totalFileBytes": 702597169,
   "entries": [
     {
       "path": ".",
@@ -4439,33 +4439,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5286,6 +5259,33 @@
     },
     {
       "path": "docs/tickets/verify/TKT-167-image-gap-chasers/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -6344,6 +6344,15 @@
       "sha256": null,
       "category": "directory",
       "owner": "engineering-automation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
       "lifecycle": "structural"
     },
     {
@@ -12334,8 +12343,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-columns.tsx",
       "mediaType": "text/tsx",
-      "size": 20945,
-      "sha256": "10317a9da2f8eb6fa5dc4b9d4b8f9ebe6b3de7b1cd65ebac089db52b2a9b2bf7",
+      "size": 19190,
+      "sha256": "7e0b6e31a00a33e586c65ff22edecb271e0660f839c73d63d7c03a9d5964c077",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12399,15 +12408,6 @@
       "mediaType": "text/tsx",
       "size": 24829,
       "sha256": "3f6c25930774f6f01899640deab8376c8e1cd100871bc6846ef0e572a64d6b6c",
-      "category": "source",
-      "owner": "web-app",
-      "lifecycle": "active"
-    },
-    {
-      "path": "apps/web/src/features/inbox/inbox-preview-contract.test.ts",
-      "mediaType": "text/typescript",
-      "size": 1364,
-      "sha256": "c5e1d5d400635b83c239ddde7b0c54cfbf5e213473cfed1c6b1f4252cac22c63",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12487,8 +12487,26 @@
     {
       "path": "apps/web/src/features/inbox/inbox.view.tsx",
       "mediaType": "text/tsx",
-      "size": 14944,
-      "sha256": "11411453336c820dbb75ab9b46eb27648293d56f555d18d364c2872080a8e05a",
+      "size": 15384,
+      "sha256": "3906efe8919eb4a61c3bda9968741c2abd55ad3e2d7a990be0524c7e85720758",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 8881,
+      "sha256": "24bf82fc986d5e4acb4c0d26d5988e674d1cc697e3e8a0beb1bda6646048d25b",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.tsx",
+      "mediaType": "text/tsx",
+      "size": 10250,
+      "sha256": "19ba9ad1dddcd96028eece5b41f80472e4a2244494734c9f5c4ae30d012e637c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -13234,8 +13252,8 @@
     {
       "path": "apps/web/src/test/setup-dom.ts",
       "mediaType": "text/typescript",
-      "size": 449,
-      "sha256": "c2eb4fc0ea46f3fb10ffbbcd11c64f6c169536ba2b6c5e3ee58c1cf7b9d65e52",
+      "size": 489,
+      "sha256": "79c2cc439dde399c5b4e736d94a3c198269d3f7521e7a9ac01e5e88f293af493",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -14746,7 +14764,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1386279,
+      "size": 1389431,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -14764,8 +14782,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4107899,
-      "sha256": "5d079d6bd5a56b698ac79038ad66d85af5f99344cf75f04b0168e60066683d3c",
+      "size": 4111966,
+      "sha256": "5b3958ce2726269bb775d19f77df82a20b4595e7d4763948413aa16169a83a2b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14773,8 +14791,8 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 870,
-      "sha256": "b2749dabd60f5d611dc8024d0bc73c585f7bfda983d8f9740a222bfa4645e7f6",
+      "size": 985,
+      "sha256": "667e124a2fda6e4da69a86c8dd2846eb7c79434f8ee3ebbbbc5edd66a800e018",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14784,6 +14802,15 @@
       "mediaType": "text/markdown",
       "size": 998,
       "sha256": "8b9e9b7a224fa0c5fc408f10d7414ee7bcd8d46b5603c03ecdd039e3b94ccb6e",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/cloud-inventory-2026-07-17.md",
+      "mediaType": "text/markdown",
+      "size": 32772,
+      "sha256": "e3eedfdf85e3586df19ddbd937989cf6b0862e9afdb0e9ac4975fde2f9a107d4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15214,8 +15241,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 41957,
-      "sha256": "aadd5bbebfed2c01c87ad38eb0ed723a5b31f8ae293507199bac96c32e68bd31",
+      "size": 41960,
+      "sha256": "7b93e2a72386b85408007b003ee629c3d7319e0bc3bbfab16800a4ee64b9c1fe",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15223,8 +15250,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 44103,
-      "sha256": "6ee3fdf9b67709aed52425d9a943dc1f5e2fa503da745ff1726b9e6e47d02441",
+      "size": 44106,
+      "sha256": "dc4a7f5baf513c9892917cd94b265b654540eab19c2d3edf68af1c991fbb7c06",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22799,51 +22826,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
-      "mediaType": "text/markdown",
-      "size": 3512,
-      "sha256": "eaef5cb5c18a82e095a791cc1b44d231bae191bf5450f56c4654e75d0d712e25",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1052,
-      "sha256": "c19c18a3a7fa4849b9178e2a70597823fd14eaa7782b5f9d83150b0c97e0315a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
-      "mediaType": "application/json",
-      "size": 1218,
-      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
-      "mediaType": "text/plain",
-      "size": 296,
-      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3587,
-      "sha256": "647818299584e60f0d0aacd788ae12ea77d11de33d0b12acf77c6212f8adc10a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
       "mediaType": "text/markdown",
       "size": 4685,
@@ -23566,8 +23548,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 12909,
-      "sha256": "35ceba1c9053e3deefeaa398dc14b32025ffaae960059b112eaf71497cec6561",
+      "size": 12915,
+      "sha256": "4f923600e5665cc8645ac9ad2d59878322fdce71054f1d3d783f51b1b5d7f3e7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25089,6 +25071,51 @@
       "mediaType": "text/markdown",
       "size": 7571,
       "sha256": "9f901ff59a0603dd67757a241c95b8c47d2785821af9acf848ae8d141dbea0e7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
+      "mediaType": "text/markdown",
+      "size": 3518,
+      "sha256": "aea289d7c67b065e14871a9eba93f93627912056af9e1ba0f6466095a32a5a4e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/changes.md",
+      "mediaType": "text/markdown",
+      "size": 7563,
+      "sha256": "cd6e046c12b13fca7437802dc4bbd9fbb25ad2fe02511a6070751f224478064f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
+      "mediaType": "application/json",
+      "size": 1218,
+      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
+      "mediaType": "text/plain",
+      "size": 296,
+      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/verification.md",
+      "mediaType": "text/markdown",
+      "size": 6467,
+      "sha256": "e9a96a37f84fc81cced1d21ef805f20f1a03ba2c5439b0574c52abc0dde82686",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28718,6 +28745,69 @@
       "sha256": "b2f9f112c89af4c60f2ac885e93c49182ce2ef286b6980f67c5ae65c0c27f2d9",
       "category": "automation",
       "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/00-common.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 12119,
+      "sha256": "65715a12b84999e6a08cde2cf4e2d3e5140b1366707d506ab6d731dc24aea8cf",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/01-collect-arm.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 26863,
+      "sha256": "0622986576f9298dfaa66aefdc916e5efa76376e3650e18aac43dbfb6f06fb22",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/02-collect-graph.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 8659,
+      "sha256": "6ee2c1818fe5582f103e241abd47926e9244727963b75384e03b0ce089b04c36",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/03-collect-cost.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 2168,
+      "sha256": "d931d51bcdeebd0ddfddade96c8def86280a94e4cba4e8d3ec2662fe9a82e68d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/04-redact-sweep.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 2272,
+      "sha256": "3dc0bdbad202111e98eb83838989746f8f57e3cdf575eee6de60fc24c517f057",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/05-digest.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 28767,
+      "sha256": "026ce9642d37533bf521fe92cd1e449c5c089e6c9c538766c61811dbf6c040d8",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/README.md",
+      "mediaType": "text/markdown",
+      "size": 2323,
+      "sha256": "24960ce2f2856c5638fcb2251eb001c9eadbdf312cf72b9bb9315cc5f81a147e",
+      "category": "automation",
+      "owner": "repository-governance",
       "lifecycle": "active"
     },
     {
@@ -39604,8 +39694,8 @@
     {
       "path": "tests/fixtures/manifests/evidence.json",
       "mediaType": "application/json",
-      "size": 438066,
-      "sha256": "8df16971b92ec2570239caf392ede5c8cc705be936eb64ed2721b80639ef03dc",
+      "size": 438075,
+      "sha256": "c6949713c92c4e4191ee39928abc2b07bfcf20c0e91cbf35adad083362f6f4ea",
       "category": "fixture",
       "owner": "quality-and-evaluation",
       "lifecycle": "active"

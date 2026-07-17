@@ -72,3 +72,51 @@ FAILED — the expanded acceptance is not met in the signed-in live SPA.
 **High confidence.** Every artifact/screenshot plus relevant source/tests were inspected; signed-in
 Chrome covered desktop, 1024px and 390px. Keyboard, true 200% zoom, short-height and console remain
 unverified.
+
+## Remediation offline verification — 2026-07-17
+
+### Verdict
+
+TESTED (offline only) — the specific defects the 2026-07-14 pass found have been rebuilt and are
+covered by real rendered/interaction tests; signed-in live re-verification is still required and
+the FAILED verdict above stands until that evidence exists.
+
+### What changed (see `changes.md` for detail)
+
+- Placement: `position:'after'` (sideways, no fallback) → `position:'below'`, `fallbackPositions:['above']`.
+- Single shared controlled `Popover`/`PopoverSurface` (one per grid, not one per row) — makes a
+  stale/duplicate preview during rapid traversal structurally impossible.
+- Hand-rolled 150ms open-intent / 100ms close-intent timers (Fluent's `openOnHover` has no open
+  delay); entering the surface cancels a pending close.
+- The subject is now the hover/focus trigger (previously the separate body-snippet span).
+- `inbox-preview-contract.test.ts` (source-string assertions) replaced by
+  `subject-preview.test.tsx` (rendered, `vi.useFakeTimers()`, real DOM interaction).
+
+### Offline evidence
+
+- `npx vitest run` from `apps/web`: 554/554 tests pass, including 9 new tests in
+  `subject-preview.test.tsx` covering the 150ms/100ms bounds, pointer-transfer-keeps-open,
+  rapid-traversal no-stale-duplicate, keyboard open/blur, and the positioning configuration.
+- `npm run build` (`tsc -b --force && vite build`) from `apps/web`: clean.
+- Real placement-flip-at-viewport-edges behavior is not meaningfully testable in jsdom (no layout
+  engine) — the unit tests assert the positioning *configuration* only; actual edge-flip/
+  containment proof remains a live requirement below.
+
+### Deployed — 2026-07-17
+
+PR #106 merged; `apps/web` rebuilt and deployed via `swa deploy` to `cespk-spa-dev`
+(`https://proud-sky-04e318b03.7.azurestaticapps.net`). Post-deploy HTTP smoke check confirmed
+`GET /` → 200, the expected CSP header, and that the served bundle (`assets/index-B0zP8REP.js`)
+is this change's build, not a stale cache. See `changes.md` for the full deploy record. This is
+HTTP-only proof, not the signed-in Chrome/UI pass below — the operator is doing that separately.
+
+### Still required (unchanged from the 2026-07-14 pending list)
+
+1. Deploy the corrected build.
+2. Signed-in Chrome pass at desktop-wide, 1024×600, 390×844, a short-height viewport, and true
+   200% zoom, at top/middle/bottom rows: capture the surface's bounding rect at every size
+   (no clipping), confirm above/below-only placement with no adjacent-column overlap, confirm
+   internal scroll on a long message and compactness on a short one, confirm pointer transfer and
+   the ~100ms close, confirm no stale preview during rapid row travel, run a keyboard-only pass,
+   and confirm a clean console throughout.
+3. Only once that evidence is recorded does this verdict move from TESTED (offline) to a live PASS.

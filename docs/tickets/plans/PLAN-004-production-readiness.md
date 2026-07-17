@@ -46,8 +46,8 @@ or authorization named; they are never treated as complete by plan aggregation.
 
 | Status | Count |
 |---|---:|
-| Now | 15 |
-| Verify | 11 |
+| Now | 14 |
+| Verify | 12 |
 | Done | 3 |
 | Next | 0 |
 | Backlog | 33 |
@@ -76,7 +76,7 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-166](../verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | verify | Persist instruction and extra files from Manual Intake |
 | [TKT-167](../verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | verify | Keep image chasers available until every image rule passes |
 | [TKT-168](../now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | now | Make Not Ready status language agree with the queue |
-| [TKT-169](../now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | now | Keep long email previews inside the visible window |
+| [TKT-169](../verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | verify | Keep long email previews inside the visible window |
 | [TKT-170](../verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | verify | Classify website contact forms as Website enquiries |
 | [TKT-171](../backlog/TKT-171-four-digit-case-po-sequence/TKT-171-four-digit-case-po-sequence.md) | backlog | Keep Case/PO numbering working after 999 |
 | [TKT-172](../backlog/TKT-172-manual-intake-duplicate-guard/TKT-172-manual-intake-duplicate-guard.md) | backlog | Check matching registrations before Manual Intake creates a case |

@@ -1,11 +1,11 @@
 ---
 id: TKT-169
 title: Keep long email previews inside the visible window
-status: now
+status: verify
 priority: P2
 area: ui
 tickets-it-relates-to: [TKT-009, TKT-054, TKT-070, TKT-098]
-research-link: docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt
+research-link: docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt
 plan: PLAN-004
 ---
 
