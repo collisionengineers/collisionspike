@@ -17,7 +17,7 @@
     "files": 3437,
     "entries": 4482
   },
-  "totalFileBytes": 702687741,
+  "totalFileBytes": 702693300,
   "entries": [
     {
       "path": ".",
@@ -11560,8 +11560,8 @@
     {
       "path": "CONTEXT.md",
       "mediaType": "text/markdown",
-      "size": 4693,
-      "sha256": "3ef0e2e66d6fd919fd6e57ab7f221705604495c0f9a105dda0d4f7cd511c6afc",
+      "size": 5047,
+      "sha256": "309f29df8879adab10ac3d722038a48bdc9bfae047c1e96d5530ab70a8ac2ab2",
       "category": "documentation",
       "owner": "repository",
       "lifecycle": "active"
@@ -14512,8 +14512,8 @@
     {
       "path": "docs/adr/0008-tool-boundary-ends-at-eva-handoff.md",
       "mediaType": "text/markdown",
-      "size": 1358,
-      "sha256": "2a85853120e76378e2045c017f5b62ec21da9f3b6073597143b5175807cd308b",
+      "size": 1731,
+      "sha256": "4ddaeca9b2fa6cbb8fcde35dd195004aa14ac113a4c6405e37aaa2cf86a39729",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14530,8 +14530,8 @@
     {
       "path": "docs/adr/0010-dedup-reference-disambiguated-no-time-window.md",
       "mediaType": "text/markdown",
-      "size": 1469,
-      "sha256": "96e9475a9fc6dd76136176594f142ecb2c148a880986f33ccff9ac845db9a3f9",
+      "size": 1887,
+      "sha256": "0d96b29f98c47f11e7d4b0bdd0c2e3d4772c097aca41ffb8ffdb3feb8ae62703",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14557,8 +14557,8 @@
     {
       "path": "docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md",
       "mediaType": "text/markdown",
-      "size": 2922,
-      "sha256": "760d68352d398587697ea8b62f00f2be783f77e43c3a72ae4921d9a06da1f420",
+      "size": 3048,
+      "sha256": "0446416a99860266905ee93c3dfb8fbfec552fa8229735e8cbbc12964f6cbe8e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14566,8 +14566,8 @@
     {
       "path": "docs/adr/0014-audit-case-type-second-inspection.md",
       "mediaType": "text/markdown",
-      "size": 1956,
-      "sha256": "e42f6bd99cdc689c73c30bb958781c8fd164367e1deb8da5f1d9cec9b8821ba8",
+      "size": 2017,
+      "sha256": "3983879049c9f75358dd1b9c014e0d2958d2cb052520f601dfad73c66e357dd4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14584,8 +14584,8 @@
     {
       "path": "docs/adr/0016-inspection-address-corpus-eva-export.md",
       "mediaType": "text/markdown",
-      "size": 1706,
-      "sha256": "6cbd5f55d172f5c381eff6868a9b3e1a1164399617c1bd9dd13566e20b7a85e3",
+      "size": 1879,
+      "sha256": "80b28db2c75ad4070291145e248727f251d194dd0c238a6728ee49bcf3d2b7f8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14620,8 +14620,8 @@
     {
       "path": "docs/adr/0021-case-po-marker-taxonomy.md",
       "mediaType": "text/markdown",
-      "size": 1551,
-      "sha256": "cf2383a4e139cfb38ad6425f715b982312be03668989574debc77367a19ea25f",
+      "size": 1494,
+      "sha256": "702179ae83f7b501faddf91e49fb216bce0d13a92671309b2b18ade41dcaa268",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14638,8 +14638,8 @@
     {
       "path": "docs/adr/0023-mcp-server-hosting-and-auth.md",
       "mediaType": "text/markdown",
-      "size": 2292,
-      "sha256": "f2b5a70c442cff14fda1141ae0f2fa3146db0a2210047890eff43949f7f5a765",
+      "size": 2316,
+      "sha256": "ab77bab027e112600905aa364bd795ec1d2b97d02e23320695c0e8b280ca4b46",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14647,8 +14647,8 @@
     {
       "path": "docs/adr/0024-assistant-write-tier-confirmation-protocol.md",
       "mediaType": "text/markdown",
-      "size": 1339,
-      "sha256": "0998ae757bdc13aeb2413290f1266a9924d3657f3477b2be3dad9f0799840b9f",
+      "size": 1549,
+      "sha256": "a3ca7ca39383ad65555655b0034c2e282885f75372cee927702ad4f3c8342d0a",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14710,8 +14710,8 @@
     {
       "path": "docs/architecture/eva-sentry-api.md",
       "mediaType": "text/markdown",
-      "size": 2067,
-      "sha256": "822753383833dcd135ffcf17589bc0d2b025c41ad24b12a7b4e41f6083d099c2",
+      "size": 2082,
+      "sha256": "0c765d926e45700ce1853bca5b1862558fb62ed8c0f557ed7da9bd53cff579df",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14728,8 +14728,8 @@
     {
       "path": "docs/architecture/integrations.md",
       "mediaType": "text/markdown",
-      "size": 2615,
-      "sha256": "39c04b949e8c4a548ed8178d598829c4f84bf99ec36b13b7924dda54d0a5b171",
+      "size": 2974,
+      "sha256": "c92aa262c21acfd879db00a80cdc1b348286b3c561da7479f4230ab23c6cc515",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14864,7 +14864,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4127881,
-      "sha256": "657cce6dfc4ec248c74670f349436885f2fa2390f4927e770874e32b56fcb223",
+      "sha256": "0e879c12c7008d1b1e7024cf9ab66d0a1e8adfb8e4c82ef2dfafbb83000501cd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15223,8 +15223,8 @@
     {
       "path": "docs/reviews/160726/decisions.md",
       "mediaType": "text/markdown",
-      "size": 10310,
-      "sha256": "a05f61b8f35406fc56a7dca84249bb9a9b02a3f1c121502fb61d45469f344940",
+      "size": 13056,
+      "sha256": "601d6482d3221e78b570ad32b7dc48e573fb9fd39fd4312f01716523dac6eb20",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17041,8 +17041,8 @@
     {
       "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md",
       "mediaType": "text/markdown",
-      "size": 1773,
-      "sha256": "534dd4a7f36b0400e4c8e979eaf2f200fc5c2730f0c0e014fb41a0caa8eb2db5",
+      "size": 1955,
+      "sha256": "e7383c041b678252ec3c000b26f670c0172bb8259ee8e2974491535534b78797",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17095,8 +17095,8 @@
     {
       "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md",
       "mediaType": "text/markdown",
-      "size": 1569,
-      "sha256": "52ca0a2dc74cf3100aa1a7885061f5119a6108cf8885cee42d56e8bea2466712",
+      "size": 1793,
+      "sha256": "fe9c422d0b0d6c45ae92ed544418de9a4150f24086b93a7125728067a8b1c9db",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17176,8 +17176,8 @@
     {
       "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md",
       "mediaType": "text/markdown",
-      "size": 1981,
-      "sha256": "e66d51a2b7db3747621bce6a629235575b26f293343a561b354f78f173880696",
+      "size": 2332,
+      "sha256": "3df4ae060564fdbfb8193d2871035fba5015ec4427562675c9f8a9b203bb79de",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

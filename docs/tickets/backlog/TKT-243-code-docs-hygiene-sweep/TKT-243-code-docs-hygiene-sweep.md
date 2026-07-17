@@ -39,11 +39,15 @@ PROPOSED (not built):
 - Reword `A.`/`AP.` comments to the source-material verdict rule.
 - Add PCH `AP.` support to the marker allowlist, or record why not, per provider corpus rules.
 - Remove the unconsumed `locValue` plumbing.
+- Sweep "audit" used in the logging sense (audit log / trail / surface) versus the **Audit** case type
+  across ADRs, docs, and code; where the logging sense could be confused with the case type, standardise
+  to "activity log" (operator note on PR #108).
 
 ## Acceptance
 
 - Each listed artifact is corrected or its retention justified in changes.md; builds and tests pass;
   no behaviour change outside the PCH allowlist decision.
+- No remaining logging-sense use of "audit" reads as the Audit case type in the touched files.
 
 ## Research
 

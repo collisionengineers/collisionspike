@@ -10,6 +10,10 @@ state when delivery is confirmed by any of three detectors — the report email 
 report PDF appears in the Case's Archive folder, or the EVA poll reports completion — or when staff mark
 it done directly.
 
+The product also tracks work that arrives **before** a case — chiefly a **triage request**, where a
+provider asks for an initial call on whether a vehicle is repairable or a total loss and roadworthy or
+not. A triage request is recorded work in its own right, whether or not it goes on to become a full case.
+
 Engineer assessment and report authoring remain outside the product. It observes that the report went
 out; it never produces or edits the report.
 
@@ -22,6 +26,6 @@ process.
 
 ## Consequences
 
-`done` is the terminal milestone. The system may retain later inbound mail for audit, linking, or
-retroactive reconstruction. The filename of this ADR keeps its pre-rewrite slug by design: number
+`done` is the terminal milestone, and a triage request is the earliest tracked point. The system may
+retain later inbound mail for record-keeping, linking, or retroactive reconstruction. The filename of this ADR keeps its pre-rewrite slug by design: number
 citations bind, and ticket records cite the path.

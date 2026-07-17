@@ -23,9 +23,10 @@ Audit work takes two shapes:
 ## Marker refinement
 
 `A.` marks an audit of a **repairable** verdict; `AP.` an audit of a **total-loss** verdict. The
-deciding fact is the **original engineer's verdict** as stated in the source material — the third-party
-report or the work instructions — not the outcome of our audit. Detection may suggest the type; staff
-refine it during review when the source cannot distinguish.
+deciding fact is the **original engineer's verdict**, which the third-party engineer's report always
+states — recording repairable versus total loss is one of that report's core purposes — so the marker
+is read from the report, never inferred from the outcome of our audit. Detection may suggest the type
+and staff confirm it.
 
 Markers are supported only for providers whose real corpus and reviewed business rules establish them.
 Known coverage gap: PCH cannot mint `AP.` under the current marker allowlist (TKT-243).

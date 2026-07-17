@@ -60,6 +60,40 @@ While the rewrite executed, the operator added three comments to [`review.md`](.
 - **`A.`/`AP.` semantics sharpened** — folded into D1b above.
 - **ADR-0016 merge confirmed with its cause** — folded into D14 above.
 
+## PR #108 review clarifications (operator, 2026-07-17)
+
+Reviewing the rewrite on PR #108, the operator left nine inline clarifications. Each is applied to the
+named ADR/doc and recorded here as binding review input (a later review wins for its area):
+
+- **A./AP. verdict source (CONTEXT, 0014, 0021 — sharpens D1/D1b).** The original engineer's report
+  **always** states repairable versus total loss — it is a core purpose of the report — so the marker is
+  read from the report, not merely refined when a source is ambiguous. The "when the source cannot
+  distinguish" hedge is removed.
+- **Pre-intake triage requests (0008).** The product also tracks work before a case exists — chiefly a
+  *triage request*: a provider asking for an initial call on repairable/total-loss and
+  roadworthy/unroadworthy. Recorded work in its own right. New CONTEXT term added, distinguished from
+  message triage.
+- **Incident date, not arrival time (0010 — sharpens D5, TKT-240).** The rule is about the **incident
+  date**: a different date is a different incident (eliminate); the same date is not proof of the same
+  incident (a vehicle can crash twice in a day), so it needs a corroborating signal — provider
+  reference, accident circumstances, or third-party details — and never merges on its own.
+- **Desktop-only inspections (0013).** Collision Engineers work desktop-only; nobody is dispatched, so a
+  wrong inspection address is a **report-correctness** problem, not a misdirected engineer. Rationale
+  reworded.
+- **Future matcher consolidation (0016, TKT-238).** Matching postcodes will be examined in a future PR
+  to condense the matchers; the explicit subset-merge may then become unnecessary. Noted, not blocking.
+- **Network-drive expansion is MCP, not provider API (0023).** The network-drive attach expansion is an
+  MCP write-tier matter and is moved into the write-tier bullet, away from the provider-API separation
+  note.
+- **"Audit" is reserved for the case type (0024, sweep in TKT-243).** The logging sense is reworded to
+  "activity log" in the AI-ADR cluster; a corpus-and-code terminology sweep is added to TKT-243.
+- **"The EVA API submission path" (eva-sentry-api.md).** Disambiguated from other API paths.
+- **Destructive defined; within-case writes allowed (integrations.md).** A destructive action is one
+  that cannot be undone or reaches beyond the single case (deletion/purge, cross-case merge); those plus
+  forced-status and byte-upload stay human-only. Within a single case the assistant is **not** read-only
+  — it performs non-destructive writes through the confirm protocol (ADR-0024). The precise per-capability
+  boundary remains owned by the capability registry (ADR-0025) and operator approval.
+
 ## Accepted slug staleness (recorded, not fixed)
 
 ADR-0008's filename keeps its pre-rewrite slug by design (number citations bind; tickets cite the

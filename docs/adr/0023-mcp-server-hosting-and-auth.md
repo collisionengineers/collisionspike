@@ -5,7 +5,7 @@
 ## Decision
 
 Host the MCP Streamable HTTP endpoint with the Data API so it uses the same audience validation,
-application roles, row-level context, capability registry, and audit surface. Access is tiered:
+application roles, row-level context, capability registry, and activity-log surface. Access is tiered:
 
 - **Read tier.** Interactive clients use delegated staff authorization and receive agent-visible read
   capabilities. Unknown, destructive, and human-only capabilities are rejected before execution and
@@ -13,21 +13,22 @@ application roles, row-level context, capability registry, and audit surface. Ac
 - **Write tier — per capability, gated.** A write capability ships only with its own safeguards, named
   in the capability registry, and behind a deployment gate. The shipped image-ingest lane (TKT-154) is
   the model: an idempotency key, registration resolution, a pinned test root, and the capability gates.
-  Each further write capability earns its own safeguards; none inherits another's.
+  Each further write capability earns its own safeguards; none inherits another's. The intended
+  near-term expansion of this MCP write tier is the network-drive attach channel of
+  [ADR-0007](./0007-receipt-of-images.md) (not built).
 - **Autonomous tier — future.** App-only agents are a separate authorization model. They cannot borrow
   a user identity. Nothing in the delegated tiers implies this tier exists.
 
 The provider machine-to-machine API ([ADR-0020](./0020-provider-api-intake-channel.md)) is a
 deliberately **separate surface** with separate authentication; MCP capabilities and provider intake
-never share a lane. The intended write-tier expansion pattern is the network-drive attach channel of
-[ADR-0007](./0007-receipt-of-images.md) (not built).
+never share a lane.
 
 ## Rationale
 
 A separate service would duplicate authorization and could present a token for the wrong audience. The
 Data API is the enforceable boundary; a tool-list filter alone is not security. The original
 signed-commit-token design was superseded by the shipped per-capability safeguard model, which achieves
-the same end — no unaudited, unconfirmed mutation — with mechanisms that actually exist.
+the same end — no unlogged, unconfirmed mutation — with mechanisms that actually exist.
 
 ## Consequences
 

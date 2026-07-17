@@ -26,8 +26,10 @@ staff review.
 
 PROPOSED (not built):
 
-- Add an incident-date eliminator: a mismatching incident date removes a correlation candidate; it
-  never merges (asymmetric time rule, ADR-0010).
+- Add an incident-date eliminator: a different incident date removes a correlation candidate. The same
+  incident date is not sufficient to attach — the same vehicle can have two accidents in one day — so a
+  same-date match requires a corroborating signal (provider reference, accident circumstances, or
+  third-party details) and never merges on its own (ADR-0010).
 - Add a principal eliminator: a conflicting principal removes a candidate at intake.
 - Both record their elimination reason for the staff review trail.
 

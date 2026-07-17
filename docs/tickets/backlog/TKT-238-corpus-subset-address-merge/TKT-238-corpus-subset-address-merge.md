@@ -32,6 +32,8 @@ PROPOSED (not built):
   labelled with the fullest form; frequencies sum.
 - Preserve confirmed/operator-maintained rows unchanged per ADR-0016.
 - Fixture-test the 2+2-vs-4 case: two subset rows plus two full rows for one site become one entry.
+- Coordinate with the planned postcode-matcher consolidation (operator note on PR #108): if that lands
+  first, this explicit subset-merge may be subsumed — check before building.
 
 ## Acceptance
 

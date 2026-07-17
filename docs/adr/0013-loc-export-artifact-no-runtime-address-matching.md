@@ -18,9 +18,10 @@ Assessment` fill is a recorded **non-address outcome**, not an address selection
 
 ## Rationale
 
-Deriving an address from partial or export-quality values creates false precision and can send an
-engineer to the wrong location. Only validated full addresses are worth suggesting, and only a person
-should commit one.
+Collision Engineers work desktop-only — no one is dispatched to a site — so the inspection address is a
+field in the report, not a destination. Deriving it from partial or export-quality values creates false
+precision that corrupts report correctness. Only validated full addresses are worth suggesting, and only
+a person should commit one.
 
 ## Consequences
 

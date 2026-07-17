@@ -27,4 +27,6 @@ Some export rows missed the first address line, leaving only a road name and pos
 carry the same site's full address — they are the same place. Corpus rows that share a normalised
 address line and postcode therefore collapse into one entry labelled with the fullest form, and their
 frequencies sum. The current build keys on the exact `(provider, name|line|postcode)` tuple and keeps
-them apart (decided 2026-07-16; not built — TKT-238).
+them apart (decided 2026-07-16; not built — TKT-238). This explicit merge may later be subsumed by a
+broader postcode-matcher consolidation (to be examined in a future PR); if that lands, this amendment
+may become unnecessary.

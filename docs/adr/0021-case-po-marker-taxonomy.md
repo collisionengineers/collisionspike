@@ -21,9 +21,9 @@ audit deliverable identifier from the same number during review. Do not consume 
 number.
 
 Markers are supported only for providers whose real corpus and reviewed business rules establish them.
-Parser detection may suggest a type; staff can refine it when the source cannot distinguish, especially
-audit total loss. The `A.`/`AP.` split reflects the **original engineer's verdict** in the source
-material — repairable versus total loss — refined at review, never our audit's outcome.
+Parser detection may suggest a type and staff confirm it. The `A.`/`AP.` split reflects the **original
+engineer's verdict** — repairable versus total loss — which the engineer's report always states; it is
+never our audit's outcome.
 
 ## Rationale
 

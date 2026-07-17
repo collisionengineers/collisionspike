@@ -111,13 +111,19 @@ the Work Provider; its report is separate evidence and is never treated as the i
 
 **Audit Total Loss**
 
-An audit of a report in which the original engineer's verdict is total loss. The verdict comes from the
-source material, not from our audit's outcome; staff refine the type at review because the instruction
-alone may not distinguish it.
+An audit of a report whose original engineer's verdict is total loss. That verdict is always stated in
+the original engineer's report — recording repairable versus total loss is one of the report's core
+purposes — so the marker is read from the report, never inferred from our audit's outcome.
 
 **Diminution**
 
 A diminution-in-value engagement. It is its own case type, not an audit subtype.
+
+**Triage request**
+
+An early request to make an initial call on a vehicle — repairable or total loss, roadworthy or not —
+before, and often instead of, a full case. It is recorded work in its own right. Distinct from message
+triage, the classification every inbound email passes through.
 
 **Archive**
 
