@@ -102,6 +102,14 @@ the FAILED verdict above stands until that evidence exists.
   engine) — the unit tests assert the positioning *configuration* only; actual edge-flip/
   containment proof remains a live requirement below.
 
+### Deployed — 2026-07-17
+
+PR #106 merged; `apps/web` rebuilt and deployed via `swa deploy` to `cespk-spa-dev`
+(`https://proud-sky-04e318b03.7.azurestaticapps.net`). Post-deploy HTTP smoke check confirmed
+`GET /` → 200, the expected CSP header, and that the served bundle (`assets/index-B0zP8REP.js`)
+is this change's build, not a stale cache. See `changes.md` for the full deploy record. This is
+HTTP-only proof, not the signed-in Chrome/UI pass below — the operator is doing that separately.
+
 ### Still required (unchanged from the 2026-07-14 pending list)
 
 1. Deploy the corrected build.

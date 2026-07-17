@@ -7,16 +7,16 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4430
+    "entries": 4431
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3396,
+    "finalFiles": 3397,
     "finalDirectories": 1034,
     "dispositions": {
-      "delete": 1302,
-      "keep": 1113,
+      "delete": 1308,
+      "keep": 1107,
       "move": 922,
       "rewrite": 707
     },
@@ -7129,9 +7129,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -7142,9 +7142,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -7155,9 +7155,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -34702,9 +34702,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "rewrite",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
-      "reason": "The retained authority was rewritten for the current repository.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this ticket path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -34715,9 +34715,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/changes.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this ticket path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -34728,9 +34728,9 @@
       "category": "evidence",
       "owner": "ticket-system",
       "lifecycle": "evidence",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
-      "reason": "Path and bytes are retained.",
+      "disposition": "move",
+      "finalPath": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-213"
     },
     {
@@ -34780,9 +34780,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/now/TKT-169-email-hover-preview-bounds/verification.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this ticket path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -43516,9 +43516,9 @@
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
-      "disposition": "move",
+      "disposition": "rewrite",
       "finalPath": "apps/web/src/test/setup-dom.ts",
-      "reason": "Bytes moved into the locked repository layout.",
+      "reason": "Content was moved and rewritten into the current authority.",
       "ticket": "TKT-210"
     },
     {
@@ -59473,48 +59473,6 @@
       "ticket": "TKT-213"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
       "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation",
       "kind": "directory",
       "size": 0,
@@ -60800,6 +60758,48 @@
         "docs/tickets/verify/TKT-167-image-gap-chasers/evidence"
       ],
       "state": "retained",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-213"
     },
     {
@@ -71757,8 +71757,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-columns.tsx",
       "kind": "file",
-      "size": 20945,
-      "sha256": "10317a9da2f8eb6fa5dc4b9d4b8f9ebe6b3de7b1cd65ebac089db52b2a9b2bf7",
+      "size": 19190,
+      "sha256": "7e0b6e31a00a33e586c65ff22edecb271e0660f839c73d63d7c03a9d5964c077",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -71857,20 +71857,6 @@
       "kind": "file",
       "size": 24829,
       "sha256": "3f6c25930774f6f01899640deab8376c8e1cd100871bc6846ef0e572a64d6b6c",
-      "category": "source",
-      "owner": "web-app",
-      "lifecycle": "active",
-      "origin": [
-        "PLAN-006"
-      ],
-      "state": "created",
-      "ticket": "TKT-210"
-    },
-    {
-      "path": "apps/web/src/features/inbox/inbox-preview-contract.test.ts",
-      "kind": "file",
-      "size": 1364,
-      "sha256": "c5e1d5d400635b83c239ddde7b0c54cfbf5e213473cfed1c6b1f4252cac22c63",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -71995,8 +71981,36 @@
     {
       "path": "apps/web/src/features/inbox/inbox.view.tsx",
       "kind": "file",
-      "size": 14944,
-      "sha256": "11411453336c820dbb75ab9b46eb27648293d56f555d18d364c2872080a8e05a",
+      "size": 15384,
+      "sha256": "3906efe8919eb4a61c3bda9968741c2abd55ad3e2d7a990be0524c7e85720758",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.test.tsx",
+      "kind": "file",
+      "size": 8881,
+      "sha256": "24bf82fc986d5e4acb4c0d26d5988e674d1cc697e3e8a0beb1bda6646048d25b",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.tsx",
+      "kind": "file",
+      "size": 10250,
+      "sha256": "19ba9ad1dddcd96028eece5b41f80472e4a2244494734c9f5c4ae30d012e637c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -73177,15 +73191,15 @@
     {
       "path": "apps/web/src/test/setup-dom.ts",
       "kind": "file",
-      "size": 449,
-      "sha256": "c2eb4fc0ea46f3fb10ffbbcd11c64f6c169536ba2b6c5e3ee58c1cf7b9d65e52",
+      "size": 489,
+      "sha256": "79c2cc439dde399c5b4e736d94a3c198269d3f7521e7a9ac01e5e88f293af493",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
       "origin": [
         "mockup-app/src/test/setup-dom.ts"
       ],
-      "state": "moved",
+      "state": "rewritten",
       "ticket": "TKT-210"
     },
     {
@@ -76229,8 +76243,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "kind": "file",
-      "size": 41957,
-      "sha256": "aadd5bbebfed2c01c87ad38eb0ed723a5b31f8ae293507199bac96c32e68bd31",
+      "size": 41960,
+      "sha256": "7b93e2a72386b85408007b003ee629c3d7319e0bc3bbfab16800a4ee64b9c1fe",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -76243,8 +76257,8 @@
     {
       "path": "docs/tickets/README.md",
       "kind": "file",
-      "size": 44103,
-      "sha256": "6ee3fdf9b67709aed52425d9a943dc1f5e2fa503da745ff1726b9e6e47d02441",
+      "size": 44106,
+      "sha256": "dc4a7f5baf513c9892917cd94b265b654540eab19c2d3edf68af1c991fbb7c06",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -88029,76 +88043,6 @@
       "ticket": "TKT-213"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
-      "kind": "file",
-      "size": 3512,
-      "sha256": "eaef5cb5c18a82e095a791cc1b44d231bae191bf5450f56c4654e75d0d712e25",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md"
-      ],
-      "state": "rewritten",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/changes.md",
-      "kind": "file",
-      "size": 1052,
-      "sha256": "c19c18a3a7fa4849b9178e2a70597823fd14eaa7782b5f9d83150b0c97e0315a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/changes.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
-      "kind": "file",
-      "size": 1218,
-      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "PLAN-006"
-      ],
-      "state": "created",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
-      "kind": "file",
-      "size": 296,
-      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/verification.md",
-      "kind": "file",
-      "size": 3587,
-      "sha256": "647818299584e60f0d0aacd788ae12ea77d11de33d0b12acf77c6212f8adc10a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/now/TKT-169-email-hover-preview-bounds/verification.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
       "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
       "kind": "file",
       "size": 4685,
@@ -89221,8 +89165,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "kind": "file",
-      "size": 12909,
-      "sha256": "35ceba1c9053e3deefeaa398dc14b32025ffaae960059b112eaf71497cec6561",
+      "size": 12915,
+      "sha256": "4f923600e5665cc8645ac9ad2d59878322fdce71054f1d3d783f51b1b5d7f3e7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -91596,6 +91540,76 @@
         "docs/tickets/verify/TKT-167-image-gap-chasers/verification.md"
       ],
       "state": "rewritten",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
+      "kind": "file",
+      "size": 3518,
+      "sha256": "aea289d7c67b065e14871a9eba93f93627912056af9e1ba0f6466095a32a5a4e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/changes.md",
+      "kind": "file",
+      "size": 7563,
+      "sha256": "cd6e046c12b13fca7437802dc4bbd9fbb25ad2fe02511a6070751f224478064f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
+      "kind": "file",
+      "size": 1218,
+      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
+      "kind": "file",
+      "size": 296,
+      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt"
+      ],
+      "state": "moved",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/verification.md",
+      "kind": "file",
+      "size": 6467,
+      "sha256": "e9a96a37f84fc81cced1d21ef805f20f1a03ba2c5439b0574c52abc0dde82686",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-213"
     },
     {

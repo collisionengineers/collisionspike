@@ -72,3 +72,42 @@ verification (see `verification.md`):
 Deployment and a signed-in Chrome pass (desktop, 1024×600, 390×844, short viewport, 200% zoom, top/
 middle/bottom rows, keyboard-only pass, console-clean) — see `verification.md`. The 2026-07-14
 FAILED verdict is **not** superseded until that live evidence exists.
+
+## Independent review — 2026-07-17 (PR #106)
+
+An independent agent review of the remediation above (before deploy) found two real issues, both
+fixed in a follow-up commit:
+
+- **Row-unmount leak (high)**: a row's pending 150ms open-timer, or its already-open preview,
+  survived the row unmounting (search/filter/page change removing it from `pageItems`), leaving the
+  shared popover anchored to a detached element or opening late for a row no longer on screen. Fixed
+  by adding `releaseRow(rowId)` to the controller, called from each `SubjectPreviewCell`'s unmount
+  effect — cancels a pending open, or closes immediately if that row owned the open preview. Two new
+  regression tests cover both cases.
+- **ARIA regression (medium)**: bypassing `<PopoverTrigger>` for the external-trigger positioning
+  pattern meant Fluent no longer auto-wired the trigger-side `aria-expanded`/`aria-haspopup`/
+  `aria-controls`. Fixed by setting them by hand on the subject link, pointing at the shared
+  surface's new stable `id`.
+- A third, low-severity note (the popover `target` is threaded via `useState` rather than Fluent's
+  imperative `positioningRef`/`setTarget` API) was accepted as-is — the target must switch between
+  many different row elements, so state-driven reactivity is the appropriate tool here, not a single
+  stable ref; React 18 batching limits the extra-render cost the reviewer flagged.
+
+Re-verified after the fixes: `apps/web` full suite 556/556 pass (132 in the inbox feature,
+including the 2 new unmount tests), `npm run build` clean.
+
+## Deployed — 2026-07-17
+
+- PR #106 (`e-mail-preview-fixer` → `main`): https://github.com/collisionengineers/collisionspike/pull/106
+- Built `apps/web` (`npm run build`), copied `staticwebapp.config.json` into `dist/`, deployed with
+  `swa deploy ./dist --env production` → `cespk-spa-dev` → "Project deployed 🚀"
+  (`https://proud-sky-04e318b03.7.azurestaticapps.net`).
+- Post-deploy HTTP smoke check: `GET /` → **200**, `Content-Security-Policy` header present and
+  matching `staticwebapp.config.json`; served `index.html` references `assets/index-B0zP8REP.js` —
+  the build produced by this change (confirmed the bundle hash, not a stale cache).
+- This was an HTTP-only smoke check, not a browser/UI check — the operator is doing the signed-in
+  Chrome pass (desktop/1024px/390px/short-viewport/200% zoom, keyboard, console) separately. Until
+  that lands, this ticket stays in `now`/pending live UI verification, not `done`.
+- `LIVE_FACTS.json` was **not** updated — its dated entries reflect comprehensive environment-wide
+  verification sweeps, not single-ticket code-only deploys; this deploy's evidence lives here
+  instead, consistent with prior single-ticket SPA deploys (e.g. TKT-098).
