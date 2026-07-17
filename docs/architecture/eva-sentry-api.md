@@ -8,6 +8,7 @@ This page summarizes the current v1.2 contract. The source PDF under
 The API path is in product scope but is not currently enabled. The vendor endpoint accepts only one
 Principal Code for API submissions, while Collision Engineers requires several. Enablement requires
 vendor confirmation of multi-principal routing and a parity test against the current JSON handoff.
+Decision of record: [ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md).
 
 ## Authentication
 

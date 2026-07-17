@@ -1,6 +1,6 @@
 # ADR-0024 — Assistant writes use propose, confirm, execute
 
-**Status:** Proposed (2026-07-07); implementation exists for approved capabilities.
+**Status:** Accepted 2026-07-16 per [Review 160726](../reviews/160726/decisions.md).
 
 ## Decision
 
@@ -16,7 +16,13 @@ The model never sends a mutation directly.
 Destructive, human-only, forced-status, and byte-upload actions are not model-proposable. Authorization,
 validation, row-level policy, and audit run again on execute.
 
+## Rationale
+
+A person, not model prose, is the execution source for every assistant-initiated mutation.
+
 ## Consequences
 
 This protocol applies only where a person is present in the app. It does not authorize autonomous agent
-writes. Each capability also requires the relevant data-protection and product approval.
+writes. Each capability also requires the relevant data-protection and product approval. This protocol
+is the in-app expression of the write tier in
+[ADR-0023](./0023-mcp-server-hosting-and-auth.md)'s tiered access model.

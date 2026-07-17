@@ -231,7 +231,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (39)
+## Backlog (48)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -274,6 +274,15 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-235](./backlog/TKT-235-no-instruction-mint-hold/TKT-235-no-instruction-mint-hold.md) | Hold receiving_work mints that have no instruction anywhere (post-parse backstop) | P1 | intake | — |
 | [TKT-236](./backlog/TKT-236-pre-mint-archive-probe/TKT-236-pre-mint-archive-probe.md) | Probe the archive for an existing matter before minting from receiving_work | P2 | intake | — |
 | [TKT-237](./backlog/TKT-237-qdos26007-abstain-eval-fixture/TKT-237-qdos26007-abstain-eval-fixture.md) | Pin the QDOS26007 provider-query email as a classifier eval fixture (expected abstain) | P2 | email | — |
+| [TKT-238](./backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md) | Merge subset address rows into their full-address superset in the corpus build | P2 | platform | — |
+| [TKT-239](./backlog/TKT-239-image-first-registration-suffix/TKT-239-image-first-registration-suffix.md) | Suffix concurrent image-first cases on the same registration (-002/-003) | P2 | intake | — |
+| [TKT-240](./backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md) | Build the incident-date and principal candidate eliminators | P3 | intake | — |
+| [TKT-241](./backlog/TKT-241-odometer-vision-dvsa-crosscheck/TKT-241-odometer-vision-dvsa-crosscheck.md) | Odometer image reader and DVSA mileage cross-check flag | P3 | enrichment | — |
+| [TKT-242](./backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md) | Network-drive VRM scan channel for image receipt | P3 | intake | — |
+| [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 | platform | — |
+| [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 | email | — |
+| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | — |
+| [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 | docs | — |
 
 ## Blocked (8)
 

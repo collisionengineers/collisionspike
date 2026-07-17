@@ -12,6 +12,22 @@ prefixed `Δ`; operator plan text is unchanged. Operator rulings (AskUserQuestio
 this plan file rather than execute immediately; cite the TKT-219 commit for the 0022 amendment (it is
 NOT on main); mint the platform-ADR backfill as a follow-up ticket; promote 0024/0025 alongside 0023.
 
+## Δ Moved-base reconciliation — 2026-07-17 (operator-approved fold)
+
+Δ Verified against main `de9c3f9d` on 2026-07-17, immediately before execution; the base has moved
+Δ since the 2026-07-16 validation:
+Δ - TKT-219 has MERGED: `e5e8f6cd` is on main, followed by `58d7ca09` (TKT-225/226) adding a further
+Δ   0022 amendment. C3's branch-only note and the Risks-section verification are superseded: 0022 on
+Δ   main now carries the operator amendment PLUS the TKT-222 related-correspondence directive.
+Δ - Action unchanged: 0022 stays untouched (skip even the style pass). decisions.md D3 cites the merged
+Δ   commits `e5e8f6cd` + `58d7ca09` on main as provenance, not "lands with TKT-219".
+Δ - 0002: the "absorbs uncommitted cosmetic reflow already in tree" clause is stale — that reflow was
+Δ   committed in `e5e8f6cd`. The 0002 rewrite baselines on the committed text; nothing to absorb.
+Δ - This file is now TRACKED and ledger-registered (PR #104), superseding the "never staged, untracked"
+Δ   note below: this dated block is an operator-approved edit, staged with regenerated ledgers.
+Δ - Re-verified intact: 25 ADRs; 0007/0017 present as rename/delete targets; ticket floor TKT-238
+Δ   (rescan at mint).
+
 ## Contradiction register (C1–C17) — goes into decisions.md as D1–D17
 
 | # | Finding | Resolution |
