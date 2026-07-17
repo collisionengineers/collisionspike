@@ -1,0 +1,113 @@
+# ADR consistency review + rewrite — Review 160726 change set
+
+## Context
+
+The operator reviewed all 25 ADRs (2026-07-16) and left substantive comments on ~17. Task: (1) find contradictions between ADRs and plans/tickets/code, then (2) rewrite the commented ADRs — clear, correct, concise, plain language, house-style ADR practice. Three Explore sweeps gathered code/ticket ground truth; a Plan agent designed the execution; the operator answered four scoping questions. Per repo convention the operator's comments become a dated binding review (`docs/reviews/160726/`) and the ADRs are reconciled to it. The operator also amended ADR-0022 directly mid-session (leave verbatim).
+
+## Review deltas (Δ) — 2026-07-16 second opinion
+
+A second-opinion session reviewed all 25 ADRs plus a corpus survey, a repo-wide gap analysis, and a
+citation/overlap census; it endorsed this plan and folded in additions. Every added line below is
+prefixed `Δ`; operator plan text is unchanged. Operator rulings (AskUserQuestion 2026-07-16): modify
+this plan file rather than execute immediately; cite the TKT-219 commit for the 0022 amendment (it is
+NOT on main); mint the platform-ADR backfill as a follow-up ticket; promote 0024/0025 alongside 0023.
+
+## Contradiction register (C1–C17) — goes into decisions.md as D1–D17
+
+| # | Finding | Resolution |
+|---|---|---|
+| C1 | Operator "shared numbering" vs ADR-0021 independent per-marker sequences | **ADR-0021 correct**: allocator bakes marker into prefix/lock/regex (`services/data-api/src/features/cases/case-po.ts:83-104`), per-marker floors, tests, and operator's own corpus (D.PCH26190 vs A.PCH261339). "Shared" fits only QDOS dual shape: one standard mint, audit ID *derived* (`derivedMarkerCasePo`). 0021 unchanged (except C1b clause). |
+| C1b | A./AP. semantics: operator = original engineer's verdict; code/CONTEXT/TKT-057 = our audit's outcome | **User ruling: decided from SOURCE MATERIAL** — the original engineer's report or the work instructions state it. Review-time refinement stays as mechanism. ADR-0014 §Marker refinement + one-clause 0021 update + CONTEXT "Audit Total Loss" swap; code-comment corrections → ticket T6; ruling recorded for blocked TKT-057. |
+| C1c | Operator "same Box folder" vs TKT-162 nested child folder | Not a real conflict: same folder *tree*; TKT-162's nested `A.<Case/PO>` child is the pending refinement (backlog). Record in 0014. |
+| C1d | PCH cannot mint `AP.` (`MARKERED_PRINCIPALS`, `case-type.ts:55-58`) | Coverage gap → fold into ticket T6; noted in 0014. |
+| C2 | ADR-0011 internal: "intermediary domains belong to the Image Source" vs distinct-roles title | Rewrite with operator's overlap matrix + "the client" ambiguity caution. |
+| C3 | ADR-0022 vs in-flight retro changes | **Resolved by operator's own 2026-07-16 amendment** (TKT-119/219 eligibility, parallel+combined ladder, adoption gate, $search semantics, TKT-222). 0022 untouched. Knock-ons: CONTEXT "Retroactive Case" wording; 0004 cross-link. Δ Verified: the amendment is committed ONLY on feat/tkt-219-retro-parallel-reconstruction (e5e8f6cd), not main — decisions.md D3 cites that commit ("lands with TKT-219"); do not import the file onto the docs branch (its present-tense behavior claims are untrue on main until merge). |
+| C4 | ADR-0008 "ends at EVA handoff" vs shipped `done` cluster | PLAN-002/TKT-094/095/096 shipped post-EVA delivery tracking (`done` terminal, sent-email/Box-PDF/EVA-poll detectors). Rewrite 0008. Mis-citations of ADR-0023 in `case-status.ts:32-34`, `eva-report-poll.ts:1` → ticket T6. |
+| C5 | ADR-0010 wording vs operator | Two unique refs on same VRM = distinct cases (no "collision"); Case/PO rung deprioritised (providers won't quote ours); incident-date mismatch may *eliminate*, never merge. |
+| C6 | ADR-0002 "VRM not identity" vs image-first practice | Registration = *temporary* identity for image-first cases (TKT-118 built); -002/-003 suffix for concurrent active same-reg image cases = NEW decision (fixes VRM-folder collision gap, `imagesUnmatched.ts:112`) → ticket T2; subsumption anchored to archive-holding adoption (`archive-holding.ts`). |
+| C7 | ADR-0023 "read-only first" vs shipped MCP write lane | `image_ingest_agent` + `upload_case_images` (TKT-154) shipped with idempotency key + reg-resolution + pinned test root + gates — not the ADR's "signed commit token + optimistic concurrency". Rewrite 0023 as tiered model; rescope 0025 invariant to delegated surface; network-folder/drive write = intended expansion (not built). Provider API ≠ MCP (separate auth surfaces) — answers 0020 comment. |
+| C8 | ADR-0017 removal | Aligned with TKT-206 (P0, dropping the retention columns/jobs). Delete file; unlinked "Withdrawn" row in ADR README; archive-no-deletion rule survives in ADR-0012. Full dangling-citation list (code, bicep, TKT-160/217, `docs/architecture/data-protection.md` two-clock section) → checklist riders for TKT-206. |
+| C9 | ADR-0012 File Request template doubt | Template IS required + enforced + configured live (`BOX_FILE_REQUEST_TEMPLATE_ID`, `missing_template_identity`, TKT-156 live 200). Clarify with gate citation. |
+| C10 | ADR-0004 silent on retro | Parser runs during retro reconstruction — add cross-link clause to 0022. |
+| C11 | ADR-0013 Loc staleness | Loc inert (no writer emits `loc=`; `locValue` zero consumers; EVA export has no Loc). Rewrite address-policy-first; Loc retires to a short note; 2026-07-08 image-based pre-fill amendment preserved IN FULL (150726 M3 precedence). `locValue` residue removal → ticket T6. |
+| C12 | `dedup.ts:6-24` header false ("merge-by-registration", "test-only") | Live code IS the ADR-0010 ladder (`caseResolve.ts:13,128`). Header fix → ticket T6. Do not let it seed any rewrite. |
+| C13 | Operator eliminators vs code | Only provider-ref eliminator built (rung 3); incident-date proposed-only (realignment R5); principal never compared at intake. Record as decided 2026-07-16, not built → ticket T3. |
+| C14 | ADR-0016 "normalised full site" over-claims | Code key = exact `(provider, name\|line\|postcode)` (`build_corpus.py:134-135,173`); no subset merge → operator's 2+2-vs-4 split. Amendment + ticket T1. |
+| C15 | ADR-0015 lists 7 categories; live = 9/16 | Correct to live vocabulary; **user ruling: also ADOPT draft additions now** (post_report family, payment_received, autoreply/OOO/undeliverable) as accepted append-only decisions; corpus-count gating = implementation constraint. emailevals/ named taxonomy corpus authority → ticket T7. |
+| C16 | ADR-0009 "OCR first" imprecise; cost question | Engine of record = local fast-alpr ALPR (≈£0, zero egress) + DI Read fallback ($1.50/1k, F0); gpt-5 Foundry vision (~$0.004–0.005/img) for roles. **Cost answer: reg-presence flag = byproduct of same ALPR pass — cheaper than vision** (TKT-017 benchmark). |
+| C17 | ADR-0006 lacks odometer tier | TKT-152 already specs staff > instruction > odometer image > MOT estimator; vision odometer reader NOT built; DVSA cross-check discrepancy flag = new decision → ticket T4. |
+
+## User rulings (AskUserQuestion 2026-07-16)
+
+1. **AP. semantics:** from source material (original engineer's report or work instructions) — see C1b.
+2. **Guided capture:** open evaluation — File Request now; tractable/ravin management interest + CollisionCapture in-house contender (built dark, TKT-200); criteria stated, selection deferred.
+3. **ADR-0015:** adopt draft taxonomy additions now (append-only), gating noted as implementation constraint.
+4. **Follow-up tickets:** mint now (T1–T7 below). Δ Second-opinion rulings (2026-07-16) add T8–T9 below.
+
+## Execution phases
+
+House template (existing style, no MADR bloat): title sentence · bold Status line with provenance (`rewritten/amended/clarified 2026-07-16 per [Review 160726](../reviews/160726/decisions.md)`) · `## Decision` / `## Rationale` / `## Consequences` · dated `## Amendment — <topic> (2026-07-16)` sections. Built facts in present tense; new decisions carry `(decided 2026-07-16; not built — TKT-NNN)`. Ticket IDs plain text, never path links (tickets move folders). Cross-links relative.
+
+### Phase 1 — review folder (must exist before ADR status lines link to it; check:docs enforces)
+Create `docs/reviews/160726/`:
+- `overview.md` — scope (25 ADRs read, ~17 commented), method, file roles, relation to Review 150726 M3, state.
+- `review.md` — operator comments transcribed per ADR (H2 per number; directive/question/observation tags; note ADR-0022 amendment applied directly by operator).
+- `decisions.md` — ruling register D1–D17 (020726 table format: # / Decision / Ruling / Provenance file:line), including the four answered questions and resolved-without-asking rulings. Keep volatile live tallies out (leakage gate); cite file:line not counts.
+- `checklist.md` — (a) ADR reconciliation table (requirement → file → mechanism → state); (b) follow-up table with minted TKT IDs; (c) TKT-206 riders (full dangling ADR-0017 list incl. `case-detail.controller.tsx:462`, `activity-routes.ts:117`, `dto/index.ts:138`, six `infra/main.bicep`, `data-protection.md` two-clock section, TKT-160/217 refs); (d) verification state.
+  Δ (c) rider addition: the data-protection.md two-clock rework must RETAIN the DSAR cross-store coverage list (PostgreSQL, source/transient bytes, Archive, mail references, File Request links, identifier strings) — after 0017's deletion it is the only home of that enumeration.
+Edit `docs/reviews/README.md` — add index row for 2026-07-16.
+
+### Phase 2 — deletions and renames
+- Delete `docs/adr/0017-data-retention-erasure-pii-lifecycle.md`.
+- `git mv docs/adr/0007-whatsapp-intake-manual-bulk-ocr-match.md docs/adr/0007-image-acquisition-channels.md` (no historical ticket cites the old filename; number citations survive).
+- 0013 filename KEPT (slug's "no-runtime-address-matching" half still accurate; TKT-129 changes.md cites it; ~40 "ADR-0013" number citations bind).
+- 0008 slug stays stale by design — record the acceptance in decisions.md.
+
+### Phase 3 — ADR rewrites (per-file targets)
+
+**Superseding rewrites:** 0002 (eliminators built-vs-decided per C13; temporary registration identity; -002 suffix decision; archive-holding subsumption; absorbs uncommitted cosmetic reflow already in tree), 0010 (C5 rewording; asymmetric time rule: never merges, may eliminate), 0011 (role overlap matrix table; "the client" caution; C2 fix), 0008 (confirmed report delivery boundary; three detectors + staff mark-done; assessment/authoring still out of scope), 0007→image-acquisition-channels (5 channels: File-Request chaser links TKT-156 · guided capture with open-evaluation Direction paragraph TKT-200/102/104 · WhatsApp manual carried over, ADR-0003 link · network-drive staging decided/not built T5 · agent attach: MCP ingest shipped TKT-154, in-app assistant attach = TKT-068; links 0023/0024/0025), 0014 (two audit shapes; derived-ID rule; TKT-162 nesting pending; §Marker refinement = source-material AP. ruling; C1d note; gates/allowlist; 0021 cross-link), 0015 (9/16 live vocabulary; emailevals authority; §Change path records ADOPTED append-only additions with corpus-count gating as implementation constraint; deterministic-first core retained), 0013 (address-policy-first; 2026-07-08 amendment preserved in full; `## Retired: Loc` short note), 0023 (tiered model; shipped image-ingest lane with actual safeguards named; separate-surfaces note re 0020; "cannot borrow a user identity" verbatim; expansion pattern = network-drive attach; status → Accepted 2026-07-16).
+
+**Dated amendments:** 0006 (mileage precedence hierarchy per TKT-152 + DVSA cross-check flag; decided/not built → T4; vision use defers to 0009's gate), 0009 (engines named: fast-alpr + DI Read fallback; presence flag = same-pass byproduct ≈£0 — answers cost question; new vision tasks e.g. 0006 odometer pass the existing model-change gate — keeps 0006/0009 consistent), 0016 (subset-merge rule: collapse rows sharing normalized line+postcode, frequencies sum, named superset label → T1).
+
+**Clarifications (one clause + status note):** 0004 (parser also invoked during retro reconstruction — link 0022), 0012 (template required + enforced, cite gate), 0020 (provider API and MCP deliberately separate surfaces/auth; link 0023), 0025 (invariant rescoped to delegated staff surface; app-only lanes governed by 0023), 0021 (one clause: AP. reflects source-material verdict, refined at review), 0024 (expect no-op; confirm pointer at 0023's tiered model).
+
+Δ Status promotions (operator ruling 2026-07-16): 0024 and 0025 ALSO move to Accepted 2026-07-16 per Review 160726 — all three AI ADRs shipped (read-only MCP; propose/confirm/execute live for approved capabilities incl. the TKT-154 write lane; registry in packages/domain with invariant tests), so Proposed misstates the corpus. 0024's pass additionally gains a one-sentence ## Rationale; 0025 keeps the invariant rescope unchanged.
+
+**Untouched:** 0001, 0003, 0005, 0018, 0019, 0022 (operator-amended today — skip even style pass).
+
+Δ Quality riders (apply while touching the files above):
+Δ - 0009 amendment: name the engines but cite the TKT-017 benchmark for cost figures — no inline prices (exact live values belong in LIVE_FACTS/ticket evidence); word the model-change gate as generally applicable to AI model adoption (the 0006 odometer amendment already defers to it from outside images).
+Δ - 0015 rewrite: record the append-only numeric contract + the adopted additions BY NAME + the emailevals taxonomy authority; do NOT restate the full 9/16 matrix — enumerating 7 categories is exactly how 0015 went stale (C15).
+Δ - 0013 rewrite: state the reconciliation explicitly — policy-driven Image Based Assessment auto-fill is a recorded non-address outcome, not an address selection, so it does not breach "never auto-apply an address".
+Δ - 0007 rewrite: convert bare-text ADR refs to markdown links (0007 is the only ADR citing as plain text); make 0003↔0007 bidirectional; add the 0019 link from the 0015 side (0019 itself stays untouched).
+Δ - 0021 clause pass: add a one-sentence ## Rationale (0021 is one of seven ADRs lacking one).
+Δ - 0020 clarification: strip "implementation tracked by TKT-055" from the Status line (status = lifecycle only; tickets are the sole work authority) — keep a plain TKT-055 reference in the body.
+
+### Phase 4 — index + glossary
+- `docs/adr/README.md`: row updates (0007 new filename/title, 0008 new decision text, 0013 reworded, 0014/0015 refresh, 0023 → Accepted) + 0017 unlinked Withdrawn row: `| 0017 | Withdrawn 2026-07-16 (Review 160726) — retention architecture removed with TKT-206; Archive no-automated-deletion rule lives in ADR-0012 | Withdrawn |`.
+- `CONTEXT.md`: Retroactive Case (gated adoption wording, business language); Audit Total Loss (source-material verdict sentence); VRM (temporary image-first identity sentence); new terms Guided Capture + File Request.
+Δ - README rows: also 0024/0025 → Accepted (ruling above).
+Δ - docs/adr/README.md conventions block (new, short): status vocabulary = Proposed / Accepted / Amended (dated) / Superseded by ADR-NNNN / Withdrawn; build state lives in the body with plain TKT refs, never in Status; amendment headings `## Amendment — <topic> (YYYY-MM-DD)`; relationship clauses ("refined by / extends / supersedes") sit in the Status line; an ADR links its realization docs. (Census: 8+ status formulations today, 0017 dateless, and the two existing amendments already disagree on heading form.)
+Δ - Back-link pass (census: the "link the affected current docs" rule is followed by exactly ONE pair today, 0020 ↔ docs/reference/provider-api-intake-spec.md): rewritten ADRs gain outbound "current docs" pointers — 0023 → architecture/mcp-image-ingestion.md + integrations.md; 0015 → product/intake-workflow.md; 0012 clause pass → integrations.md. And add one-line "Decision of record: ADR-NNNN" back-links in integrations.md (§Archive → 0012, §AI capabilities → 0023/0024/0025, §EVA → 0005), eva-sentry-api.md (§Availability decision → 0005), system-overview.md (§Boundaries → 0008/0012). data-protection.md excluded — TKT-206 owns its rework.
+
+### Phase 5 — mint tickets T1–T7 (`docs/tickets/backlog/`, IDs from TKT-223 up — RE-SCAN all status folders first; parallel sessions minted TKT-219/221/222 today) Δ now T1–T9
+- T1 corpus subset-address merge (platform) · T2 -002/-003 registration suffix for concurrent image-first cases (intake; relate TKT-193/172/177) · T3 incident-date + principal eliminators (intake; realignment R5) · T4 odometer vision reader + DVSA cross-check (enrichment; activates TKT-152 tier) · T5 network-drive VRM scan channel (intake) · T6 code/docs hygiene: dedup.ts header, ADR-0023 mis-citations, AP.-semantics comments, PCH AP. allowlist, locValue residue (docs/platform) · T7 triage vocabulary code additions (email; behaviours live in TKT-188/184/186).
+Δ - T8 service-trust seam: decide/harden withServiceAuth — internal orchestration→Data API routes accept ANY valid Entra token with no subject/app-role check (services/data-api/src/features/inbound/internal/service-support.ts:15-35) (platform/security; deliberate-looking but undocumented — kept out of the T6 hygiene batch on purpose).
+Δ - T9 platform ADR backfill (0026–0030 as ONE ticket; operator drafts/approves the decisions separately): RLS-as-final-authorization (non-owner cespk_app, per-connection app.role — services/data-api/src/platform/db/client.ts:10-24, infrastructure/config-capture/api.bicep:39-46) · ship-dark gate model + single gated dev environment (packages/domain/src/gates.ts; LIVE_FACTS deliberatelyUnavailable/safetyGates) · three-tier compute topology (SPA → Data API → Durable orchestration → focused Python apps) · staff identity (in-code jose JWT validation, authLevel anonymous, MSAL PKCE — services/data-api/src/platform/auth/staff-auth.ts:1-151) · outbox/generation-counter reliability (features/archive/mirror-outbox.ts, database/migrations/*-outbox.sql).
+- NOT minted (exist): TKT-068 (assistant attach), TKT-154/218 (MCP lane), TKT-057 (AP. flow — ruling recorded), TKT-162 (nesting), TKT-219/220/221/222 (retro).
+- Mechanics: copy frontmatter from a recent backlog ticket (TKT-222); `research-link` → the 160726 review; regenerate derived views (inspect `ticket-move.mjs` for regen-only mode or equivalent script); `npm run check:tickets`.
+
+### Phase 6 — governance ledgers + verification (docs-only commit, nested repo, run from collisionspike root)
+1. Branch from current HEAD (`docs/adr-review-160726`); stage docs/tickets paths EXPLICITLY — never `git add -A` (working tree carries in-flight retro code: `retro-*.ts`, `gates.ts`, `LIVE_FACTS.json`…).
+   Δ workingspace/adr-rewrite.txt is never staged (user-owned, untracked, CRLF byte-stable per .gitattributes).
+2. Ledgers AFTER staging (inventory reads the git index): `node scripts/maintenance/generate-repository-inventory.mjs` → stage → `node scripts/maintenance/reconcile-repository-reset.mjs --write` → stage (reconciliation ledger holds `finalPath` rows for 0007/0013/0017).
+3. Checks: `npm run check:docs` (links, BFS reachability of new review files, leakage) · `check:inventory` · reconcile check mode · `check:line-endings` (normalize new files first if needed) · `check:layout` · `check:tickets` · `check:data-authority` · `check:forbidden`.
+4. Eyeball rendered markdown for the three reshaped tables (ADR README, reviews README, decisions.md).
+5. Full `node verify-all.mjs` before any push (the repo's trusted gate; docs-only should pass clean).
+6. Commit conventional style `docs(adr): …`; report; push/PR only on user request.
+
+## Risks / coordination
+- **Parallel session in same checkout:** BOARD.md/ticket views may be dirty from the retro session's mints — inspect `git diff` on generated views before staging; if unrelated changes present, coordinate or scope regen. Δ 0022 resolved (verified 2026-07-16 in the adr-rewrite worktree): docs/adr is byte-clean on main; the operator amendment exists only in e5e8f6cd on feat/tkt-219-retro-parallel-reconstruction. Do NOT import or stage 0022 here — in-tree 0022 catches up when TKT-219 merges; D3 cites the commit.
+- ADR-0013's 2026-07-08 amendment must survive in meaning (150726 M3 precedence violation otherwise).
+- Number citations of deleted 0017 remain in code/bicep/tickets by design — transcribed as TKT-206 riders, not edited here (no `done/` ticket records ever edited).
+- New-decision prose stays one-bullet-with-ticket; no speculative build detail in ADRs (docs/README.md rule).
