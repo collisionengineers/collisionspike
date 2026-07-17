@@ -57,3 +57,15 @@ instruction is not the whole job: EVERY related email the mailbox search surface
 (replies, chasers, our own sent responses, later updates) must be LINKED to the reconstructed case —
 bounded, corroborated per message, never re-pointing an email already linked elsewhere, and recorded
 as retro-provenance links. The reconstruction itself stays anchored on the original instruction.
+
+**Related-correspondence ingest (operator directive 2026-07-16 — TKT-225).** The initial retro
+construction is like receiving a new case: linking related correspondence is not enough — each
+backfill-linked related email is INGESTED like a new intake, gated dark behind
+`RETRO_RELATED_INGEST_ENABLED` (orchestration app; default off = TKT-222 link-only behaviour). Its
+attachments and raw `.eml` are fetched and persisted as sha256-carrying evidence, embedded images are
+extracted, and its parsed details fill gaps on the case — strictly fill-if-empty with provenance,
+never overwriting an already-set value. A parse that contradicts the case keys (parsed reference AND
+VRM both present and both disagree) applies no fields but its evidence still persists. No provider
+recovery, Case/PO minting, or sender-provider attribution runs from a related email — a chaser is
+weaker provenance than an instruction. Rows already linked to the SAME case are re-offered for ingest
+so a force re-run heals earlier link-only backfills; rows linked elsewhere stay untouched.

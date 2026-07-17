@@ -28,6 +28,7 @@ sys.path.insert(0, str(FN_DIR))
 
 import function_app  # noqa: E402
 import webhook_verify as wv  # noqa: E402
+from data_api_client import EvidenceWriteResult  # noqa: E402
 from webhook_verify import DeliveryDedup, is_replay, verify_signature  # noqa: E402
 
 # Recognisable fake keys (test-only, never real Box keys).
@@ -258,10 +259,16 @@ def test_extract_folder_and_file_ids():
 class _FakeDataApi:
     """Stand-in DataApiClient: records calls, returns scripted answers."""
 
-    def __init__(self, *, case_id="CASE-1", evidence_exists=False, case_po=None):
+    def __init__(self, *, case_id="CASE-1", evidence_exists=False, case_po=None,
+                 evidence_result: EvidenceWriteResult | None = None):
         self._case_id = case_id
         self._case_po = case_po
         self._evidence_exists = evidence_exists
+        # Default: a fresh persist (tag truthy) — tests script the merged-twin
+        # shape (persisted=0, merged=1) via evidence_result (TKT-226).
+        self._evidence_result = evidence_result or EvidenceWriteResult(
+            tag="EV-1", persisted=1, merged=0, updated=0,
+        )
         self.created = []
         self.audited = []
         self.reinvoked = []
@@ -280,7 +287,7 @@ class _FakeDataApi:
 
     def create_evidence(self, **kwargs):
         self.created.append(kwargs)
-        return "EV-1"
+        return self._evidence_result
 
     def write_audit(self, **kwargs):
         self.audited.append(kwargs)
@@ -352,6 +359,69 @@ def test_receiver_happy_path_writes_evidence_audit_and_reinvokes(monkeypatch):
     assert fake.created[0]["box_file_id"] == "999"
     assert len(fake.audited) == 1
     assert fake.reinvoked == ["CASE-7"]
+
+
+def test_receiver_audit_carries_honest_after_fields_external_upload(monkeypatch):
+    # TKT-226 — the audit's after payload names what actually arrived: the class
+    # derived from the filename (.jpg -> image) and origin=external_upload when the
+    # persist reported a FRESH row (no merged twin).
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert len(fake.audited) == 1
+    audited = fake.audited[0]
+    assert audited["name"] == "box_upload_received: IMG_1.jpg"  # stable legacy fallback key
+    assert audited["after_fields"] == {
+        "filename": "IMG_1.jpg",
+        "evidenceClass": "image",
+        "origin": "external_upload",
+    }
+    # The class passed to the evidence write and the audited class agree.
+    assert fake.created[0]["evidence_class"] == "image"
+
+
+def test_receiver_audit_marks_archive_mirror_on_merged_twin(monkeypatch):
+    # TKT-226 — merged>0 with persisted=0 = the API collapsed this delivery onto
+    # the sha256 twin classifyPersist already wrote: the system's OWN archive echo.
+    fake = _FakeDataApi(
+        case_id="CASE-7",
+        evidence_result=EvidenceWriteResult(tag="", persisted=0, merged=1, updated=0),
+    )
+    _patch_dv(monkeypatch, fake)
+    eml_body = {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "998", "name": "message-ab12cd34.eml",
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+    resp = function_app.box_webhook(_signed_request(eml_body))
+    assert resp.status_code == 200
+    assert len(fake.audited) == 1
+    audited = fake.audited[0]
+    assert audited["after_fields"] == {
+        "filename": "message-ab12cd34.eml",
+        "evidenceClass": "email",
+        "origin": "archive_mirror",
+    }
+    # No fresh row -> the result's evidenceId marker is empty (tag semantics kept).
+    out = json.loads(resp.get_body())
+    assert out.get("evidenceId") == ""
+
+
+def test_receiver_non_image_external_upload_audits_true_class(monkeypatch):
+    # A fresh (non-merged) PDF upload audits evidenceClass=instruction — the label
+    # seam downstream must never render it as images.
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    pdf_body = {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "997", "name": "notes.pdf",
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+    resp = function_app.box_webhook(_signed_request(pdf_body))
+    assert resp.status_code == 200
+    assert fake.audited[0]["after_fields"]["evidenceClass"] == "instruction"
+    assert fake.audited[0]["after_fields"]["origin"] == "external_upload"
 
 
 def test_receiver_processes_inline_before_responding(monkeypatch):

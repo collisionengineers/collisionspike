@@ -21,6 +21,8 @@ describe('suggestedOutlookFolder — one folder per e-mail type (TKT-054 / 02072
     expect(suggestedOutlookFolder('payment_remittance')).toBe('Inbox/Billing');
     expect(suggestedOutlookFolder('pre_instruction_directions')).toBe('Inbox/Pre-instructions');
     expect(suggestedOutlookFolder('website_general_enquiry')).toBe('Inbox/Queries/Enquiries');
+    // TKT-226 — retro-linked correspondence IS a case update, so it files with them:
+    expect(suggestedOutlookFolder('retro_related')).toBe('Inbox/Case updates');
   });
 });
 

@@ -8,6 +8,7 @@ import {
   firstAddress,
   pickCaseFolder,
   refSearchVariants,
+  relatedParseContradictsKeys,
   selectOutlookOriginal,
   type OutlookSearchCandidate,
   type RetroSearchHit,
@@ -202,5 +203,36 @@ describe('selectOutlookOriginal', () => {
   it('falls back to a reply-prefixed hit when nothing else survives', () => {
     const reply = cand({ id: 'reply', subject: 'FW: instruction', hasAttachments: true });
     expect(selectOutlookOriginal([reply], { intakeMailboxes: INTAKE })?.id).toBe('reply');
+  });
+});
+
+describe('relatedParseContradictsKeys (TKT-225 — the shared demotion rule)', () => {
+  const KEYS = { externalRef: 'REF-123', vrm: 'KA08XTR' };
+
+  it('contradicts only when BOTH the parsed ref AND the parsed VRM disagree', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'BD51SMR', '')).toBe(true);
+  });
+
+  it('a single disagreement is NOT a contradiction (ref only / vrm only)', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'KA08XTR', '')).toBe(false);
+    expect(relatedParseContradictsKeys(KEYS, 'REF-123', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', '', '')).toBe(false); // no parsed VRM
+    expect(relatedParseContradictsKeys(KEYS, '', 'BD51SMR', '')).toBe(false); // no parsed ref
+  });
+
+  it('absent keys never contradict', () => {
+    expect(relatedParseContradictsKeys({}, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys({ externalRef: 'REF-123' }, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys({ vrm: 'KA08XTR' }, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+  });
+
+  it('falls back to the envelope VRM sniff when the parser found no VRM', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', '', 'BD51SMR')).toBe(true);
+    // The parsed VRM outranks the sniff: agreement there clears the contradiction.
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'KA08XTR', 'BD51SMR')).toBe(false);
+  });
+
+  it('normalises case and whitespace before comparing (never a spurious contradiction)', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ref 123', 'ka08 xtr', '')).toBe(false);
   });
 });

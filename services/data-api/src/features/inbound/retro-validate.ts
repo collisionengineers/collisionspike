@@ -45,6 +45,8 @@ export type RetroValidationErrorCode =
   | 'missing_trigger'
   | 'missing_original'
   | 'missing_keys'
+  | 'missing_case_id'
+  | 'missing_source_message_id'
   | 'invalid_case_po'
   | 'invalid_status'
   | 'invalid_reconstruction_source'
@@ -205,4 +207,36 @@ export function validateRetroCreate(
       reconstructionSource: source,
     },
   };
+}
+
+/* ----------  backfill-fields (TKT-225)  ---------- */
+
+export interface NormalisedRetroBackfillFields {
+  caseId: string;
+  /** The related email's Internet-Message-Id — every provenance row's source_reference. */
+  sourceInternetMessageId: string;
+}
+
+export function validateRetroBackfillFields(
+  body: unknown,
+): { ok: true; value: NormalisedRetroBackfillFields } | RetroValidationError {
+  if (body == null || typeof body !== 'object') {
+    return { ok: false, code: 'invalid_body', message: 'body must be a JSON object' };
+  }
+  const b = body as { caseId?: unknown; sourceInternetMessageId?: unknown };
+  const caseId = typeof b.caseId === 'string' ? b.caseId.trim() : '';
+  if (!caseId) {
+    return { ok: false, code: 'missing_case_id', message: 'caseId required' };
+  }
+  const sourceInternetMessageId =
+    typeof b.sourceInternetMessageId === 'string' ? b.sourceInternetMessageId.trim() : '';
+  if (!sourceInternetMessageId) {
+    return {
+      ok: false,
+      code: 'missing_source_message_id',
+      message: 'sourceInternetMessageId required',
+    };
+  }
+  // field_level_provenance.source_reference is varchar(400) (the applyParserFields cap).
+  return { ok: true, value: { caseId, sourceInternetMessageId: sourceInternetMessageId.slice(0, 400) } };
 }

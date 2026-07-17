@@ -8,6 +8,53 @@ import { clampVarchar, vrmOrEmpty } from '../../shared/validation/varchar.js';
 import { type InboundClassificationDto, type InboundEnvelope } from './internal/inbound-identity.js';
 import { senderDomain } from './internal/service-support.js';
 
+/** TKT-226 — loud unmapped-taxonomy guard. A non-empty classification name with no
+ *  code-table mapping used to null out SILENTLY (`retro_related` rendered
+ *  'Unidentified' for days with zero signal). The structured marker below is the
+ *  metric — KQL-alertable (`traces | where message has "inboundTaxonomyUnmapped"`).
+ *  NEVER throws: these run before upsertInboundEmail's try block, and triage
+ *  provenance must not block primary intake. */
+function unmappedTaxonomyCode(field: 'category' | 'subtype', value: string): null {
+  console.error(JSON.stringify({ evt: 'inboundTaxonomyUnmapped', field, value }));
+  return null;
+}
+
+/** The category code for a classification name, or null (loudly, when the name is
+ *  non-empty but unmapped). PURE apart from the diagnostic marker. */
+export function categoryCodeFor(name: string | null | undefined): number | null {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return null;
+  return (
+    INBOUND_CATEGORY_TO_INT[trimmed as InboundCategory] ??
+    unmappedTaxonomyCode('category', trimmed)
+  );
+}
+
+/** The subtype code for a classification name, or null (loudly, when the name is
+ *  non-empty but unmapped). PURE apart from the diagnostic marker. */
+export function subtypeCodeFor(name: string | null | undefined): number | null {
+  const trimmed = (name ?? '').trim();
+  if (!trimmed) return null;
+  return (
+    INBOUND_SUBTYPE_TO_INT[trimmed as InboundSubtype] ?? unmappedTaxonomyCode('subtype', trimmed)
+  );
+}
+
+/** TKT-226 — the ON CONFLICT subtype rule: subtype refreshes TOGETHER with category.
+ *  Every caller supplies category+subtype as ONE classification tuple
+ *  (InboundClassificationDto), so a mapped category arriving with a NULL subtype
+ *  means "unmapped subtype name" — persisting a mismatched pair like
+ *  (case_update, billing_request) is strictly worse than the honest
+ *  (case_update, NULL) → 'Unidentified' (which the loud guard above now surfaces).
+ *  `human` mode still freezes both halves. Exported so the test can pin the SQL. */
+export const INBOUND_SUBTYPE_PAIR_REFRESH_SQL = `subtype_code     = CASE
+                              WHEN inbound_email.classifier_mode = 'human'
+                                THEN inbound_email.subtype_code
+                              WHEN EXCLUDED.category_code IS NOT NULL
+                                THEN EXCLUDED.subtype_code
+                              ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)
+                            END`;
+
 export async function upsertInboundEmail(
   inbound: InboundEnvelope,
   workProviderId: string | null,
@@ -22,12 +69,10 @@ export async function upsertInboundEmail(
   // TKT-073: this helper's own varchar columns, clamped so a long value degrades instead
   // of silently losing the whole triage row (the catch below swallows DB errors).
   const name = clampVarchar(`Email: ${subject || inbound.internetMessageId}`, 200).value;
-  const categoryCode = classification
-    ? INBOUND_CATEGORY_TO_INT[classification.category as InboundCategory] ?? null
-    : null;
-  const subtypeCode = classification
-    ? INBOUND_SUBTYPE_TO_INT[classification.subtype as InboundSubtype] ?? null
-    : null;
+  // TKT-226 — mapped via the LOUD helpers: a non-empty unmapped name logs the
+  // inboundTaxonomyUnmapped marker instead of nulling silently (never throws).
+  const categoryCode = classification ? categoryCodeFor(classification.category) : null;
+  const subtypeCode = classification ? subtypeCodeFor(classification.subtype) : null;
   // Prefer the parser-confirmed PDF VRM for the inbox triage row too (so it shows the same
   // mark the case persists), then the classifier body sniff, then the email-subject sniff.
   // body_vrm is varchar(16): an over-length sniff is junk — dropped, never truncated.
@@ -89,11 +134,7 @@ export async function upsertInboundEmail(
                                 THEN inbound_email.category_code
                               ELSE COALESCE(EXCLUDED.category_code, inbound_email.category_code)
                             END,
-         subtype_code     = CASE
-                              WHEN inbound_email.classifier_mode = 'human'
-                                THEN inbound_email.subtype_code
-                              ELSE COALESCE(EXCLUDED.subtype_code, inbound_email.subtype_code)
-                            END,
+         ${INBOUND_SUBTYPE_PAIR_REFRESH_SQL},
          confidence       = CASE
                               WHEN inbound_email.classifier_mode = 'human'
                                 THEN inbound_email.confidence

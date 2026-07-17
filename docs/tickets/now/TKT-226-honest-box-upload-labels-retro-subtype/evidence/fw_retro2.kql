@@ -1,0 +1,11 @@
+traces
+| where timestamp > datetime(2026-07-16T18:00:00Z)
+| where message !startswith "Found the following functions"
+| where message contains "62778371" or message contains "FW26029"
+   or (message contains "WF69NDX" and message startswith "{")
+   or message contains "retroLinkRelated"
+   or (message startswith "{\"evt\":\"retro")
+   or message contains "retroRecordFailure"
+| project timestamp, message=substring(message, 0, 700)
+| order by timestamp asc
+| take 250

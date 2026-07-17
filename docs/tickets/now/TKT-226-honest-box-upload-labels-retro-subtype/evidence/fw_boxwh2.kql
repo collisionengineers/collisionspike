@@ -1,0 +1,7 @@
+traces
+| where timestamp between (datetime(2026-07-16T22:53:00Z) .. datetime(2026-07-16T22:59:00Z))
+| where message contains "box webhook" or message contains "FILE.UPLOADED"
+   or message contains "upload" or message contains ".eml" or message contains "evidence"
+| project timestamp, message=substring(message, 0, 400)
+| order by timestamp asc
+| take 80

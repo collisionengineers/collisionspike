@@ -22,13 +22,13 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-001](./plans/PLAN-001-ai-mcp-hardening.md) — Harden and extend AI and agent capabilities | active | 8/17 (47%) |
 | [PLAN-002](./plans/PLAN-002-case-done-lifecycle.md) — Case done lifecycle | active | 1/3 (33%) |
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) — Operator review and fix-up wave | active | 28/37 (75%) |
-| [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/62 (4%) |
+| [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/63 (4%) |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (24)
+## Now (26)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -56,6 +56,8 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 | platform | PLAN-004 |
 | [TKT-210](./now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
 | [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 | integration | PLAN-004 |
+| [TKT-225](./now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps | P1 | intake | PLAN-004 |
+| [TKT-226](./now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md) | Box uploads mislabel the queue as "Images received"; retro_related subtype silently nulls | P1 | intake | — |
 
 ## Verify (41)
 

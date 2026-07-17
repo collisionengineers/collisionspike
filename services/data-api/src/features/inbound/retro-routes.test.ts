@@ -31,6 +31,7 @@ vi.mock('../../shared/audit.js', () => ({
     retro_case_linked: 2,
     inbound_routed: 3,
     duplicate_flagged: 4,
+    parser_called: 5,
   },
   writeAudit: audit.writeAudit,
 }));
@@ -40,11 +41,13 @@ vi.mock('./triage-locks.js', () => ({ acquireTriageLocks: locks.acquireTriageLoc
 
 const internal = vi.hoisted(() => ({
   applyParserFields: vi.fn(),
+  applyParserFieldsUsing: vi.fn(),
   mintBlockedByCategory: vi.fn(),
   upsertInboundEmail: vi.fn(),
 }));
 vi.mock('./internal/parser-fields.js', () => ({
   applyParserFields: internal.applyParserFields,
+  applyParserFieldsUsing: internal.applyParserFieldsUsing,
 }));
 vi.mock('./internal/unique-violation.js', () => ({
   isUniqueViolation: () => false,
@@ -304,11 +307,60 @@ describe('POST /api/internal/retro/create provider completion', () => {
       context(),
     );
 
-    expect(response).toEqual({ status: 200, jsonBody: { linked: 1, skipped: 2 } });
+    // TKT-225: the response identifies WHICH rows linked — a row linked to a DIFFERENT
+    // case appears in NEITHER list (never re-point, never ingest another case's mail).
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: {
+        linked: 1,
+        skipped: 2,
+        linkedIds: ['<fresh@example.test>'],
+        alreadyLinkedIds: [],
+      },
+    });
     expect(audit.writeAudit).toHaveBeenCalledWith(expect.objectContaining({
       caseId: 'case-retro',
       summary: expect.stringContaining('1 related email'),
     }));
+  });
+
+  // TKT-225 — a row already linked to THIS case is skipped for counts (idempotent replays)
+  // but returned ingest-eligible, so a force re-run heals the TKT-222 v1 link-only pile.
+  it('link-related returns alreadyLinkedIds for rows linked to THIS case only', async () => {
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      dbCalls.push({ sql, params });
+      if (sql.includes('SELECT case_id FROM inbound_email')) {
+        if (params[0] === '<mine@example.test>') return [{ case_id: 'case-retro' }];
+        if (params[0] === '<other@example.test>') return [{ case_id: 'case-other' }];
+        return [];
+      }
+      return [];
+    });
+
+    const row = (id: string) => ({
+      messageId: `graph-${id}`,
+      internetMessageId: `<${id}@example.test>`,
+      sourceMailbox: 'engineers@example.test',
+      senderAddress: 'provider@example.test',
+      subject: 'RE: REF-123',
+      receivedAt: '2026-07-10T10:00:00.000Z',
+      payloadHash: `hash-${id}`,
+      attachments: [],
+    });
+    const response = await registrations.get('internalRetroLinkRelated')!.handler(
+      request({ caseId: 'case-retro', rows: [row('fresh'), row('mine'), row('other')] }),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: {
+        linked: 1,
+        skipped: 2,
+        linkedIds: ['<fresh@example.test>'],
+        alreadyLinkedIds: ['<mine@example.test>'],
+      },
+    });
   });
 
   it('forwards the trigger sender intermediary match into applyParserFields (TKT-021/TKT-219)', async () => {
@@ -385,5 +437,152 @@ describe('POST /api/internal/retro/create provider completion', () => {
       null,
       expect.objectContaining({ allowCasePoMint: true }),
     );
+  });
+});
+
+/* ============================================================
+   TKT-225 — POST /api/internal/retro/backfill-fields
+   ============================================================ */
+describe('POST /api/internal/retro/backfill-fields (TKT-225)', () => {
+  const PARSER_EVA = {
+    source_reference: '<rel-1@example.test>',
+    claimant_name: 'Jane Driver',
+  };
+
+  function backfillBody(overrides: Record<string, unknown> = {}) {
+    return {
+      caseId: 'case-retro',
+      sourceInternetMessageId: '<rel-1@example.test>',
+      parserRef: 'REF-123',
+      parserMileage: '12000',
+      parserMileageUnit: 'Miles',
+      parserEva: PARSER_EVA,
+      ...overrides,
+    };
+  }
+
+  /** db.query mock for the backfill seam: `vrmEmpty` drives the conditional UPDATE's
+   *  RETURNING; `changed` makes the second to_jsonb snapshot differ from the first. */
+  function mockBackfillDb(opts: { vrmEmpty?: boolean; changed?: boolean } = {}) {
+    let snapshots = 0;
+    db.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+      dbCalls.push({ sql, params });
+      if (sql.includes('to_jsonb')) {
+        snapshots += 1;
+        return [{
+          snapshot: { id: 'case-retro', vrm: opts.changed && snapshots > 1 ? 'KA08XTR' : null },
+        }];
+      }
+      if (sql.includes('UPDATE case_ SET vrm')) {
+        return opts.vrmEmpty ? [{ id: 'case-retro' }] : [];
+      }
+      return [];
+    });
+  }
+
+  it('is an honest no-op while RETRO_CASE_ENABLED is off', async () => {
+    gates.retroCase.mockReturnValue(false);
+
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody()),
+      context(),
+    );
+
+    expect(response).toEqual({ status: 200, jsonBody: { outcome: 'gated_off' } });
+    expect(internal.applyParserFieldsUsing).not.toHaveBeenCalled();
+    expect(dbCalls).toHaveLength(0);
+  });
+
+  it('400s without a source message id (provenance is mandatory)', async () => {
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody({ sourceInternetMessageId: '' })),
+      context(),
+    );
+
+    expect(response).toMatchObject({ status: 400, jsonBody: { error: 'missing_source_message_id' } });
+    expect(internal.applyParserFieldsUsing).not.toHaveBeenCalled();
+  });
+
+  it('delegates to applyParserFieldsUsing with NO provider, NO intermediary, NO recoveryContext; noop when nothing changes', async () => {
+    mockBackfillDb({ changed: false });
+
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody()),
+      context(),
+    );
+
+    // D7 pinned: fill-gaps only — no sender provider, no intermediary corroboration, no
+    // Case/PO mint or provider-recovery completion from a related email.
+    expect(internal.applyParserFieldsUsing).toHaveBeenCalledWith(
+      db.query,
+      'case-retro',
+      'REF-123',
+      '12000',
+      'Miles',
+      PARSER_EVA,
+      null,
+      null,
+      undefined,
+    );
+    expect(response).toEqual({ status: 200, jsonBody: { outcome: 'noop' } });
+    // No summary audit on a noop — the audit trail records changes, not attempts.
+    expect(audit.writeAudit).not.toHaveBeenCalled();
+    // No VRM offered → no lock, no vrm UPDATE.
+    expect(locks.acquireTriageLocks).not.toHaveBeenCalled();
+    expect(dbCalls.some(({ sql }) => sql.includes('UPDATE case_ SET vrm'))).toBe(false);
+  });
+
+  it('fills an EMPTY vrm (normalised), writes provenance naming the source email, and reports applied', async () => {
+    mockBackfillDb({ vrmEmpty: true, changed: true });
+
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody({ parserVrm: 'ka08 xtr' })),
+      context(),
+    );
+
+    expect(response).toEqual({
+      status: 200,
+      jsonBody: { outcome: 'applied', vrmFilled: true },
+    });
+    expect(locks.acquireTriageLocks).toHaveBeenCalledWith(db.query, { vrm: 'KA08XTR' });
+    const update = dbCalls.find(({ sql }) => sql.includes('UPDATE case_ SET vrm'));
+    expect(update?.sql).toContain("vrm IS NULL OR btrim(vrm) = ''"); // strictly fill-if-empty
+    expect(update?.params).toEqual(['KA08XTR', 'case-retro']);
+    const provenance = dbCalls.find(({ sql }) => sql.includes('INSERT INTO field_level_provenance'));
+    expect(provenance?.params).toContain('KA08XTR');
+    expect(provenance?.params).toContain('<rel-1@example.test>');
+    // The vrm-fill audit + the one summary audit.
+    expect(audit.writeAudit).toHaveBeenCalledTimes(2);
+    expect(audit.writeAudit).toHaveBeenCalledWith(expect.objectContaining({
+      caseId: 'case-retro',
+      after: expect.objectContaining({ sourceMessageId: '<rel-1@example.test>' }),
+    }), db.query);
+  });
+
+  it('never overwrites a set vrm (the conditional UPDATE returns no row → no provenance, noop)', async () => {
+    mockBackfillDb({ vrmEmpty: false, changed: false });
+
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody({ parserVrm: 'BD51SMR' })),
+      context(),
+    );
+
+    expect(response).toEqual({ status: 200, jsonBody: { outcome: 'noop' } });
+    expect(dbCalls.some(({ sql }) => sql.includes('INSERT INTO field_level_provenance'))).toBe(false);
+  });
+
+  it('drops an over-length VRM as junk (TKT-073) instead of truncating it into the column', async () => {
+    mockBackfillDb({ changed: false });
+    const ctx = context();
+
+    const response = await registrations.get('internalRetroBackfillFields')!.handler(
+      request(backfillBody({ parserVrm: 'ABCDEFGHIJKLMNOPQ' })), // 17 chars > varchar(16)
+      ctx,
+    );
+
+    expect(response).toEqual({ status: 200, jsonBody: { outcome: 'noop' } });
+    expect(ctx.warn).toHaveBeenCalledWith(expect.stringContaining('over-length VRM'));
+    expect(locks.acquireTriageLocks).not.toHaveBeenCalled();
+    expect(dbCalls.some(({ sql }) => sql.includes('UPDATE case_ SET vrm'))).toBe(false);
   });
 });

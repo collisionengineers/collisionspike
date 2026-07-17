@@ -246,6 +246,59 @@ describe('rowToCase — truthful chase suggestion activity (TKT-148)', () => {
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('ch.suggested');
     expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_suggested');
   });
+
+  it('the queue query surfaces the TKT-226 honest-label fields (object-guarded jsonb reads)', () => {
+    // The object guard: a legacy string-scalar `after` must yield NULL, not error.
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`jsonb_typeof(ae.after::jsonb) = 'object'`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`ae.after::jsonb->>'evidenceClass'`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain(`ae.after::jsonb->>'origin'`);
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('ae.name AS summary');
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_summary');
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_evidence_class');
+    expect(CASE_SELECT_WITH_ACTIVITY).toContain('last_activity_origin');
+  });
+});
+
+describe('rowToCase — honest Box-upload chip (TKT-226)', () => {
+  const base = {
+    id: 'c-box',
+    vrm: 'WF69NDX',
+    status_code: 100000004,
+    created_at: new Date(2026, 6, 1),
+    last_activity_at: new Date(2026, 6, 16),
+    last_activity_kind: 'audit',
+    last_activity_action_code: 100000021, // box_upload_received
+  };
+
+  it('an archive-mirror echo renders Archived (the FW26029 shape, payload-marked)', () => {
+    const c = rowToCase({
+      ...base,
+      last_activity_summary: 'box_upload_received: message-ab12cd34.eml',
+      last_activity_evidence_class: 'email',
+      last_activity_origin: 'archive_mirror',
+    });
+    expect(c.lastActivity?.label).toBe('Archived');
+  });
+
+  it('a genuine image upload still reads Images received', () => {
+    const c = rowToCase({
+      ...base,
+      last_activity_summary: 'box_upload_received: IMG_0001.jpg',
+      last_activity_evidence_class: 'image',
+      last_activity_origin: 'external_upload',
+    });
+    expect(c.lastActivity?.label).toBe('Images received');
+  });
+
+  it('a legacy row (no payload columns) self-heals from the summary filename', () => {
+    const c = rowToCase({
+      ...base,
+      last_activity_summary: 'box_upload_received: message-ab12cd34.eml',
+      last_activity_evidence_class: null,
+      last_activity_origin: null,
+    });
+    expect(c.lastActivity?.label).toBe('File added to archive');
+  });
 });
 
 describe('rowToActivityEvent — TKT-134 humanized primary line + detail/technical split', () => {
@@ -259,11 +312,52 @@ describe('rowToActivityEvent — TKT-134 humanized primary line + detail/technic
       actor: 'System',
       occurred_at: at,
     });
-    expect(e.description).toBe('Images received');
+    // TKT-226 — an extensionless legacy summary proves nothing about images:
+    // the honest fallback, never 'Images received'.
+    expect(e.description).toBe('File added to archive');
     expect(e.description).not.toMatch(/[a-z]_[a-z]/i);
     // The engineering-shaped summary is NOT a detail line — it moves behind technical.
     expect(e.detail).toBeUndefined();
     expect(e.technical).toContain('box_upload_received: 3 files landed');
+  });
+  it('box-upload rows derive their line from the after payload / summary filename (TKT-226)', () => {
+    // Object payload (new webhook build): origin=archive_mirror → Archived.
+    const mirror = rowToActivityEvent({
+      id: 'a1m',
+      case_id: 'c1',
+      action_code: 100000021,
+      name: 'box_upload_received: message-ab12cd34.eml',
+      after: JSON.stringify({
+        detail: 'FILE.UPLOADED folder=400654960481 file=999',
+        filename: 'message-ab12cd34.eml',
+        evidenceClass: 'email',
+        origin: 'archive_mirror',
+      }),
+      actor: 'System',
+      occurred_at: at,
+    });
+    expect(mirror.description).toBe('Archived');
+    // Legacy string-scalar after (old rows): the summary filename heals the label.
+    const legacyImage = rowToActivityEvent({
+      id: 'a1l',
+      case_id: 'c1',
+      action_code: 100000021,
+      name: 'box_upload_received: IMG_0001.jpg',
+      after: 'FILE.UPLOADED folder=777 file=999',
+      actor: 'System',
+      occurred_at: at,
+    });
+    expect(legacyImage.description).toBe('Images received');
+    const legacyEml = rowToActivityEvent({
+      id: 'a1e',
+      case_id: 'c1',
+      action_code: 100000021,
+      name: 'box_upload_received: message-ab12cd34.eml',
+      after: 'FILE.UPLOADED folder=777 file=998',
+      actor: 'System',
+      occurred_at: at,
+    });
+    expect(legacyEml.description).toBe('File added to archive');
   });
   it('a human-safe summary renders as the detail line (specifics kept, plainly)', () => {
     const e = rowToActivityEvent({

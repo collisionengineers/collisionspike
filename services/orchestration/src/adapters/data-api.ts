@@ -313,13 +313,41 @@ export const dataApi = {
   /**
    * TKT-222 — link related mailbox emails (replies, chasers, our own sent responses) to a
    * reconstructed retro case. Server-side: never re-points a row that already carries a
-   * case_id; rows land 'routed' with retro_related_linked provenance.
+   * case_id; rows land 'routed' with retro_related_linked provenance. TKT-225: the
+   * response additionally identifies WHICH rows linked (`linkedIds`) and which were
+   * already linked to THIS case (`alreadyLinkedIds`) — both ingest-eligible; rows linked
+   * to a different case are never returned.
    */
   retroLinkRelated(payload: {
     caseId: string;
     rows: unknown[];
-  }): Promise<{ linked: number; skipped: number }> {
+  }): Promise<{
+    linked: number;
+    skipped: number;
+    linkedIds?: string[];
+    alreadyLinkedIds?: string[];
+  }> {
     return request('POST', '/api/internal/retro/link-related', payload);
+  },
+
+  /**
+   * TKT-225 — fill-gaps parser-field application from a retro-linked RELATED email.
+   * Wraps the Data API's applyParserFields engine with NO sender-provider, NO
+   * intermediary and NO recoveryContext: strictly fill-if-empty (plus a VRM
+   * fill-if-empty with provenance), no Case/PO mint, no provider-recovery completion —
+   * a chaser is weaker provenance than an instruction. 'gated_off' while
+   * RETRO_CASE_ENABLED is off on the API app.
+   */
+  retroBackfillFields(payload: {
+    caseId: string;
+    sourceInternetMessageId: string;
+    parserVrm?: string;
+    parserRef?: string;
+    parserMileage?: string;
+    parserMileageUnit?: string;
+    parserEva?: ParserEvaFields;
+  }): Promise<{ outcome: 'applied' | 'noop' | 'gated_off'; vrmFilled?: boolean }> {
+    return request('POST', '/api/internal/retro/backfill-fields', payload);
   },
 
   /**

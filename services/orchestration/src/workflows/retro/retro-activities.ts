@@ -475,6 +475,20 @@ df.app.activity('retroOutlookLocate', {
  *  per-case link cap (truncation is logged — no silent caps). */
 const RELATED_SEARCH_TOP = 50;
 const RELATED_LINK_CAP = 25;
+/** TKT-225 — per-case cap on the rows offered to the related-INGEST child (matches
+ *  RELATED_LINK_CAP; truncation logged, never silent). */
+const RELATED_INGEST_CAP = 25;
+
+/** TKT-225 — one ingest-eligible related row as the child orchestrator consumes it. */
+interface RelatedIngestRow {
+  internetMessageId: string;
+  /** Graph message id. */
+  messageId: string;
+  /** users/<mailbox>/messages/<id> — the fetchMessage resource form. */
+  resource: string;
+  mailbox: string;
+  receivedAt: string;
+}
 
 df.app.activity('retroLinkRelated', {
   handler: async (
@@ -507,7 +521,7 @@ df.app.activity('retroLinkRelated', {
           try {
             const hits = await searchMessages(mailbox, kqlPhrase(variant), RELATED_SEARCH_TOP);
             for (const h of hits) {
-              const k = `${mailbox} ${h.id}`;
+              const k = `${mailbox}\u0000${h.id}`;
               if (seen.has(k)) continue;
               seen.add(k);
               // Conservative v1 corroboration: the SUBJECT must carry one of the case keys
@@ -532,9 +546,17 @@ df.app.activity('retroLinkRelated', {
       );
     }
     const rows: InboundEnvelope[] = [];
+    // TKT-225 — retain the (mailbox, Graph-id, receivedAt) behind each posted row so the
+    // route's linkedIds/alreadyLinkedIds can be mapped back into ingest-eligible rows.
+    const byInternetMessageId = new Map<string, { messageId: string; mailbox: string; receivedAt: string }>();
     for (const c of candidates.slice(0, RELATED_LINK_CAP)) {
       const identity = await getMessageIdentity(c.mailbox, c.id);
       if (!identity || exclude.has(identity.internetMessageId.trim())) continue;
+      byInternetMessageId.set(identity.internetMessageId.trim(), {
+        messageId: c.id,
+        mailbox: c.mailbox,
+        receivedAt: identity.receivedDateTime,
+      });
       rows.push({
         messageId: c.id,
         internetMessageId: identity.internetMessageId,
@@ -562,7 +584,76 @@ df.app.activity('retroLinkRelated', {
       evt: 'retroLinkRelated', caseId: input.caseId,
       linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length,
     }));
-    return { linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length };
+    const result: {
+      linked: number;
+      skippedRows: number;
+      scanned: number;
+      ingestRows?: RelatedIngestRow[];
+    } = { linked: persisted.linked, skippedRows: persisted.skipped, scanned: candidates.length };
+    // TKT-225 — the checkpointed gate decision: `ingestRows` is present ONLY when the
+    // ingest gate is on (the orchestrator branches purely on this activity result).
+    // Newly linked rows AND rows already linked to THIS case are eligible — the latter
+    // heals the TKT-222 v1 pile (row-links without evidence) on a force re-run; rows
+    // linked to a DIFFERENT case were never returned by the route (NEVER RE-POINT).
+    if (!gates.retroRelatedIngest()) {
+      ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId: input.caseId, ingest: 'gate_off' }));
+      return result;
+    }
+    // Dedupe: a cross-mailbox twin (same Internet-Message-Id landing in two intake
+    // mailboxes) can appear in linkedIds via one copy and alreadyLinkedIds via the other.
+    const eligible = [...new Set([...(persisted.linkedIds ?? []), ...(persisted.alreadyLinkedIds ?? [])])];
+    const ingestRows = eligible
+      .map((imid): RelatedIngestRow | undefined => {
+        const hit = byInternetMessageId.get(imid);
+        return hit
+          ? {
+              internetMessageId: imid,
+              messageId: hit.messageId,
+              resource: `users/${hit.mailbox}/messages/${hit.messageId}`,
+              mailbox: hit.mailbox,
+              receivedAt: hit.receivedAt,
+            }
+          : undefined;
+      })
+      .filter((r): r is RelatedIngestRow => Boolean(r))
+      // Oldest first: the earliest correspondence fills gaps first (fill-if-empty means
+      // first-writer-wins); id tiebreak for determinism.
+      .sort((a, b) =>
+        a.receivedAt !== b.receivedAt
+          ? (a.receivedAt < b.receivedAt ? -1 : 1)
+          : a.internetMessageId.localeCompare(b.internetMessageId),
+      );
+    if (ingestRows.length > RELATED_INGEST_CAP) {
+      ctx.warn(
+        `[retroLinkRelated] ${ingestRows.length} ingest-eligible rows capped at ${RELATED_INGEST_CAP} for case ${input.caseId} — re-run to pick up the remainder`,
+      );
+    }
+    result.ingestRows = ingestRows.slice(0, RELATED_INGEST_CAP);
+    return result;
+  },
+});
+
+df.app.activity('retroBackfillFields', {
+  handler: async (
+    input: {
+      caseId: string;
+      sourceInternetMessageId: string;
+      parserVrm?: string;
+      parserRef?: string;
+      parserMileage?: string;
+      parserMileageUnit?: string;
+      parserEva?: ParserEvaFields;
+    },
+    ctx,
+  ): Promise<unknown> => {
+    if (!gates.retroCase()) return { skipped: 'gate_off' };
+    if (!gates.retroRelatedIngest()) return { skipped: 'ingest_gate_off' };
+    const result = await dataApi.retroBackfillFields(input);
+    ctx.log(JSON.stringify({
+      evt: 'retroBackfillFields', caseId: input.caseId,
+      outcome: result.outcome, vrmFilled: result.vrmFilled ?? false,
+    }));
+    return result;
   },
 });
 

@@ -1,0 +1,1 @@
+union traces, requests, exceptions | summarize earliest=min(timestamp), latest=max(timestamp), n=count() by itemType

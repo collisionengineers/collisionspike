@@ -51,6 +51,7 @@ import logging
 import os
 import random
 import time
+from dataclasses import dataclass
 from typing import Any, Callable
 from urllib.parse import quote
 
@@ -82,6 +83,21 @@ _MAX_RETRY_AFTER_S = 60.0
 # the Function MI via azure-identity (imported lazily so unit tests need neither
 # azure-identity nor network).
 TokenProvider = Callable[[], str]
+
+
+@dataclass(frozen=True)
+class EvidenceWriteResult:
+    """Outcome of one evidence POST (TKT-226). ``tag`` keeps the legacy truthy-marker
+    semantics: the ``box:file:<id>`` tag when a fresh row was persisted, '' when the
+    durable dedup / merge skipped the insert. ``merged`` > 0 = sha256 content twin
+    already on this case (the email-lane mirror) — the API collapsed this delivery
+    onto the existing row instead of inserting. ``updated`` mirrors the API's
+    updated counter (same-identity refresh)."""
+
+    tag: str
+    persisted: int
+    merged: int
+    updated: int
 
 
 class DataApiError(RuntimeError):
@@ -250,7 +266,7 @@ class DataApiClient:
         source_label: str = "box_upload",
         box_file_url: str | None = None,
         evidence_class: str = "image",
-    ) -> str:
+    ) -> EvidenceWriteResult:
         """POST one Box evidence row to the Data API. Records the durable dedup tag
         (``box:file:<id>``) in source_message_id, the box_file_id correlation
         mirror, accepted-for-EVA=true, and the human source label. storage_path is
@@ -264,8 +280,11 @@ class DataApiClient:
         recorded in the source label; ``sha256`` (TKT-133) — when the receiver
         computed it from the capped byte fetch — is forwarded on the wire row
         (the API internal route reads ``row.sha256`` and keys its write-time
-        (case_id, sha256) dedup/link on it). Returns a truthy marker when a row
-        was persisted, '' when the row already existed (server-side dedup)."""
+        (case_id, sha256) dedup/link on it). Returns an EvidenceWriteResult
+        (TKT-226): ``tag`` is the legacy truthy marker (set only when a fresh
+        row was persisted); ``merged`` > 0 = sha256 content twin already on the
+        case (email-lane mirror) — this delivery is the system's own archive
+        echo, not new external material."""
         row: dict[str, Any] = {
             "filename": filename,
             "evidenceClass": evidence_class or "image",
@@ -281,21 +300,44 @@ class DataApiClient:
         url = f"{self.base_url}/api/internal/cases/{quote(str(case_id), safe='')}/evidence"
         resp = self._send("POST", url, headers=self._headers(), json={"rows": [row]})
         data = _json_or_raise(resp, "create_evidence")
-        persisted = data.get("persisted") if isinstance(data, dict) else 0
-        # Truthy marker on a fresh write; '' when the durable dedup skipped it.
-        return _box_file_tag(box_file_id) if persisted else ""
+        persisted = _int_or_zero(data.get("persisted"))
+        merged = _int_or_zero(data.get("merged"))
+        updated = _int_or_zero(data.get("updated"))
+        # Truthy tag on a fresh write; '' when the durable dedup / merge skipped it.
+        return EvidenceWriteResult(
+            tag=_box_file_tag(box_file_id) if persisted else "",
+            persisted=persisted,
+            merged=merged,
+            updated=updated,
+        )
 
     # -- step 7b: audit ---------------------------------------------------
 
-    def write_audit(self, *, action: str, case_id: str | None, name: str, detail: str) -> None:
+    def write_audit(
+        self,
+        *,
+        action: str,
+        case_id: str | None,
+        name: str,
+        detail: str,
+        after_fields: dict[str, Any] | None = None,
+    ) -> None:
         """Append one audit_event row via the Data API (it owns append-only +
         the action NAME->code lookup). Best-effort: an audit failure is logged but
         must NOT fail the upload-processing path (the Evidence row is the
-        load-bearing write)."""
+        load-bearing write).
+
+        ``after_fields`` (TKT-226, keyword-only, additive): when provided, the
+        ``after`` payload becomes the OBJECT ``{"detail": detail, **after_fields}``
+        so read-time consumers (queue "Last update" chip, Action-logs page) can
+        derive an honest label (filename / evidenceClass / origin). When omitted,
+        behaviour is byte-identical to before (plain string ``after``) — every
+        other call site is untouched."""
+        after: Any = {"detail": detail, **after_fields} if after_fields else detail
         payload: dict[str, Any] = {
             "action": action,      # NAME string, e.g. 'box_upload_received'
             "summary": name,       # audit_event.name (one-line human label)
-            "after": detail,       # the human detail snapshot
+            "after": after,        # the detail snapshot (string, or object with after_fields)
         }
         if case_id:
             payload["caseId"] = case_id
@@ -392,6 +434,16 @@ def _parse_retry_after(value: str | None) -> float | None:
     except (TypeError, ValueError):
         return None
     return secs if secs >= 0 else None
+
+
+def _int_or_zero(value: Any) -> int:
+    """Coerce an API counter to int; anything absent/non-numeric is an honest 0
+    (an older API build that omits ``merged``/``updated`` must not break the
+    receiver — the audit then simply carries origin=external_upload)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _box_file_tag(box_file_id: str) -> str:

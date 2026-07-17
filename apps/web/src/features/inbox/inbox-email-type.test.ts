@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CATEGORY_ORDER,
   EMAIL_TYPE_ALL,
+  SUBTYPE_LABEL,
   SUBTYPES_BY_CATEGORY,
   emailTypeDisplayLabel,
   emailTypeParam,
@@ -12,6 +13,13 @@ import {
   parseEmailType,
   readInboxFilterParams,
 } from './inbox-email-type';
+
+describe('SUBTYPE_LABEL — staff-visible wording pins', () => {
+  it('retro_related reads Related (retro-linked) and sits under Case updates (TKT-226)', () => {
+    expect(SUBTYPE_LABEL.retro_related).toBe('Related (retro-linked)');
+    expect(SUBTYPES_BY_CATEGORY.case_update).toContain('retro_related');
+  });
+});
 
 describe('parseEmailType / emailTypeParam — round trip', () => {
   it('parses a category id', () => {

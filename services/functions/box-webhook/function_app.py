@@ -801,21 +801,45 @@ def _process_upload(body: dict[str, Any], result: dict[str, Any]) -> None:
             # here — after the case resolved and the write will actually happen;
             # over-cap or any Box fault -> None (honest).
             sha256_hex = _fetch_box_sha256(box_file_id)
-            evidence_id = dv.create_evidence(
+            # TKT-226: hoist the true class so the audit carries it too (the label
+            # seam downstream must never have to guess from the action code alone).
+            evidence_class = "engineer_report" if is_report else classify_evidence_kind(filename)
+            write_result = dv.create_evidence(
                 case_id=case_id,
                 filename=filename,
                 box_file_id=box_file_id,
                 sha256=sha256_hex,
                 source_label=f"box_upload sha1={sha1}" if sha1 else "box_upload",
-                evidence_class="engineer_report" if is_report else classify_evidence_kind(filename),
+                evidence_class=evidence_class,
+            )
+            evidence_id = write_result.tag
+            # TKT-226: merged>0 with no fresh row = the API collapsed this delivery
+            # onto an existing sha256 twin — this upload is the system's OWN archive
+            # mirror echoing back (classifyPersist wrote the blob rows before
+            # boxArchiveEvidence uploaded), not new external material. If the sha256
+            # fetch failed (over-cap), merge is undetected and the audit stays
+            # external_upload — the label then falls back to the class-derived
+            # string (for an image-class mirror echo that means "Images received":
+            # honest about the file, wrong about its origin — accepted edge case).
+            origin = (
+                "archive_mirror"
+                if write_result.merged > 0 and write_result.persisted == 0
+                else "external_upload"
             )
             # Step 7: audit box_upload_received (only on a fresh Evidence write —
             # the append-only audit row is not re-emitted on a dedup retry).
+            # `name` format is stable — it is the legacy read-time fallback key
+            # (the label seam parses the filename back out of it for old rows).
             dv.write_audit(
                 action=AUDIT_BOX_UPLOAD_RECEIVED,
                 case_id=case_id,
                 name=f"box_upload_received: {filename}",
                 detail=f"FILE.UPLOADED folder={folder_id} file={box_file_id or '?'}",
+                after_fields={
+                    "filename": filename,
+                    "evidenceClass": evidence_class,
+                    "origin": origin,
+                },
             )
 
         # Step 7: re-invoke the idempotent status-evaluate so the case advances.

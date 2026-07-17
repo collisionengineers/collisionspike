@@ -49,6 +49,9 @@ export function suggestedOutlookFolder(subtype: InboundSubtype): string {
     case 'cancellation_notice':
       return 'Inbox/Cancellations';
     case 'update_general':
+    // retro_related (TKT-226) — correspondence the retro link-related lane attached to a
+    // reconstructed case: it IS a case update, so it files with the other case updates.
+    case 'retro_related':
       return 'Inbox/Case updates';
     default:
       return 'Inbox/Other';

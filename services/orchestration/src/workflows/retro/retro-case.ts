@@ -77,6 +77,7 @@ import {
 } from '../../platform/supplement-parse.js';
 import type { InboundEnvelope } from '../intake/fetchMessage.js';
 import type { InboundClassification } from '../intake/classifyInbound.js';
+import { relatedParseContradictsKeys } from './retro-envelope.js';
 
 /** The parse activity's envelope shape as the retro rungs consume it. */
 interface RetroParseResult {
@@ -556,6 +557,9 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       args.persisted.providerRecovery === 'identity_ready'
         ? 'completed'
         : (args.persisted.providerRecovery ?? 'not_needed');
+    // TKT-225 (D8) — remembers whether this arm archived into a freshly ensured WRITABLE
+    // folder, so the related-ingest below can re-mirror its new evidence once (idempotent).
+    let archivedToWritableFolder = false;
     if (args.ensureArchiveFolder && args.persisted.providerRecovery === 'identity_ready') {
       // A create or exact get-or-create replay can finish provider identity. Run the
       // idempotent folder ensure; the sub-orchestrator proves the exact Case/PO folder is
@@ -581,6 +585,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
       // TKT-220 (G3) — the folder just ensured is WRITABLE (created under the pinned root,
       // unlike the read-only archive of the Box/combined arms), so mirror the linked-reply
       // lane and archive the case's evidence into it (best-effort).
+      archivedToWritableFolder = true;
       try {
         yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
       } catch (e) {
@@ -600,6 +605,7 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
     // job: link EVERY related mailbox email for this case's keys (replies, chasers, our own
     // sent responses), bounded and corroborated, never re-pointing an email linked elsewhere.
     // Best-effort: a backfill hiccup never unwinds the created/linked case.
+    let backfillStage = 'retroLinkRelated';
     try {
       const excludeInternetMessageIds = [
         (trigger as { internetMessageId?: string }).internetMessageId,
@@ -609,13 +615,55 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         caseId,
         keys: searchKeys,
         excludeInternetMessageIds,
-      })) as { skipped?: string; linked?: number; scanned?: number };
+      })) as {
+        skipped?: string;
+        linked?: number;
+        scanned?: number;
+        ingestRows?: Array<{
+          internetMessageId: string;
+          messageId: string;
+          resource: string;
+          mailbox: string;
+          receivedAt: string;
+        }>;
+      };
       if (!ctx.df.isReplaying && !linked.skipped) {
         ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked: linked.linked, scanned: linked.scanned }));
       }
+      // TKT-225 — the initial reconstruction is like receiving a new case: each linked
+      // related email is INGESTED like a new intake (attachments → evidence, embedded
+      // images, parser fields fill-gaps). `ingestRows` is present ONLY when the activity
+      // read RETRO_RELATED_INGEST_ENABLED on — the gate decision is checkpointed, so this
+      // branch is pure over activity results (gate off = byte-identical TKT-222 v1 run).
+      if (linked.ingestRows && linked.ingestRows.length > 0) {
+        backfillStage = 'retroRelatedIngestOrchestrator';
+        const ingest = (yield ctx.df.callSubOrchestratorWithRetry('retroRelatedIngestOrchestrator', retry, {
+          caseId,
+          rows: linked.ingestRows,
+          keys: searchKeys,
+          ...(args.caseVrm ? { caseVrm: args.caseVrm } : {}),
+          ...(workProviderIdForEvidence ? { workProviderId: workProviderIdForEvidence } : {}),
+          ...(args.principalForStems ? { providerPrincipal: args.principalForStems } : {}),
+        })) as { processed?: number; failed?: number; fieldsApplied?: number };
+        if (!ctx.df.isReplaying) {
+          ctx.log(JSON.stringify({ evt: 'retroRelatedIngest', caseId, ...ingest }));
+        }
+        // D8 — Outlook-only arm: the writable folder already received boxArchiveEvidence
+        // above; re-run once (idempotent) so the ingested evidence mirrors too. The RO
+        // Box/combined arms stay untouched (uploads refused by design).
+        if (archivedToWritableFolder) {
+          try {
+            yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
+          } catch (e) {
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[retro] post-ingest boxArchiveEvidence failed (additive, non-blocking): ${String(e)}`);
+            }
+          }
+        }
+      }
     } catch (e) {
       if (!ctx.df.isReplaying) {
-        ctx.log(`[retro] retroLinkRelated failed (additive, non-blocking): ${String(e)}`);
+        ctx.log(`[retro] ${backfillStage} failed (additive, non-blocking): ${String(e)}`);
       }
     }
     return providerRecoveryOut;
@@ -684,22 +732,19 @@ df.app.orchestration('retroCaseOrchestrator', function* (ctx): Generator<Task, u
         (mapped.parserVrm || original.candidateVrm) &&
         normToken(mapped.parserVrm || original.candidateVrm) === normToken(searchKeys.vrm),
     );
-    const refContradicts = Boolean(
-      searchKeys.externalRef &&
-        mapped.parserRef &&
-        normToken(mapped.parserRef) !== normToken(searchKeys.externalRef),
-    );
-    const vrmContradicts = Boolean(
-      searchKeys.vrm &&
-        (mapped.parserVrm || original.candidateVrm) &&
-        normToken(mapped.parserVrm || original.candidateVrm) !== normToken(searchKeys.vrm),
-    );
     return {
       original,
       parseResult,
       ...mapped,
       corroborated: keyInText || refAgrees || vrmAgrees,
-      contradicted: refContradicts && vrmContradicts,
+      // TKT-225 — the shared demotion rule (BOTH ref and VRM parsed and BOTH disagree),
+      // extracted so the related-ingest child applies exactly the same contradiction test.
+      contradicted: relatedParseContradictsKeys(
+        searchKeys,
+        mapped.parserRef,
+        mapped.parserVrm,
+        original.candidateVrm,
+      ),
     };
   }
 

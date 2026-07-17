@@ -1,0 +1,7 @@
+traces
+| where timestamp > datetime(2026-07-16T22:45:00Z)
+| where message contains "400654960481" or message contains "box_upload_received"
+   or message contains "FILE.UPLOADED" or message contains "62778371"
+| project timestamp, message=substring(message, 0, 500)
+| order by timestamp asc
+| take 80

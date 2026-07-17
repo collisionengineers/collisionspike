@@ -11,7 +11,7 @@
  * Durable harness.
  */
 
-import { cleanEmailBodyForPreview, extractVrm } from '@cs/domain';
+import { cleanEmailBodyForPreview, extractVrm, type RetroKeys } from '@cs/domain';
 import type { InboundEnvelope } from '../intake/fetchMessage.js';
 import { hashPayload } from '../intake/fetchMessage.js';
 import type { ExplodedEml } from '../../adapters/functions-client.js';
@@ -142,6 +142,42 @@ export function buildMinimalAnchorEnvelope(
     references: '',
     attachments: [],
   };
+}
+
+/* ----------  Related-parse contradiction (TKT-225)  ---------- */
+
+/** Case-insensitive whitespace-stripped token normalisation (the retro-case
+ *  corroboration rule — same recipe as its `normToken`). */
+function normKeyToken(v: string): string {
+  return v.trim().toUpperCase().replace(/\s+/g, '');
+}
+
+/**
+ * The demotion rule applied to a RELATED email's parse (TKT-225 — shared with the
+ * Outlook-original arm's corroboration): a single disagreement is not a contradiction
+ * (chasers routinely quote only one key, and parses are imperfect), but when the case
+ * keys carry a reference AND a VRM, the parse produced BOTH, and BOTH disagree, the
+ * parsed material describes a different matter — its fields must not touch the case
+ * (evidence still persists; the email is already subject-corroborated and row-linked).
+ * `candidateVrm` is the envelope's own sniff, used only when the parser found no VRM.
+ * Absent keys or absent parses never contradict. Pure — unit-tested without Durable.
+ */
+export function relatedParseContradictsKeys(
+  keys: RetroKeys,
+  parserRef: string,
+  parserVrm: string,
+  candidateVrm: string,
+): boolean {
+  const refContradicts = Boolean(
+    keys.externalRef &&
+      parserRef &&
+      normKeyToken(parserRef) !== normKeyToken(keys.externalRef),
+  );
+  const effectiveVrm = parserVrm || candidateVrm;
+  const vrmContradicts = Boolean(
+    keys.vrm && effectiveVrm && normKeyToken(effectiveVrm) !== normKeyToken(keys.vrm),
+  );
+  return refContradicts && vrmContradicts;
 }
 
 /* ----------  Outlook $search key variants (TKT-139)  ---------- */

@@ -77,6 +77,9 @@ const CATEGORY_FOR_SUBTYPE: Record<InboundSubtype, InboundCategory> = {
   other: 'other',
   images_received: 'case_update',
   update_general: 'case_update',
+  // retro_related (TKT-226) — stamped by the retro link-related lane, paired with
+  // case_update (the lane's own classification tuple in retro-routes.ts).
+  retro_related: 'case_update',
   cancellation_notice: 'cancellation',
   pre_instruction_directions: 'pre_instruction',
   website_general_enquiry: 'website_enquiry',

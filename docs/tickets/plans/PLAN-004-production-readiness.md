@@ -2,7 +2,7 @@
 id: PLAN-004
 title: Production readiness and lifecycle completion
 status: active
-tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206, TKT-216, TKT-217, TKT-218, TKT-219, TKT-221, TKT-222, TKT-223, TKT-224]
+tickets: [TKT-041, TKT-102, TKT-149, TKT-151, TKT-152, TKT-153, TKT-154, TKT-155, TKT-156, TKT-157, TKT-158, TKT-159, TKT-160, TKT-161, TKT-162, TKT-163, TKT-164, TKT-165, TKT-166, TKT-167, TKT-168, TKT-169, TKT-170, TKT-171, TKT-172, TKT-173, TKT-174, TKT-175, TKT-176, TKT-177, TKT-178, TKT-179, TKT-180, TKT-181, TKT-182, TKT-183, TKT-184, TKT-185, TKT-186, TKT-187, TKT-188, TKT-189, TKT-190, TKT-191, TKT-192, TKT-193, TKT-194, TKT-195, TKT-197, TKT-198, TKT-199, TKT-200, TKT-205, TKT-206, TKT-216, TKT-217, TKT-218, TKT-219, TKT-221, TKT-222, TKT-223, TKT-224, TKT-225]
 depends-on: []
 ---
 
@@ -42,11 +42,11 @@ or authorization named; they are never treated as complete by plan aggregation.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**3/62 done (4%).**
+**3/63 done (4%).**
 
 | Status | Count |
 |---|---:|
-| Now | 14 |
+| Now | 15 |
 | Verify | 11 |
 | Done | 3 |
 | Next | 0 |
@@ -117,4 +117,5 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-222](../verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | verify | Link every related mailbox email to a reconstructed retro case, not just the original instruction |
 | [TKT-223](../verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | verify | Re-run retro reconstruction for previously failed drain rows (force restart) |
 | [TKT-224](../backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md) | backlog | Re-classify historically mislabeled un-cased emails after classifier fixes |
+| [TKT-225](../now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | now | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps |
 <!-- /GENERATED:PROGRESS -->

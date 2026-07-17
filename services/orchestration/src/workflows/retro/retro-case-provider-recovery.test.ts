@@ -187,7 +187,32 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
         excludeInternetMessageIds: ['<trigger@example.test>', '<original@example.test>'],
       }),
     });
-    expect(generator.next({ linked: 2, scanned: 5 })).toEqual({
+    // TKT-225 — the activity returned `ingestRows` (the checkpointed gate-ON decision):
+    // the related-INGEST child is scheduled with the case identity + evidence-chain facts.
+    const ingestRow = {
+      internetMessageId: '<related@example.test>',
+      messageId: 'graph-related',
+      resource: 'users/intake@example.test/messages/graph-related',
+      mailbox: 'intake@example.test',
+      receivedAt: '2026-07-10T10:00:00.000Z',
+    };
+    expect(nextTask(generator, { linked: 2, scanned: 5, ingestRows: [ingestRow] })).toMatchObject({
+      kind: 'sub-orchestration',
+      name: 'retroRelatedIngestOrchestrator',
+      input: expect.objectContaining({
+        caseId: 'case-retro',
+        rows: [ingestRow],
+        caseVrm: 'KA08XTR',
+        workProviderId: 'wp-qdos',
+      }),
+    });
+    // D8 — this arm archived into the freshly ensured WRITABLE folder above, so the
+    // ingested evidence is re-mirrored once (idempotent).
+    expect(nextTask(generator, { processed: 1, failed: 0, fieldsApplied: 1 })).toMatchObject({
+      name: 'boxArchiveEvidence',
+      input: { caseId: 'case-retro' },
+    });
+    expect(generator.next(undefined)).toEqual({
       done: true,
       value: {
         outcome: 'created',
@@ -197,7 +222,7 @@ describe('retroCaseOrchestrator — parallel fan-out + Outlook provider recovery
         providerRecovery: 'completed',
       },
     });
-    expect(callSubOrchestratorWithRetry).toHaveBeenCalledTimes(1);
+    expect(callSubOrchestratorWithRetry).toHaveBeenCalledTimes(2);
   });
 
   it('COMBINED arm: a folder with nothing parseable + a corroborated Outlook original creates with Box identity', () => {

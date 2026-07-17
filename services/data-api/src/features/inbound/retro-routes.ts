@@ -37,7 +37,7 @@ import {
   type CaseStatus,
   type CaseWorkType,
 } from '@cs/domain';
-import { actionReasonCodec, caseStatusCodec, caseTypeCodec, statusToInt } from '@cs/domain/codecs';
+import { actionReasonCodec, caseStatusCodec, caseTypeCodec, sourceTypeCodec, statusToInt } from '@cs/domain/codecs';
 import { gates } from '../settings/gates.js';
 import { query, tx, type TxQuery } from '../../platform/db/client.js';
 import { AUDIT_ACTION, writeAudit } from '../../shared/audit.js';
@@ -45,12 +45,13 @@ import { acquireTriageLocks } from './triage-locks.js';
 import { type ParserEvaFields } from './parser-eva-fields.js';
 import { type Row } from '../../shared/mapping/index.js';
 import {
+  validateRetroBackfillFields,
   validateRetroCreate,
   validateRetroResolveExisting,
   type NormalisedRetroKeys,
   type RetroKeysDto,
 } from './retro-validate.js';
-import { applyParserFields } from './internal/parser-fields.js';
+import { applyParserFields, applyParserFieldsUsing } from './internal/parser-fields.js';
 import { isUniqueViolation } from './internal/unique-violation.js';
 import { mintBlockedByCategory, withServiceAuth } from './internal/service-support.js';
 import { upsertInboundEmail } from './persistence.js';
@@ -243,6 +244,11 @@ app.http('internalRetroLinkRelated', {
       }
       let linked = 0;
       let skipped = 0;
+      // TKT-225 — identify WHICH rows are ingest-eligible (additive; count consumers
+      // unchanged): freshly linked rows, plus rows ALREADY linked to THIS case so a
+      // force re-run can heal the TKT-222 v1 pile (row-links without evidence).
+      const linkedIds: string[] = [];
+      const alreadyLinkedIds: string[] = [];
       for (const row of rows.slice(0, 50)) {
         const imid = (row?.internetMessageId ?? '').trim();
         if (!imid) {
@@ -253,6 +259,7 @@ app.http('internalRetroLinkRelated', {
         // replays) is left alone.
         const existing = await currentInboundCaseId(imid);
         if (existing) {
+          if (existing === caseId) alreadyLinkedIds.push(imid);
           skipped++;
           continue;
         }
@@ -272,6 +279,7 @@ app.http('internalRetroLinkRelated', {
           undefined,
           'routed',
         );
+        linkedIds.push(imid);
         linked++;
       }
       if (linked > 0) {
@@ -283,7 +291,133 @@ app.http('internalRetroLinkRelated', {
         });
       }
       ctx.log(JSON.stringify({ evt: 'retroLinkRelated', caseId, linked, skipped }));
-      return { status: 200, jsonBody: { linked, skipped } };
+      return { status: 200, jsonBody: { linked, skipped, linkedIds, alreadyLinkedIds } };
+    }),
+});
+
+/* ============================================================
+   POST /api/internal/retro/backfill-fields  (TKT-225)
+   ============================================================ */
+app.http('internalRetroBackfillFields', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'internal/retro/backfill-fields',
+  handler: (req, ctx) =>
+    withServiceAuth(req, ctx, async () => {
+      if (!gates.retroCase()) {
+        return { status: 200, jsonBody: { outcome: 'gated_off' } };
+      }
+      const body = (await req.json()) as {
+        caseId?: string;
+        sourceInternetMessageId?: string;
+        parserVrm?: string;
+        parserRef?: string;
+        parserMileage?: string;
+        parserMileageUnit?: 'Miles' | 'Km' | '';
+        parserEva?: ParserEvaFields;
+      };
+      const v = validateRetroBackfillFields(body);
+      if (!v.ok) return { status: 400, jsonBody: { error: v.code, message: v.message } };
+      const { caseId, sourceInternetMessageId } = v.value;
+
+      // TKT-073 junk guard: an over-length "VRM" is junk — dropped, never truncated into
+      // the correlation key.
+      const vrmGuard = vrmOrEmpty(body.parserVrm);
+      if (vrmGuard.dropped) {
+        ctx.warn(
+          `[retro/backfill-fields] over-length VRM candidate dropped (junk sniff > varchar(16)) for case ${caseId}`,
+        );
+      }
+      const parserVrm = vrmGuard.value;
+
+      const { applied, vrmFilled } = await tx(async (q) => {
+        if (parserVrm) {
+          // Same lock key the live mint takes for this VRM, so the fill serialises
+          // against a concurrent mint/link instead of racing it.
+          await acquireTriageLocks(q, { vrm: parserVrm });
+        }
+        const before = await q<Row>(`SELECT to_jsonb(c) AS snapshot FROM case_ c WHERE id = $1`, [
+          caseId,
+        ]);
+        if (!before[0]) return { applied: false, vrmFilled: false };
+
+        // VRM fill-if-empty — the one case_ field applyParserFields doesn't own. Strictly
+        // conditional on an empty column (never an overwrite), with provenance + audit.
+        let filledVrm = false;
+        if (parserVrm) {
+          const filled = await q<Row>(
+            `UPDATE case_ SET vrm = $1, updated_at = now()
+              WHERE id = $2 AND (vrm IS NULL OR btrim(vrm) = '') RETURNING id`,
+            [parserVrm, caseId],
+          );
+          if (filled.length > 0) {
+            filledVrm = true;
+            await q(
+              `INSERT INTO field_level_provenance
+                 (name, case_id, field_name, value, source_type_code, source_label, source_reference)
+               VALUES ($1, $2, 'vrm', $3, $4, $5, NULLIF($6, ''))`,
+              [
+                `${caseId}:vrm`,
+                caseId,
+                parserVrm,
+                sourceTypeCodec.toInt('pdf_extraction') ?? 100000001,
+                'From related correspondence',
+                sourceInternetMessageId,
+              ],
+            );
+            await writeAudit({
+              action: AUDIT_ACTION.parser_called,
+              caseId,
+              summary: 'Retro related ingest: registration filled from related correspondence',
+              after: { vrm: parserVrm, sourceMessageId: sourceInternetMessageId },
+            }, q);
+          }
+        }
+
+        // D1/D7 — the shared fill-gaps engine, deliberately with NO sender-domain provider,
+        // NO intermediary and NO recoveryContext: strictly fill-if-empty, no Case/PO mint,
+        // no provider-recovery completion from a related email. Only the parser's
+        // content-detected provider may fill work_provider_id (fill-if-empty; a mismatch is
+        // audit-only, per ADR-0011). Note the create seam passes `body.intermediary ?? null`
+        // — this route intentionally does not.
+        await applyParserFieldsUsing(
+          q,
+          caseId,
+          body.parserRef,
+          body.parserMileage,
+          body.parserMileageUnit,
+          body.parserEva,
+          /* workProviderId */ null,
+          /* intermediary */ null,
+          /* recoveryContext */ undefined,
+        );
+
+        const after = await q<Row>(`SELECT to_jsonb(c) AS snapshot FROM case_ c WHERE id = $1`, [
+          caseId,
+        ]);
+        return {
+          applied:
+            JSON.stringify(before[0]?.snapshot ?? null) !==
+            JSON.stringify(after[0]?.snapshot ?? null),
+          vrmFilled: filledVrm,
+        };
+      });
+
+      if (applied) {
+        await writeAudit({
+          action: AUDIT_ACTION.parser_called,
+          caseId,
+          summary: 'Retro related ingest: parsed details filled gaps on the case',
+          after: { sourceMessageId: sourceInternetMessageId, vrmFilled, seam: 'retro/backfill-fields' },
+        });
+      }
+      ctx.log(JSON.stringify({
+        evt: 'retroBackfillFields', caseId, outcome: applied ? 'applied' : 'noop', vrmFilled,
+      }));
+      return {
+        status: 200,
+        jsonBody: { outcome: applied ? 'applied' : 'noop', ...(vrmFilled ? { vrmFilled } : {}) },
+      };
     }),
 });
 
