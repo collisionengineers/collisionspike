@@ -668,6 +668,15 @@ describe('rest-client — amalgamated dashboard + inbound view (work-todo-spike)
     await da.inboundEmails({ view: 'all' });
     expect(lastUrl(fetchMock)).toBe('https://api.test/api/inbound?view=all');
   });
+
+  it('inboundEmails threads `caseId` for the case-scoped slice (keeps retro anchors — TKT-233)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(okJson([]));
+    const da = clientWith(fetchMock);
+    await da.inboundEmails({ view: 'all', caseId: 'b5ffe5e4-0ffc-4510-8d2f-29f9de03d47b' });
+    expect(lastUrl(fetchMock)).toBe(
+      'https://api.test/api/inbound?view=all&caseId=b5ffe5e4-0ffc-4510-8d2f-29f9de03d47b',
+    );
+  });
 });
 
 describe('rest-client — removeCase (soft-remove, Superuser)', () => {

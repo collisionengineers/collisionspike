@@ -1,0 +1,8 @@
+customEvents
+| where timestamp > datetime(2026-07-15T17:00:00Z)
+| where name == "triage_decision"
+| extend d = tostring(customDimensions)
+| where d contains "images_received" or d contains '"imagesOnly":true'
+| project timestamp, d
+| order by timestamp asc
+| take 40

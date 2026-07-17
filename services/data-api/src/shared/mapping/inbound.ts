@@ -46,6 +46,9 @@ const INBOUND_SUBTYPE_BY_INT: Record<number, InboundSubtype> = {
   100000013: 'payment_remittance',
   100000014: 'pre_instruction_directions',
   100000015: 'website_general_enquiry',
+  // TKT-226 — system-stamped by the retro link-related lane (TKT-222); never
+  // classifier-emitted. See migrations/2026-07-17-tkt226-retro-related-subtype.sql.
+  100000016: 'retro_related',
 };
 
 export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
@@ -65,6 +68,7 @@ export const INBOUND_SUBTYPE_TO_INT: Record<InboundSubtype, number> = {
   payment_remittance: 100000013,
   pre_instruction_directions: 100000014,
   website_general_enquiry: 100000015,
+  retro_related: 100000016,
 };
 
 export const TRIAGE_STATES: readonly TriageState[] = ['new', 'routed', 'actioned', 'dismissed'];

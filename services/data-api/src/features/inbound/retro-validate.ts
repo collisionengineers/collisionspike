@@ -23,17 +23,21 @@ export type RetroAllowedStatus = (typeof RETRO_ALLOWED_STATUSES)[number];
 export const RETRO_RECONSTRUCTION_SOURCES = ['box_eml', 'box_doc', 'outlook', 'minimal'] as const;
 export type RetroReconstructionSourceDto = (typeof RETRO_RECONSTRUCTION_SOURCES)[number];
 
-/** The reconstruction search keys as they arrive on the wire (domain RetroKeys). */
+/** The reconstruction search keys as they arrive on the wire (domain RetroKeys).
+ *  TKT-219: `claimant` is a SEARCH key for the Box/Outlook rungs only — the
+ *  resolve-existing case probes never link on a person's name. */
 export interface RetroKeysDto {
   casePo?: string;
   externalRef?: string;
   vrm?: string;
+  claimant?: string;
 }
 
 export interface NormalisedRetroKeys {
   casePo?: string;
   externalRef?: string;
   vrm?: string;
+  claimant?: string;
 }
 
 export type RetroValidationErrorCode =
@@ -41,6 +45,8 @@ export type RetroValidationErrorCode =
   | 'missing_trigger'
   | 'missing_original'
   | 'missing_keys'
+  | 'missing_case_id'
+  | 'missing_source_message_id'
   | 'invalid_case_po'
   | 'invalid_status'
   | 'invalid_reconstruction_source'
@@ -86,6 +92,8 @@ export function normalizeRetroKeys(
   if (ref) out.externalRef = ref;
   const vrm = (keys?.vrm ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (vrm) out.vrm = vrm;
+  const claimant = (keys?.claimant ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+  if (claimant) out.claimant = claimant;
   return out;
 }
 
@@ -107,8 +115,12 @@ export function validateRetroResolveExisting(
   }
   const keys = normalizeRetroKeys(b.keys);
   if ('ok' in keys) return keys;
-  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
-    return { ok: false, code: 'missing_keys', message: 'at least one of keys.casePo/externalRef/vrm required' };
+  if (!keys.casePo && !keys.externalRef && !keys.vrm && !keys.claimant) {
+    return {
+      ok: false,
+      code: 'missing_keys',
+      message: 'at least one of keys.casePo/externalRef/vrm/claimant required',
+    };
   }
   return { ok: true, value: { keys } };
 }
@@ -195,4 +207,36 @@ export function validateRetroCreate(
       reconstructionSource: source,
     },
   };
+}
+
+/* ----------  backfill-fields (TKT-225)  ---------- */
+
+export interface NormalisedRetroBackfillFields {
+  caseId: string;
+  /** The related email's Internet-Message-Id — every provenance row's source_reference. */
+  sourceInternetMessageId: string;
+}
+
+export function validateRetroBackfillFields(
+  body: unknown,
+): { ok: true; value: NormalisedRetroBackfillFields } | RetroValidationError {
+  if (body == null || typeof body !== 'object') {
+    return { ok: false, code: 'invalid_body', message: 'body must be a JSON object' };
+  }
+  const b = body as { caseId?: unknown; sourceInternetMessageId?: unknown };
+  const caseId = typeof b.caseId === 'string' ? b.caseId.trim() : '';
+  if (!caseId) {
+    return { ok: false, code: 'missing_case_id', message: 'caseId required' };
+  }
+  const sourceInternetMessageId =
+    typeof b.sourceInternetMessageId === 'string' ? b.sourceInternetMessageId.trim() : '';
+  if (!sourceInternetMessageId) {
+    return {
+      ok: false,
+      code: 'missing_source_message_id',
+      message: 'sourceInternetMessageId required',
+    };
+  }
+  // field_level_provenance.source_reference is varchar(400) (the applyParserFields cap).
+  return { ok: true, value: { caseId, sourceInternetMessageId: sourceInternetMessageId.slice(0, 400) } };
 }

@@ -60,6 +60,8 @@ export const SUBTYPE_LABEL: Record<InboundSubtype, string> = {
   // Taxonomy v3 (TKT-105/120 + TKT-084).
   payment_remittance: 'Payment received',
   pre_instruction_directions: 'Pre-instruction directions',
+  // TKT-226 — correspondence retro-linked to a reconstructed case (system-stamped).
+  retro_related: 'Related (retro-linked)',
   other: 'Unidentified',
 };
 
@@ -74,7 +76,7 @@ export const SUBTYPES_BY_CATEGORY: Record<InboundCategory, InboundSubtype[]> = {
   // The Enquiries-vs-Case-Queries split (TKT-034) lives here, as the two query subtypes.
   query: ['query_existing_work', 'query_new_enquiry'],
   website_enquiry: ['website_general_enquiry'],
-  case_update: ['images_received', 'update_general'],
+  case_update: ['images_received', 'update_general', 'retro_related'],
   pre_instruction: ['pre_instruction_directions'],
   cancellation: ['cancellation_notice'],
   // payment_remittance (taxonomy v3, TKT-105/120): an inbound remittance advice /

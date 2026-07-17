@@ -65,6 +65,7 @@ import './workflows/intake/case-disposition.js';
 import './workflows/intake/jobsheet-import.js';
 import './workflows/retro/retro-case.js'; // retro case reconstruction (ADR-0022; RETRO_CASE_ENABLED)
 import './workflows/retro/retro-activities.js';
+import './workflows/retro/retro-related-ingest.js'; // TKT-225 related-correspondence ingest child (RETRO_RELATED_INGEST_ENABLED)
 import './workflows/retro/retro-deleted-probe.js'; // TKT-119d read-only Deleted-Items feasibility probe (keyed)
 import './workflows/intake/eva-report-poll.js'; // TKT-095 detector (c) dark skeleton (EVA_API_ENABLED; keyed starter)
 // (The replay-backfill wipe&rebuild driver was REMOVED — TKT-106; the wipe path is

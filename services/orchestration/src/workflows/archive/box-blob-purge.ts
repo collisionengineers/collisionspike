@@ -9,6 +9,7 @@
 
 import { app, type InvocationContext } from '@azure/functions';
 import * as df from 'durable-functions';
+import type { Task } from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../adapters/data-api.js';
 import { deleteEvidenceBytes } from '../../platform/blob.js';
@@ -31,11 +32,33 @@ app.timer('box-blob-purge-timer', {
 const retry = new df.RetryOptions(5_000, 3);
 retry.backoffCoefficient = 2;
 
-df.app.orchestration('boxBlobPurgeOrchestrator', function* (ctx) {
-  const candidates = (yield ctx.df.callActivityWithRetry('boxPurgeList', retry, {})) as Array<{ caseId: string; blobPath: string }>;
-  const tasks = candidates.map((c) => ctx.df.callActivityWithRetry('boxPurgeOne', retry, c));
-  const results = yield ctx.df.Task.all(tasks);
-  return { purged: (results as unknown[]).length };
+/**
+ * Sequential ON PURPOSE (TKT-227, the retro-related-ingest precedent): the old unbounded
+ * `Task.all` fan-out ran EVERY candidate's `boxPurgeOne` concurrently; each item's
+ * markBlobPurged opens a data-api transaction (FOR UPDATE case lock), so ~440 candidates
+ * exhausted the dev-tier Postgres `max_connections` at 03:00Z and the whole run failed with
+ * "remaining connection slots are reserved". The loop bounds DB pressure to one in-flight
+ * activity, and the per-item try/catch salvages the run — one bad item never sinks the
+ * batch. At the LIMIT-1000 candidate ceiling a sequential nightly run is a few minutes.
+ * Return shape is honest: `purged` counts successes (the old `results.length` counted
+ * attempts), `failed` counts salvaged items, `total` the candidate list.
+ */
+df.app.orchestration('boxBlobPurgeOrchestrator', function* (ctx): Generator<Task, unknown, never> {
+  const candidates = (yield ctx.df.callActivityWithRetry('boxPurgeList', retry, {})) as Array<{
+    caseId: string; blobPath: string;
+  }>;
+  let purged = 0;
+  let failed = 0;
+  for (const c of candidates) {
+    try {
+      yield ctx.df.callActivityWithRetry('boxPurgeOne', retry, c);
+      purged++;
+    } catch (e) {
+      failed++;
+      if (!ctx.df.isReplaying) ctx.log(`[box-blob-purge] item failed (salvaged): ${String(e)}`);
+    }
+  }
+  return { purged, failed, total: candidates.length };
 });
 
 df.app.activity('boxPurgeList', {

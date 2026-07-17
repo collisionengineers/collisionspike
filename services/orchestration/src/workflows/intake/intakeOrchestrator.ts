@@ -310,12 +310,18 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       // replay-safe, no env reads); `ambiguous` never fires it (≥2 open cases already
       // match). The sub-orchestration is try/catch-wrapped + gated inside its activities,
       // so the primary return below is never blocked or changed — `retro` is an added key.
+      // TKT-219 — claimant name (weakest search key), pure over the checkpointed body.
+      // Only an unambiguous 'matched' supplement may become a key (never guess a conflict).
+      const replyClaimant = supplementClaimantNameFromBody(
+        String((inbound as { body?: string }).body ?? ''),
+      );
       const retroReply = decideRetro({
         category: classification.category,
         subtype: classification.subtype,
         bodyCaseref: classification.bodyCaseref,
         bodyJobref: classification.bodyJobref,
         bodyVrm: classification.bodyVrm,
+        bodyClaimant: replyClaimant.status === 'matched' ? replyClaimant.value : '',
         candidateRef: inb.candidateRef,
         candidateVrm: inb.candidateVrm,
         isReply: true,
@@ -338,6 +344,16 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
             keys: retroReply.keys,
             providerId: workProviderId,
             providerPrincipal: principalCode,
+            // TKT-219 — thread the sender's intermediary match so a reconstruction gets the
+            // same content-corroboration / single-candidate fallback as a live create.
+            ...(intermediaryImageSourceId
+              ? {
+                  intermediary: {
+                    imageSourceId: intermediaryImageSourceId,
+                    candidateProviderIds: intermediaryCandidateProviderIds ?? [],
+                  },
+                }
+              : {}),
           })) as { outcome?: string };
           retroReplyOutcome = retro?.outcome;
         } catch (e) {
@@ -420,12 +436,18 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     // linking attempt at all, which is exactly the billing-email gap. Same conventions as
     // the reply-lane block above (pure decideRetro, gated activities, additive, last).
     const inbNonReply = inbound as { candidateRef?: string; candidateVrm?: string };
+    // TKT-219 — claimant name (weakest search key), pure over the checkpointed body.
+    // Only an unambiguous 'matched' supplement may become a key (never guess a conflict).
+    const nonReplyClaimant = supplementClaimantNameFromBody(
+      String((inbound as { body?: string }).body ?? ''),
+    );
     const retroNonReply = decideRetro({
       category: classification.category,
       subtype: classification.subtype,
       bodyCaseref: classification.bodyCaseref,
       bodyJobref: classification.bodyJobref,
       bodyVrm: classification.bodyVrm,
+      bodyClaimant: nonReplyClaimant.status === 'matched' ? nonReplyClaimant.value : '',
       candidateRef: inbNonReply.candidateRef,
       candidateVrm: inbNonReply.candidateVrm,
       isReply: false,
@@ -446,6 +468,15 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
           keys: retroNonReply.keys,
           providerId: workProviderId,
           providerPrincipal: principalCode,
+          // TKT-219 — thread the sender's intermediary match (see the reply-lane twin).
+          ...(intermediaryImageSourceId
+            ? {
+                intermediary: {
+                  imageSourceId: intermediaryImageSourceId,
+                  candidateProviderIds: intermediaryCandidateProviderIds ?? [],
+                },
+              }
+            : {}),
         })) as { outcome?: string };
         retroOutcome = retro?.outcome;
       } catch (e) {

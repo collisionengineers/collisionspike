@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({ tx: vi.fn(), q: vi.fn() }));
@@ -10,7 +11,7 @@ vi.mock('../../shared/audit.js', () => ({
 const status = vi.hoisted(() => ({ request: vi.fn() }));
 vi.mock('./status-recompute.js', () => ({ requestStatusRecompute: status.request }));
 
-const { claimArchiveHolding, claimArchiveHoldingUploads, checkpointArchiveHoldingFile, finalizeArchiveHolding,
+const { NOT_MERGED_INTO_SQL, claimArchiveHolding, claimArchiveHoldingUploads, checkpointArchiveHoldingFile, finalizeArchiveHolding,
   listArchiveHoldingAdoptionCaseIds, readArchiveHoldingResolution, registerArchiveHolding, resolveArchiveHolding,
   reserveArchiveHoldingIntake,claimDeferredArchiveHoldingIntakes, failArchiveHoldingAdoption, failArchiveHoldingUpload,
   failDeferredArchiveHoldingIntake } = await import('./archive-holding.js');
@@ -506,5 +507,59 @@ describe('archive holding finalization', () => {
       .rejects.toThrow('registration changed');
     expect(db.q.mock.calls.some(([sql])=>/UPDATE case_ SET box_folder_id/i.test(String(sql)))).toBe(false);
     expect(audit.strict).not.toHaveBeenCalled();
+  });
+});
+
+describe('TKT-228 — Postgres type-safety regressions', () => {
+  // case_.duplicate_keys is TEXT (050_case.sql:39) and may hold free-form non-JSON, so
+  // `coalesce(duplicate_keys,'{}'::jsonb)` fails at PLAN TIME with "COALESCE types text
+  // and jsonb cannot be matched" and 500s the route on every call.
+  const BROKEN_COALESCE = /coalesce\(\s*(?:[a-z_]+\.)?duplicate_keys\s*,\s*'\{\}'::jsonb\s*\)/i;
+
+  it('pins the module source free of the text-vs-jsonb coalesce; all seven probes use the shared guard', () => {
+    const source = readFileSync(new URL('./archive-holding.ts', import.meta.url), 'utf8');
+    expect(source.match(new RegExp(BROKEN_COALESCE.source, 'gi'))).toBeNull();
+    expect(source.match(/\$\{NOT_MERGED_INTO_SQL\(/g)?.length).toBe(7);
+    // The fragment itself: validity-guarded cast, never a bare ::jsonb coalesce.
+    expect(NOT_MERGED_INTO_SQL('c.duplicate_keys'))
+      .toBe(`NOT ((CASE WHEN c.duplicate_keys IS NOT NULL AND pg_input_is_valid(c.duplicate_keys,'jsonb') THEN c.duplicate_keys::jsonb ELSE '{}'::jsonb END) ? 'mergedInto')`);
+    expect(NOT_MERGED_INTO_SQL('duplicate_keys')).not.toMatch(BROKEN_COALESCE);
+  });
+
+  it('guards the adoption-candidates probe with pg_input_is_valid instead of the broken coalesce', async () => {
+    db.q.mockResolvedValue([]);
+    await listArchiveHoldingAdoptionCaseIds();
+    const statements = db.q.mock.calls.map(([sql]) => String(sql));
+    expect(statements.some((sql) => BROKEN_COALESCE.test(sql))).toBe(false);
+    const adoption = statements.find((sql) => /JOIN LATERAL/i.test(sql)) ?? '';
+    expect(adoption).toContain(`pg_input_is_valid(c.duplicate_keys,'jsonb')`);
+    expect(adoption).toContain(`? 'mergedInto'`);
+  });
+
+  it('registers the intake with $2::text on BOTH parameter references so one type is deduced', async () => {
+    db.q.mockImplementation(async (sql: string) => {
+      if (/pg_advisory_xact_lock/i.test(sql)) return [];
+      if (/FROM archive_holding_intake i JOIN archive_holding_folder h/i.test(sql)) return [];
+      if (/SELECT id,box_folder_id AS "boxFolderId",state,[\s\S]*FROM archive_holding_folder/i.test(sql)) return [];
+      if (/FROM archive_holding_folder WHERE box_folder_id=\$1/i.test(sql)) return [];
+      if (/INSERT INTO archive_holding_folder/i.test(sql)) return [{ id: '55555555-5555-4555-8555-555555555555', boxFolderId: 'new-vrm-folder' }];
+      if (/INSERT INTO archive_holding_intake|INSERT INTO archive_holding_file/i.test(sql)) return [];
+      if (/SELECT id AS "caseId" FROM case_/i.test(sql)) return [];
+      if (/UPDATE archive_holding_folder SET next_attempt_at/i.test(sql)) return [];
+      if (/UPDATE archive_holding_file SET state='uploading'/i.test(sql)) return [{ id: 'file-1', filename: 'front.jpg' }];
+      throw new Error(`Unexpected SQL: ${sql}`);
+    });
+    await registerArchiveHolding({ vrm: 'AB12CDE', rootFolderId: 'root', boxFolderId: 'new-vrm-folder', sourceMessageId: 'm2', claimToken: CLAIM, files: [
+      { filename: 'front.jpg', contentType: 'image/jpeg', size: 1, blobPath: 'm2/front.jpg', sha256: 'a'.repeat(64) },
+    ] });
+    const statements = db.q.mock.calls.map(([sql]) => String(sql));
+    // Bug B: mixed varchar/text deduction for $2 — the fixed INSERT casts both references.
+    const intake = statements.find((sql) => /INSERT INTO archive_holding_intake/i.test(sql)) ?? '';
+    expect(intake.match(/\$2::text/g)?.length).toBe(2);
+    // Bug B masked the same-transaction matching-cases coalesce (the line-157 twin of
+    // Bug A); the whole transaction's emitted SQL is now free of the broken pattern.
+    expect(statements.some((sql) => BROKEN_COALESCE.test(sql))).toBe(false);
+    const matching = statements.find((sql) => /SELECT id AS "caseId" FROM case_/i.test(sql)) ?? '';
+    expect(matching).toContain(`pg_input_is_valid(duplicate_keys,'jsonb')`);
   });
 });

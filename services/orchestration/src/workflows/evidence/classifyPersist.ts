@@ -30,6 +30,11 @@ interface ClassifyPersistInput {
   /** Resolved work provider (when known) — used to honour a per-provider AI opt-out
    *  (work_provider.ai_allowed=false) before sending images to the vision model. */
   workProviderId?: string;
+  /** TKT-225 — opt OUT of the body-text instruction fallback below (default true = today's
+   *  behaviour for every existing caller). The retro related-INGEST chain sets false: a
+   *  linked reply's typed-in-body instruction is real at live intake, but up to 25 retro
+   *  chasers/acks on one reconstructed case must not each mint an `instruction` row. */
+  bodyInstructionFallback?: boolean;
 }
 
 /** Minimum body length to treat as a genuine in-body instruction (skip one-liners/footers). */
@@ -171,7 +176,11 @@ df.app.activity('classifyPersist', {
     // the case lands empty. Persist the body text to Blob and add one instruction row.
     const hasInstructionAttachment = rows.some((r) => r.evidenceClass === 'instruction');
     const bodyText = (inbound.body ?? '').trim();
-    if (!hasInstructionAttachment && bodyText.length >= MIN_BODY_INSTRUCTION_CHARS) {
+    if (
+      input.bodyInstructionFallback !== false &&
+      !hasInstructionAttachment &&
+      bodyText.length >= MIN_BODY_INSTRUCTION_CHARS
+    ) {
       // TKT-087: per-message token in the name (was the generic `email-body.txt`,
       // which collided in the Box case folder on multi-email cases and mis-linked
       // the later email's evidence row to the earlier email's Box file). Stable

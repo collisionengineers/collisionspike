@@ -41,7 +41,8 @@
         { "value": 100000012, "name": "update_general",                "label": "General Update" },
         { "value": 100000013, "name": "payment_remittance",            "label": "Payment Received" },
         { "value": 100000014, "name": "pre_instruction_directions",    "label": "Pre-instruction Directions" },
-        { "value": 100000015, "name": "website_general_enquiry",       "label": "Website General Enquiry" }
+        { "value": 100000015, "name": "website_general_enquiry",       "label": "Website General Enquiry" },
+        { "value": 100000016, "name": "retro_related",                 "label": "Related (retro-linked)", "classifierEmits": false }
       ]
     }
   ]

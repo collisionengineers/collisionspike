@@ -6,9 +6,10 @@ import url from 'node:url';
 const here = path.dirname(url.fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
-// Updated only for the append-only TKT-200 capture and TKT-160 image-deletion audit codes
+// Updated only for append-only additions — most recently the TKT-226 retro_related inbound
+// subtype (100000016); before that the TKT-200 capture and TKT-160 image-deletion audit codes
 // (100000056–100000065). The per-table assertions below still prove every numeric mapping.
-const EXPECTED_MAPPING_SHA256 = 'b9becc00d5dc0c75a9e865e74b7f6e214abada66152464c2de5fbb570c5bf069';
+const EXPECTED_MAPPING_SHA256 = '43cbbb67be004b2704430607750ab891f8c874a913d01237a1fd6d8180644d3d';
 
 let failures = 0;
 function assert(condition, message) {

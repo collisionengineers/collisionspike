@@ -516,6 +516,7 @@ export async function applyParserFieldsUsing(
       ...(recoveryContext.caseType ? { caseType: recoveryContext.caseType } : {}),
       caseTypeDual: recoveryContext.caseTypeDual === true,
       allowCasePoMint: recoveryContext.allowCasePoMint !== false,
+      archiveIdentityAcknowledged: recoveryContext.archiveIdentityAcknowledged === true,
     });
     if (providerRecovery.outcome === 'identity_ready') {
       // Intake and retro reconstruction share this transaction. Register the

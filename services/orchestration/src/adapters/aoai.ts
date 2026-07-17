@@ -155,6 +155,8 @@ const SUBTYPE_DEFINITIONS: Partial<Record<InboundSubtype, string>> = {
     'A payment made TO us — a remittance advice or transfer notice for work already done (not a request for our invoice).',
   pre_instruction_directions: 'The usual subtype for pre-instruction directions.',
   website_general_enquiry: 'A general enquiry submitted through the Collision Engineers website contact form.',
+  retro_related:
+    'A related email attached during retroactive case reconstruction — assigned by the system, never chosen here.',
 };
 
 function categoryLine(name: InboundCategory): string {

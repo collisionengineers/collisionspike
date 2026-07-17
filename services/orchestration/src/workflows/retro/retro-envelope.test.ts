@@ -8,7 +8,9 @@ import {
   firstAddress,
   pickCaseFolder,
   refSearchVariants,
+  relatedParseContradictsKeys,
   selectOutlookOriginal,
+  senderProviderAgrees,
   type OutlookSearchCandidate,
   type RetroSearchHit,
 } from './retro-envelope';
@@ -79,6 +81,85 @@ describe('buildRetroEnvelopeFromDoc / buildMinimalAnchorEnvelope', () => {
     expect(env.messageId).toBe('retro-box-folder-888');
     expect(env.receivedAt).toBe('2026-07-01T00:00:00Z');
     expect(env.attachments).toEqual([]);
+  });
+
+  it('minimal anchor is fully DETERMINISTIC — receivedAt is required and used verbatim (no wall-clock fallback; it now also runs inside the orchestrator)', () => {
+    const a = buildMinimalAnchorEnvelope({ receivedAt: '2026-07-01T00:00:00Z' }, 'CCPY26050', '888');
+    const b = buildMinimalAnchorEnvelope({ receivedAt: '2026-07-01T00:00:00Z' }, 'CCPY26050', '888');
+    // Byte-identical across calls at different wall-clock times — Durable replay-safe.
+    expect(b).toEqual(a);
+    expect(a.receivedAt).toBe('2026-07-01T00:00:00Z');
+  });
+});
+
+describe('senderProviderAgrees (PR-review — provider corroboration for weak-key searches)', () => {
+  const crossDomain = { candidateFrom: 'claims@pch-ltd.com', triggerFrom: 'sender@qdos.co.uk' };
+
+  it("'agreed' on ANY provider-id intersection (intermediary candidate sets count on either side)", () => {
+    expect(
+      senderProviderAgrees({ ...crossDomain, candidateProviderIds: ['wp-1'], triggerProviderIds: ['wp-1'] }),
+    ).toBe('agreed');
+    expect(
+      senderProviderAgrees({
+        ...crossDomain,
+        candidateProviderIds: ['wp-2', 'wp-1'],
+        triggerProviderIds: ['wp-3', 'wp-1'],
+      }),
+    ).toBe('agreed');
+  });
+
+  it("'same_domain' when the sender domains match case-insensitively (no id intersection)", () => {
+    expect(
+      senderProviderAgrees({
+        candidateFrom: 'a@PCH-Ltd.com',
+        triggerFrom: 'b@pch-ltd.com',
+        candidateProviderIds: [],
+        triggerProviderIds: [],
+      }),
+    ).toBe('same_domain');
+    // same_domain outranks a would-be mismatch (checked before disjoint-set positivity).
+    expect(
+      senderProviderAgrees({
+        candidateFrom: 'a@pch-ltd.com',
+        triggerFrom: 'b@pch-ltd.com',
+        candidateProviderIds: ['wp-1'],
+        triggerProviderIds: ['wp-2'],
+      }),
+    ).toBe('same_domain');
+  });
+
+  it("'mismatch' ONLY when both sides resolve to non-empty disjoint sets", () => {
+    expect(
+      senderProviderAgrees({ ...crossDomain, candidateProviderIds: ['wp-1'], triggerProviderIds: ['wp-2'] }),
+    ).toBe('mismatch');
+  });
+
+  it("'unknown' when either side is unresolvable (never a positive verdict from nothing)", () => {
+    expect(
+      senderProviderAgrees({ ...crossDomain, candidateProviderIds: [], triggerProviderIds: ['wp-2'] }),
+    ).toBe('unknown');
+    expect(
+      senderProviderAgrees({ ...crossDomain, candidateProviderIds: ['wp-1'], triggerProviderIds: [] }),
+    ).toBe('unknown');
+    expect(
+      senderProviderAgrees({
+        candidateFrom: '',
+        triggerFrom: '',
+        candidateProviderIds: [],
+        triggerProviderIds: [],
+      }),
+    ).toBe('unknown');
+  });
+
+  it('tolerates display-name wrappers and blank ids', () => {
+    expect(
+      senderProviderAgrees({
+        candidateFrom: 'Claims Team <c@pch-ltd.com>',
+        triggerFrom: 'T <t@pch-ltd.com>',
+        candidateProviderIds: [' '],
+        triggerProviderIds: [''],
+      }),
+    ).toBe('same_domain');
   });
 });
 
@@ -202,5 +283,36 @@ describe('selectOutlookOriginal', () => {
   it('falls back to a reply-prefixed hit when nothing else survives', () => {
     const reply = cand({ id: 'reply', subject: 'FW: instruction', hasAttachments: true });
     expect(selectOutlookOriginal([reply], { intakeMailboxes: INTAKE })?.id).toBe('reply');
+  });
+});
+
+describe('relatedParseContradictsKeys (TKT-225 — the shared demotion rule)', () => {
+  const KEYS = { externalRef: 'REF-123', vrm: 'KA08XTR' };
+
+  it('contradicts only when BOTH the parsed ref AND the parsed VRM disagree', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'BD51SMR', '')).toBe(true);
+  });
+
+  it('a single disagreement is NOT a contradiction (ref only / vrm only)', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'KA08XTR', '')).toBe(false);
+    expect(relatedParseContradictsKeys(KEYS, 'REF-123', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', '', '')).toBe(false); // no parsed VRM
+    expect(relatedParseContradictsKeys(KEYS, '', 'BD51SMR', '')).toBe(false); // no parsed ref
+  });
+
+  it('absent keys never contradict', () => {
+    expect(relatedParseContradictsKeys({}, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys({ externalRef: 'REF-123' }, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+    expect(relatedParseContradictsKeys({ vrm: 'KA08XTR' }, 'ZZZ-999', 'BD51SMR', '')).toBe(false);
+  });
+
+  it('falls back to the envelope VRM sniff when the parser found no VRM', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', '', 'BD51SMR')).toBe(true);
+    // The parsed VRM outranks the sniff: agreement there clears the contradiction.
+    expect(relatedParseContradictsKeys(KEYS, 'ZZZ-999', 'KA08XTR', 'BD51SMR')).toBe(false);
+  });
+
+  it('normalises case and whitespace before comparing (never a spurious contradiction)', () => {
+    expect(relatedParseContradictsKeys(KEYS, 'ref 123', 'ka08 xtr', '')).toBe(false);
   });
 });

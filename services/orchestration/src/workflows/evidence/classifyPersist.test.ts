@@ -4,7 +4,36 @@
  * Box FILE.UPLOADED mirror twin on (case_id, sha256). Pure builder only — no Durable
  * harness (the triagePolicy.test.ts convention).
  */
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Activity harness for the handler-level tests below (the classifyPersist.status.test.ts
+// convention) — the pure-builder tests are unaffected by the mocks.
+const activities = vi.hoisted(() =>
+  new Map<string, { handler: (input: unknown, ctx: unknown) => Promise<unknown> }>(),
+);
+vi.mock('durable-functions', () => ({
+  app: {
+    activity: (name: string, options: { handler: (input: unknown, ctx: unknown) => Promise<unknown> }) =>
+      activities.set(name, options),
+  },
+}));
+const dataApiMock = vi.hoisted(() => ({
+  persistEvidence: vi.fn(),
+  recordAudit: vi.fn(),
+  workProviderAiAllowed: vi.fn(),
+  evaluateStatus: vi.fn(),
+}));
+vi.mock('../../adapters/data-api.js', () => ({ dataApi: dataApiMock }));
+const blobMock = vi.hoisted(() => ({
+  downloadEvidenceBytes: vi.fn(),
+  uploadEvidenceBytes: vi.fn(),
+}));
+vi.mock('../../platform/blob.js', () => blobMock);
+vi.mock('../../platform/image-classify.js', () => ({
+  classifyImage: vi.fn(),
+  classificationToEvidenceFields: vi.fn(),
+}));
+
 import { buildBaseEvidenceRows } from './classifyPersist.js';
 import type { InboundEnvelope } from '../intake/fetchMessage.js';
 
@@ -81,5 +110,72 @@ describe('buildBaseEvidenceRows — TKT-133 sha256 carry-through', () => {
   it('omits the raw .eml row when the $value capture failed (rawEml absent)', () => {
     const rows = buildBaseEvidenceRows({ attachments: [attachment()] });
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe('classifyPersist — bodyInstructionFallback opt-out (TKT-225)', () => {
+  const activity = () => activities.get('classifyPersist')!;
+  // ≥ MIN_BODY_INSTRUCTION_CHARS (40) — would mint a body-instruction row by default.
+  const LONG_BODY =
+    'Please inspect the vehicle at your earliest convenience and send us the report.';
+
+  function inboundWithBody() {
+    return {
+      messageId: 'msg-2',
+      internetMessageId: '<msg-2@example.test>',
+      body: LONG_BODY,
+      attachments: [attachment({ blobPath: 'msg-2/IMG_0421.jpg' })],
+    };
+  }
+  const ctx = { log: vi.fn(), warn: vi.fn() };
+
+  beforeEach(() => {
+    delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
+    delete process.env.AUDIT_CASES_ENABLED;
+    dataApiMock.persistEvidence
+      .mockReset()
+      .mockResolvedValue({ persisted: 1, updated: 0, merged: 0, statusGeneration: 7 });
+    dataApiMock.recordAudit.mockReset().mockResolvedValue(undefined);
+    dataApiMock.workProviderAiAllowed.mockReset().mockResolvedValue({ aiAllowed: null });
+    dataApiMock.evaluateStatus
+      .mockReset()
+      .mockResolvedValue({ value: 'needs_review', completed: true, pending: false });
+    blobMock.uploadEvidenceBytes
+      .mockReset()
+      .mockResolvedValue({ blobPath: 'msg-2/body.txt', size: 42, sha256: 'f'.repeat(64) });
+    ctx.log.mockReset();
+    ctx.warn.mockReset();
+  });
+
+  function persistedRows(): Array<{ evidenceClass: string; contentType: string }> {
+    return dataApiMock.persistEvidence.mock.calls[0][1] as Array<{
+      evidenceClass: string;
+      contentType: string;
+    }>;
+  }
+
+  it('default (flag absent): an instruction-less ≥40-char body still mints the body-instruction row', async () => {
+    await activity().handler({ caseId: 'case-1', inbound: inboundWithBody() }, ctx);
+    expect(
+      persistedRows().some((r) => r.evidenceClass === 'instruction' && r.contentType === 'text/plain'),
+    ).toBe(true);
+    expect(blobMock.uploadEvidenceBytes).toHaveBeenCalledTimes(1);
+  });
+
+  it('explicit true: unchanged behaviour', async () => {
+    await activity().handler(
+      { caseId: 'case-1', inbound: inboundWithBody(), bodyInstructionFallback: true },
+      ctx,
+    );
+    expect(persistedRows().some((r) => r.evidenceClass === 'instruction')).toBe(true);
+  });
+
+  it('bodyInstructionFallback:false suppresses the body-instruction row (retro related ingest)', async () => {
+    await activity().handler(
+      { caseId: 'case-1', inbound: inboundWithBody(), bodyInstructionFallback: false },
+      ctx,
+    );
+    expect(persistedRows().some((r) => r.evidenceClass === 'instruction')).toBe(false);
+    expect(blobMock.uploadEvidenceBytes).not.toHaveBeenCalled();
   });
 });

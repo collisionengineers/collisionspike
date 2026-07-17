@@ -148,11 +148,47 @@ app.http('internalAudit', {
         severity?: 'info' | 'warning' | 'error';
         before?: unknown;
         after?: unknown;
+        /** TKT-229 — optional once-only key (see the guard below). */
+        onceKey?: string;
       };
 
       const code = AUDIT_ACTION_BY_NAME[body.action] as number | undefined;
+      const effectiveCode = (code ?? AUDIT_ACTION.graph_message_ingested) as
+        (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION];
+
+      // TKT-229 — once-only audit guard. A caller may key once-ness either as a top-level
+      // `onceKey` or inside its `after` object (the box-webhook rides after_fields, so the
+      // stored row's `after` carries the key this guard matches on). When present WITH a
+      // caseId, skip the write if an audit for the same (case, action, onceKey) already
+      // exists — the Box FILE.UPLOADED redelivery path re-audits otherwise. audit_event.after
+      // is TEXT, hence the pg_input_is_valid validity guard; the scan is bounded by
+      // ix_audit_event_case_id. Benign race, documented: two concurrent deliveries can both
+      // pass the check — worst case ONE duplicate audit, never a lost one.
+      const afterOnceKey =
+        body.after != null && typeof body.after === 'object'
+          ? (body.after as { onceKey?: unknown }).onceKey
+          : undefined;
+      const onceKey = (
+        typeof body.onceKey === 'string' ? body.onceKey
+        : typeof afterOnceKey === 'string' ? afterOnceKey
+        : ''
+      ).trim();
+      if (onceKey && body.caseId) {
+        const existing = await query<Row>(
+          `SELECT 1 AS present FROM audit_event
+            WHERE case_id = $1 AND action_code = $2
+              AND pg_input_is_valid(after, 'jsonb') AND after::jsonb->>'onceKey' = $3
+            LIMIT 1`,
+          [body.caseId, effectiveCode, onceKey],
+        );
+        if (existing[0]) {
+          ctx.log(JSON.stringify({ evt: 'internalAudit', deduped: true, action: body.action, onceKey }));
+          return { status: 204 };
+        }
+      }
+
       await writeAudit({
-        action: (code ?? AUDIT_ACTION.graph_message_ingested) as (typeof AUDIT_ACTION)[keyof typeof AUDIT_ACTION],
+        action: effectiveCode,
         caseId: body.caseId,
         summary: body.summary,
         severity: body.severity ?? 'info',

@@ -4,6 +4,17 @@
 Built + deployed live (2026-07-09, PLAN-003 intake-correctness wave). PHA5007 itself was
 reconstructed live via the retro drain during the wave.
 
+## 2026-07-16 clarification — acceptance wording vs shipped behaviour (TKT-219 investigation)
+
+The acceptance line "An acknowledgement/query email can never mint a case from any path" is
+narrower than what shipped and was intended: the retro TRIGGER family (billing / case_update /
+cancellation / **query**) is deliberately allowed as reconstruction material — a stranded query
+email may anchor a Held `needs_review` case when no instruction survives (see §(b) below, which
+documents the reversal). What can never anchor a case is a located original classified
+`non_actionable` / `other` / `pre_instruction` / `website_enquiry`. The blocked-original list and
+rationale are now recorded in ADR-0022 (2026-07-16 amendment). No behaviour change — wording
+record only.
+
 ## (a) PHA5007 root cause — pinned with KQL + Postgres evidence
 
 - **The retro ladder never ran for PHA5007 at all.** A 14-day workspace-wide KQL search found ZERO

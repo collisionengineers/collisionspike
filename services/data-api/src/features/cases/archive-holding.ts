@@ -4,6 +4,10 @@ import { AUDIT_ACTION, writeAuditStrict } from '../../shared/audit.js';
 import { tx,type TxQuery } from '../../platform/db/client.js';
 import { requestStatusRecompute } from './status-recompute.js';
 
+/** duplicate_keys is TEXT and may hold non-JSON (TKT-141); never coalesce it against a jsonb literal. */
+export const NOT_MERGED_INTO_SQL = (col: string): string =>
+  `NOT ((CASE WHEN ${col} IS NOT NULL AND pg_input_is_valid(${col},'jsonb') THEN ${col}::jsonb ELSE '{}'::jsonb END) ? 'mergedInto')`;
+
 export interface HoldingFileInput {
   filename: string; contentType: string; size: number; blobPath: string; sha256: string;
 }
@@ -141,8 +145,11 @@ export async function registerArchiveHolding(input: {
     }else if((holding.state==='adopting'&&holding.claimActive)||holding.boxFolderId!==input.boxFolderId){
       return defer(holding);
     }
+    // Both $2 references cast ::text: the INSERT target deduces varchar while the inner
+    // `=` comparison deduces text — mixed, Postgres rejects the statement at parse time
+    // ("inconsistent types deduced for parameter $2"), 500ing this route on every call.
     await q(`INSERT INTO archive_holding_intake (holding_folder_id, source_message_id, inbound_email_id)
-      VALUES ($1,$2,(SELECT id FROM inbound_email WHERE source_message_id=$2 LIMIT 1))
+      VALUES ($1,$2::text,(SELECT id FROM inbound_email WHERE source_message_id=$2::text LIMIT 1))
       ON CONFLICT (source_message_id) DO UPDATE SET
         inbound_email_id=coalesce(archive_holding_intake.inbound_email_id,EXCLUDED.inbound_email_id)`, [holding.id, input.sourceMessageId]);
     for (const file of input.files) {
@@ -154,7 +161,7 @@ export async function registerArchiveHolding(input: {
     }
     const matchingCases=await q<{caseId:string}>(`SELECT id AS "caseId" FROM case_
       WHERE regexp_replace(upper(coalesce(vrm,'')),'[^A-Z0-9]','','g')=$1
-        AND status_code<>ALL($2::int[]) AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')`,
+        AND status_code<>ALL($2::int[]) AND ${NOT_MERGED_INTO_SQL('duplicate_keys')}`,
       [input.vrm,terminalCodes]);
     await refreshArchiveHoldingBlockers(q,matchingCases.map((row)=>row.caseId));
     await q(`UPDATE archive_holding_folder SET next_attempt_at=now(),updated_at=now() WHERE id=$1`,[holding.id]);
@@ -269,7 +276,7 @@ export async function listArchiveHoldingAdoptionCaseIds(limit=50):Promise<string
             AND regexp_replace(upper(coalesce(c.vrm,'')),'[^A-Z0-9]','','g')=e.normalized_vrm))
           AND c.case_po IS NOT NULL
           AND c.status_code<>ALL($1::int[])
-          AND NOT (coalesce(c.duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+          AND ${NOT_MERGED_INTO_SQL('c.duplicate_keys')}
         ORDER BY c.created_at,c.id LIMIT 1) picked ON true
       ORDER BY e.next_attempt_at,e.id LIMIT $2`,[terminalCodes,bounded]);
     const ids=rows.map((row)=>row.caseId);
@@ -281,7 +288,7 @@ export async function listArchiveHoldingAdoptionCaseIds(limit=50):Promise<string
 export async function readArchiveHoldingResolution(caseId:string):Promise<ArchiveHoldingResolution>{
   return tx(async(q)=>{
     const [target]=await q<{vrm:string|null}>(`SELECT vrm FROM case_ WHERE id=$1
-      AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')`,[caseId]);
+      AND ${NOT_MERGED_INTO_SQL('duplicate_keys')}`,[caseId]);
     const vrm=canonicalizeVrm(target?.vrm);
     if(!vrm)return {state:'none',holdingIds:[],folderIds:[],candidateCaseIds:[],candidateCases:[],sources:[],canSelect:false,hasFailure:false};
     const rows=await q<{id:string;folderId:string;state:string;candidateCaseIds:unknown;resolvedCaseId:string|null}>(`
@@ -342,7 +349,7 @@ export async function resolveArchiveHolding(caseId:string,actor:string):Promise<
     if(!vrm)throw new Error('case registration is unavailable');
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`,[`archive-holding:${vrm}`]);
     const target=await q<{id:string}>(`SELECT id FROM case_ WHERE id=$1
-      AND status_code<>ALL($2::int[]) AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+      AND status_code<>ALL($2::int[]) AND ${NOT_MERGED_INTO_SQL('duplicate_keys')}
       FOR UPDATE`,[caseId,terminalCodes]);
     if(!target.length)throw new Error('case is not available for registration image filing');
     const holdings=await q<{id:string;resolvedCaseId:string|null;claimActive:boolean;candidateCaseIds:unknown}>(`SELECT id,resolved_case_id AS "resolvedCaseId",
@@ -395,7 +402,7 @@ export async function claimArchiveHolding(caseId: string, claimToken: string): P
     const [target] = await q<{ id:string;vrm:string|null;casePo:string|null;boxFolderId:string|null }>(
       `SELECT id,vrm,case_po AS "casePo",box_folder_id AS "boxFolderId" FROM case_
        WHERE id=$1 AND status_code<>ALL($2::int[])
-         AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto') FOR UPDATE`, [caseId,terminalCodes]);
+         AND ${NOT_MERGED_INTO_SQL('duplicate_keys')} FOR UPDATE`, [caseId,terminalCodes]);
     if (!target?.vrm || !target.casePo || canonicalizeVrm(target.vrm)!==vrm) return { kind: 'none' };
     const holdings = await q<{ id:string;boxFolderId:string;state:string;adoptedCaseId:string|null;resolvedCaseId:string|null;claimToken:string|null;claimActive:boolean;retryDeferred:boolean;candidateCaseIds:unknown;candidateFolderIds:unknown }>(`
       SELECT id,box_folder_id AS "boxFolderId",state,adopted_case_id AS "adoptedCaseId",claim_token AS "claimToken",
@@ -424,7 +431,7 @@ export async function claimArchiveHolding(caseId: string, claimToken: string): P
       SELECT id AS "caseId",case_po AS "casePo" FROM case_
       WHERE regexp_replace(upper(coalesce(vrm,'')),'[^A-Z0-9]','','g')=$1
         AND status_code <> ALL($2::int[])
-        AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto')
+        AND ${NOT_MERGED_INTO_SQL('duplicate_keys')}
       ORDER BY created_at,id`, [vrm,terminalCodes]);
     const linkedElsewhere=await q<{caseId:string}>(`SELECT DISTINCT ie.case_id AS "caseId"
       FROM archive_holding_intake i JOIN inbound_email ie ON ie.source_message_id=i.source_message_id
@@ -516,7 +523,7 @@ export async function finalizeArchiveHolding(input:{holdingId:string;caseId:stri
     if(!holdingProbe?.vrm)throw new Error('archive holding identity is unavailable during adoption');
     await q(`SELECT pg_advisory_xact_lock(hashtext($1))`,[`archive-holding:${holdingProbe.vrm}`]);
     const lockedCase=await q<{id:string;vrm:string|null}>(`SELECT id,vrm FROM case_ WHERE id=$1
-      AND NOT (coalesce(duplicate_keys,'{}'::jsonb) ? 'mergedInto') FOR UPDATE`,[input.caseId]);
+      AND ${NOT_MERGED_INTO_SQL('duplicate_keys')} FOR UPDATE`,[input.caseId]);
     if(!lockedCase.length)throw new Error('case was merged during archive adoption');
     const lockedVrm=canonicalizeVrm(lockedCase[0].vrm);
     const [holding]=await q<{mode:string;holdingFolderId:string;vrm:string}>(`SELECT adoption_mode AS mode,

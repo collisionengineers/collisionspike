@@ -28,6 +28,7 @@ sys.path.insert(0, str(FN_DIR))
 
 import function_app  # noqa: E402
 import webhook_verify as wv  # noqa: E402
+from data_api_client import EvidenceWriteResult  # noqa: E402
 from webhook_verify import DeliveryDedup, is_replay, verify_signature  # noqa: E402
 
 # Recognisable fake keys (test-only, never real Box keys).
@@ -258,10 +259,17 @@ def test_extract_folder_and_file_ids():
 class _FakeDataApi:
     """Stand-in DataApiClient: records calls, returns scripted answers."""
 
-    def __init__(self, *, case_id="CASE-1", evidence_exists=False, case_po=None):
+    def __init__(self, *, case_id="CASE-1", case_po=None,
+                 evidence_result: EvidenceWriteResult | None = None):
         self._case_id = case_id
         self._case_po = case_po
-        self._evidence_exists = evidence_exists
+        # Default: a fresh persist (tag truthy) — tests script the merged/mirrored
+        # twin shapes via evidence_result (TKT-226/TKT-229). The old evidence_exists
+        # knob is gone with the client shim (TKT-229): the idempotent POST is the
+        # single evidence-write dedup authority.
+        self._evidence_result = evidence_result or EvidenceWriteResult(
+            tag="EV-1", persisted=1, merged=0, updated=0,
+        )
         self.created = []
         self.audited = []
         self.reinvoked = []
@@ -275,12 +283,9 @@ class _FakeDataApi:
         # failure fakes) keep steering both entry points — mirrors the client.
         return self.resolve_case_by_folder(folder_id), self._case_po
 
-    def evidence_exists_for_box_file(self, case_id, box_file_id):
-        return self._evidence_exists
-
     def create_evidence(self, **kwargs):
         self.created.append(kwargs)
-        return "EV-1"
+        return self._evidence_result
 
     def write_audit(self, **kwargs):
         self.audited.append(kwargs)
@@ -354,6 +359,76 @@ def test_receiver_happy_path_writes_evidence_audit_and_reinvokes(monkeypatch):
     assert fake.reinvoked == ["CASE-7"]
 
 
+def test_receiver_audit_carries_honest_after_fields_external_upload(monkeypatch):
+    # TKT-226 — the audit's after payload names what actually arrived: the class
+    # derived from the filename (.jpg -> image) and origin=external_upload when the
+    # persist reported a FRESH row (no merged twin).
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert len(fake.audited) == 1
+    audited = fake.audited[0]
+    assert audited["name"] == "box_upload_received: IMG_1.jpg"  # stable legacy fallback key
+    assert audited["after_fields"] == {
+        "filename": "IMG_1.jpg",
+        "evidenceClass": "image",
+        "origin": "external_upload",
+        # TKT-229 — the server-side audit once-key rides after_fields.
+        "boxFileId": "999",
+        "onceKey": "box_upload_received:999",
+    }
+    # The class passed to the evidence write and the audited class agree.
+    assert fake.created[0]["evidence_class"] == "image"
+
+
+def test_receiver_audit_marks_archive_mirror_on_merged_twin(monkeypatch):
+    # TKT-226 — merged>0 with persisted=0 = the API collapsed this delivery onto
+    # the sha256 twin classifyPersist already wrote: the system's OWN archive echo.
+    # TKT-229: `mirrored` defaults to None here (an OLDER API build) — this test now
+    # pins the rolling-deploy FALLBACK (merged>0 still labels archive_mirror).
+    fake = _FakeDataApi(
+        case_id="CASE-7",
+        evidence_result=EvidenceWriteResult(tag="", persisted=0, merged=1, updated=0),
+    )
+    _patch_dv(monkeypatch, fake)
+    eml_body = {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "998", "name": "message-ab12cd34.eml",
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+    resp = function_app.box_webhook(_signed_request(eml_body))
+    assert resp.status_code == 200
+    assert len(fake.audited) == 1
+    audited = fake.audited[0]
+    assert audited["after_fields"] == {
+        "filename": "message-ab12cd34.eml",
+        "evidenceClass": "email",
+        "origin": "archive_mirror",
+        "boxFileId": "998",
+        "onceKey": "box_upload_received:998",
+    }
+    # No fresh row -> the result's evidenceId marker is empty (tag semantics kept).
+    out = json.loads(resp.get_body())
+    assert out.get("evidenceId") == ""
+
+
+def test_receiver_non_image_external_upload_audits_true_class(monkeypatch):
+    # A fresh (non-merged) PDF upload audits evidenceClass=instruction — the label
+    # seam downstream must never render it as images.
+    fake = _FakeDataApi(case_id="CASE-7")
+    _patch_dv(monkeypatch, fake)
+    pdf_body = {
+        "trigger": "FILE.UPLOADED",
+        "source": {"type": "file", "id": "997", "name": "notes.pdf",
+                   "parent": {"id": "777", "type": "folder"}},
+    }
+    resp = function_app.box_webhook(_signed_request(pdf_body))
+    assert resp.status_code == 200
+    assert fake.audited[0]["after_fields"]["evidenceClass"] == "instruction"
+    assert fake.audited[0]["after_fields"]["origin"] == "external_upload"
+
+
 def test_receiver_processes_inline_before_responding(monkeypatch):
     # No background deferral: by the time the response is produced the Data API
     # writes have ALREADY happened, so a worker recycle after the response can
@@ -416,13 +491,22 @@ def test_receiver_skips_file_moved(monkeypatch):
     assert fake.created == []
 
 
-def test_receiver_durable_dedup_when_evidence_exists(monkeypatch):
-    fake = _FakeDataApi(case_id="CASE-3", evidence_exists=True)
+def test_receiver_durable_dedup_is_the_idempotent_post(monkeypatch):
+    # TKT-229: the client-side existence shim is GONE — a redelivery re-POSTs and the
+    # SERVER answers persisted:0 (its source_message_id idempotency). The receiver
+    # still settles 200 and never fabricates a fresh-write marker.
+    fake = _FakeDataApi(
+        case_id="CASE-3",
+        evidence_result=EvidenceWriteResult(tag="", persisted=0, merged=0, updated=0, mirrored=0),
+    )
     _patch_dv(monkeypatch, fake)
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    # The durable Evidence-existence check prevents a second write (200, no create).
     assert resp.status_code == 200
-    assert fake.created == []  # existing Evidence -> no duplicate write
+    assert len(fake.created) == 1          # the idempotent POST always goes out
+    out = json.loads(resp.get_body())
+    assert out.get("evidenceId") == ""     # ...but no fresh row was claimed
+    # The audit still fires client-side with the onceKey — the DATA API dedups it.
+    assert fake.audited[0]["after_fields"]["onceKey"] == "box_upload_received:999"
 
 
 def test_receiver_unresolved_folder_routes_to_triage(monkeypatch):
@@ -546,9 +630,13 @@ def test_receiver_status_evaluate_failure_then_retry_advances(monkeypatch):
             super().__init__(case_id="CASE-STRAND")
             self._reinvoke_calls = 0
 
-        def evidence_exists_for_box_file(self, case_id, box_file_id):
-            # Reflects the durable store: True once an Evidence row was written.
-            return len(self.created) > 0
+        def create_evidence(self, **kwargs):
+            # Reflects the durable store (TKT-229: dedup lives in the idempotent
+            # POST): the FIRST call persists, every re-POST answers persisted:0.
+            self.created.append(kwargs)
+            if len(self.created) == 1:
+                return EvidenceWriteResult(tag="EV-1", persisted=1, merged=0, updated=0, mirrored=0)
+            return EvidenceWriteResult(tag="", persisted=0, merged=0, updated=0, mirrored=0)
 
         def reinvoke_status_evaluate(self, case_id):
             self._reinvoke_calls += 1
@@ -567,12 +655,12 @@ def test_receiver_status_evaluate_failure_then_retry_advances(monkeypatch):
     assert fake.reinvoked == []            # ...but the advance did NOT happen
 
     # Box retries the SAME delivery id (the failure un-marked the fast-path). The
-    # durable Evidence-existence check now finds the row, so the WRITE is correctly
-    # deduped — but the idempotent case-advance must STILL fire (no second write).
+    # retry re-POSTs and the SERVER dedups the write (persisted:0, no second row) —
+    # and the idempotent case-advance STILL fires so the case finally moves.
     second = function_app.box_webhook(_signed_request(_UPLOAD_BODY, delivery_id="d-strand"))
     assert second.status_code == 200
-    assert json.loads(second.get_body()).get("deduped") is True  # write skipped...
-    assert len(fake.created) == 1          # ...Evidence write stays once-only
+    assert len(fake.created) == 2          # re-POSTed; the SERVER kept it once-only
+    assert json.loads(second.get_body()).get("evidenceId") == ""  # no fresh row claimed
     assert fake.reinvoked == ["CASE-STRAND"]  # ...but the case finally advances
 
 
@@ -680,8 +768,13 @@ def test_receiver_report_mark_done_failure_redelivers_without_duplicate_evidence
             super().__init__(case_id="CASE-7", case_po="CCPY26050")
             self.done_calls = 0
 
-        def evidence_exists_for_box_file(self, case_id, box_file_id):
-            return len(self.created) > 0
+        def create_evidence(self, **kwargs):
+            # TKT-229: dedup lives in the idempotent POST — first call persists,
+            # the redelivery's re-POST is a server-side no-op (persisted:0).
+            self.created.append(kwargs)
+            if len(self.created) == 1:
+                return EvidenceWriteResult(tag="EV-1", persisted=1, merged=0, updated=0, mirrored=0)
+            return EvidenceWriteResult(tag="", persisted=0, merged=0, updated=0, mirrored=0)
 
         def mark_case_done(self, case_id, signal, detail=""):
             self.done_calls += 1
@@ -701,7 +794,7 @@ def test_receiver_report_mark_done_failure_redelivers_without_duplicate_evidence
         _signed_request(_report_body("CCPY26050 Report.pdf"), delivery_id="d-report-retry")
     )
     assert second.status_code == 200
-    assert len(fake.created) == 1
+    assert len(fake.created) == 2  # re-POSTed; the SERVER kept the row once-only
     assert fake.done_calls == 2
     assert fake.marked_done == [("CASE-7", "box_pdf", "CCPY26050 Report.pdf")]
 
@@ -710,11 +803,14 @@ def test_receiver_report_redelivery_dedups_write_but_still_attempts_mark_done(mo
     # Evidence already recorded (durable dedup) -> no second write, but the
     # idempotent mark-done still fires (a prior delivery may have died before it).
     # The API's WHERE guard makes the repeat a server-side no-op.
-    fake = _FakeDataApi(case_id="CASE-7", case_po="CCPY26050", evidence_exists=True)
+    fake = _FakeDataApi(
+        case_id="CASE-7", case_po="CCPY26050",
+        evidence_result=EvidenceWriteResult(tag="", persisted=0, merged=0, updated=0, mirrored=0),
+    )
     _patch_dv(monkeypatch, fake)
     resp = function_app.box_webhook(_signed_request(_report_body("CCPY26050 Report.pdf")))
     assert resp.status_code == 200
-    assert fake.created == []
+    assert len(fake.created) == 1  # the idempotent re-POST (server answers persisted:0)
     assert len(fake.marked_done) == 1
 
 
@@ -821,17 +917,10 @@ def test_receiver_box_fault_on_sha256_fetch_never_fails_the_write(monkeypatch):
     assert fake.created[0]["sha256"] is None
 
 
-def test_receiver_no_sha256_fetch_when_evidence_deduped(monkeypatch):
-    # The extra download costs real bytes — it must ONLY run when the Evidence
-    # write will actually happen (not on the durable-dedup path).
-    fake = _FakeDataApi(case_id="CASE-7", evidence_exists=True)
-    fake_box = _FakeBoxDownload()
-    _patch_dv(monkeypatch, fake)
-    monkeypatch.setattr(function_app, "BoxClient", lambda *a, **k: fake_box)
-    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
-    assert resp.status_code == 200
-    assert fake.created == []
-    assert fake_box.calls == []  # no write -> no fetch
+# (TKT-229: the old "no sha256 fetch when evidence deduped" test is gone with the
+# client-side existence shim — there is no pre-write dedup gate any more, so a rare
+# Box redelivery re-fetches the bytes for its idempotent re-POST. Accepted cost;
+# the unresolved-case guard below still pins the no-write -> no-fetch path.)
 
 
 def test_receiver_no_sha256_fetch_for_unresolved_case(monkeypatch):
@@ -842,3 +931,46 @@ def test_receiver_no_sha256_fetch_for_unresolved_case(monkeypatch):
     resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
     assert resp.status_code == 200
     assert fake_box.calls == []  # triage skip -> no fetch
+
+
+# ==========================================================================
+# 8. TKT-229 — origin derivation matrix (`mirrored` + rolling-deploy fallback)
+# ==========================================================================
+
+def _origin_of(monkeypatch, result: EvidenceWriteResult) -> str:
+    fake = _FakeDataApi(case_id="CASE-7", evidence_result=result)
+    _patch_dv(monkeypatch, fake)
+    resp = function_app.box_webhook(_signed_request(_UPLOAD_BODY))
+    assert resp.status_code == 200
+    assert len(fake.audited) == 1
+    return fake.audited[0]["after_fields"]["origin"]
+
+
+def test_origin_mirrored_positive_labels_archive_mirror(monkeypatch):
+    # The LIVE echo shape: boxArchiveEvidence stamped box_file_id, so the redelivery
+    # lands sameIdentity — merged stays 0 and ONLY `mirrored` tells the truth.
+    assert _origin_of(monkeypatch, EvidenceWriteResult(
+        tag="", persisted=0, merged=0, updated=0, mirrored=1,
+    )) == "archive_mirror"
+
+
+def test_origin_mirrored_zero_beats_legacy_merged_heuristic(monkeypatch):
+    # TKT-226 latent mislabel FIXED: a genuine external duplicate re-upload (twin
+    # WITHOUT blob provenance) no longer claims archive_mirror once `mirrored` exists.
+    assert _origin_of(monkeypatch, EvidenceWriteResult(
+        tag="", persisted=0, merged=1, updated=0, mirrored=0,
+    )) == "external_upload"
+
+
+def test_origin_mirrored_none_falls_back_to_merged(monkeypatch):
+    # Rolling deploy: an OLDER API omits `mirrored` -> the legacy merged>0 rule holds.
+    assert _origin_of(monkeypatch, EvidenceWriteResult(
+        tag="", persisted=0, merged=1, updated=0, mirrored=None,
+    )) == "archive_mirror"
+
+
+def test_origin_fresh_write_is_external_even_when_mirrored_claims(monkeypatch):
+    # persisted>0 always wins: a fresh row is new external material by definition.
+    assert _origin_of(monkeypatch, EvidenceWriteResult(
+        tag="EV-1", persisted=1, merged=0, updated=0, mirrored=1,
+    )) == "external_upload"

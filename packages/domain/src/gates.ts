@@ -122,6 +122,24 @@ export const gates = {
   retroCase: (): boolean => process.env.RETRO_CASE_ENABLED === 'true',
   retroOutlookSearch: (): boolean => process.env.RETRO_OUTLOOK_SEARCH_ENABLED === 'true',
   retroBoxArchiveRootIds: (): string => process.env.RETRO_BOX_ARCHIVE_ROOT_IDS ?? '',
+  // TKT-219 — the dev/live Case-PO adoption split (operator decision 2026-07-16). OFF
+  // (default, dev/test — Case/PO sequences are not aligned to live): a retro create MINTS
+  // via the normal allocator and records the DISCOVERED archive-folder PO as case_ref +
+  // note + audit only. ON (production, flipped at cutover AFTER the TKT-004 floors are
+  // seeded — see the TKT-178 runbook): the discovered folder name is adopted verbatim as
+  // case_po (the ADR-0022 never-fork-archive-identity behaviour). Read by the Data API's
+  // /api/internal/retro/create route.
+  retroAdoptArchivePo: (): boolean => process.env.RETRO_ADOPT_ARCHIVE_PO_ENABLED === 'true',
+  // TKT-225 — retro related-correspondence INGEST (ADR-0022 amendment 2026-07-16: the
+  // initial reconstruction is like receiving a new case, so backfill-linked related
+  // emails must be parsed for details we don't have). Default off (ships DARK). Layered
+  // UNDER retroCase + retroOutlookSearch: while off, retroLinkRelated row-links only
+  // (TKT-222 v1 behaviour, byte-identical); while on, each linked related email is
+  // ingested like a new intake (fetch → parse → evidence → embedded images → fill-gaps
+  // fields, never overwriting set values). Independently revocable because ingest
+  // multiplies Graph/parser/OCR load ~25× per reconstruction. Read by the orchestration
+  // app only; the Data API's backfill-fields route rides RETRO_CASE_ENABLED.
+  retroRelatedIngest: (): boolean => process.env.RETRO_RELATED_INGEST_ENABLED === 'true',
 
   // Triage-policy gates (Stage B, rules-engine-v2 Phase 2 / ADR-0019) — all default off.
   // Each gates ONE rung of `decideTriage` (domain/triage-policy.ts); the function itself

@@ -320,6 +320,15 @@ describe('searchMessages bounded pagination', () => {
     expect(bounded).toHaveLength(26);
     expect(fetchMock.mock.calls.some(([input]) => String(input) === page3)).toBe(false);
 
+    // TKT-219 "no silent caps": the same bounded sweep reports the cut when a nextLink
+    // remained beyond the caller's total bound.
+    fetchMock.mockClear();
+    const onTruncated = vi.fn();
+    const truncated = await searchMessages('mailbox@example.test', '"Subject"', 26, onTruncated);
+    expect(truncated).toHaveLength(26);
+    expect(onTruncated).toHaveBeenCalledTimes(1);
+    expect(String(onTruncated.mock.calls[0][0])).toMatch(/truncated at 26/);
+
     fetchMock.mockReset();
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);

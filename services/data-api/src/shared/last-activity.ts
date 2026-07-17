@@ -16,6 +16,7 @@
  * PURE + framework-free (no DB, no env) so the mapping is unit-testable.
  */
 
+import { describeEvidence } from '@cs/domain';
 import { auditActionCodec } from '@cs/domain/codecs';
 
 /** Where the newest activity row came from (the UNION branches of the lateral join). */
@@ -45,7 +46,11 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   inspection_override: 'Inspection decision recorded',
   box_folder_created: 'Archive folder created',
   box_file_request_copied: 'Upload link created',
-  box_upload_received: 'Images received',
+  // TKT-226 — the honest no-payload default. A Box FILE.UPLOADED can be any file
+  // type (or the system's own archive mirror echo); "Images received" was a lie
+  // for non-image uploads. boxUploadLabel below upgrades this when the audit row
+  // carries (or its summary reveals) what actually arrived.
+  box_upload_received: 'File added to archive',
   location_assist_confirmed: 'Inspection address set',
   chaser_sent: 'Chased',
   chaser_suggested: 'Chase suggested',
@@ -123,6 +128,47 @@ export function auditActionLabel(actionCode: number | null | undefined): string 
 }
 
 /* ============================================================
+   TKT-226 — honest Box-upload labels.
+   ============================================================ */
+
+/** The stable audit summary format the box-webhook writes
+ *  (`box_upload_received: <filename>`) — the legacy read-time fallback key. */
+const BOX_UPLOAD_SUMMARY_RE = /^box_upload_received:\s*(.+)$/;
+
+/**
+ * The plain-English label for a `box_upload_received` audit row (TKT-226).
+ * Decision table (all approved queue vocabulary / plain sentence case):
+ *
+ *   - `origin === 'archive_mirror'` (the persist route reported a merged sha256
+ *     twin — the system's own boxArchiveEvidence echo) → 'Archived' (the exact
+ *     `box_synced` wording; nothing new arrived, the Archive round-trip completed);
+ *   - image-class evidence (payload `evidenceClass`, or the legacy summary's
+ *     filename classified via the ONE shared extension table,
+ *     `@cs/domain` describeEvidence) → 'Images received';
+ *   - any other/unknown class, and the unparsable-legacy fallback →
+ *     'File added to archive'. The fallback must NEVER be 'Images received'
+ *     without proof of image-ness.
+ *
+ * PURE — no DB, no env; unit-tested as a table.
+ */
+export function boxUploadLabel(input: {
+  evidenceClass?: string | null;
+  origin?: string | null;
+  summary?: string | null;
+}): string {
+  if ((input.origin ?? '').trim() === 'archive_mirror') return 'Archived';
+  let evidenceClass = (input.evidenceClass ?? '').trim();
+  if (!evidenceClass) {
+    // Legacy self-heal: rows written before the object `after` payload carry the
+    // filename in the audit summary — classify it with the same extension table
+    // the persist-route guard uses (no drift).
+    const filename = (input.summary ?? '').trim().match(BOX_UPLOAD_SUMMARY_RE)?.[1]?.trim();
+    if (filename) evidenceClass = describeEvidence(filename).evidenceClass;
+  }
+  return evidenceClass === 'image' ? 'Images received' : 'File added to archive';
+}
+
+/* ============================================================
    TKT-134 — Action-logs detail-line safety filter.
    ============================================================ */
 
@@ -166,10 +212,27 @@ export function lastActivityLabel(row: {
   /** True for deterministic draft suggestions, including earlier audit rows whose
    *  `after` metadata carried suggested=true under the older chaser_sent action. */
   suggested?: boolean;
+  /** The audit row's summary (audit_event.name) — the legacy filename fallback
+   *  for box_upload_received rows (TKT-226). */
+  summary?: string | null;
+  /** The `after` payload's evidenceClass, when the row carries the TKT-226 object
+   *  payload (NULL/absent on legacy string-scalar rows). */
+  evidenceClass?: string | null;
+  /** The `after` payload's origin ('archive_mirror' | 'external_upload'). */
+  origin?: string | null;
 }): string {
   if (row.suggested === true) return 'Chase suggested';
   switch (row.kind) {
     case 'audit':
+      // TKT-226 — a Box upload's label is derived from what actually arrived
+      // (payload class / origin, or the legacy summary filename), never assumed.
+      if (auditActionCodec.toName(row.actionCode ?? undefined) === 'box_upload_received') {
+        return boxUploadLabel({
+          evidenceClass: row.evidenceClass ?? null,
+          origin: row.origin ?? null,
+          summary: row.summary ?? null,
+        });
+      }
       return auditActionLabel(row.actionCode);
     case 'note': {
       const who = humanActorName(row.actor);

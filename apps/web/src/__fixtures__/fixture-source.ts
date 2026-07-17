@@ -305,6 +305,7 @@ const TAG_MAP: Record<
 function filterInbound(rows: InboundEmail[], facet?: InboundFacet): InboundEmail[] {
   const view = facet?.view ?? 'active';
   return rows
+    .filter((r) => (facet?.caseId ? r.caseId === facet.caseId : true))
     .filter((r) => (facet?.category ? r.category === facet.category : true))
     .filter((r) => (facet?.subtype ? r.subtype === facet.subtype : true))
     .filter((r) =>

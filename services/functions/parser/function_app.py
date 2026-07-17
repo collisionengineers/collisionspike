@@ -520,15 +520,21 @@ _EML_BODY_CAP = 20_000
 # The facade rides base64-in-JSON: cap each attachment + the whole response.
 _EML_ATTACHMENT_MAX_BYTES = 26_214_400  # 25 MiB
 _EML_TOTAL_MAX_BYTES = 78_643_200  # 75 MiB across all attachments
+# OLE Compound File magic — an Outlook ``.msg`` original (D0 CF 11 E0 A1 B1 1A E1).
+# Box archives hold originals as RFC-822 ``.eml`` OR Outlook OLE ``.msg``; both
+# route through /explode-eml and return the SAME explode_eml_v1 response shape.
+_MSG_OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 @app.function_name(name="explode_eml")
 @app.route(route="explode-eml", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def explode_eml(req: func.HttpRequest) -> func.HttpResponse:
-    """POST /explode-eml — { document: base64(.eml bytes), filename? } ->
+    """POST /explode-eml — { document: base64(.eml or .msg bytes), filename? } ->
     { subject, from, date_iso, message_id, in_reply_to, references, body_text,
       attachments: [{ filename, content_type, size, sha256, content_base64 }],
       skipped: [{ filename, reason }] }.
+    Outlook ``.msg`` originals (detected by OLE magic bytes and/or a .msg
+    filename) are unpacked via ``extract_msg`` into the SAME response shape.
     Same defensive guard as /parse: nothing escapes as a 502."""
     try:
         return _explode_eml(req)
@@ -557,6 +563,12 @@ def _explode_eml(req: func.HttpRequest) -> func.HttpResponse:
         return _eml_error(400, "bad_base64", "Field 'document' is not valid base64.")
     if not raw.strip():
         return _eml_error(422, "eml_unreadable", "Decoded email is empty.")
+
+    filename = body.get("filename", "")
+    if filename is not None and not isinstance(filename, str):
+        return _eml_error(400, "bad_field", "'filename' must be a string when provided.")
+    if raw.startswith(_MSG_OLE_MAGIC) or str(filename or "").lower().endswith(".msg"):
+        return _explode_msg(raw)
 
     msg = _email.message_from_bytes(raw, policy=_email_policy.default)
 
@@ -615,28 +627,7 @@ def _explode_eml(req: func.HttpRequest) -> func.HttpResponse:
         except Exception:  # noqa: BLE001 - one mangled part must not sink the rest
             skipped.append({"filename": f"part-{index + 1}", "reason": "unreadable_part"})
             continue
-        size = len(content)
-        if size == 0:
-            skipped.append({"filename": filename, "reason": "empty"})
-            continue
-        if size > _EML_ATTACHMENT_MAX_BYTES:
-            skipped.append({"filename": filename, "reason": "too_large"})
-            continue
-        if total + size > _EML_TOTAL_MAX_BYTES:
-            skipped.append({"filename": filename, "reason": "total_cap"})
-            continue
-        total += size
-        import hashlib as _hashlib
-
-        attachments.append(
-            {
-                "filename": filename,
-                "content_type": content_type,
-                "size": size,
-                "sha256": _hashlib.sha256(content).hexdigest(),
-                "content_base64": base64.b64encode(content).decode("ascii"),
-            }
-        )
+        total = _bound_attachment(filename, content_type, content, attachments, skipped, total)
 
     return _json(
         200,
@@ -654,6 +645,161 @@ def _explode_eml(req: func.HttpRequest) -> func.HttpResponse:
             "contract_version": EML_CONTRACT_VERSION,
         },
     )
+
+
+def _bound_attachment(
+    filename: str,
+    content_type: str,
+    content: bytes,
+    attachments: list[dict[str, Any]],
+    skipped: list[dict[str, str]],
+    total: int,
+) -> int:
+    """Shared size discipline for exploded attachments (.eml and .msg paths):
+    drop empty parts, cap each part and the running total, and append the
+    base64 record. Returns the updated running total."""
+    import hashlib as _hashlib
+
+    size = len(content)
+    if size == 0:
+        skipped.append({"filename": filename, "reason": "empty"})
+        return total
+    if size > _EML_ATTACHMENT_MAX_BYTES:
+        skipped.append({"filename": filename, "reason": "too_large"})
+        return total
+    if total + size > _EML_TOTAL_MAX_BYTES:
+        skipped.append({"filename": filename, "reason": "total_cap"})
+        return total
+    attachments.append(
+        {
+            "filename": filename,
+            "content_type": content_type,
+            "size": size,
+            "sha256": _hashlib.sha256(content).hexdigest(),
+            "content_base64": base64.b64encode(content).decode("ascii"),
+        }
+    )
+    return total + size
+
+
+def _explode_msg(raw: bytes) -> func.HttpResponse:
+    """Unpack an Outlook OLE ``.msg`` original into the exact explode_eml_v1
+    response shape. Box archives hold some originals as ``.msg`` (dragged out of
+    Outlook) rather than RFC-822 ``.eml``; without this branch they degraded to
+    unreadable raw bytes downstream. Parsed with ``extract_msg`` — already a
+    pinned runtime dependency (the vendored engine's MSG reader uses it).
+
+    Body preference: ``msg.body`` (extract_msg derives plain text, including
+    from RTF-only bodies where deencapsulation is possible), then text-stripped
+    ``msg.htmlBody``. Regular attachments are emitted like .eml attachments;
+    embedded Outlook items are re-emitted as raw ``.msg`` bytes when exportable
+    (parity with nested message/rfc822 -> .eml) and skipped otherwise. A
+    corrupt/unparseable ``.msg`` returns the same graceful 422 envelope the
+    .eml path uses for unreadable input."""
+    import datetime as _datetime
+    import mimetypes as _mimetypes
+    from email.utils import parsedate_to_datetime as _parsedate
+
+    import extract_msg
+
+    def _text(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, (bytes, bytearray)):
+            return bytes(value).decode("utf-8", errors="ignore").replace("\x00", "").strip()
+        return str(value).replace("\x00", "").strip()
+
+    try:
+        msg = extract_msg.Message(raw)
+    except Exception:  # noqa: BLE001 - corrupt OLE / not a message: typed 422, like eml_unreadable
+        _LOG.warning("unreadable .msg in explode-eml", exc_info=True)
+        return _eml_error(422, "msg_unreadable", "Decoded .msg could not be parsed as an Outlook message.")
+    try:
+        def _prop(name: str) -> str:
+            try:
+                return _text(getattr(msg, name, None))
+            except Exception:  # noqa: BLE001 - one mangled property must not sink the explode
+                return ""
+
+        date_iso = ""
+        try:
+            raw_date = getattr(msg, "date", None)
+            if isinstance(raw_date, _datetime.datetime):
+                date_iso = raw_date.isoformat()
+            elif raw_date:
+                parsed = _parsedate(str(raw_date))
+                date_iso = parsed.isoformat() if parsed is not None else ""
+        except (TypeError, ValueError):
+            date_iso = ""
+
+        references = ""
+        try:
+            header = getattr(msg, "header", None)
+            if header is not None:
+                references = _text(header.get("References", ""))
+        except Exception:  # noqa: BLE001 - transport headers are optional in .msg
+            references = ""
+
+        body_text = _prop("body")
+        if not body_text:
+            html = _prop("htmlBody")
+            if html:
+                body_text = _strip_html(html)
+        body_text = body_text[:_EML_BODY_CAP]
+
+        attachments: list[dict[str, Any]] = []
+        skipped: list[dict[str, str]] = []
+        total = 0
+        for index, att in enumerate(list(getattr(msg, "attachments", None) or [])):
+            try:
+                filename = ""
+                for name_attr in ("longFilename", "shortFilename", "displayName", "name"):
+                    filename = _text(getattr(att, name_attr, None))
+                    if filename:
+                        break
+                filename = filename or f"attachment-{index + 1}"
+                data = getattr(att, "data", None)
+                if isinstance(data, (bytes, bytearray)):
+                    content = bytes(data)
+                    content_type = _text(getattr(att, "mimetype", None)) or (
+                        _mimetypes.guess_type(filename)[0] or "application/octet-stream"
+                    )
+                elif data is not None and hasattr(data, "exportBytes"):
+                    # An embedded Outlook item — re-emit its raw .msg bytes so the
+                    # caller can recurse (parity with nested message/rfc822 -> .eml).
+                    content = bytes(data.exportBytes())
+                    if not filename.lower().endswith(".msg"):
+                        filename = f"{filename}.msg"
+                    content_type = "application/vnd.ms-outlook"
+                else:
+                    skipped.append({"filename": filename, "reason": "unsupported_part"})
+                    continue
+            except Exception:  # noqa: BLE001 - one mangled attachment must not sink the rest
+                skipped.append({"filename": f"part-{index + 1}", "reason": "unreadable_part"})
+                continue
+            total = _bound_attachment(filename, content_type, content, attachments, skipped, total)
+
+        return _json(
+            200,
+            {
+                "subject": _prop("subject"),
+                "from": _prop("sender"),
+                "to": _prop("to"),
+                "date_iso": date_iso,
+                "message_id": _prop("messageId"),
+                "in_reply_to": _prop("inReplyTo"),
+                "references": references,
+                "body_text": body_text,
+                "attachments": attachments,
+                "skipped": skipped,
+                "contract_version": EML_CONTRACT_VERSION,
+            },
+        )
+    finally:
+        try:
+            msg.close()
+        except Exception:  # noqa: BLE001 - close failure must not mask the response
+            pass
 
 
 def _eml_error(status: int, code: str, message: str) -> func.HttpResponse:

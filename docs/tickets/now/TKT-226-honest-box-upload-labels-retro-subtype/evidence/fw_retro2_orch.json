@@ -1,0 +1,995 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "timestamp",
+          "type": "datetime"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "PrimaryResult",
+      "rows": [
+        [
+          "2026-07-16T18:07:20.6785728Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:07:21.7575472Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T18:07:43.4340536Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:07:52.7788417Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"created\",\"caseId\":\"ed32e56c-da44-4557-9dbb-3babcc16c3be\",\"casePo\":\"A.QDOS26147\"}"
+        ],
+        [
+          "2026-07-16T18:27:59.5453659Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:27:59.9020752Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T18:28:22.3525963Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:28:24.7166724Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T18:28:24.7554482Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 98."
+        ],
+        [
+          "2026-07-16T18:28:24.8158255Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 5772 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 100. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T18:28:24.8164887Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=f6e6285b-4e5c-404c-999a-e13bf69abca9)"
+        ],
+        [
+          "2026-07-16T18:28:24.8833164Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T18:28:24.883688Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=f6e6285b-4e5c-404c-999a-e13bf69abca9, Duration=67ms)"
+        ],
+        [
+          "2026-07-16T18:28:24.8840562Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 101. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T18:28:27.7606179Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:28:29.6690574Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T18:28:48.9126575Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:28:51.410355Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 158."
+        ],
+        [
+          "2026-07-16T18:28:51.4266754Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7525 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 160. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:28:51.4271915Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=af25c7f7-b411-415e-b448-4e6a89ad726f)"
+        ],
+        [
+          "2026-07-16T18:28:51.5745658Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T18:28:51.5748899Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=af25c7f7-b411-415e-b448-4e6a89ad726f, Duration=148ms)"
+        ],
+        [
+          "2026-07-16T18:28:51.5753806Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 161. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:28:54.4205486Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:28:55.4237593Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T18:29:12.8042123Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:29:15.264514Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 218."
+        ],
+        [
+          "2026-07-16T18:29:15.2807645Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 12575 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 220. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:29:15.2813647Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=7bbc3fde-0bdf-4279-a6d8-0b376c173038)"
+        ],
+        [
+          "2026-07-16T18:29:15.3757405Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T18:29:15.3761089Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=7bbc3fde-0bdf-4279-a6d8-0b376c173038, Duration=95ms)"
+        ],
+        [
+          "2026-07-16T18:29:15.3765472Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 221. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:29:19.3197776Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:29:19.5195189Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T18:29:35.431478Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:29:35.8494189Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T18:29:35.88311Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 273."
+        ],
+        [
+          "2026-07-16T18:29:35.8990816Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7178 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 275. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T18:29:35.8996778Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=f7c3e35f-9759-4dcc-9df8-8dff109d1894)"
+        ],
+        [
+          "2026-07-16T18:29:35.9733709Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T18:29:35.9743582Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=f7c3e35f-9759-4dcc-9df8-8dff109d1894, Duration=75ms)"
+        ],
+        [
+          "2026-07-16T18:29:35.9747606Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 276. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T18:29:47.5607275Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:29:50.3979976Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":3}"
+        ],
+        [
+          "2026-07-16T18:30:05.1707621Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:30:09.8764406Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 333."
+        ],
+        [
+          "2026-07-16T18:30:09.8917618Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 3831 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 335. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:30:09.8922118Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=2056727d-f84f-4373-8372-360a666b73e7)"
+        ],
+        [
+          "2026-07-16T18:30:09.9640949Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"DF25LZE\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T18:30:09.964445Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=2056727d-f84f-4373-8372-360a666b73e7, Duration=72ms)"
+        ],
+        [
+          "2026-07-16T18:30:09.9648387Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 336. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:30:32.4078563Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:30:32.9079907Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"info@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":34}"
+        ],
+        [
+          "2026-07-16T18:30:48.4760373Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T18:30:57.7630659Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 396."
+        ],
+        [
+          "2026-07-16T18:30:57.8228861Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 11186 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 398. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:30:57.8237439Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=9e442f95-d409-4675-9d62-12ae4ea079d4)"
+        ],
+        [
+          "2026-07-16T18:30:57.9315098Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"AE63SON\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T18:30:57.9318607Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=9e442f95-d409-4675-9d62-12ae4ea079d4, Duration=108ms)"
+        ],
+        [
+          "2026-07-16T18:30:57.9323038Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 399. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T18:31:07.9940411Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T18:31:08.3908187Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":false}"
+        ],
+        [
+          "2026-07-16T18:31:26.0955661Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"none\",\"reasons\":[\"box:skipped\",\"outlook:not_found\"]}"
+        ],
+        [
+          "2026-07-16T18:31:26.0971718Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 452."
+        ],
+        [
+          "2026-07-16T18:31:26.1624546Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 4128 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 454. TaskEventId: 12"
+        ],
+        [
+          "2026-07-16T18:31:26.1628653Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=d9d843a3-c248-4420-9bcb-a4837f8c188f)"
+        ],
+        [
+          "2026-07-16T18:31:26.2347485Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"46458/1\",\"vrm\":\"KU05NJZ\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\"]}"
+        ],
+        [
+          "2026-07-16T18:31:26.2350569Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=d9d843a3-c248-4420-9bcb-a4837f8c188f, Duration=72ms)"
+        ],
+        [
+          "2026-07-16T18:31:26.2354809Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 455. TaskEventId: 12"
+        ],
+        [
+          "2026-07-16T20:08:01.9075647Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:08:02.5552327Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T20:08:05.5660157Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:08:05.5917878Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:08:09.989821Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T20:08:10.0231435Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2321."
+        ],
+        [
+          "2026-07-16T20:08:10.0830716Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 5786 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2323. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T20:08:10.0835501Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=cfcbfb31-2c60-43ac-a483-2a11372f108e)"
+        ],
+        [
+          "2026-07-16T20:08:10.1856708Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T20:08:10.18599Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=cfcbfb31-2c60-43ac-a483-2a11372f108e, Duration=102ms)"
+        ],
+        [
+          "2026-07-16T20:08:10.1863752Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2324. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T20:08:14.1938554Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:08:15.8629264Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T20:08:17.6535945Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:08:17.6825942Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:08:22.1896745Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2381."
+        ],
+        [
+          "2026-07-16T20:08:22.2042278Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7539 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2383. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:08:22.2047133Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=9943b60a-809d-46f6-b7ee-d35a91e488e8)"
+        ],
+        [
+          "2026-07-16T20:08:22.3263543Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:08:22.3267Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=9943b60a-809d-46f6-b7ee-d35a91e488e8, Duration=122ms)"
+        ],
+        [
+          "2026-07-16T20:08:22.3272972Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2384. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:08:25.2247099Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:08:26.1561053Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T20:08:28.3717916Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:08:28.4009623Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:08:35.0819895Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2423."
+        ],
+        [
+          "2026-07-16T20:08:35.1004608Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 12589 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2425. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:08:35.1009144Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=c54ea862-db78-465d-8eb1-1e9b2ae7abc9)"
+        ],
+        [
+          "2026-07-16T20:08:35.1858121Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:08:35.1861453Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=c54ea862-db78-465d-8eb1-1e9b2ae7abc9, Duration=85ms)"
+        ],
+        [
+          "2026-07-16T20:08:35.1866019Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2426. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:08:39.8249078Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:08:39.970843Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T20:08:43.0161809Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:08:43.0461138Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:08:43.3650812Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T20:08:43.4045905Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2478."
+        ],
+        [
+          "2026-07-16T20:08:43.4214849Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7192 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2480. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T20:08:43.4219793Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=e6bbcddb-9082-4d1a-a82c-432d0981fe51)"
+        ],
+        [
+          "2026-07-16T20:08:43.4603453Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T20:08:43.4606644Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=e6bbcddb-9082-4d1a-a82c-432d0981fe51, Duration=39ms)"
+        ],
+        [
+          "2026-07-16T20:08:43.4610371Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2481. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T20:08:50.7868514Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:08:51.0656701Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":3}"
+        ],
+        [
+          "2026-07-16T20:08:54.4840241Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:08:54.5138097Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:08:59.2818982Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2520."
+        ],
+        [
+          "2026-07-16T20:08:59.3384092Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 3845 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2522. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:08:59.3389138Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=927c4e85-a50d-4636-b9bf-190c1cc36714)"
+        ],
+        [
+          "2026-07-16T20:08:59.4184088Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"DF25LZE\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:08:59.4187485Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=927c4e85-a50d-4636-b9bf-190c1cc36714, Duration=80ms)"
+        ],
+        [
+          "2026-07-16T20:08:59.4191487Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2523. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:09:13.5557263Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:09:13.9102424Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"info@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":34}"
+        ],
+        [
+          "2026-07-16T20:09:15.736931Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:09:15.7672472Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:09:23.9173268Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2571."
+        ],
+        [
+          "2026-07-16T20:09:23.9518582Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 11200 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2573. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:09:23.952651Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=1584971c-8974-4b17-931d-554cc42c8034)"
+        ],
+        [
+          "2026-07-16T20:09:24.1410875Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"AE63SON\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:09:24.1414493Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=1584971c-8974-4b17-931d-554cc42c8034, Duration=189ms)"
+        ],
+        [
+          "2026-07-16T20:09:24.1418385Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2574. TaskEventId: 9"
+        ],
+        [
+          "2026-07-16T20:09:26.8748634Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:09:27.2701725Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":false}"
+        ],
+        [
+          "2026-07-16T20:09:28.6595508Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"reason\":\"folder_not_po_shaped\",\"name\":\"Workflow\"}"
+        ],
+        [
+          "2026-07-16T20:09:28.6873495Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"none\",\"reasons\":[\"box:not_found\",\"outlook:not_found\"]}"
+        ],
+        [
+          "2026-07-16T20:09:28.6885209Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2605."
+        ],
+        [
+          "2026-07-16T20:09:28.7022405Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 4142 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2607. TaskEventId: 7"
+        ],
+        [
+          "2026-07-16T20:09:28.7028017Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=109e6fe8-f4e5-4c9a-ad15-ee28e63b719e)"
+        ],
+        [
+          "2026-07-16T20:09:28.7768258Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"46458/1\",\"vrm\":\"KU05NJZ\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\"]}"
+        ],
+        [
+          "2026-07-16T20:09:28.777134Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=109e6fe8-f4e5-4c9a-ad15-ee28e63b719e, Duration=74ms)"
+        ],
+        [
+          "2026-07-16T20:09:28.7775173Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 2608. TaskEventId: 7"
+        ],
+        [
+          "2026-07-16T20:19:21.1648228Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:19:21.4642255Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T20:19:40.2624284Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:19:42.1384321Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T20:19:42.1738305Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 66."
+        ],
+        [
+          "2026-07-16T20:19:42.2311053Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 5772 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 68. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T20:19:42.2316187Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=29f47db3-786a-4c17-ac25-5359458bfb63)"
+        ],
+        [
+          "2026-07-16T20:19:42.2875592Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T20:19:42.2881875Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=29f47db3-786a-4c17-ac25-5359458bfb63, Duration=56ms)"
+        ],
+        [
+          "2026-07-16T20:19:42.2885779Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 69. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T20:19:45.5431031Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:19:47.2131373Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T20:20:01.1533592Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:20:03.7068776Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 117."
+        ],
+        [
+          "2026-07-16T20:20:03.7233501Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7525 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 119. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:20:03.7238908Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=517a2c69-77c4-4339-8b85-69d1f9d1ec2b)"
+        ],
+        [
+          "2026-07-16T20:20:03.8635733Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:20:03.8639145Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=517a2c69-77c4-4339-8b85-69d1f9d1ec2b, Duration=140ms)"
+        ],
+        [
+          "2026-07-16T20:20:03.8647204Z",
+          "retro-CWLP265MB51641DA6802FC8AF85C3F27A9DF42CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 120. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:20:05.4556124Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:20:06.4408012Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"desk@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":828}"
+        ],
+        [
+          "2026-07-16T20:20:20.054572Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:20:22.0341457Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 183."
+        ],
+        [
+          "2026-07-16T20:20:22.0478622Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 12575 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 185. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:20:22.0484791Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=48475052-0e9f-4c75-92bb-dd3d35241c01)"
+        ],
+        [
+          "2026-07-16T20:20:22.1945598Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"PE19\",\"vrm\":\"PE19UDH\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:20:22.1948969Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=48475052-0e9f-4c75-92bb-dd3d35241c01, Duration=146ms)"
+        ],
+        [
+          "2026-07-16T20:20:22.1953095Z",
+          "retro-CWLP265MB5164FC885672EB3719EB63859DF12CWLP265MB5164GBRP265PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 186. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:20:29.7027742Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:20:29.910146Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T20:20:45.036878Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:20:45.47649Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T20:20:45.50769Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 238."
+        ],
+        [
+          "2026-07-16T20:20:45.522362Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7178 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 240. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T20:20:45.5228236Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=47517415-3dd7-480f-9364-e4b496d96ee4)"
+        ],
+        [
+          "2026-07-16T20:20:45.6292134Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T20:20:45.6297131Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=47517415-3dd7-480f-9364-e4b496d96ee4, Duration=107ms)"
+        ],
+        [
+          "2026-07-16T20:20:45.630073Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 241. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T20:20:56.4476482Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:20:56.7211316Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":3}"
+        ],
+        [
+          "2026-07-16T20:21:10.1882693Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:21:16.1504302Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 298."
+        ],
+        [
+          "2026-07-16T20:21:16.1718156Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 3831 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 300. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:21:16.1722601Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=f2a89e7f-0a71-4e6c-961a-2529af44baa5)"
+        ],
+        [
+          "2026-07-16T20:21:16.2403802Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"DF25LZE\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:21:16.2407571Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=f2a89e7f-0a71-4e6c-961a-2529af44baa5, Duration=68ms)"
+        ],
+        [
+          "2026-07-16T20:21:16.2411458Z",
+          "retro-LO0P123MB72456F27F9C1E2A09A780650F7FE2LO0P123MB7245GBRP123PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 301. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:21:27.6122399Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:21:28.0272292Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"info@collisionengineers.co.uk\",\"matchedKey\":\"vrm\",\"candidates\":34}"
+        ],
+        [
+          "2026-07-16T20:21:42.1852851Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:skipped\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:21:46.8843259Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 349."
+        ],
+        [
+          "2026-07-16T20:21:46.9037941Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 11186 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 351. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:21:46.9044297Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=7d69e4c7-20ae-4b4b-bcc0-8fac885b690e)"
+        ],
+        [
+          "2026-07-16T20:21:47.006748Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"vrm\":\"AE63SON\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\",\"outlook_uncorroborated\"]}"
+        ],
+        [
+          "2026-07-16T20:21:47.0071083Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=7d69e4c7-20ae-4b4b-bcc0-8fac885b690e, Duration=103ms)"
+        ],
+        [
+          "2026-07-16T20:21:47.0075435Z",
+          "retro-CAHNjuTSjj8m4iyHa-rnPTsgnd-i8ML5Vcju1Q3dazu3ONE2Qwmailgmailcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 352. TaskEventId: 14"
+        ],
+        [
+          "2026-07-16T20:21:48.0969822Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:21:48.4325575Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":false}"
+        ],
+        [
+          "2026-07-16T20:22:03.353263Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"none\",\"reasons\":[\"box:skipped\",\"outlook:not_found\"]}"
+        ],
+        [
+          "2026-07-16T20:22:03.3550283Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 392."
+        ],
+        [
+          "2026-07-16T20:22:03.3717759Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 4128 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 394. TaskEventId: 12"
+        ],
+        [
+          "2026-07-16T20:22:03.3722247Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=c85656d9-d400-447c-95c7-d7c9195e1a52)"
+        ],
+        [
+          "2026-07-16T20:22:03.5078775Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"46458/1\",\"vrm\":\"KU05NJZ\"},\"rungsTried\":[\"resolve_existing\",\"outlook_search\"]}"
+        ],
+        [
+          "2026-07-16T20:22:03.5082438Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=c85656d9-d400-447c-95c7-d7c9195e1a52, Duration=136ms)"
+        ],
+        [
+          "2026-07-16T20:22:03.5086028Z",
+          "retro-LOBP302MB2151F6AAD9591BCE75C3EAB6E0F12LOBP302MB2151GBRP302PRODOUTLOOKCOM: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 395. TaskEventId: 12"
+        ],
+        [
+          "2026-07-16T20:26:06.3017319Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T20:26:06.6312589Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T20:26:12.5529628Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"candidates\":47}"
+        ],
+        [
+          "2026-07-16T20:26:12.5796697Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T20:26:16.9099926Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"refused_category\"}"
+        ],
+        [
+          "2026-07-16T20:26:16.9406928Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 535."
+        ],
+        [
+          "2026-07-16T20:26:16.9550278Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' started. IsReplay: False. Input: (Redacted 7214 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 537. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T20:26:16.9555745Z",
+          "Executing 'Functions.retroRecordFailure' (Reason='(null)', Id=eff1194c-8147-4c82-99ac-daed0f22498c)"
+        ],
+        [
+          "2026-07-16T20:26:17.0187019Z",
+          "{\"evt\":\"retroRecordFailure\",\"keys\":{\"externalRef\":\"30211-01\",\"vrm\":\"WF69NDX\"},\"rungsTried\":[\"resolve_existing\",\"box_archive\",\"outlook_search\",\"outlook_refused_category\"]}"
+        ],
+        [
+          "2026-07-16T20:26:17.019009Z",
+          "Executed 'Functions.retroRecordFailure' (Succeeded, Id=eff1194c-8147-4c82-99ac-daed0f22498c, Duration=63ms)"
+        ],
+        [
+          "2026-07-16T20:26:17.0196786Z",
+          "retro-AM6PR02MB41357F20FA85EAF747038B608CFE2AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroRecordFailure (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 17 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 538. TaskEventId: 10"
+        ],
+        [
+          "2026-07-16T22:53:49.7634321Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T22:53:50.4794969Z",
+          "{\"evt\":\"retroOutlookLocate\",\"found\":true,\"mailbox\":\"engineers@collisionengineers.co.uk\",\"matchedKey\":\"external_ref\",\"candidates\":1}"
+        ],
+        [
+          "2026-07-16T22:53:57.8140619Z",
+          "{\"evt\":\"retroBoxLocate\",\"found\":false,\"candidates\":46}"
+        ],
+        [
+          "2026-07-16T22:53:57.8429112Z",
+          "{\"evt\":\"retroPlan\",\"arm\":\"outlook_only\",\"reasons\":[\"box:not_found\",\"outlook:found\"]}"
+        ],
+        [
+          "2026-07-16T22:54:02.9355056Z",
+          "{\"evt\":\"retroCreatePersist\",\"outcome\":\"created\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"casePo\":\"FW26029\"}"
+        ],
+        [
+          "2026-07-16T22:54:03.0383637Z",
+          "{\"evt\":\"classifyPersist.bodyInstruction\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"bytes\":2226}"
+        ],
+        [
+          "2026-07-16T22:54:03.148177Z",
+          "{\"evt\":\"classifyPersist\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"persisted\":2}"
+        ],
+        [
+          "2026-07-16T22:54:08.0997755Z",
+          "{\"evt\":\"boxFolderCreate\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"folderId\":\"400654960481\",\"outcome\":\"created\",\"applied\":true}"
+        ],
+        [
+          "2026-07-16T22:54:11.7279838Z",
+          "{\"evt\":\"boxArchiveEvidence\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"folderId\":\"400654960481\",\"uploaded\":2,\"total\":2}"
+        ],
+        [
+          "2026-07-16T22:54:11.8131642Z",
+          "{\"evt\":\"statusEvaluate\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"status\":\"needs_review\"}"
+        ],
+        [
+          "2026-07-16T22:54:11.8500325Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroLinkRelated (Activity)' scheduled. Reason: retroCaseOrchestrator. IsReplay: False. State: Scheduled. RuntimeStatus: Pending. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 3412."
+        ],
+        [
+          "2026-07-16T22:54:11.8650107Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroLinkRelated (Activity)' started. IsReplay: False. Input: (Redacted 297 characters). State: Started. RuntimeStatus: Running. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 3414. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T22:54:11.8654108Z",
+          "Executing 'Functions.retroLinkRelated' (Reason='(null)', Id=0bde7233-29a7-4e10-9864-961f1114739c)"
+        ],
+        [
+          "2026-07-16T22:54:12.186984Z",
+          "{\"evt\":\"retroLinkRelated\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"linked\":0,\"scanned\":1}"
+        ],
+        [
+          "2026-07-16T22:54:12.1874196Z",
+          "Executed 'Functions.retroLinkRelated' (Succeeded, Id=0bde7233-29a7-4e10-9864-961f1114739c, Duration=322ms)"
+        ],
+        [
+          "2026-07-16T22:54:12.1877885Z",
+          "retro-AM6PR02MB413589B5B87834FB68395DAD8CF42AM6PR02MB4135eurprd02prodoutlookcom: Function 'retroLinkRelated (Activity)' completed. ContinuedAsNew: False. IsReplay: False. Output: (Redacted 24 characters). State: Completed. RuntimeStatus: Completed. HubName: cespkorchdev. AppName: cespk-orch-dev. SlotName: Production. ExtensionVersion: 3.12.5. SequenceNumber: 3415. TaskEventId: 15"
+        ],
+        [
+          "2026-07-16T22:54:12.2219429Z",
+          "{\"evt\":\"retroLinkRelated\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"linked\":0,\"scanned\":1}"
+        ],
+        [
+          "2026-07-16T22:54:15.8213673Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"linked\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\"}"
+        ],
+        [
+          "2026-07-16T22:54:15.9682511Z",
+          "{\"evt\":\"classifyPersist.bodyInstruction\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"bytes\":4640}"
+        ],
+        [
+          "2026-07-16T22:54:16.0854207Z",
+          "{\"evt\":\"classifyPersist\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"persisted\":2}"
+        ],
+        [
+          "2026-07-16T22:54:16.2165636Z",
+          "{\"evt\":\"statusEvaluate\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"status\":\"needs_review\"}"
+        ],
+        [
+          "2026-07-16T22:58:25.8383813Z",
+          "{\"evt\":\"boxFolderCreate\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"skipped\":\"already_linked\",\"folderId\":\"400654960481\",\"providerRecoveryCompleted\":true}"
+        ],
+        [
+          "2026-07-16T23:09:42.8861262Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"linked\",\"caseId\":\"9ae1c7c1-8b2d-4bfe-8fc7-9d98a0200ca3\"}"
+        ],
+        [
+          "2026-07-16T23:25:02.8123398Z",
+          "Stopping the listener 'Microsoft.Azure.WebJobs.Script.Description.FunctionGroupListenerDecorator+NoOpListener' for function 'retroLinkRelated'"
+        ],
+        [
+          "2026-07-16T23:25:02.8123729Z",
+          "Stopped the listener 'Microsoft.Azure.WebJobs.Script.Description.FunctionGroupListenerDecorator+NoOpListener' for function 'retroLinkRelated'"
+        ],
+        [
+          "2026-07-16T23:25:02.8124215Z",
+          "Stopping the listener 'Microsoft.Azure.WebJobs.Script.Description.FunctionGroupListenerDecorator+NoOpListener' for function 'retroRecordFailure'"
+        ],
+        [
+          "2026-07-16T23:25:02.8124394Z",
+          "Stopped the listener 'Microsoft.Azure.WebJobs.Script.Description.FunctionGroupListenerDecorator+NoOpListener' for function 'retroRecordFailure'"
+        ]
+      ]
+    }
+  ]
+}
