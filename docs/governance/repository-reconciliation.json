@@ -97695,8 +97695,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "kind": "file",
-      "size": 422,
-      "sha256": "70402bde4798b38faa3f71e22d72c1e0b2e0902ea9bc1a366a449d37a8526f08",
+      "size": 784,
+      "sha256": "50ab85251ce42aaddd4e11ecaa1e139391f6fba7bb9d0d36471b08096f656a3c",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",

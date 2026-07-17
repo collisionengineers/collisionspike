@@ -17,7 +17,7 @@
     "files": 3397,
     "entries": 4431
   },
-  "totalFileBytes": 702371829,
+  "totalFileBytes": 702426529,
   "entries": [
     {
       "path": ".",
@@ -14764,8 +14764,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4053176,
-      "sha256": "76a36a07a89b09f302365ef7e274a60239b2553dbcda065f6dab9bd701762fec",
+      "size": 4107514,
+      "sha256": "df40f8828a2ec14a06440b2fb6122ac7aebae5102b6523a6a13aec6c1230b22c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28489,8 +28489,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 422,
-      "sha256": "70402bde4798b38faa3f71e22d72c1e0b2e0902ea9bc1a366a449d37a8526f08",
+      "size": 784,
+      "sha256": "50ab85251ce42aaddd4e11ecaa1e139391f6fba7bb9d0d36471b08096f656a3c",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
