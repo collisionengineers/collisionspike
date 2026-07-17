@@ -7,18 +7,18 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4295
+    "entries": 4429
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3293,
-    "finalDirectories": 1002,
+    "finalFiles": 3395,
+    "finalDirectories": 1034,
     "dispositions": {
-      "delete": 1297,
-      "keep": 1124,
-      "move": 920,
-      "rewrite": 703
+      "delete": 1302,
+      "keep": 1113,
+      "move": 922,
+      "rewrite": 707
     },
     "unexplained": 0
   },
@@ -3528,9 +3528,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -3541,9 +3541,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -3554,9 +3554,9 @@
       "category": "directory",
       "owner": "ticket-system",
       "lifecycle": "structural",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this directory path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -25095,9 +25095,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this ticket path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-213"
     },
     {
@@ -25108,9 +25108,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/changes.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "move",
+      "finalPath": "docs/tickets/now/TKT-194-unidentified-reason-explanation/changes.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-213"
     },
     {
@@ -25134,9 +25134,9 @@
       "category": "evidence",
       "owner": "ticket-system",
       "lifecycle": "evidence",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "move",
+      "finalPath": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-213"
     },
     {
@@ -25147,9 +25147,9 @@
       "category": "evidence",
       "owner": "ticket-system",
       "lifecycle": "evidence",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "move",
+      "finalPath": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-213"
     },
     {
@@ -25160,9 +25160,9 @@
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
-      "disposition": "keep",
-      "finalPath": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/verification.md",
-      "reason": "Path and bytes are retained.",
+      "disposition": "move",
+      "finalPath": "docs/tickets/now/TKT-194-unidentified-reason-explanation/verification.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-213"
     },
     {
@@ -37601,9 +37601,9 @@
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active",
-      "disposition": "move",
+      "disposition": "rewrite",
       "finalPath": "services/functions/box-webhook/tests/test_data_api_client.py",
-      "reason": "Bytes moved into the locked repository layout.",
+      "reason": "Content was moved and rewritten into the current authority.",
       "ticket": "TKT-210"
     },
     {
@@ -45063,9 +45063,9 @@
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
-      "disposition": "move",
-      "finalPath": "services/orchestration/src/adapters/graph.test.ts",
-      "reason": "Identical bytes are retained at a canonical final path.",
+      "disposition": "delete",
+      "finalPath": null,
+      "reason": "PLAN-006 explicitly retired this source path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
       "ticket": "TKT-210"
     },
     {
@@ -46142,9 +46142,9 @@
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
-      "disposition": "keep",
+      "disposition": "rewrite",
       "finalPath": "packages/domain/src/domain/outlook-folder.test.ts",
-      "reason": "Path and bytes are retained.",
+      "reason": "The retained authority was rewritten for the current repository.",
       "ticket": "TKT-210"
     },
     {
@@ -46155,9 +46155,9 @@
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
-      "disposition": "keep",
+      "disposition": "rewrite",
       "finalPath": "packages/domain/src/domain/outlook-folder.ts",
-      "reason": "Path and bytes are retained.",
+      "reason": "The retained authority was rewritten for the current repository.",
       "ticket": "TKT-210"
     },
     {
@@ -46246,9 +46246,9 @@
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
-      "disposition": "keep",
+      "disposition": "rewrite",
       "finalPath": "packages/domain/src/domain/retro-case.test.ts",
-      "reason": "Path and bytes are retained.",
+      "reason": "The retained authority was rewritten for the current repository.",
       "ticket": "TKT-210"
     },
     {
@@ -55525,48 +55525,6 @@
       "ticket": "TKT-213"
     },
     {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source",
-      "kind": "directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-195-entra-staff-access-management",
       "kind": "directory",
       "size": 0,
@@ -55722,6 +55680,132 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/evidence",
       "kind": "directory",
       "size": 0,
       "sha256": null,
@@ -58801,6 +58885,20 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/next",
       "kind": "directory",
       "size": 0,
@@ -59417,6 +59515,48 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/operator-source",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/now/TKT-199-repository-data-authority-docs",
       "kind": "directory",
       "size": 0,
@@ -59572,6 +59712,244 @@
     },
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
       "kind": "directory",
       "size": 0,
       "sha256": null,
@@ -60650,6 +61028,76 @@
     },
     {
       "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun",
       "kind": "directory",
       "size": 0,
       "sha256": null,
@@ -68631,8 +69079,8 @@
     {
       "path": ".claude/hooks/box-scope-guard.mjs",
       "kind": "file",
-      "size": 4585,
-      "sha256": "bbd2624e7709d2c4b73063951193ce233e1f503c7b21793d379d90d2ae4bd112",
+      "size": 5232,
+      "sha256": "e1ec4a72c5a39dbc7fc849a33d8010a0c2cacdd22e671526ed09f80fa8968ba3",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active",
@@ -68645,8 +69093,8 @@
     {
       "path": ".claude/hooks/box-scope-lib.mjs",
       "kind": "file",
-      "size": 4802,
-      "sha256": "1fede38c637d7eb4988e8f56b710783dcb5c57810ca45553ceebf9954b69d464",
+      "size": 7292,
+      "sha256": "7e05fed3d11b52daa9fbe4016bf0fc9606d231150cf5dfb28cb2238c2f59fcef",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active",
@@ -68654,6 +69102,20 @@
         ".claude/hooks/box-scope-lib.mjs"
       ],
       "state": "rewritten",
+      "ticket": "TKT-212"
+    },
+    {
+      "path": ".claude/hooks/box-scope-lib.test.mjs",
+      "kind": "file",
+      "size": 4139,
+      "sha256": "d63f904fb1d4ae3c7e4b1d8d79df002722e0f3ba2a1bc0defa7e91ef5b2fa9ca",
+      "category": "source",
+      "owner": "agent-governance",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-212"
     },
     {
@@ -69947,8 +70409,8 @@
     {
       "path": "LIVE_FACTS.json",
       "kind": "file",
-      "size": 4688,
-      "sha256": "9ad8670fcf62fa8a857929ab80df82936831c15a3152d884016065aa06e44b6a",
+      "size": 8052,
+      "sha256": "8c7e5705ab2f106ff989c46a64497da507b0000f5970ce21e9a063b19da40e5c",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active",
@@ -70115,8 +70577,8 @@
     {
       "path": "apps/web/src/__fixtures__/fixture-source.ts",
       "kind": "file",
-      "size": 24101,
-      "sha256": "11bd6ca07c9d53b83cf08416027a02a20932afac2ad9d34cab2f3ac27df38012",
+      "size": 24172,
+      "sha256": "b8a68aaa2b352825845440f474a775217d9448c5a59de50f0eb175fd190a1d16",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -70329,8 +70791,8 @@
     {
       "path": "apps/web/src/data/hooks.ts",
       "kind": "file",
-      "size": 24184,
-      "sha256": "c75d94565792da6642d0a56b335eaa0b6cebba77960dfcb7d7c323b2ec4bb338",
+      "size": 24240,
+      "sha256": "03dc3aa9594f879a08f6d67601b994b177a4c43c179213730e6bde54438f1a9c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -70483,8 +70945,8 @@
     {
       "path": "apps/web/src/data/rest-client.test.ts",
       "kind": "file",
-      "size": 34997,
-      "sha256": "87aa901ded78c99cb40da38d5f997d5cf3b8d0f5f258029b61a99f6136dfb46d",
+      "size": 35444,
+      "sha256": "841abb197a65710cc1d2e94f1784fbc634e935e39d7022b2e2ee9896912a0746",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -70497,8 +70959,8 @@
     {
       "path": "apps/web/src/data/rest-client.ts",
       "kind": "file",
-      "size": 31653,
-      "sha256": "9d5dcc8b17abe2d737845c8a9cd287089b13bff40643c708850b16fdf8764658",
+      "size": 31880,
+      "sha256": "c52cc9b33a6b02f8889ec6b664e66bf63cd333a1edc7ae2552b8d50bddb8e162",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -71337,8 +71799,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-email-type.test.ts",
       "kind": "file",
-      "size": 4166,
-      "sha256": "86bbc5542c0a24fc971f65109a7389130cf72226a0a424d86012758ebba612a6",
+      "size": 4501,
+      "sha256": "e7b0b7855133ebd46ca8e8f8ff70336e4fa6fa183f91aa4b5f5550ea17251431",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -71351,8 +71813,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-email-type.ts",
       "kind": "file",
-      "size": 5343,
-      "sha256": "c4511658c35ebfda1ee181df5fb84fcaae2f9b4dd3900af106d56f9d953697d7",
+      "size": 5490,
+      "sha256": "68c7f0c49e51dda54f441bb4ead44915e3509a2a6c34d50f926982adf31a6f78",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -72323,8 +72785,8 @@
     {
       "path": "apps/web/src/shared/ui/LinkedEmailsPanel.tsx",
       "kind": "file",
-      "size": 7129,
-      "sha256": "7d7ce79e9ff6ed2179460281fe1617043a77a316f34a30ad688223d92bb18697",
+      "size": 7302,
+      "sha256": "4b1d17c79a2663c97ddc4e0c7c63b3abd508144d8a3c5068f99e53d5bacc5206",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active",
@@ -72911,8 +73373,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "kind": "file",
-      "size": 155430,
-      "sha256": "ae93e3137fbe7159fb0c0a50bd377803fdf829db2431595bc3fd880be79fbcf6",
+      "size": 156343,
+      "sha256": "9bc320edaa94e992b2325aa9d3e52ab9031ea11f2fb7cefaf34455b04ca8b95e",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active",
@@ -72953,8 +73415,8 @@
     {
       "path": "database/baseline/000_enums_lookups.sql",
       "kind": "file",
-      "size": 29254,
-      "sha256": "107b1e073402ca556189df90a361a74120374ee1bace18c6d6f60bd09f3718b1",
+      "size": 29662,
+      "sha256": "de8fdedc47ef666a25e79f671d24b58b3a19673a2a0edec9f61ce31c4b156299",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active",
@@ -74155,6 +74617,20 @@
       "ticket": "TKT-209"
     },
     {
+      "path": "database/migrations/2026-07-17-tkt226-retro-related-subtype.sql",
+      "kind": "file",
+      "size": 929,
+      "sha256": "0ac65c5953f17bcccbd4aa76260eabe47dd69ec17644478ffab9b4d20ae37531",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
       "path": "database/migrations/README.md",
       "kind": "file",
       "size": 925,
@@ -74173,6 +74649,34 @@
       "kind": "file",
       "size": 16654,
       "sha256": "a74d66757589de96e071621c7c81d57e1d8a13d0a33de45b78db2ac42d3cdba2",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "database/operations/tkt230-clear-stale-unable-to-locate.sql",
+      "kind": "file",
+      "size": 3912,
+      "sha256": "14bcbdab29be04bc2c9403338481b099710e0e1844b738fceb42db9371e7cfac",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-209"
+    },
+    {
+      "path": "database/operations/tkt233-clear-own-domain-claimant-emails.sql",
+      "kind": "file",
+      "size": 1857,
+      "sha256": "01563f286b27848a7cca1ba48dffdeb9510eb0eb5785f65f81f92562f474843d",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active",
@@ -74353,8 +74857,8 @@
     {
       "path": "database/tests/code-table-parity.mjs",
       "kind": "file",
-      "size": 8358,
-      "sha256": "8c8c6536e9fbfc799a156608394778454a1ac9425bd8c3aaf0f8c3e684d5b837",
+      "size": 8456,
+      "sha256": "50db0412af29f4cf65385f391c9f742046abb512315678ee7baa9d24af29f4cb",
       "category": "test",
       "owner": "data-platform",
       "lifecycle": "active",
@@ -74410,7 +74914,7 @@
       "path": "docs/adr/0002-vrm-open-case-correlation.md",
       "kind": "file",
       "size": 838,
-      "sha256": "21aab6b21a49ff817d5485895b901e52d1eff41d8bd9aac2696ab2b294ec0048",
+      "sha256": "20ab161477029f4986df43cc0fe4a8ca563fcc8ff78c0960cd133f0b5aab8686",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -74689,8 +75193,8 @@
     {
       "path": "docs/adr/0022-retroactive-case-reconstruction.md",
       "kind": "file",
-      "size": 1314,
-      "sha256": "eef2c89739518a4d2e940d839ee5e2709b01eb53ce286d4d2915f7ea627b72b9",
+      "size": 4925,
+      "sha256": "6bba82f9e848e17c98eb9130bb53b481d04a149e3bc1a5472d3cd4ae46e95255",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -75725,8 +76229,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "kind": "file",
-      "size": 38063,
-      "sha256": "c52b16cad2f23033400a02c255bee46ae2bfdc320dd7f7669bc9864907c27986",
+      "size": 41957,
+      "sha256": "aadd5bbebfed2c01c87ad38eb0ed723a5b31f8ae293507199bac96c32e68bd31",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -75739,8 +76243,8 @@
     {
       "path": "docs/tickets/README.md",
       "kind": "file",
-      "size": 40156,
-      "sha256": "cf920b85e0f10267af8b7c53d5f63718db15f7b8a8c3d01edc39e7a5c29126ba",
+      "size": 44103,
+      "sha256": "6ee3fdf9b67709aed52425d9a943dc1f5e2fa503da745ff1726b9e6e47d02441",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -77725,90 +78229,6 @@
       "ticket": "TKT-213"
     },
     {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
-      "kind": "file",
-      "size": 4694,
-      "sha256": "554cf57dc7afafd0e0f75665d2d7afc7c00544cdb1420033d588c5191fe7c53b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/changes.md",
-      "kind": "file",
-      "size": 434,
-      "sha256": "4921fc7af367b9851e0fc6e2789b5c97ff0208b7c1d6e9035651dd4da11cfe24",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/changes.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence-manifest.json",
-      "kind": "file",
-      "size": 478,
-      "sha256": "30e3f59c7d722b71ba79f8072b2f545f77299c242c1d9748d6ab9affe5abc987",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "PLAN-006"
-      ],
-      "state": "created",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
-      "kind": "file",
-      "size": 294,
-      "sha256": "40f497082692e9f46d29253ea6604a448afae85fb352fc4f08cad95a08698039",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
-      "kind": "file",
-      "size": 449,
-      "sha256": "83399e40061f3500f2aa7e2a979a71669e1f03250090ea2424410d84af4e8a77",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/verification.md",
-      "kind": "file",
-      "size": 3208,
-      "sha256": "1770c00395c24c2529a5175924e0b62b2d7c24e7276affa18d8ac983bd9b9c4c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active",
-      "origin": [
-        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/verification.md"
-      ],
-      "state": "retained",
-      "ticket": "TKT-213"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md",
       "kind": "file",
       "size": 7472,
@@ -78149,6 +78569,272 @@
       "kind": "file",
       "size": 286,
       "sha256": "03b729d4e203c92f0a39a3b8c7b47fcaecc592356ee537af88bd6a2342b87546",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md",
+      "kind": "file",
+      "size": 3004,
+      "sha256": "5aa7f66db6cd7ba2edb8c37e3557b3f483ce4e97dba876c52c31505cf93afe4c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/changes.md",
+      "kind": "file",
+      "size": 58,
+      "sha256": "5fe305d2a96b4d929afa65b5aef2af818628ef0b0132f57410564640f668fabf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/verification.md",
+      "kind": "file",
+      "size": 60,
+      "sha256": "d1bce8899ee74abfcff144c0058ba5026145569f656bae414b1186c6bcbbd798",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/TKT-234-own-report-recognition.md",
+      "kind": "file",
+      "size": 5750,
+      "sha256": "cb263245348f59da19925c0649da8ad787dde9520dcb4dfbeb08790cea667d9a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/changes.md",
+      "kind": "file",
+      "size": 138,
+      "sha256": "977032bc6045fda097ad782b7df6a03d1badf3409316473244d356e1bb76c116",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/evidence/operator-note.md",
+      "kind": "file",
+      "size": 2697,
+      "sha256": "2c817e85ca4b9a815a08b0970f95cb0b76f05c8a757989b5ce9657ea636ed4af",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/verification.md",
+      "kind": "file",
+      "size": 282,
+      "sha256": "4603c5ed7a0124b8d855ae60c20a8a09001cb7ad2e4d9b040d412c91fe9d9812",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/TKT-235-no-instruction-mint-hold.md",
+      "kind": "file",
+      "size": 3940,
+      "sha256": "f4d23aa8ca698ffd6504cb982487c442a48636fc1710784910c190dc84aa86d7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/changes.md",
+      "kind": "file",
+      "size": 128,
+      "sha256": "3cf3c30c81dfe529df91a099c7fa47d1412ec02130bcbb8cf52b5e39426a74c0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/evidence/operator-note.md",
+      "kind": "file",
+      "size": 2129,
+      "sha256": "e1872e17cb5765d964d5edc8723b39b12a8a1858ab81213881df893b6cfefedc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/verification.md",
+      "kind": "file",
+      "size": 272,
+      "sha256": "788a9d902ee79233b340b83978806a068a84779f2b0d32e136fd98b0cc9c2313",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/TKT-236-pre-mint-archive-probe.md",
+      "kind": "file",
+      "size": 3458,
+      "sha256": "7a689a9af4efb3166eeda19fe08f7917c9590ec82e92ac99a56fd10b7f86a03b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/changes.md",
+      "kind": "file",
+      "size": 122,
+      "sha256": "53265e196965797e61b1090c6a533a045f537940600716f0753e9d0bac411acb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/evidence/operator-note.md",
+      "kind": "file",
+      "size": 1804,
+      "sha256": "77551ee728dfa5a51ef6aa6028fc2e67343cf107e8251ded265194f7d250ca99",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/verification.md",
+      "kind": "file",
+      "size": 266,
+      "sha256": "cdcdea5dc59a5a17968040769497a7805503f00912b6d001280e1d685aa2bf40",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/TKT-237-qdos26007-abstain-eval-fixture.md",
+      "kind": "file",
+      "size": 3151,
+      "sha256": "e3869fa2ed425904da526a971116ddfcec35d38ecdd926a5b76068d3ae8ffcfc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/changes.md",
+      "kind": "file",
+      "size": 133,
+      "sha256": "66af10d6782a39a12d67926ccc31e9428df81c3b44fe9a465bb282fbf3d688e6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/evidence/operator-note.md",
+      "kind": "file",
+      "size": 995,
+      "sha256": "1fede7f131726b74f8b265df6e4555d747b67e44ad6199523a2610d733053e91",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/verification.md",
+      "kind": "file",
+      "size": 277,
+      "sha256": "eef797c2a6fb795771e6b281d1708ad341663765bb0aa6dd0b01a12616d1f0de",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -78553,8 +79239,8 @@
     {
       "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md",
       "kind": "file",
-      "size": 23465,
-      "sha256": "f540305e0a9acd97e4f5e1bc07917c2c4e5ed51652526e35b6b3e37ff6d4d83b",
+      "size": 23596,
+      "sha256": "4238315d9931a953e5186c10222a18f650a32f0aaa7f5a0b6dacb4beb63bc8bc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -78604,6 +79290,20 @@
         "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence/operator-clarification-2026-07-13.md"
       ],
       "state": "retained",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence/retro-po-adoption-flip-2026-07-16.md",
+      "kind": "file",
+      "size": 2537,
+      "sha256": "554e830a47d3d67707439522691e20170bfb60428cf526da719d4ecea1ce3930",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-213"
     },
     {
@@ -83859,8 +84559,8 @@
     {
       "path": "docs/tickets/done/TKT-119-retro-locate-ack-hardening/changes.md",
       "kind": "file",
-      "size": 6066,
-      "sha256": "5203ff25b6e0086f093b201ff594db3d7292f02231e1b74c78add8cec20e30d7",
+      "size": 6839,
+      "sha256": "c3f2b70f811264f17504f3c7b9667c933d8b0e610b790fa98f9923bb3b522252",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -85873,6 +86573,48 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md",
+      "kind": "file",
+      "size": 3411,
+      "sha256": "8acc28b599adef00057aa33e77edca8011ed9f0015f16429142eeb18de4ec586",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/changes.md",
+      "kind": "file",
+      "size": 1948,
+      "sha256": "cdf71f951fc2ec7871206d1f546d51b5fdcd128959775f3079a654d0d4aeccd2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/verification.md",
+      "kind": "file",
+      "size": 1302,
+      "sha256": "210d73536c38bf43a105d79b8db110d145e4ef7f3a7c28089b34b62b77cf88d3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "kind": "file",
       "size": 0,
@@ -87357,6 +88099,90 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
+      "kind": "file",
+      "size": 4685,
+      "sha256": "c2890736732661cf471daa7c7dac24e94a8e19882bd69be37517cff86a494e9a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/changes.md",
+      "kind": "file",
+      "size": 434,
+      "sha256": "4921fc7af367b9851e0fc6e2789b5c97ff0208b7c1d6e9035651dd4da11cfe24",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/changes.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence-manifest.json",
+      "kind": "file",
+      "size": 532,
+      "sha256": "5e572ddd97cffe2d81f626810f047c1616fbebecf9af76a25ffe41b088422b4f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
+      "kind": "file",
+      "size": 294,
+      "sha256": "40f497082692e9f46d29253ea6604a448afae85fb352fc4f08cad95a08698039",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
+      "kind": "file",
+      "size": 449,
+      "sha256": "83399e40061f3500f2aa7e2a979a71669e1f03250090ea2424410d84af4e8a77",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/verification.md",
+      "kind": "file",
+      "size": 3208,
+      "sha256": "1770c00395c24c2529a5175924e0b62b2d7c24e7276affa18d8ac983bd9b9c4c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/verification.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md",
       "kind": "file",
       "size": 8488,
@@ -87693,6 +88519,664 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md",
+      "kind": "file",
+      "size": 3977,
+      "sha256": "cf37814039551938a42e4d085f02040536fa08f0a71931b8cc5a0af0b8510bdf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/changes.md",
+      "kind": "file",
+      "size": 5240,
+      "sha256": "2a36aad137a0785bcae7a5bdc5bf184ad756ec21208a369862f7c2bad3646fe6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/verification.md",
+      "kind": "file",
+      "size": 2584,
+      "sha256": "be999edbdb9224e2b06f71451b6b1125b154f38b9d38f8d27a858d89b565f601",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md",
+      "kind": "file",
+      "size": 6706,
+      "sha256": "185804d5d44367d9e49986613d2c3e5af27486ca5b09d123dcaf1ae958160999",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/changes.md",
+      "kind": "file",
+      "size": 10205,
+      "sha256": "82a3a2e19e4265f127baa02b61c0c67222195941c0af58ea3cd15bd19b29a957",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_api.kql",
+      "kind": "file",
+      "size": 422,
+      "sha256": "2fc3a583c99ac538900a44f68ad92d7243bdf9960635816a954d2c076164494a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_api_traces.json",
+      "kind": "file",
+      "size": 2359,
+      "sha256": "84cae76b7f736904c04d6fddb64403d1858d99a837696e74087ed8354c8cdce3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_boxwh.kql",
+      "kind": "file",
+      "size": 301,
+      "sha256": "fa558ecb1e35f83643609dd49b790c531cbef54d0a3b51660e5e84eda9c2463e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_boxwh2.kql",
+      "kind": "file",
+      "size": 356,
+      "sha256": "97e06980e4999e8283a0ca3b4d627e555a7b5dd46de3ed5ca9e81a3242af8978",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro2.kql",
+      "kind": "file",
+      "size": 470,
+      "sha256": "e4522e2a0c91bbe9c8dd1d9a450e13c552b44241f7d5db04e3bd206cdbbd5afc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro2_orch.json",
+      "kind": "file",
+      "size": 62349,
+      "sha256": "dd1903664877db854366467ef666ad4fae70923dc8178e98f2b14b6d4c0bd9fb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro_orch_result.json",
+      "kind": "file",
+      "size": 51473,
+      "sha256": "8c660a4b6bf71617d52c1abf4a0152e68ab4457c6091883aef61b04bfd06d7fa",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_images.json",
+      "kind": "file",
+      "size": 8389,
+      "sha256": "5981bf34baa98418a093c200aba73caba4f9293d70e42adb4127734b75c6c692",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_images.kql",
+      "kind": "file",
+      "size": 267,
+      "sha256": "7d33108397e419d57fc5601ac857137437dfec907edafe166ca2562625349c15",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_result.json",
+      "kind": "file",
+      "size": 2438,
+      "sha256": "9dbccc6caf18a4501b4417e1b240b8c8fb28c2727c3718c43bffd905ed0bc51f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_window.kql",
+      "kind": "file",
+      "size": 117,
+      "sha256": "96f128a3fbf463d7eb9a8ceae5ae1ff1b6bc18e44675ec51d788ecd20b980045",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/incident-summary-2026-07-16.md",
+      "kind": "file",
+      "size": 4929,
+      "sha256": "5185d1f207e88f12f3430b774545763a810957384656b29727d5a905cbca00e4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/verification.md",
+      "kind": "file",
+      "size": 4945,
+      "sha256": "0f8d1e581fb114eac85d3a4a51b494a066caed1cf5a00ed81a021db14f26786a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/TKT-227-box-purge-connection-exhaustion.md",
+      "kind": "file",
+      "size": 4023,
+      "sha256": "9aff8a7efa3ae2dfe798ccfa25264d74b750c0581b1b93aa885b28c5ee1ee332",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/changes.md",
+      "kind": "file",
+      "size": 2065,
+      "sha256": "c474dd31a8641be9059597350467b61ab95843b5c90eeca22c3e2cf0e20e71c6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/evidence/audit-findings-2026-07-16.md",
+      "kind": "file",
+      "size": 2711,
+      "sha256": "82f2e0c8397b501c8ab343caee92a10d76854ba2cfa662c3cf61c33561c03e69",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/verification.md",
+      "kind": "file",
+      "size": 3191,
+      "sha256": "f7b432fc2df07191a7ac084f78818292adbd4c3a51f4d15f8d4d11e4a0df064b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md",
+      "kind": "file",
+      "size": 4282,
+      "sha256": "24d09f4095fb4a6107bdb88e3d3117a348cdc507c5b063eadce9876865a69067",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/changes.md",
+      "kind": "file",
+      "size": 2157,
+      "sha256": "45724aabe70e1b19ca35e6fc0c182f8f6da75dd7fdf5a112b59e45c650e9226c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md",
+      "kind": "file",
+      "size": 3326,
+      "sha256": "27f2da5007e0727d489348733b6c9df3b927fc25c963270ad0a29ee6c9f00cea",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/verification.md",
+      "kind": "file",
+      "size": 3216,
+      "sha256": "3973c84e3f479f65dae5c810a5eb8572c61e7a9ef587d949ce11cf75f8afee6e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md",
+      "kind": "file",
+      "size": 5088,
+      "sha256": "899724d10c5cc018a5c324b73590259517de15605ecec9c46765bacd5126f0d2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/changes.md",
+      "kind": "file",
+      "size": 4932,
+      "sha256": "c886c3950a7f2ac668ba6fab9deff694c6e37dc71367a6aea9c18dd51cf5509b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/evidence/post-sweep-audit-2026-07-16.md",
+      "kind": "file",
+      "size": 3227,
+      "sha256": "e7474380879dac820344b7029c8f3f653941e6ed17fcea394510ee8d6a434c7b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/verification.md",
+      "kind": "file",
+      "size": 2256,
+      "sha256": "8b79af3428c424da21310f2016d4ed8f0ad7c65f2a869f878ca1a1e7fab85090",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md",
+      "kind": "file",
+      "size": 7147,
+      "sha256": "178ba58a01643d250e3b40edc51c19e36dd4fa40e4f7af5634ab564c62a90e89",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/changes.md",
+      "kind": "file",
+      "size": 4482,
+      "sha256": "fa610b2345fee8d18aac22815fd8ea7fd750c9627aced6f495ad00cc755ccaf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/evidence/post-sweep-audit-2026-07-16.md",
+      "kind": "file",
+      "size": 4745,
+      "sha256": "7fb62b141314f50e61ec5cdd6f3cc8a85cccb49e761d244997a02ad28c0ba0b0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/verification.md",
+      "kind": "file",
+      "size": 4767,
+      "sha256": "e48479c10207d2c2690eb1496b5b459b2cfb8a4a4abd067e4f6f78c908dab10d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md",
+      "kind": "file",
+      "size": 4156,
+      "sha256": "f893013eb68d217982e0dae15b3da90397c3b813d704b28f709fe2bcaaa5a148",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/changes.md",
+      "kind": "file",
+      "size": 3135,
+      "sha256": "a9fbf0fe766aedd820c51cd231ead1941aaed107420f4c73c302fa30a20f2ff1",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/evidence/post-sweep-audit-2026-07-16.md",
+      "kind": "file",
+      "size": 2654,
+      "sha256": "f897ee371f36409ad2b5c662e28b5771e4795c1866bea7fd08bdee07a17fb43b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/verification.md",
+      "kind": "file",
+      "size": 1939,
+      "sha256": "826c24b7bb818d59fa229a6d114358778ad4bfc871729e23d6583e7f8145204b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md",
+      "kind": "file",
+      "size": 3351,
+      "sha256": "2679c0b851badc8a34e39227e940a64247c8563b315a70aaf54893936d4ef636",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/changes.md",
+      "kind": "file",
+      "size": 7347,
+      "sha256": "59d731524ed4be98f5a75b7909c04a315586ec671a081aa6be06e00fcb495403",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/evidence/triage-2026-07-17.md",
+      "kind": "file",
+      "size": 3927,
+      "sha256": "d859733f7b547393218b6cf8ae25272557580a7eb209578a4961e946f4d28645",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/verification.md",
+      "kind": "file",
+      "size": 3097,
+      "sha256": "62f2ed2986d5ed7ad467be5ae35e9139e31c52241e9852f2d2693cad2b26b8eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md",
+      "kind": "file",
+      "size": 3949,
+      "sha256": "a8794f06853c2ba1adc434d99d9f6195cb45b7a4d7972bd17813d025b865518b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/changes.md",
+      "kind": "file",
+      "size": 3686,
+      "sha256": "2f2e5975b2acd0d83afbae39ce3970ae7ac53e988fa01041adef43022b6a4451",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence/live-defects-2026-07-17.md",
+      "kind": "file",
+      "size": 3055,
+      "sha256": "64a0cf95917a4079412f4b6c9df8d1b53137d62c3793cc44921720607c5852d0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence/ops-sql-run-2026-07-17.md",
+      "kind": "file",
+      "size": 1484,
+      "sha256": "5669ea66d554509c3cc0507479a5c0528a97d34036ba58f6e2018aedb61a648e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/verification.md",
+      "kind": "file",
+      "size": 2380,
+      "sha256": "745f30d877ad7562e55fe0c4e91e3df52db73894db54d9aa2a5ec11333213c30",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "kind": "file",
       "size": 4510,
@@ -87737,8 +89221,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "kind": "file",
-      "size": 11651,
-      "sha256": "d5f2740b68d2ed90310c1904407d0fd4ba0492d7ec0f3e59fd402025ba3ebcb8",
+      "size": 12909,
+      "sha256": "35ceba1c9053e3deefeaa398dc14b32025ffaae960059b112eaf71497cec6561",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -90623,6 +92107,202 @@
       "kind": "file",
       "size": 1625,
       "sha256": "f3ae43baec14df169af65ec3c1a3369f822215cac5bb73f996773d10dc768ba5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md",
+      "kind": "file",
+      "size": 6791,
+      "sha256": "77efd86b4b55ed727841388b23a4a56b3d62d55bf397f4af327a99e8aac5ec0c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/changes.md",
+      "kind": "file",
+      "size": 5791,
+      "sha256": "f449de6e6ec7ef3112d6b3f86f6e955afbf76d28d5fd799be28c56b9c4eb649c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/investigation-2026-07-16.md",
+      "kind": "file",
+      "size": 4440,
+      "sha256": "ec8805b6771c98a28c25a32c0c8d92953aa6a08dcd8522bc3c24c7fb83a60074",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/operator-note.md",
+      "kind": "file",
+      "size": 2322,
+      "sha256": "2f85a0d96bcf5987074bac3c1e71a4ca73b82230500bed483506e34fd549c2bb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/verification.md",
+      "kind": "file",
+      "size": 6998,
+      "sha256": "d85e7f7de34422a254866e972fda492482359b13935e1e8cc017d78a2068520b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md",
+      "kind": "file",
+      "size": 2933,
+      "sha256": "9da36641a5266680ba74b3587678080870478418a56be1424bd48d88a3e5f70f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/changes.md",
+      "kind": "file",
+      "size": 1829,
+      "sha256": "21d95f8149172a3597f9f6d1356cd276ded72a70be82fd77c0ccc93acef06ccc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/verification.md",
+      "kind": "file",
+      "size": 415,
+      "sha256": "52438039d60e8eb460e5da20d7baefc2c95ca56bb0d1c0fc10d563fa8b0ddbcd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md",
+      "kind": "file",
+      "size": 3181,
+      "sha256": "e5de65ccd27786820e817355818251e8910cbcb910e8dce0243ae817fcf83ac6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/changes.md",
+      "kind": "file",
+      "size": 1348,
+      "sha256": "ae1a0b1e0c70990a90c641290ac93193226028173e714a483dcba25c6aff1986",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/verification.md",
+      "kind": "file",
+      "size": 1049,
+      "sha256": "f178b91a0e6228ca55738e2e64ad0e695480a6038029422e2bb0b71baa1c1f86",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md",
+      "kind": "file",
+      "size": 1806,
+      "sha256": "70158cef4595a2c348ded4354102b953765c4f556221cd8a7cea061baf0fa086",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/changes.md",
+      "kind": "file",
+      "size": 506,
+      "sha256": "882e8ee526172ea2ab876084cd3adf0472599e9f1dd5ddac9b489dc484d2f09e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/verification.md",
+      "kind": "file",
+      "size": 1753,
+      "sha256": "5831652286deef7df9674e625c8df7d34673b7b0c1847b43b75e94d161141010",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -94377,8 +96057,8 @@
     {
       "path": "packages/domain/src/codecs/index.test.ts",
       "kind": "file",
-      "size": 6552,
-      "sha256": "88d7a0e6617d6329cb8f6d80a66004e5e6bed24576f099c4c6faab284dac1566",
+      "size": 6805,
+      "sha256": "c61d53b2609b4ee0807d98b90024dac49acbff0fab9dfb42e96c7962d0f213e8",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
@@ -94755,8 +96435,8 @@
     {
       "path": "packages/domain/src/data/code-tables/inbound-email-classification.json",
       "kind": "file",
-      "size": 4316,
-      "sha256": "bd938ce8da6b321b25020840fad2cdbbf158d53dae96533a190ae4414fce86c4",
+      "size": 4450,
+      "sha256": "6718a0144ceefdbec14fcb7208738735151f14b6366af6ac39332f882068712b",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
@@ -95105,29 +96785,29 @@
     {
       "path": "packages/domain/src/domain/outlook-folder.test.ts",
       "kind": "file",
-      "size": 2127,
-      "sha256": "09d76b6619ff1dc5d4bd618f7a749ae87341bf1a4ac597913c139de5281590ee",
+      "size": 2295,
+      "sha256": "ea5219cd63c1945ba5fc5396550e9ba057c263505e975690c4905f681dd23a9f",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
       "origin": [
         "packages/domain/src/domain/outlook-folder.test.ts"
       ],
-      "state": "retained",
+      "state": "rewritten",
       "ticket": "TKT-210"
     },
     {
       "path": "packages/domain/src/domain/outlook-folder.ts",
       "kind": "file",
-      "size": 2763,
-      "sha256": "e0c255524a0d81e5b21e131ec00d362fe7e3f43ee79fbeae46e32badfe30c64f",
+      "size": 2970,
+      "sha256": "13ea5a07208177fb4d25434d021009414fd1a1c79038bac3fcb922afc148a4a0",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
       "origin": [
         "packages/domain/src/domain/outlook-folder.ts"
       ],
-      "state": "retained",
+      "state": "rewritten",
       "ticket": "TKT-210"
     },
     {
@@ -95217,22 +96897,22 @@
     {
       "path": "packages/domain/src/domain/retro-case.test.ts",
       "kind": "file",
-      "size": 12279,
-      "sha256": "148d84f5733a548e9cfd6074931fff2fdf6af94e5645ed101bcba06f4fff6792",
+      "size": 18465,
+      "sha256": "044c9082eb3835df20b993771839711d542dce2c54544ab0b0e4371a80278242",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
       "origin": [
         "packages/domain/src/domain/retro-case.test.ts"
       ],
-      "state": "retained",
+      "state": "rewritten",
       "ticket": "TKT-210"
     },
     {
       "path": "packages/domain/src/domain/retro-case.ts",
       "kind": "file",
-      "size": 17091,
-      "sha256": "cf05d915d6c741ef6f9ee27576550ba9b57f2b7ee1101bf8ea4b4ffb53c37aa8",
+      "size": 25231,
+      "sha256": "6cabc80b8f6745e367d9880cfcabaa0d8434c1c8be2e738f31c61e5680b28192",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
@@ -95385,8 +97065,8 @@
     {
       "path": "packages/domain/src/dto/index.ts",
       "kind": "file",
-      "size": 37431,
-      "sha256": "4c498847047cca4522818bc3068a09ca7b1f48a86e34421a21de45a5f529f6f8",
+      "size": 37932,
+      "sha256": "5a19b8c6cd3a91d930704ff8e701d17da969d40e943c3b39fe2a0663ec9bd405",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
@@ -95413,8 +97093,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "kind": "file",
-      "size": 17360,
-      "sha256": "16439d8f3e79dd623ab6f49851825c25f0f6c3086a73252d0586e7aa21757ece",
+      "size": 18903,
+      "sha256": "79f460334aa72b8ac17d9ceae743c4d40c925af4366d56ae6aa86417f430d876",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active",
@@ -97305,8 +98985,8 @@
     {
       "path": "services/data-api/src/features/cases/archive-holding.test.ts",
       "kind": "file",
-      "size": 33731,
-      "sha256": "0c536b7efc8e1aaa871e23588cde358c24ac6e501d538797b99ea3012cf61dc6",
+      "size": 37647,
+      "sha256": "df9033f61b9b471b9370f8e135b561b853092009fd0c6144283214f2fb86260e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -97319,8 +98999,8 @@
     {
       "path": "services/data-api/src/features/cases/archive-holding.ts",
       "kind": "file",
-      "size": 42292,
-      "sha256": "5d2aba7e3972a267bd99d532036fffc7ed6e19559755e07f26a6d644c7ac4494",
+      "size": 42756,
+      "sha256": "ac24c6a1a7574f233b702d290dfbc617bba0401befc53fc17f12a5564f72669c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -97863,10 +99543,24 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/data-api/src/features/cases/internal-operations-routes.test.ts",
+      "kind": "file",
+      "size": 6007,
+      "sha256": "4ee7de6c8c46d5589ed212e356955cd72f46e543c47fd52587d6522fb08a5eee",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/data-api/src/features/cases/internal-operations-routes.ts",
       "kind": "file",
-      "size": 17548,
-      "sha256": "d88849183ffc4a2a19178e15ac26bd1433c0f8db9bc066c364260dbafa039ee9",
+      "size": 19285,
+      "sha256": "f9d746cb52c3ce79c03c89ebf2be48b10a53d81f13a9cb54618397e0cbcfc67c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98397,8 +100091,8 @@
     {
       "path": "services/data-api/src/features/evidence/internal-persist-routes.test.ts",
       "kind": "file",
-      "size": 18539,
-      "sha256": "50f38c86a4e973a855a5ddd90ad77a46461efdbff98b170e713c34f83d357ef0",
+      "size": 24568,
+      "sha256": "a37c7680805c1ffaf528add9bc1369eed98000f823d3ac371b9f2afa00ddeeaa",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98411,8 +100105,8 @@
     {
       "path": "services/data-api/src/features/evidence/internal-persist-routes.ts",
       "kind": "file",
-      "size": 29316,
-      "sha256": "86fecb08804940c2ab069a1dcd5cd4de7cf9809d3e03007cca98fb69d0c2b362",
+      "size": 32198,
+      "sha256": "2adf8e480baf69aee19b03fece1de1cceab0d5612ce9a5fa9470bf370c694bf0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98605,10 +100299,24 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/data-api/src/features/inbound/inbox-anchor-exclusion.test.ts",
+      "kind": "file",
+      "size": 4485,
+      "sha256": "5f75224ca4a52fa289c17db729c10d49c10f4809224f6a7723ad555160fa8cb2",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/data-api/src/features/inbound/internal-record-routes.ts",
       "kind": "file",
-      "size": 8406,
-      "sha256": "035cb54f4a1f40790647d5e0e5135d0255945173373f04fae17f7619f60b8650",
+      "size": 8410,
+      "sha256": "ce5a1c11a1df2513211df1ee0d8d8ac647a152a9e6bab295efe2ffed6aa12ebb",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98621,8 +100329,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal-triage-routes.ts",
       "kind": "file",
-      "size": 21380,
-      "sha256": "e2cc9e050b05064d4c923b934649f419ec2e33a2dc29ec62a0db74d359424993",
+      "size": 16956,
+      "sha256": "9f14295964f884f81d6d7bba73506e794158f83d6a0d1624c029363e6f964f22",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98677,8 +100385,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal/parser-fields.ts",
       "kind": "file",
-      "size": 23353,
-      "sha256": "162b4a5393270a9e3901044f81e13aa546572bd603d78453fdab631922a09507",
+      "size": 23442,
+      "sha256": "cbb5dfb3c0e7bf042e662264509b8825d01b54136193b90ebfe13557eaca8a6e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98705,8 +100413,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal/service-support.ts",
       "kind": "file",
-      "size": 7829,
-      "sha256": "2af689832de7bd313ef20c7a49326c5ed2b2953d423b600559da08de6172f620",
+      "size": 7953,
+      "sha256": "6b282af0ca8cf93cf8a25b09b80e8b349e5438855a40a2266aa8db61b613b06d",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98871,10 +100579,24 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/data-api/src/features/inbound/persistence.test.ts",
+      "kind": "file",
+      "size": 10150,
+      "sha256": "dba14ce3e81edacdd0b92cd636f8ee1b443a657c151b55e923b063a61c6e4a9e",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/data-api/src/features/inbound/persistence.ts",
       "kind": "file",
-      "size": 8450,
-      "sha256": "c80a8098cbffa7d444ad77efe721a6380799f18b120ab347e7ca841eb539f000",
+      "size": 12902,
+      "sha256": "bd2224fa017c55bb4957cf11b3edcaaffc927e9327e72f5b1e0f2a7871d39ae0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98887,8 +100609,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.test.ts",
       "kind": "file",
-      "size": 8047,
-      "sha256": "50bcda0cb02753690eedec1869436b387edf1ad058ed11b8b16753bb582c4d15",
+      "size": 37674,
+      "sha256": "512e1e34ea38949d0783f5a0d39122f1a85a6ed58fba61d728c5bc3a9361830c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98901,8 +100623,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.ts",
       "kind": "file",
-      "size": 27892,
-      "sha256": "52f427ab14971d2e448aca7305a0cd38402cf42b1f809e50c472b4f00e72f51b",
+      "size": 45504,
+      "sha256": "c4b58fe42e10d21a346c8666ef2eab25c2689b7b9039268cf9632bb84ac38d3c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98915,8 +100637,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.test.ts",
       "kind": "file",
-      "size": 3533,
-      "sha256": "84da7f8774ea5630aaddfb640460f660304834470a92d6a3291d5f978ea7ddeb",
+      "size": 4160,
+      "sha256": "22957f89caaf486719d190817f63051a700775072c36e9cf44c7722377830d00",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98929,8 +100651,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.ts",
       "kind": "file",
-      "size": 7049,
-      "sha256": "b518ade15aaba06628baa7b2b84eefd4085c45b0c2cdfa8951f997967ddaa440",
+      "size": 8740,
+      "sha256": "4a6ea1c80fa4c5190d330f0507a130267042b2d82f7f811184a4ac0e66ae2915",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -98943,8 +100665,22 @@
     {
       "path": "services/data-api/src/features/inbound/routes.ts",
       "kind": "file",
-      "size": 26384,
-      "sha256": "337c09981e53e3af287751b0bb5717cc416fba658843ec0ae535c05b2d713825",
+      "size": 28774,
+      "sha256": "647f8047fe69a9e82978098c4f1f90924b4a5141cdbc7b9f0f49eeab3dc5ee38",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/suggestion-write.ts",
+      "kind": "file",
+      "size": 7668,
+      "sha256": "e03c28b186095346a93c98ecdb6aef176612bb3249ef8dec9e593ddece6c300a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99097,8 +100833,8 @@
     {
       "path": "services/data-api/src/features/providers/recovery.test.ts",
       "kind": "file",
-      "size": 11431,
-      "sha256": "18dc00334c362b040e064e5e82f4672f4d85bfd2d703320a40abb6d4814ddcce",
+      "size": 12068,
+      "sha256": "a38d5bd491ff098b75b30312a32c473a9459e8c34ac30501752ab9fd0bca7f5f",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99111,8 +100847,8 @@
     {
       "path": "services/data-api/src/features/providers/recovery.ts",
       "kind": "file",
-      "size": 10253,
-      "sha256": "00e202d9c628977c01b22d674f9303868d2fe819e304fe3094de6dc7e94949da",
+      "size": 10755,
+      "sha256": "e69fcc8105788554c7ff1f7b3e887cc76bb5e1e59b0c457a2b56e103da289202",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99375,10 +101111,24 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/data-api/src/platform/db/client.test.ts",
+      "kind": "file",
+      "size": 1291,
+      "sha256": "c0c6922e47906abad5a34b2cc472911a29331268f7aa38c4bdc8482f945e6d54",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/data-api/src/platform/db/client.ts",
       "kind": "file",
-      "size": 5310,
-      "sha256": "14a4c83f58e8982555f1ac32c725a70543cfad8739b3709d9d137578f1752c1a",
+      "size": 6073,
+      "sha256": "a316d24baa620f2883979c1d224ee55bf66be3ffb0565b2c9d9f4dc6754768fd",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99545,8 +101295,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.test.ts",
       "kind": "file",
-      "size": 6197,
-      "sha256": "7b7b62b432eeffcc8b0889f07a0c591314b528e509fca7cfb6253287484ea4a8",
+      "size": 10051,
+      "sha256": "62a8539d0ab7c164164464f98747090bf5a773328dfff23f3391d5ff0a733e96",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99559,8 +101309,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.ts",
       "kind": "file",
-      "size": 8345,
-      "sha256": "92aadb007eea28e3c1684e217f84dcc78f07616847047b5165b8d0d4a9db25bf",
+      "size": 11576,
+      "sha256": "82dc2a076b8ae7814b9684ce3acc0189693f8b568535e8c64355a19a337aeee1",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99573,8 +101323,8 @@
     {
       "path": "services/data-api/src/shared/mapping/cases.ts",
       "kind": "file",
-      "size": 14382,
-      "sha256": "a5f171957b03cee2d8371544228da35debb3b0098172d8d199c0b41f9f0c5b0a",
+      "size": 16114,
+      "sha256": "5a4dd0904c072e61c73123bce412cf950182134fcc4fd7bbba9e158c35b1e758",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99587,8 +101337,8 @@
     {
       "path": "services/data-api/src/shared/mapping/evidence.ts",
       "kind": "file",
-      "size": 8063,
-      "sha256": "d6bb67c9caee21f06986a7e512066fcce805aaaf9dc1ba800056176ddf75cde6",
+      "size": 9462,
+      "sha256": "451c2ba64ec770bb1da5c4009c7825941341cc014a7969408c33316acc38de00",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99601,8 +101351,8 @@
     {
       "path": "services/data-api/src/shared/mapping/inbound.ts",
       "kind": "file",
-      "size": 11011,
-      "sha256": "27cc8db9c7da56c4e4259957572ae4584a3218de78414a79093999e623c981a1",
+      "size": 11234,
+      "sha256": "6d907efc4129797a4a08e819b14aec40c7d8f111b1b1d7f77b53387d4584e030",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99615,8 +101365,8 @@
     {
       "path": "services/data-api/src/shared/mapping/index.test.ts",
       "kind": "file",
-      "size": 22438,
-      "sha256": "c7069f08bc97447d383bebe3b5619aa286b3d6cc4ae9cd87314f5c469fdbbc0e",
+      "size": 27134,
+      "sha256": "d8ed8ccdee72c510425985b8d2e14b4dfeac6138d45b040235326b827c4a3cae",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active",
@@ -99868,8 +101618,8 @@
     {
       "path": "services/functions/box-webhook/data_api_client.py",
       "kind": "file",
-      "size": 19325,
-      "sha256": "89bf5a262017cd3e4ed2b9c84f450d3b0e508d62cb533ce3607cfdfdfd3a2881",
+      "size": 22018,
+      "sha256": "0c54f3ef449bf0a7a8dd987adff5dec29db4e790b636bd7a0932665b0abb2027",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active",
@@ -99896,8 +101646,8 @@
     {
       "path": "services/functions/box-webhook/function_app.py",
       "kind": "file",
-      "size": 40074,
-      "sha256": "84f7bded3eed3392230b2b1044d8516a89c3cab34a9479291a7164b22a36c639",
+      "size": 42257,
+      "sha256": "b59d045a8ece9bf6ca391990dc4b5c8b2f1a533d6ed369194243b6803e378a19",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active",
@@ -100050,15 +101800,15 @@
     {
       "path": "services/functions/box-webhook/tests/test_data_api_client.py",
       "kind": "file",
-      "size": 17096,
-      "sha256": "6953d1ef39f3cb7ef992831d25d1e2b899933f86d116ccf3d9d8ce5ad34929b1",
+      "size": 21435,
+      "sha256": "f634ad1dd38f436756cfb79a616e52a8e607355be3fdcb0d4abdcf9a64defc3b",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active",
       "origin": [
         "functions/box-webhook/tests/test_data_api_client.py"
       ],
-      "state": "moved",
+      "state": "rewritten",
       "ticket": "TKT-210"
     },
     {
@@ -100162,8 +101912,8 @@
     {
       "path": "services/functions/box-webhook/tests/test_webhook.py",
       "kind": "file",
-      "size": 32861,
-      "sha256": "8a179ac017ba18728d29a8d985ac68229468e26d0363ec82c293bb524ba471d1",
+      "size": 39507,
+      "sha256": "723339eab004d59714695358d503d46e45c215c7a7323009460f0d32f511d92a",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active",
@@ -101062,7 +102812,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
       "kind": "file",
       "size": 2113,
-      "sha256": "88b89bbfeb838a1b7bb74ee9ba68ce820bc85fc889f0a146bb04f5cc20751d83",
+      "sha256": "34167c05ca7c3b266a345880a2b106da1d4bcb862f4c1ab0041c26a3487512dc",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active",
@@ -101076,7 +102826,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/VENDOR_LOCK.json",
       "kind": "file",
       "size": 850,
-      "sha256": "8777478b48e1a3fd27246cc2317e4e53cf2779a462bf08449980fc0b17084e55",
+      "sha256": "210887fd2a11b55a5a613773d4e07e1117ae044251068422ee7c9126d8907c50",
       "category": "vendored-source",
       "owner": "document-parsing",
       "lifecycle": "vendored",
@@ -101537,8 +103287,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/engine.py",
       "kind": "file",
-      "size": 146067,
-      "sha256": "240221b8426aa936bba9f07c0758a062daa02d4929b2c90ad274c21e9465c5c4",
+      "size": 146786,
+      "sha256": "9f9e8691b292b66a60e55941ef596f8c1b0b0ee42dd9f4c557839fccf5d6b0e1",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active",
@@ -101607,8 +103357,8 @@
     {
       "path": "services/functions/parser/function_app.py",
       "kind": "file",
-      "size": 30945,
-      "sha256": "2f2e98924d8397731b79524f79608b643394deee1f404a3d7312f4d315b5853a",
+      "size": 37526,
+      "sha256": "e415541b98f21967527cace4a380761058417286537e0045199d51d95051a994",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active",
@@ -101756,6 +103506,20 @@
         "functions/parser/tests/conftest.py"
       ],
       "state": "moved",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/functions/parser/tests/fixtures/SYNTHETIC_RETRO_MSG_01.msg",
+      "kind": "file",
+      "size": 7680,
+      "sha256": "d7ed0978695908d2e76744b67d1e05327dd0547febe1480a693ab94b8b1e5fa4",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-210"
     },
     {
@@ -101913,6 +103677,20 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/functions/parser/tests/fixtures/make_synthetic_msg.py",
+      "kind": "file",
+      "size": 6651,
+      "sha256": "bfc7f557ab2dc6606c79bbd196411c39364d79f5e2a85b02f2e9609a23b79fdc",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/functions/parser/tests/fixtures/parser_record_complete.json",
       "kind": "file",
       "size": 3361,
@@ -101985,8 +103763,8 @@
     {
       "path": "services/functions/parser/tests/test_contact_extraction.py",
       "kind": "file",
-      "size": 8151,
-      "sha256": "5cf072de5d396d8cad90796816ecc67e7c2a80630c27e20678ba6cfea010f5e6",
+      "size": 9816,
+      "sha256": "c6e0fa590e61c8d7dd9c1dd1db06376320436c4b2afa872729d7127e03d6ddf0",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active",
@@ -102134,6 +103912,20 @@
         "functions/parser/tests/test_explode_eml.py"
       ],
       "state": "moved",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/functions/parser/tests/test_explode_msg.py",
+      "kind": "file",
+      "size": 6751,
+      "sha256": "a983a6fc1cef9106a1cb73513081832c611a8d0f0b50dc9205494e65c3bae086",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
       "ticket": "TKT-210"
     },
     {
@@ -102632,8 +104424,8 @@
     {
       "path": "services/orchestration/src/adapters/aoai.ts",
       "kind": "file",
-      "size": 21039,
-      "sha256": "1316c45515177b1d1d64baea41f93604c1671b676d5bd42f4d221e82d4f3eb7f",
+      "size": 21174,
+      "sha256": "1ddb935da023dc44fba94b82a0e9e2453a835de82ecbf4f7a7f1cb1d09415a52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -102744,8 +104536,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "kind": "file",
-      "size": 38591,
-      "sha256": "6472848c722196d3f1702a34f5785668a43fbf44dea5120e0b443b0e1dc16601",
+      "size": 41045,
+      "sha256": "c7e5f1b6927929527135584f77d1de81b335451d2d08983f392bb615639f3735",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -102772,22 +104564,22 @@
     {
       "path": "services/orchestration/src/adapters/graph.test.ts",
       "kind": "file",
-      "size": 13911,
-      "sha256": "2575cd112fe896b80f9a44ca96e1f86dd9b49fa23596335ae80786b8e1548539",
+      "size": 14374,
+      "sha256": "de0f2a870d2514e6d35b6006ba0f1edcc15cbafbf874f74e44a4439680414744",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
       "origin": [
-        "orchestration/src/lib/graph.test.ts"
+        "PLAN-006"
       ],
-      "state": "moved",
+      "state": "created",
       "ticket": "TKT-210"
     },
     {
       "path": "services/orchestration/src/adapters/graph.ts",
       "kind": "file",
-      "size": 24182,
-      "sha256": "cd1b7e1931c73fef4601f6d69a46974b73c3f93ab83f610fc27426758f7f0289",
+      "size": 26066,
+      "sha256": "e9e83b7b8a23604377876cac2cbbc1a824a14c0cb05f2e11391ef49dd0299ea9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -102814,8 +104606,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "kind": "file",
-      "size": 4450,
-      "sha256": "ceb479621f2a8a932e13e035959db589cf9dbb985af43aaa2c6ce0cb46c8ea67",
+      "size": 4580,
+      "sha256": "ee89e6cfebc187edba89031fff237b90abd15a4d3f19d2555ce0e8a14b90f0fc",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -103162,10 +104954,24 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/orchestration/src/workflows/archive/box-blob-purge.test.ts",
+      "kind": "file",
+      "size": 4767,
+      "sha256": "3bbb42e36936ba11c512efd3d2e08ca38073414cb2baf186a35ba30009e1ac33",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/orchestration/src/workflows/archive/box-blob-purge.ts",
       "kind": "file",
-      "size": 2374,
-      "sha256": "92b2cf71b3ccdb8082f98dde1f8211ebf5b85b83bd6a1edaa39f355726bf3f78",
+      "size": 3420,
+      "sha256": "d91649ae91b701359c5dbcb4bfae697368d17bc8a4be967a2b12cae2ccf1a65d",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -103374,8 +105180,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/classifyPersist.test.ts",
       "kind": "file",
-      "size": 3060,
-      "sha256": "c360fe19d29980d3e1414137da1e3aed22f2ba11c2453128c2ab0e02656ecc70",
+      "size": 6775,
+      "sha256": "75ddd5baf7d547f8a808c9ab4be54ccfc05fe6def300171c1e6871f169923085",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -103388,8 +105194,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/classifyPersist.ts",
       "kind": "file",
-      "size": 10395,
-      "sha256": "3c15fe20344cde78974fb2f7a704fd55c2de768fa47d822379806186864a0dd0",
+      "size": 10861,
+      "sha256": "706dd4d972298ff3159e4a816225acfe73c507a82bcde3f5b46e1e46ecd10762",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -103738,8 +105544,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "kind": "file",
-      "size": 42775,
-      "sha256": "ad3043509b9bd0d4ef2f724ed5ba13a1ca5cf824ba68f953dc4f7c1beaeca4f3",
+      "size": 44418,
+      "sha256": "57c46a414ef44fc9e56cc2667b513af886c63d7b79fc88780380ce0501318eb9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -104156,10 +105962,52 @@
       "ticket": "TKT-210"
     },
     {
+      "path": "services/orchestration/src/workflows/retro/retro-activities.test.ts",
+      "kind": "file",
+      "size": 20542,
+      "sha256": "5220700745bd92637bd1c11c35673b135cacca83f73d79367227d3521f7c9c6e",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
       "path": "services/orchestration/src/workflows/retro/retro-activities.ts",
       "kind": "file",
-      "size": 19100,
-      "sha256": "67837a6accee7fe8b42f449b69177bbd412354dabd1054ea43fdcb63de1ef1e7",
+      "size": 44239,
+      "sha256": "786a506ab89a58f7c021efecf443c6d9c23f8e4bab931045cbd968ed5d611ede",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-case-force-restart.test.ts",
+      "kind": "file",
+      "size": 6220,
+      "sha256": "995d53235d826ddcda41cd08357739b2c86b15c6f2b7da4af644af8d4a937579",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-case-postsweep.test.ts",
+      "kind": "file",
+      "size": 11113,
+      "sha256": "3692951c6c870eb01db2fc646d465a03c065940588571ff35b03696d65a1ec52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -104172,8 +106020,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case-provider-recovery.test.ts",
       "kind": "file",
-      "size": 5373,
-      "sha256": "c406288a10f8263d65d73562022505f19186aa10dd6fe920bd8b8dbd5fc8aac8",
+      "size": 21561,
+      "sha256": "d803c95cb0305ac9668cc9c398e7491a615b9d91b226127a953231f4929db36f",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -104186,8 +106034,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case.ts",
       "kind": "file",
-      "size": 29390,
-      "sha256": "eae1fc9c2cd57d389fbc6ddb21033e114ff575b0fdff9b7fe2f1bce1836af3d8",
+      "size": 61018,
+      "sha256": "45c5184e3c7e5c40e8e3b8ce6e4b43360607d2cdc5d9e787f306256653559993",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -104214,8 +106062,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-envelope.test.ts",
       "kind": "file",
-      "size": 8703,
-      "sha256": "9d7d130f6dff5e75fb4cee19d983da3bb02da1f325329db764fe89b22f679bf3",
+      "size": 13397,
+      "sha256": "2c1d518ec6df89c6dc36a53a1f0454ed9d7481ecd735071721529ab289417e52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -104228,8 +106076,36 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-envelope.ts",
       "kind": "file",
-      "size": 11219,
-      "sha256": "ae2debcfbba2750a14cf063548864a0923e05507b46181f3644df610efc32ae8",
+      "size": 16425,
+      "sha256": "8688f123feab9ff15f17018be33df71949ec4e6c78bed3a7031af15c33e54b7a",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-ingest.test.ts",
+      "kind": "file",
+      "size": 12589,
+      "sha256": "c6d0b6e42c53cb674a20de6946e868c88348b3d718d7a7363037917fefe1bdb5",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-210"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-ingest.ts",
+      "kind": "file",
+      "size": 9407,
+      "sha256": "0d092df8230a9f19080442f403608453d357cb36557efbb652c19dd10964aba9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active",
@@ -113261,8 +115137,8 @@
     {
       "path": "tools/box-scope.json",
       "kind": "file",
-      "size": 425,
-      "sha256": "9ce2a86ea91d02c68123d0ed493f734bc7eb9fd1d0a53fd22c3f0789bcb1279f",
+      "size": 798,
+      "sha256": "4dbf9405c9ca39b5fb134ae46fbefe2766c915cb9079667c2eefa5429b538c9b",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active",
