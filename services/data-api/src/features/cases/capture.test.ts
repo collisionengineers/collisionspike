@@ -1126,7 +1126,7 @@ describe('capture route foundation', () => {
     expect(response).toMatchObject({ status: 201 });
     expect(inserts[0]?.[1]).toBe('essential-v1');
     expect(inserts[0]?.[3]).toBe('shadow');
-    expect(inserts[0]?.[7]).toBe(72);
+    expect(inserts[0]?.[7]).toBe(168);
     expect((response.jsonBody as { session: { guidanceMode: string } }).session.guidanceMode).toBe('shadow');
   });
 

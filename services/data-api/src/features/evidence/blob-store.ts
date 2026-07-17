@@ -244,25 +244,22 @@ export async function getCaptureBlobProperties(blobPath: string): Promise<Captur
 }
 
 /**
- * Bounded staging download. Even if a client races the preceding HEAD with an
- * overwrite, the range is capped at maxBytes + 1 so untrusted content can never
- * allocate an unbounded buffer. The caller rejects the sentinel extra byte.
+ * Bounded staging download. HEAD first, then download exactly
+ * min(contentLength, maxBytes + 1) so the ranged read never requests past the
+ * blob's end. `downloadToBuffer` splits an explicit count into several block
+ * ranges, and real Azure answers 416 InvalidRange on any chunk that begins at or
+ * beyond EOF — only a single overshooting range is tolerated, not the split — so
+ * an over-large count fails deterministically for any normal-sized photo. The
+ * maxBytes + 1 cap keeps untrusted content allocation-bounded; the caller rejects
+ * the sentinel extra byte.
  */
 export async function downloadCaptureBlobBytes(blobPath: string, maxBytes: number): Promise<Buffer> {
   const { service } = captureBlobBackend();
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
-  try {
-    return await block.downloadToBuffer(0, maxBytes + 1);
-  } catch (error) {
-    // Azure tolerates a range that overshoots the blob's end; the local emulator
-    // answers 416 InvalidRange. Retry with the advertised length, still capped at
-    // maxBytes + 1 so untrusted content can never allocate an unbounded buffer.
-    if ((error as { statusCode?: number }).statusCode !== 416) throw error;
-    const properties = await block.getProperties();
-    const bounded = Math.min(properties.contentLength ?? 0, maxBytes + 1);
-    if (bounded <= 0) throw error;
-    return await block.downloadToBuffer(0, bounded);
-  }
+  const properties = await block.getProperties();
+  const bounded = Math.min(properties.contentLength ?? 0, maxBytes + 1);
+  if (bounded <= 0) throw new Error('capture staging blob is empty or unavailable');
+  return await block.downloadToBuffer(0, bounded);
 }
 
 /**

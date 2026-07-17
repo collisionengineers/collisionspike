@@ -23,10 +23,11 @@ describe('capture blob security boundary', () => {
   });
 
   it('bounds staging downloads and promotes validated bytes outside the SAS path immutably', () => {
-    expect(source).toContain('downloadToBuffer(0, maxBytes + 1)');
-    // The emulator 416-fallback must stay allocation-bounded too.
+    // HEAD-first, then download exactly the bounded length so the ranged read
+    // never requests past EOF (real Azure 416s the past-EOF chunks of an
+    // overshooting downloadToBuffer count). Still allocation-bounded to maxBytes + 1.
     expect(source).toContain('Math.min(properties.contentLength ?? 0, maxBytes + 1)');
-    expect(source).toContain('.statusCode !== 416) throw error');
+    expect(source).toContain('downloadToBuffer(0, bounded)');
     expect(source).toContain('capture-validated/');
     expect(source).toContain("conditions: { ifNoneMatch: '*' }");
     expect(source).toContain('storageError.statusCode === 412');

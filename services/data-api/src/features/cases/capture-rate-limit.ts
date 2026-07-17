@@ -14,14 +14,15 @@
  *    AFTER bearer verification, so an attacker cannot burn a victim session's budget by
  *    spraying its public session id without a valid token.
  *
- * Caller identity comes from a hop the Azure edge controls, NOT a client-settable one.
- * `X-Forwarded-For` is APPENDED by each proxy (the trusted front end adds the real socket
- * IP as the RIGHTMOST hop), so the leftmost value is whatever the client sent and must
- * never be trusted. We prefer `X-Azure-SocketIP` (the App Service / Functions front end
- * sets it to the real TCP peer) and otherwise take the hop the trusted layer appended,
- * `CAPTURE_TRUSTED_PROXY_HOPS` positions from the right (default 1 = direct-to-Functions;
- * raise for an SWA-linked or Front Door ingress). Requests with no usable address share
- * the conservative 'unknown' bucket.
+ * Caller identity must be spoof-resistant. Behind the capture PWA's Static Web App the
+ * Function is reached through a proxy, so `X-Azure-SocketIP` (the real TCP peer) is the
+ * proxy — keying on it alone lumps every claimant into one bucket. But the forwarded
+ * client IP (`X-Azure-ClientIP` / `X-Forwarded-For`) is client-forgeable on a DIRECT hit
+ * to the Function host (which staff use), so we trust it ONLY when `X-Azure-FDID` matches
+ * our configured front-door id (`CAPTURE_SWA_FDID`). Trusted => the resolved client IP,
+ * counting `X-Forwarded-For` from the right per `CAPTURE_TRUSTED_PROXY_HOPS`; untrusted =>
+ * the socket peer (the attacker's own IP on a direct hit). An unset `CAPTURE_SWA_FDID`
+ * fails closed to the socket peer. No usable address shares the 'unknown' bucket.
  */
 
 import type { HttpRequest, HttpResponseInit } from '@azure/functions';
@@ -82,12 +83,40 @@ export function configuredTrustedProxyHops(value = process.env.CAPTURE_TRUSTED_P
 }
 
 /**
- * Spoof-resistant caller key. The client controls the leftmost X-Forwarded-For hop, so
- * we never key on it: prefer the platform-set `X-Azure-SocketIP`, else the hop the
- * trusted layer appended (from the right, per CAPTURE_TRUSTED_PROXY_HOPS). Unusable /
- * absent addresses share the 'unknown' bucket.
+ * The Front Door / Static Web App instance id we trust to have resolved the real client IP.
+ * Empty/unset => we trust NO forwarded client-IP header and fall back to the socket peer, so a
+ * misconfigured deploy is never worse than the pre-fix (safe, if coarse) socket-only behaviour.
+ */
+export function configuredCaptureTrustedFdid(value = process.env.CAPTURE_SWA_FDID): string | undefined {
+  const trimmed = (value ?? '').trim().toLowerCase();
+  return trimmed.length ? trimmed : undefined;
+}
+
+/** The client IP a trusted front door reports: its resolved `X-Azure-ClientIP`, else the hop it appended to `X-Forwarded-For`. */
+function forwardedClientIp(req: HttpRequest): string | undefined {
+  const clientIp = scrubAddress(req.headers.get('x-azure-clientip') ?? undefined);
+  if (clientIp) return clientIp;
+  const hops = (req.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => scrubAddress(hop))
+    .filter((hop): hop is string => hop !== undefined);
+  if (!hops.length) return undefined;
+  return hops[Math.max(0, hops.length - configuredTrustedProxyHops())];
+}
+
+/**
+ * Spoof-resistant caller key. `X-Azure-ClientIP` / `X-Forwarded-For` are client-forgeable on a
+ * direct hit to the Function host, so we trust them ONLY when the request provably came through
+ * our front door — `X-Azure-FDID` matches the configured id. Otherwise we key on the platform
+ * `X-Azure-SocketIP` (the real, unspoofable TCP peer — the attacker's own IP on a direct hit),
+ * then the trusted appended `X-Forwarded-For` hop, then the shared 'unknown' bucket.
  */
 export function captureCallerKey(req: HttpRequest): string {
+  const trustedFdid = configuredCaptureTrustedFdid();
+  if (trustedFdid && (req.headers.get('x-azure-fdid') ?? '').trim().toLowerCase() === trustedFdid) {
+    const forwarded = forwardedClientIp(req);
+    if (forwarded) return forwarded;
+  }
   const socketIp = scrubAddress(req.headers.get('x-azure-socketip') ?? undefined);
   if (socketIp) return socketIp;
   const hops = (req.headers.get('x-forwarded-for') ?? '')
@@ -97,6 +126,24 @@ export function captureCallerKey(req: HttpRequest): string {
   if (!hops.length) return 'unknown';
   const index = Math.max(0, hops.length - configuredTrustedProxyHops());
   return hops[index] ?? 'unknown';
+}
+
+/**
+ * TEMPORARY rollout diagnostic (gated OFF by default). With `CAPTURE_CALLER_KEY_DEBUG=true` it
+ * emits the header inputs the caller-key derivation saw, so we can confirm what the SWA linked
+ * backend actually forwards — the `X-Azure-FDID` value to put in `CAPTURE_SWA_FDID`, and that
+ * `X-Azure-ClientIP` is the real claimant — before trusting it. Drop once the FDID is verified.
+ */
+function logCallerKeyDerivation(req: HttpRequest, resolved: string): void {
+  if (process.env.CAPTURE_CALLER_KEY_DEBUG !== 'true') return;
+  const h = (name: string): string => (req.headers.get(name) ?? '').slice(0, 200);
+  console.warn(`[capture-caller-key] ${JSON.stringify({
+    fdid: h('x-azure-fdid'),
+    clientIp: h('x-azure-clientip'),
+    socketIp: h('x-azure-socketip'),
+    xff: h('x-forwarded-for'),
+    resolved,
+  })}`);
 }
 
 /**
@@ -155,6 +202,7 @@ export async function callerRateLimitResponse(
   scope?: Exclude<CaptureRateScope, 'ip'>,
 ): Promise<HttpResponseInit | undefined> {
   const caller = captureCallerKey(req);
+  logCallerKeyDerivation(req, caller);
   if (!await consumeCaptureRateLimit('ip', caller)) return captureRateLimitResponse();
   if (scope && !await consumeCaptureRateLimit(scope, caller)) return captureRateLimitResponse();
   return undefined;

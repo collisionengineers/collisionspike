@@ -86,7 +86,7 @@ export function captureShotPlan(value: unknown): CaptureShotPlan | undefined {
 }
 
 export function captureExpiryHours(value: unknown): 24 | 72 | 168 | undefined {
-  const hours = value == null ? 72 : Number(value);
+  const hours = value == null ? 168 : Number(value);
   return hours === 24 || hours === 72 || hours === 168 ? hours : undefined;
 }
 

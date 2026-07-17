@@ -11,6 +11,7 @@ import {
   captureRateLimitResponse,
   configuredCaptureDecodeConcurrency,
   configuredCaptureRateLimit,
+  configuredCaptureTrustedFdid,
   configuredTrustedProxyHops,
   consumeCaptureRateLimit,
   purgeStaleCaptureRateLimitWindows,
@@ -25,6 +26,8 @@ function request(headers: Record<string, string> = {}): HttpRequest {
 beforeEach(() => {
   db.query.mockReset();
   delete process.env.CAPTURE_TRUSTED_PROXY_HOPS;
+  delete process.env.CAPTURE_SWA_FDID;
+  delete process.env.CAPTURE_CALLER_KEY_DEBUG;
   for (const name of Object.keys(process.env)) {
     if (name.startsWith('CAPTURE_RATE_LIMIT_')) delete process.env[name];
   }
@@ -63,6 +66,50 @@ describe('capture rate limiting', () => {
     expect(captureCallerKey(request({ 'x-forwarded-for': 'not an address!' }))).toBe('unknown');
     expect(captureCallerKey(request({ 'x-forwarded-for': 'a'.repeat(400) }))).toBe('unknown');
     expect(captureCallerKey(request({ 'x-azure-socketip': 'garbage', 'x-forwarded-for': 'also bad' }))).toBe('unknown');
+  });
+
+  it('trusts the forwarded client IP only when X-Azure-FDID matches the configured front door', () => {
+    process.env.CAPTURE_SWA_FDID = 'FD-ABC-123';
+    // Proxied through our SWA: FDID matches => key on the real claimant, NOT the proxy socket IP.
+    expect(captureCallerKey(request({
+      'x-azure-fdid': 'fd-abc-123',
+      'x-azure-clientip': '203.0.113.9',
+      'x-azure-socketip': '10.0.0.1',
+    }))).toBe('203.0.113.9');
+    // Matching FDID but no resolved client IP => the appended X-Forwarded-For hop (from the right).
+    expect(captureCallerKey(request({
+      'x-azure-fdid': 'FD-ABC-123',
+      'x-forwarded-for': 'spoof, 203.0.113.9',
+      'x-azure-socketip': '10.0.0.1',
+    }))).toBe('203.0.113.9');
+  });
+
+  it('never trusts a forged client IP without the matching front-door id (direct-hit spoof)', () => {
+    process.env.CAPTURE_SWA_FDID = 'FD-ABC-123';
+    // Attacker hits the Function host directly, forging X-Azure-ClientIP with no / a wrong FDID:
+    // we key on the unspoofable socket peer, never the forged value.
+    expect(captureCallerKey(request({
+      'x-azure-clientip': '1.2.3.4',
+      'x-azure-socketip': '198.51.100.7',
+    }))).toBe('198.51.100.7');
+    expect(captureCallerKey(request({
+      'x-azure-fdid': 'FD-WRONG',
+      'x-azure-clientip': '1.2.3.4',
+      'x-azure-socketip': '198.51.100.7',
+    }))).toBe('198.51.100.7');
+  });
+
+  it('fails closed to the socket peer when no trusted front-door id is configured', () => {
+    // CAPTURE_SWA_FDID unset (cleared in beforeEach): a forwarded client IP is ignored even when
+    // an FDID header is present, so a misconfigured deploy is never worse than the pre-fix behaviour.
+    expect(captureCallerKey(request({
+      'x-azure-fdid': 'anything',
+      'x-azure-clientip': '1.2.3.4',
+      'x-azure-socketip': '198.51.100.7',
+    }))).toBe('198.51.100.7');
+    expect(configuredCaptureTrustedFdid()).toBeUndefined();
+    expect(configuredCaptureTrustedFdid('  ')).toBeUndefined();
+    expect(configuredCaptureTrustedFdid('FD-X')).toBe('fd-x');
   });
 
   it('clamps configured limits into 1..600 and keeps per-scope defaults', () => {
