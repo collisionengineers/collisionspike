@@ -13,19 +13,23 @@
 - U4: `test_explode_msg.py` green in the same run — genuine OLE fixture round-trip, magic-only
   detection, mislabeled/corrupt 422s, caps on the msg branch, `.eml` regression.
 
-## Post-deploy probes (bank outputs here)
+## Live (2026-07-17, deploy of `d6ee70de` — data-api + orchestration from
+## `.artifacts/deploy` artifacts, parser remote build, SPA via swa)
 
-1. U1 (Chrome): Triage Inbox shows only real mailbox chips (All/desk@/engineers@/info@ —
-   "Other source" gone); the two anchor rows absent from the list; case
-   `b5ffe5e4` Emails tab still shows its reconstruction anchor.
-2. U2 (ops SQL, separate authorization): run
-   `database/operations/tkt233-clear-own-domain-claimant-emails.sql` — pre-check enumerates
-   affected cases (known: b5ffe5e4 / AC14ACE), post-check 0; then confirm the SPA field is
-   empty/staff-editable and no NEW case acquires an own-domain claimant email (SQL negative
-   probe after the next reconstruction batch).
-3. U4: re-drive a `.msg`-anchored archive folder (or synthetic probe via the deployed
-   `/explode-eml` with the fixture): envelope carries real headers + To-address provenance;
-   no "explode unavailable" warn for `.msg`.
-4. Research follow-ups: one-off probe whether the three shared mailboxes have In-Place
-   Archive enabled; extend `retro-deleted-probe` to sweep `recoverableitemsdeletions` for the
-   22 hard-gone triggers before retention lapses.
+1. **U1 VERIFIED (Chrome)**: Triage Inbox chips now `All (1490) · desk@ (528) ·
+   engineers@ (592) · info@ (370)` — "Other source" GONE (was `All (1639) · Other source (2)
+   · desk@ (615) · engineers@ (641) · info@ (381)`): ~149 anchor rows hidden, including
+   eml-arm anchors that had been inflating the real-mailbox counts (the would-be fifth-chip
+   class). Case `b5ffe5e4` Emails tab still lists its anchor
+   "Retro reconstruction: A.PCH261343 — 576003.pdf" alongside 3 linked related emails —
+   provenance retained on the case.
+2. **U2 EXECUTED**: ops SQL cleared **81 cases** (pre-check 81 → post-check 0) — the harvest
+   was systemic across providers, not just AC14ACE; full record in
+   [evidence/ops-sql-run-2026-07-17.md](./evidence/ops-sql-run-2026-07-17.md). Transient
+   firewall rule deleted (list back to AllowAzureServices only). Negative probe (no NEW
+   own-domain claimant email after the next reconstruction batch) still to bank.
+3. U4 live probe pending: re-drive a `.msg`-anchored archive folder (offline fixture
+   round-trip already green).
+4. Research follow-ups open: In-Place Archive enablement probe for the three shared
+   mailboxes; `retro-deleted-probe` + `recoverableitemsdeletions` sweep for the 22 hard-gone
+   triggers before retention lapses.

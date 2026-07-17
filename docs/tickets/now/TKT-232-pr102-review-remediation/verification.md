@@ -20,13 +20,23 @@
 - Hook: `node --test .claude/hooks/box-scope-lib.test.mjs` → **21 pass / 0 fail**; module
   load check ok.
 
-## Post-deploy probes (bank outputs here)
+## Live (2026-07-17, deploy of `d6ee70de`)
 
-1. F17: force re-drive of a prior `linked` retro instance → HTTP response carries the prior
-   outcome and NO new orchestration instance starts; force re-drive of a prior
-   `trigger_not_found` row → restarts and completes.
-2. F23: case queues load clean; optional SQL probe: seed a scratch `audit_event` row with
-   non-JSON `after` on a test case → `CASE_SELECT_WITH_ACTIVITY` returns rows (no 22P02).
+Deployed per docs/operations/deployment.md: `npm run package:deploy` artifacts verified
+(data-api: @azure/functions + @img/sharp-linux-x64 + sharp-libvips-linux-x64; orchestration:
+@azure/functions + durable-functions; import.meta.url banner present in both main.cjs), then
+`func azure functionapp publish` from `.artifacts/deploy/` → cespk-api-dev + cespk-orch-dev
+(functions listed post-deploy), parser remote Oryx build → healthy host, SPA via swa →
+proud-sky production.
+
+1. **F17 VERIFIED both sides**: force re-drive of the prior `linked` instance
+   `retro-LO7P302MB2121…` → HTTP 200 `{deduped: true, runtimeStatus: "Completed",
+   outcome: "linked"}` — refused, no new instance; force re-drive of a prior
+   `trigger_not_found` row (`retro-AXSVCS01…`) → HTTP 202 with statusQueryGetUri — restarted.
+2. **F23 implicit**: case queues and the case detail page loaded clean post-deploy (Chrome,
+   U1 checks) — no 22P02 on the lateral activity read.
+
+## Remaining probes (bank when exercised)
 3. F1/F2 (dev mint): a fresh dev reconstruction mints a Case/PO via the normal allocator,
    rests Held `provider_archive_pending`, and its `retro_case_created` audit `after` carries
    `discoveredArchivePo` + `boxFolderId`.
