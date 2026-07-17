@@ -266,6 +266,15 @@ _IMAGE_BASED_PHRASES = (
 )
 
 
+# Our OWN e-mail domain (Collision Engineers). Instruction documents and covering
+# emails routinely quote our intake mailboxes (engineers@ / info@ / desk@
+# collisionengineers.co.uk) and the noreply. website-form subdomain, so any
+# candidate address at this domain — or a subdomain of it — is OUR contact
+# detail, never the claimant's. Matched with a suffix rule in
+# RuleEngine._is_non_claimant_email so subdomains are covered too.
+_OWN_EMAIL_DOMAINS: tuple[str, ...] = ("collisionengineers.co.uk",)
+
+
 # --- Externalized phrase data (collisionspike rules-engine-v2 plan, Phase 5) ---
 # Every flat keyword/phrase collection from here down is now data, not code: it
 # lives in the schema-validated resources/triage-rules.json (loader + schema:
@@ -2806,8 +2815,14 @@ class RuleEngine:
         return any(word in lower for word in self._CLAIMANT_CONTEXT_WORDS)
 
     def _is_non_claimant_email(self, email: str, lines: list[DocumentLine]) -> bool:
-        """Reject provider / team inbox addresses that are not the claimant's."""
+        """Reject our own and provider / team inbox addresses that are not the claimant's."""
         lower_email = email.lower()
+        domain = lower_email.rsplit("@", 1)[-1]
+        if any(
+            domain == own or domain.endswith("." + own)
+            for own in _OWN_EMAIL_DOMAINS
+        ):
+            return True
         if re.search(
             r"(?:team[_-]?inbox|[_-]inbox@|noreply@|no-reply@|servicedesk@|engineersinspections@)",
             lower_email,
