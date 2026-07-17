@@ -75,5 +75,5 @@ the retention architecture:
 | `npm run check:data-authority` | done 2026-07-17 |
 | `npm run check:forbidden` | done 2026-07-17 |
 | Rendered-markdown eyeball: ADR README, reviews README, this register | done 2026-07-17 (escape-aware table-structure check, all reshaped tables) |
-| Full `node verify-all.mjs` | 2026-07-17: 33/34 pass; the single failure was a stale reconciliation ledger from regeneration order, fixed and both ledger checks verified at the committed fixed point (a full re-run was stopped early; re-run before push) |
+| Full `node verify-all.mjs` | done 2026-07-17: 34/34 pass on commit `39b86ca2` (an earlier run's single failure was a ledger regeneration-order artifact, fixed before commit) |
 | Push / PR | operator-gated; not part of this change set |

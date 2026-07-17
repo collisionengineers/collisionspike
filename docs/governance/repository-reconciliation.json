@@ -76229,8 +76229,8 @@
     {
       "path": "docs/reviews/160726/checklist.md",
       "kind": "file",
-      "size": 6462,
-      "sha256": "c2cc818a6298f4ca3d0f9f5b56be96369c8118b7b69f0fb59ad4d50ac999d7e2",
+      "size": 6384,
+      "sha256": "ec6fd0b12e8eec21ff2aa456736f53c7faa9b4547a257b79308d4c6e05bc3a71",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
