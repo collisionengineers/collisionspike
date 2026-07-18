@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (23)
+## Now (32)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -22,15 +22,24 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-160](./now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | P2 · evidence · PLAN-004 |
 | [TKT-165](./now/TKT-165-add-evidence-upload/TKT-165-add-evidence-upload.md) | Make Add evidence upload the selected files | P0 · evidence · PLAN-004 |
 | [TKT-168](./now/TKT-168-unify-not-ready-language/TKT-168-unify-not-ready-language.md) | Make Not Ready status language agree with the queue | P1 · ui · PLAN-004 |
-| [TKT-169](./now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 · ui · PLAN-004 |
+| [TKT-194](./now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 · email · PLAN-004 |
 | [TKT-199](./now/TKT-199-repository-data-authority-docs/TKT-199-repository-data-authority-docs.md) | Make repository data authority explicit without weakening security | P1 · docs · PLAN-004 |
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 · integration · PLAN-004 |
 | [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 · platform · PLAN-004 |
 | [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 · platform · PLAN-004 |
 | [TKT-210](./now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 · platform · PLAN-006 |
 | [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 · integration · PLAN-004 |
+| [TKT-225](./now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps | P1 · intake · PLAN-004 |
+| [TKT-226](./now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md) | Box uploads mislabel the queue as "Images received"; retro_related subtype silently nulls | P1 · intake |
+| [TKT-227](./now/TKT-227-box-purge-connection-exhaustion/TKT-227-box-purge-connection-exhaustion.md) | Nightly box-purge fan-out exhausts Postgres connections; nothing purges | P1 · archive |
+| [TKT-228](./now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md) | Archive-holding recovery loop 500s on two Postgres type bugs | P1 · archive |
+| [TKT-229](./now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md) | The "Archived" (archive_mirror) label never fires and Box redeliveries duplicate audits | P2 · intake |
+| [TKT-230](./now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md) | Retro post-sweep batch — stale stamps, multi-mailbox trigger, rung-1 writable mirror, receiving_work surfacing | P2 · email |
+| [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 · email |
+| [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
+| [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
 
-## Verify (37)
+## Verify (42)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -62,6 +71,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-156](./verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | P1 · box · PLAN-004 |
 | [TKT-166](./verify/TKT-166-manual-intake-evidence-upload/TKT-166-manual-intake-evidence-upload.md) | Persist instruction and extra files from Manual Intake | P0 · intake · PLAN-004 |
 | [TKT-167](./verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | P1 · pipeline · PLAN-004 |
+| [TKT-169](./verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 · ui · PLAN-004 |
 | [TKT-170](./verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | P1 · email · PLAN-004 |
 | [TKT-207](./verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | Build the complete repository inventory and disposition ledger | P0 · docs · PLAN-006 |
 | [TKT-208](./verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | Catalog evidence and relocate workingspace without content changes | P0 · evidence · PLAN-006 |
@@ -71,8 +81,12 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-213](./verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | Reconcile tickets, indexes, plans and research links | P1 · docs · PLAN-006 |
 | [TKT-214](./verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 · platform · PLAN-006 |
 | [TKT-215](./verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 · integration · PLAN-006 |
+| [TKT-219](./verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md) | Run Box and Outlook retro locates in parallel and combine findings, widen triggers, and split dev/live Case-PO adoption | P1 · intake · PLAN-004 |
+| [TKT-220](./verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md) | Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes) | P2 · intake |
+| [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
+| [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (108)
+## Done (109)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -184,13 +198,14 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for cases whose photo sets genuinely lack a vehicle overview | P2 · pipeline · PLAN-003 |
 | [TKT-149](./done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Retire mandatory reciprocal Claude and Codex PR reviews | P0 · platform · PLAN-004 |
 | [TKT-164](./done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | P1 · platform · PLAN-004 |
+| [TKT-221](./done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates | P2 · docs · PLAN-004 |
 
 ## Next (0)
 
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (35)
+## Backlog (48)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -222,13 +237,26 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-191](./backlog/TKT-191-actionable-email-suggestions/TKT-191-actionable-email-suggestions.md) | Suggest email replies and urgency only when justified | P2 · email · PLAN-004 |
 | [TKT-192](./backlog/TKT-192-triage-precase-category/TKT-192-triage-precase-category.md) | Keep triage requests outside the case queue until instructions arrive | P1 · intake · PLAN-004 |
 | [TKT-193](./backlog/TKT-193-precase-evidence-holding-adoption/TKT-193-precase-evidence-holding-adoption.md) | Hold pre-case evidence and adopt it when instructions arrive | P1 · intake · PLAN-004 |
-| [TKT-194](./backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md) | Explain why an email needs sorting | P2 · email · PLAN-004 |
 | [TKT-195](./backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md) | Manage staff access with Microsoft work accounts | P1 · platform · PLAN-004 |
 | [TKT-196](./backlog/TKT-196-video-frame-evidence-extraction/TKT-196-video-frame-evidence-extraction.md) | Create evidence stills from case videos | P3 · evidence |
 | [TKT-197](./backlog/TKT-197-linked-email-identity-display/TKT-197-linked-email-identity-display.md) | Show a trustworthy registration and email reference on linked emails | P1 · intake · PLAN-004 |
 | [TKT-198](./backlog/TKT-198-wrong-vehicle-evidence-detection/TKT-198-wrong-vehicle-evidence-detection.md) | Flag photos that show a different vehicle | P1 · evidence · PLAN-004 |
 | [TKT-217](./backlog/TKT-217-bulk-case-registration-lock-budget/TKT-217-bulk-case-registration-lock-budget.md) | Batch bulk case_ mutations under the registration advisory-lock budget | P2 · platform · PLAN-004 |
 | [TKT-218](./backlog/TKT-218-mcp-box-root-single-source/TKT-218-mcp-box-root-single-source.md) | Consolidate the MCP image-ingest Box test-root to a single source of truth | P2 · integration · PLAN-004 |
+| [TKT-224](./backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md) | Re-classify historically mislabeled un-cased emails after classifier fixes | P1 · intake · PLAN-004 |
+| [TKT-234](./backlog/TKT-234-own-report-recognition/TKT-234-own-report-recognition.md) | Recognise our own delivered report on inbound email — route as correspondence, never mint | P1 · intake |
+| [TKT-235](./backlog/TKT-235-no-instruction-mint-hold/TKT-235-no-instruction-mint-hold.md) | Hold receiving_work mints that have no instruction anywhere (post-parse backstop) | P1 · intake |
+| [TKT-236](./backlog/TKT-236-pre-mint-archive-probe/TKT-236-pre-mint-archive-probe.md) | Probe the archive for an existing matter before minting from receiving_work | P2 · intake |
+| [TKT-237](./backlog/TKT-237-qdos26007-abstain-eval-fixture/TKT-237-qdos26007-abstain-eval-fixture.md) | Pin the QDOS26007 provider-query email as a classifier eval fixture (expected abstain) | P2 · email |
+| [TKT-238](./backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md) | Merge subset address rows into their full-address superset in the corpus build | P2 · platform |
+| [TKT-239](./backlog/TKT-239-image-first-registration-suffix/TKT-239-image-first-registration-suffix.md) | Suffix concurrent image-first cases on the same registration (-002/-003) | P2 · intake |
+| [TKT-240](./backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md) | Build the incident-date and principal candidate eliminators | P3 · intake |
+| [TKT-241](./backlog/TKT-241-odometer-vision-dvsa-crosscheck/TKT-241-odometer-vision-dvsa-crosscheck.md) | Odometer image reader and DVSA mileage cross-check flag | P3 · enrichment |
+| [TKT-242](./backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md) | Network-drive VRM scan channel for image receipt | P3 · intake |
+| [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 · platform |
+| [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
+| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform |
+| [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
 
 ## Blocked (8)
 

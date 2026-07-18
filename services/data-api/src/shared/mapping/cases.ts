@@ -17,22 +17,39 @@ export const CASE_SELECT = `SELECT ${CASE_SELECT_COLUMNS} ${CASE_SELECT_FROM}`;
 export const CASE_SELECT_WITH_ACTIVITY =
   `SELECT ${CASE_SELECT_COLUMNS}, ` +
   'la.last_activity_kind, la.last_activity_at, la.last_activity_actor, ' +
-  'la.last_activity_action_code, la.last_activity_suggested ' +
+  'la.last_activity_action_code, la.last_activity_suggested, ' +
+  'la.last_activity_summary, la.last_activity_evidence_class, la.last_activity_origin ' +
   `${CASE_SELECT_FROM} ` +
   'LEFT JOIN LATERAL (' +
   'SELECT ev.kind AS last_activity_kind, ev.occurred_at AS last_activity_at, ' +
   'ev.actor AS last_activity_actor, ev.action_code AS last_activity_action_code, ' +
-  'ev.suggested AS last_activity_suggested FROM (' +
+  'ev.suggested AS last_activity_suggested, ev.summary AS last_activity_summary, ' +
+  'ev.evidence_class AS last_activity_evidence_class, ev.origin AS last_activity_origin FROM (' +
   "SELECT 'audit'::text AS kind, ae.occurred_at, ae.actor, ae.action_code, " +
   // audit_event.after is a text memo, not jsonb. Guard the cast inside
   // CASE so one arbitrary/non-JSON historical value cannot sink every queue read.
   "COALESCE(CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
-  "THEN ae.after::jsonb @> '{\"suggested\": true}'::jsonb ELSE false END, false) AS suggested " +
+  "THEN ae.after::jsonb @> '{\"suggested\": true}'::jsonb ELSE false END, false) AS suggested, " +
+  // TKT-226 — the audit summary plus the honest-label fields carried in the
+  // OBJECT `after` payload. Legacy rows hold a JSON string SCALAR (valid jsonb,
+  // jsonb_typeof = 'string'), so the object guard yields NULL there — the label
+  // seam then falls back to parsing the filename out of the summary. The
+  // jsonb_typeof probe is NESTED inside the validity CASE (mirroring `suggested`
+  // above): PostgreSQL does not guarantee AND operand order, so a flat
+  // `pg_input_is_valid(…) AND jsonb_typeof(ae.after::jsonb) = …` may evaluate the
+  // cast first and error on a non-JSON memo, sinking every queue read.
+  'ae.name AS summary, ' +
+  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+  "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+  "THEN ae.after::jsonb->>'evidenceClass' END END AS evidence_class, " +
+  "CASE WHEN pg_input_is_valid(ae.after, 'jsonb') " +
+  "THEN CASE WHEN jsonb_typeof(ae.after::jsonb) = 'object' " +
+  "THEN ae.after::jsonb->>'origin' END END AS origin " +
   'FROM audit_event ae WHERE ae.case_id = c.id ' +
   'UNION ALL ' +
-  "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer, false FROM note n WHERE n.case_id = c.id " +
+  "SELECT 'note', COALESCE(n.occurred_at, n.created_at), n.author, NULL::integer, false, NULL::text, NULL::text, NULL::text FROM note n WHERE n.case_id = c.id " +
   'UNION ALL ' +
-  "SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer, ch.suggested FROM chaser ch WHERE ch.case_id = c.id" +
+  "SELECT 'chaser', COALESCE(ch.sent_at, ch.drafted_at, ch.created_at), NULL, NULL::integer, ch.suggested, NULL::text, NULL::text, NULL::text FROM chaser ch WHERE ch.case_id = c.id" +
   ') ev WHERE ev.occurred_at IS NOT NULL ORDER BY ev.occurred_at DESC LIMIT 1' +
   ') la ON true';
 
@@ -292,6 +309,12 @@ export function rowToCase(rec: Row, opts: CaseAssembly = {}): Case {
               actionCode: rec.last_activity_action_code ?? null,
               actor: rec.last_activity_actor ?? null,
               suggested: rec.last_activity_suggested === true,
+              // TKT-226 — honest Box-upload labels: the audit summary + the
+              // `after` payload fields (evidenceClass/origin) let the label seam
+              // say what actually arrived instead of assuming images.
+              summary: rec.last_activity_summary ?? null,
+              evidenceClass: rec.last_activity_evidence_class ?? null,
+              origin: rec.last_activity_origin ?? null,
             }),
             date: lastActivityDate,
           },

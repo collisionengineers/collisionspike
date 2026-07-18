@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "ticket": "TKT-194",
+  "globalManifest": "../../../../tests/fixtures/manifests/evidence.json",
+  "usages": [
+    {
+      "role": "ticket-image",
+      "originalPath": "../../backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/1.png",
+      "originalFilename": "1.png",
+      "sha256": "410730a4b595482d3c6bf242729ff2755626bec5f79ca1f51f0b14714b2cbfef",
+      "storagePath": "tests/fixtures/evidence/sha256/41/410730a4b595482d3c6bf242729ff2755626bec5f79ca1f51f0b14714b2cbfef.png"
+    }
+  ]
+}

@@ -21,7 +21,7 @@ app.http('internalInboundEmail', {
         providerId?: string;
         classification: InboundClassificationDto;
       };
-      const inboundEmailId = await upsertInboundEmail(
+      const { inboundEmailId } = await upsertInboundEmail(
         body.inbound,
         body.providerId ?? null,
         null,

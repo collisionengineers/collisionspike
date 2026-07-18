@@ -1,6 +1,6 @@
 # ADR-0025 — AI surfaces share one environment-free capability registry
 
-**Status:** Proposed (2026-07-07); implementation exists in `packages/domain`.
+**Status:** Accepted 2026-07-16 per [Review 160726](../reviews/160726/decisions.md).
 
 ## Decision
 
@@ -8,10 +8,13 @@ Define each AI-visible capability once in the domain package with name, kind, ti
 flags, minimum role, gate label, input schema, derived JSON Schema, and optional route. The registry
 describes what a capability is; adapters own execution and environment checks.
 
-Runtime validation schemas are the source for model-facing parameter schemas. Invariants require that:
+Runtime validation schemas are the source for model-facing parameter schemas. The invariants govern the
+**delegated staff surface** (the in-app assistant and staff-authorized MCP clients); app-only lanes are
+governed by [ADR-0023](./0023-mcp-server-hosting-and-auth.md)'s tiered model. They require that:
 
-- destructive capabilities are human-only;
-- agent-visible capabilities are read-only, non-destructive, and not human-only;
+- destructive capabilities are human-only by default, and are promoted only by explicit registry change once proven safe;
+- capabilities visible to delegated agents are non-destructive and carry their gate and safeguards in
+  the registry;
 - write capabilities point to an existing route;
 - case status is not directly set by an AI capability;
 - all consumers use the same VRM canonicalizer.

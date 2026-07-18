@@ -3,6 +3,13 @@
   "allowedIds": [
     "392761581105"
   ],
+  "readOnlyRoots": [
+    "4077648161",
+    "3220442369",
+    "362883474420",
+    "3220448509",
+    "3221031282"
+  ],
   "mode": "test_only",
-  "_comment": "Fail-closed Box scope guard. Every Box CLI, REST, SDK, or tools/box operation must stay within test folder 392761581105 and tracked descendants. Folder 0 is always denied. Configuration keys, mode, and root are fixed. Production work requires TKT-178's separately reviewed signed-run exact-object executor."
+  "_comment": "Fail-closed Box scope guard. Every Box CLI, REST, SDK, or tools/box operation must stay within test folder 392761581105 and tracked descendants (read+write). readOnlyRoots (operator decision 2026-07-16: the production archive root 4077648161) additionally allow READ-ONLY operations only — CLI action chains ending in get/list/items/download, REST GETs with no body; every write verb stays denied. Folder 0 is always denied. Configuration keys, mode, and root are fixed. Production writes require TKT-178's separately reviewed signed-run exact-object executor."
 }

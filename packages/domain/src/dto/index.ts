@@ -562,7 +562,11 @@ export const INBOUND_CATEGORIES: readonly InboundCategory[] = [
  *  TKT-105/120 + TKT-084): `payment_remittance` is an INBOUND payment notification
  *  (a remittance advice / transfer notice — the mirror-image of `billing_request`,
  *  filed under `billing`); `pre_instruction_directions` is `pre_instruction`'s only
- *  subtype (directions held for the later official instruction). */
+ *  subtype (directions held for the later official instruction).
+ *
+ *  `retro_related` (append-only, TKT-226): correspondence retroactively linked to a
+ *  reconstructed case by the retro link-related lane (TKT-222). System-stamped only —
+ *  the classifier never emits it (`classifierEmits: false`, the diminution precedent). */
 export type InboundSubtype =
   | 'existing_provider_instruction'
   | 'existing_provider_audit'
@@ -579,7 +583,8 @@ export type InboundSubtype =
   | 'update_general'
   | 'payment_remittance'
   | 'pre_instruction_directions'
-  | 'website_general_enquiry';
+  | 'website_general_enquiry'
+  | 'retro_related';
 
 /** Every {@link InboundSubtype} name, in declaration/code-table order — see
  *  {@link INBOUND_CATEGORIES}. */
@@ -600,6 +605,7 @@ export const INBOUND_SUBTYPES: readonly InboundSubtype[] = [
   'payment_remittance',
   'pre_instruction_directions',
   'website_general_enquiry',
+  'retro_related',
 ];
 
 /** The row's lifecycle in the triage queue. */
@@ -710,6 +716,9 @@ export interface InboundFacet {
   subtype?: InboundSubtype;
   /** Active-first list scope (default 'active'). work-todo-spike: email-management. */
   view?: InboundView;
+  /** Case-scoped slice (`?caseId=`): server-side `case_id` filter that INCLUDES retro
+   *  reconstruction anchor rows — the un-scoped triage list excludes them (TKT-233). */
+  caseId?: string;
 }
 
 /** Body for `PATCH /api/inbound/{id}/classification` — the staff reclassify/override

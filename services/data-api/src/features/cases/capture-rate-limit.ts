@@ -10,9 +10,9 @@
  * Two layers, both fail-closed at the route when the budget is spent (429 capture_retryable):
  *  - caller layer: every public route consumes `ip:{callerKey}` before any other work, so
  *    secret-guessing and blind spam are throttled per caller even with rotating sessions;
- *  - session layer: token-authenticated routes additionally consume `session:{scope}:{id}`
- *    AFTER bearer verification, so an attacker cannot burn a victim session's budget by
- *    spraying its public session id without a valid token.
+ *  - session layer: token-authenticated routes additionally consume `{scope}:{id}` (e.g.
+ *    `manifest:{id}`) AFTER bearer verification, so an attacker cannot burn a victim session's
+ *    budget by spraying its public session id without a valid token.
  *
  * Caller identity must be spoof-resistant. Behind the capture PWA's Static Web App the
  * Function is reached through a proxy, so `X-Azure-SocketIP` (the real TCP peer) is the
@@ -129,20 +129,40 @@ export function captureCallerKey(req: HttpRequest): string {
 }
 
 /**
- * TEMPORARY rollout diagnostic (gated OFF by default). With `CAPTURE_CALLER_KEY_DEBUG=true` it
- * emits the header inputs the caller-key derivation saw, so we can confirm what the SWA linked
- * backend actually forwards — the `X-Azure-FDID` value to put in `CAPTURE_SWA_FDID`, and that
- * `X-Azure-ClientIP` is the real claimant — before trusting it. Drop once the FDID is verified.
+ * TEMPORARY rollout diagnostic (gated OFF by default), PII-safe by construction. With
+ * `CAPTURE_CALLER_KEY_DEBUG=true` it emits ONLY non-personal signals about the caller-key
+ * derivation — never a raw client/socket IP, the resolved key, or the forwarded-for chain, which
+ * are personal data and request-controlled (TKT-200 requires PII-safe telemetry / no secret
+ * logging). It still answers the go-live question the trace exists for: what `X-Azure-FDID` the SWA
+ * linked backend forwards (the value to put in `CAPTURE_SWA_FDID`), whether it already matches the
+ * configured id, whether Front Door resolved a client IP distinct from the proxy socket peer, and
+ * which source the key was taken from. Drop once the FDID is verified.
  */
 function logCallerKeyDerivation(req: HttpRequest, resolved: string): void {
   if (process.env.CAPTURE_CALLER_KEY_DEBUG !== 'true') return;
-  const h = (name: string): string => (req.headers.get(name) ?? '').slice(0, 200);
+  const trustedFdid = configuredCaptureTrustedFdid();
+  const fdid = (req.headers.get('x-azure-fdid') ?? '').trim().toLowerCase().slice(0, 64);
+  const clientIp = forwardedClientIp(req);
+  const socketIp = scrubAddress(req.headers.get('x-azure-socketip') ?? undefined);
+  const xffHops = (req.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => scrubAddress(hop))
+    .filter((hop): hop is string => hop !== undefined).length;
+  const resolvedFrom = resolved === 'unknown'
+    ? 'unknown'
+    : trustedFdid && fdid === trustedFdid && clientIp !== undefined && resolved === clientIp
+      ? 'forwarded-client'
+      : socketIp !== undefined && resolved === socketIp
+        ? 'socket-peer'
+        : 'trusted-xff-hop';
   console.warn(`[capture-caller-key] ${JSON.stringify({
-    fdid: h('x-azure-fdid'),
-    clientIp: h('x-azure-clientip'),
-    socketIp: h('x-azure-socketip'),
-    xff: h('x-forwarded-for'),
-    resolved,
+    fdid,
+    fdidMatchesConfigured: trustedFdid !== undefined && fdid === trustedFdid,
+    hasClientIp: clientIp !== undefined,
+    hasSocketIp: socketIp !== undefined,
+    clientDiffersFromSocket: clientIp !== undefined && clientIp !== socketIp,
+    xffHops,
+    resolvedFrom,
   })}`);
 }
 

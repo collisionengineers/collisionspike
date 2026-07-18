@@ -1,0 +1,51 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "timestamp",
+          "type": "datetime"
+        },
+        {
+          "name": "d",
+          "type": "string"
+        }
+      ],
+      "name": "PrimaryResult",
+      "rows": [
+        [
+          "2026-07-15T19:06:04.32Z",
+          "{\"messageId\":\"AAMkADg0NjIyOGEwLTAyNDEtNDZkMC05N2I3LWY5M2RiMGJiNzUxMgBGAAAAAADTdWuKVEL4S6d58Wv9d5MGBwCWTxZhTpNoTLMCLOZNXAVbAAAAAAEMAACWTxZhTpNoTLMCLOZNXAVbAANyTIxZAAA=\",\"actingAction\":\"proceed_default\",\"shadowAction\":\"proceed_default\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"desk@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"default\\\",\\\"gates\\\":{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true},\\\"openCaseMatchCount\\\":0,\\\"duplicateInternetMessageId\\\":false}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T08:50:50.973Z",
+          "{\"messageId\":\"AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEMAADui8m4J_0AR7UG5LtWTQ4wAANvWhMZAAA=\",\"actingAction\":\"route_images_unmatched\",\"shadowAction\":\"route_images_unmatched\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"engineers@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"images_routing\\\",\\\"bodyVrm\\\":\\\"FR12PYS\\\",\\\"openCaseMatchCount\\\":0}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T10:03:52.667Z",
+          "{\"messageId\":\"AAMkADg0NjIyOGEwLTAyNDEtNDZkMC05N2I3LWY5M2RiMGJiNzUxMgBGAAAAAADTdWuKVEL4S6d58Wv9d5MGBwCWTxZhTpNoTLMCLOZNXAVbAAAAAAEMAACWTxZhTpNoTLMCLOZNXAVbAANyTIxoAAA=\",\"actingAction\":\"route_images_unmatched\",\"shadowAction\":\"route_images_unmatched\",\"actingFinalCategory\":\"receiving_work\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"receiving_work\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"desk@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"images_routing\\\",\\\"bodyVrm\\\":\\\"GY62JNK\\\",\\\"openCaseMatchCount\\\":0}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T11:02:30.487Z",
+          "{\"messageId\":\"AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEMAADui8m4J_0AR7UG5LtWTQ4wAANvWhMiAAA=\",\"actingAction\":\"suggest_attach\",\"shadowAction\":\"suggest_attach\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"engineers@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"ref_gate\\\",\\\"matchTier\\\":\\\"vrm\\\",\\\"matchCount\\\":1,\\\"openCaseMatches\\\":[{\\\"caseId\\\":\\\"5cae3514-fe5a-4634-a47b-ecc36fafc4a7\\\",\\\"casePo\\\":\\\"FW26011\\\",\\\"matchedOn\\\":\\\"vrm\\\",\\\"status\\\":\\\"needs_review\\\"}],\\\"conversationSiblingCaseIds\\\":[\\\"5cae3514-fe5a-4634-a47b-ecc36fafc4a7\\\"],\\\"caseUpdateApplied\\\":true,\\\"autoAttachApplied\\\":false,\\\"hasAttachments\\\":true,\\\"imagesOnly\\\":true}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T13:07:04.154Z",
+          "{\"messageId\":\"AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEMAADui8m4J_0AR7UG5LtWTQ4wAANvWhMoAAA=\",\"actingAction\":\"proceed_default\",\"shadowAction\":\"proceed_default\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"engineers@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"default\\\",\\\"gates\\\":{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true},\\\"openCaseMatchCount\\\":0,\\\"duplicateInternetMessageId\\\":false}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T14:46:54.497Z",
+          "{\"messageId\":\"AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEMAADui8m4J_0AR7UG5LtWTQ4wAANvWhM2AAA=\",\"actingAction\":\"proceed_default\",\"shadowAction\":\"proceed_default\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"engineers@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"default\\\",\\\"gates\\\":{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true},\\\"openCaseMatchCount\\\":0,\\\"duplicateInternetMessageId\\\":false}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T15:31:37.611Z",
+          "{\"messageId\":\"AAMkADg0NjIyOGEwLTAyNDEtNDZkMC05N2I3LWY5M2RiMGJiNzUxMgBGAAAAAADTdWuKVEL4S6d58Wv9d5MGBwCWTxZhTpNoTLMCLOZNXAVbAAAAAAEMAACWTxZhTpNoTLMCLOZNXAVbAANyTIx-AAA=\",\"actingAction\":\"route_images_unmatched\",\"shadowAction\":\"route_images_unmatched\",\"actingFinalCategory\":\"receiving_work\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"receiving_work\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"desk@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"images_routing\\\",\\\"bodyVrm\\\":\\\"KE11YJN\\\",\\\"openCaseMatchCount\\\":0}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T15:54:34.772Z",
+          "{\"messageId\":\"AAMkADg0NjIyOGEwLTAyNDEtNDZkMC05N2I3LWY5M2RiMGJiNzUxMgBGAAAAAADTdWuKVEL4S6d58Wv9d5MGBwCWTxZhTpNoTLMCLOZNXAVbAAAAAAEMAACWTxZhTpNoTLMCLOZNXAVbAANyTIyAAAA=\",\"actingAction\":\"suggest_attach\",\"shadowAction\":\"suggest_attach\",\"actingFinalCategory\":\"case_update\",\"actingFinalSubtype\":\"images_received\",\"shadowFinalCategory\":\"case_update\",\"shadowFinalSubtype\":\"images_received\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"desk@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"ref_gate\\\",\\\"matchTier\\\":\\\"vrm\\\",\\\"matchCount\\\":1,\\\"openCaseMatches\\\":[{\\\"caseId\\\":\\\"8288bb2d-0ebd-4b34-89f5-11815bb5f9e7\\\",\\\"casePo\\\":\\\"\\\",\\\"matchedOn\\\":\\\"vrm\\\",\\\"status\\\":\\\"needs_review\\\"}],\\\"conversationSiblingCaseIds\\\":[],\\\"caseUpdateApplied\\\":true,\\\"autoAttachApplied\\\":false,\\\"hasAttachments\\\":true,\\\"imagesOnly\\\":true}\",\"taxonomyVersion\":\"4\"}"
+        ]
+      ]
+    }
+  ]
+}

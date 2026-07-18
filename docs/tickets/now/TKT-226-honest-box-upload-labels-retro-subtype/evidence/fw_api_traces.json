@@ -1,0 +1,59 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "timestamp",
+          "type": "datetime"
+        },
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "name": "PrimaryResult",
+      "rows": [
+        [
+          "2026-07-16T22:53:49.7412956Z",
+          "Executing 'Functions.internalRetroResolveExisting' (Reason='This function was programmatically called via the host APIs.', Id=28c8c551-6f67-45c5-9837-6f2e49e9a362)"
+        ],
+        [
+          "2026-07-16T22:53:49.7596451Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"none\"}"
+        ],
+        [
+          "2026-07-16T22:53:49.7599637Z",
+          "Executed 'Functions.internalRetroResolveExisting' (Succeeded, Id=28c8c551-6f67-45c5-9837-6f2e49e9a362, Duration=18ms)"
+        ],
+        [
+          "2026-07-16T22:54:02.9319398Z",
+          "{\"evt\":\"retroCreate\",\"outcome\":\"created\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"casePo\":\"FW26029\",\"reconstructionSource\":\"outlook\"}"
+        ],
+        [
+          "2026-07-16T22:54:15.792341Z",
+          "Executing 'Functions.internalRetroResolveExisting' (Reason='This function was programmatically called via the host APIs.', Id=ccbd02f8-ad4d-4be7-8f6e-21deab4b9bac)"
+        ],
+        [
+          "2026-07-16T22:54:15.8179744Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"linked\",\"caseId\":\"62778371-3e8b-4a8a-9138-f131ec652a3a\",\"matchedBy\":\"external_ref\"}"
+        ],
+        [
+          "2026-07-16T22:54:15.8182677Z",
+          "Executed 'Functions.internalRetroResolveExisting' (Succeeded, Id=ccbd02f8-ad4d-4be7-8f6e-21deab4b9bac, Duration=26ms)"
+        ],
+        [
+          "2026-07-16T23:09:42.8549439Z",
+          "Executing 'Functions.internalRetroResolveExisting' (Reason='This function was programmatically called via the host APIs.', Id=e9b946a2-4570-4325-9629-31b40f1acb97)"
+        ],
+        [
+          "2026-07-16T23:09:42.8825824Z",
+          "{\"evt\":\"retroResolveExisting\",\"outcome\":\"linked\",\"caseId\":\"9ae1c7c1-8b2d-4bfe-8fc7-9d98a0200ca3\",\"matchedBy\":\"vrm\"}"
+        ],
+        [
+          "2026-07-16T23:09:42.8828951Z",
+          "Executed 'Functions.internalRetroResolveExisting' (Succeeded, Id=e9b946a2-4570-4325-9629-31b40f1acb97, Duration=28ms)"
+        ]
+      ]
+    }
+  ]
+}

@@ -20,6 +20,10 @@ export interface CompleteProviderRecoveryInput {
   /** Retro reconstruction can retain an unresolved historical reference without
    * authorising a new Case/PO. Normal e-mail intake passes true. */
   allowCasePoMint?: boolean;
+  /** Set ONLY by the retro create seam when RETRO_ADOPT_ARCHIVE_PO_ENABLED is off
+   * (dev/test): the discovered archive PO is noted in the audit/note by design and the
+   * normal allocator may mint despite the stamped archive folder. */
+  archiveIdentityAcknowledged?: boolean;
 }
 
 export interface ProviderRecoveryResult {
@@ -121,8 +125,10 @@ export async function completeProviderRecoveryUsing(
   }
 
   // A historical Archive link without a verified Case/PO is identity evidence, not
-  // authority to mint a new number. Keep the case Held for explicit reconciliation.
-  if (!existingCasePo && existingFolderId) {
+  // authority to mint a new number. Keep the case Held for explicit reconciliation —
+  // unless the caller has acknowledged the archive identity (the dev/test retro seam,
+  // where the discovered PO is deliberately note-only and the allocator may mint).
+  if (!existingCasePo && existingFolderId && input.archiveIdentityAcknowledged !== true) {
     return {
       outcome: 'blocked',
       holdCleared: false,

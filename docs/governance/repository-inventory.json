@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1002,
-    "files": 3299,
-    "entries": 4301
+    "directories": 1054,
+    "files": 3519,
+    "entries": 4573
   },
-  "totalFileBytes": 701649436,
+  "totalFileBytes": 703060890,
   "entries": [
     {
       "path": ".",
@@ -1172,6 +1172,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/reviews/160726",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/reviews/190626",
       "mediaType": "inode/directory",
       "size": 0,
@@ -1901,33 +1910,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-195-entra-staff-access-management",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2028,6 +2010,168 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-218-mcp-box-root-single-source/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4007,6 +4151,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -4376,7 +4529,7 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4385,7 +4538,7 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4394,7 +4547,7 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/operator-source",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4503,6 +4656,159 @@
     },
     {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5051,6 +5357,33 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/verify/TKT-170-website-enquiry-classification",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5196,6 +5529,51 @@
     },
     {
       "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -6056,6 +6434,15 @@
       "sha256": null,
       "category": "directory",
       "owner": "engineering-automation",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
       "lifecycle": "structural"
     },
     {
@@ -9038,6 +9425,87 @@
       "lifecycle": "working"
     },
     {
+      "path": "workingspace/architecture-simplification",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
       "path": ".agents/agents/roles.json",
       "mediaType": "application/json",
       "size": 6790,
@@ -10327,8 +10795,8 @@
     {
       "path": ".claude/hooks/box-scope-guard.mjs",
       "mediaType": "text/javascript",
-      "size": 4585,
-      "sha256": "bbd2624e7709d2c4b73063951193ce233e1f503c7b21793d379d90d2ae4bd112",
+      "size": 5232,
+      "sha256": "e1ec4a72c5a39dbc7fc849a33d8010a0c2cacdd22e671526ed09f80fa8968ba3",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -10336,8 +10804,17 @@
     {
       "path": ".claude/hooks/box-scope-lib.mjs",
       "mediaType": "text/javascript",
-      "size": 4802,
-      "sha256": "1fede38c637d7eb4988e8f56b710783dcb5c57810ca45553ceebf9954b69d464",
+      "size": 7292,
+      "sha256": "7e05fed3d11b52daa9fbe4016bf0fc9606d231150cf5dfb28cb2238c2f59fcef",
+      "category": "source",
+      "owner": "agent-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": ".claude/hooks/box-scope-lib.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 4139,
+      "sha256": "d63f904fb1d4ae3c7e4b1d8d79df002722e0f3ba2a1bc0defa7e91ef5b2fa9ca",
       "category": "source",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -11101,8 +11578,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 6380,
-      "sha256": "04ff0b3434a3927f616c7427bf8cd9d3b7b6e33a9468dd4499637fc194a604c4",
+      "size": 10050,
+      "sha256": "f399c8c5e3e905cb1e3aa6904fb600db7a859f2d91fd2e4aac1971efc0b5dad3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -11164,8 +11641,8 @@
     {
       "path": "CONTEXT.md",
       "mediaType": "text/markdown",
-      "size": 3956,
-      "sha256": "9bc59125af585ecbcc97b8ff59053625e9bf1503b12c2e96c1c2f56fdf08ef35",
+      "size": 5047,
+      "sha256": "309f29df8879adab10ac3d722038a48bdc9bfae047c1e96d5530ab70a8ac2ab2",
       "category": "documentation",
       "owner": "repository",
       "lifecycle": "active"
@@ -11173,8 +11650,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 4688,
-      "sha256": "9ad8670fcf62fa8a857929ab80df82936831c15a3152d884016065aa06e44b6a",
+      "size": 8052,
+      "sha256": "8c7e5705ab2f106ff989c46a64497da507b0000f5970ce21e9a063b19da40e5c",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -11281,8 +11758,8 @@
     {
       "path": "apps/web/src/__fixtures__/fixture-source.ts",
       "mediaType": "text/typescript",
-      "size": 24101,
-      "sha256": "11bd6ca07c9d53b83cf08416027a02a20932afac2ad9d34cab2f3ac27df38012",
+      "size": 24172,
+      "sha256": "b8a68aaa2b352825845440f474a775217d9448c5a59de50f0eb175fd190a1d16",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11416,8 +11893,8 @@
     {
       "path": "apps/web/src/data/hooks.ts",
       "mediaType": "text/typescript",
-      "size": 24184,
-      "sha256": "c75d94565792da6642d0a56b335eaa0b6cebba77960dfcb7d7c323b2ec4bb338",
+      "size": 24240,
+      "sha256": "03dc3aa9594f879a08f6d67601b994b177a4c43c179213730e6bde54438f1a9c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11515,8 +11992,8 @@
     {
       "path": "apps/web/src/data/rest-client.test.ts",
       "mediaType": "text/typescript",
-      "size": 34997,
-      "sha256": "87aa901ded78c99cb40da38d5f997d5cf3b8d0f5f258029b61a99f6136dfb46d",
+      "size": 35444,
+      "sha256": "841abb197a65710cc1d2e94f1784fbc634e935e39d7022b2e2ee9896912a0746",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -11524,8 +12001,8 @@
     {
       "path": "apps/web/src/data/rest-client.ts",
       "mediaType": "text/typescript",
-      "size": 31653,
-      "sha256": "9d5dcc8b17abe2d737845c8a9cd287089b13bff40643c708850b16fdf8764658",
+      "size": 31880,
+      "sha256": "c52cc9b33a6b02f8889ec6b664e66bf63cd333a1edc7ae2552b8d50bddb8e162",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12037,8 +12514,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-columns.tsx",
       "mediaType": "text/tsx",
-      "size": 20945,
-      "sha256": "10317a9da2f8eb6fa5dc4b9d4b8f9ebe6b3de7b1cd65ebac089db52b2a9b2bf7",
+      "size": 19190,
+      "sha256": "7e0b6e31a00a33e586c65ff22edecb271e0660f839c73d63d7c03a9d5964c077",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12064,8 +12541,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-email-type.test.ts",
       "mediaType": "text/typescript",
-      "size": 4166,
-      "sha256": "86bbc5542c0a24fc971f65109a7389130cf72226a0a424d86012758ebba612a6",
+      "size": 4501,
+      "sha256": "e7b0b7855133ebd46ca8e8f8ff70336e4fa6fa183f91aa4b5f5550ea17251431",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12073,8 +12550,8 @@
     {
       "path": "apps/web/src/features/inbox/inbox-email-type.ts",
       "mediaType": "text/typescript",
-      "size": 5343,
-      "sha256": "c4511658c35ebfda1ee181df5fb84fcaae2f9b4dd3900af106d56f9d953697d7",
+      "size": 5490,
+      "sha256": "68c7f0c49e51dda54f441bb4ead44915e3509a2a6c34d50f926982adf31a6f78",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12102,15 +12579,6 @@
       "mediaType": "text/tsx",
       "size": 24829,
       "sha256": "3f6c25930774f6f01899640deab8376c8e1cd100871bc6846ef0e572a64d6b6c",
-      "category": "source",
-      "owner": "web-app",
-      "lifecycle": "active"
-    },
-    {
-      "path": "apps/web/src/features/inbox/inbox-preview-contract.test.ts",
-      "mediaType": "text/typescript",
-      "size": 1364,
-      "sha256": "c5e1d5d400635b83c239ddde7b0c54cfbf5e213473cfed1c6b1f4252cac22c63",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12190,8 +12658,26 @@
     {
       "path": "apps/web/src/features/inbox/inbox.view.tsx",
       "mediaType": "text/tsx",
-      "size": 14944,
-      "sha256": "11411453336c820dbb75ab9b46eb27648293d56f555d18d364c2872080a8e05a",
+      "size": 15384,
+      "sha256": "3906efe8919eb4a61c3bda9968741c2abd55ad3e2d7a990be0524c7e85720758",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 8881,
+      "sha256": "24bf82fc986d5e4acb4c0d26d5988e674d1cc697e3e8a0beb1bda6646048d25b",
+      "category": "source",
+      "owner": "web-app",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/web/src/features/inbox/subject-preview.tsx",
+      "mediaType": "text/tsx",
+      "size": 10250,
+      "sha256": "19ba9ad1dddcd96028eece5b41f80472e4a2244494734c9f5c4ae30d012e637c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12685,8 +13171,8 @@
     {
       "path": "apps/web/src/shared/ui/LinkedEmailsPanel.tsx",
       "mediaType": "text/tsx",
-      "size": 7129,
-      "sha256": "7d7ce79e9ff6ed2179460281fe1617043a77a316f34a30ad688223d92bb18697",
+      "size": 7302,
+      "sha256": "4b1d17c79a2663c97ddc4e0c7c63b3abd508144d8a3c5068f99e53d5bacc5206",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12937,8 +13423,8 @@
     {
       "path": "apps/web/src/test/setup-dom.ts",
       "mediaType": "text/typescript",
-      "size": 449,
-      "sha256": "c2eb4fc0ea46f3fb10ffbbcd11c64f6c169536ba2b6c5e3ee58c1cf7b9d65e52",
+      "size": 489,
+      "sha256": "79c2cc439dde399c5b4e736d94a3c198269d3f7521e7a9ac01e5e88f293af493",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -13036,8 +13522,8 @@
     {
       "path": "contracts/capture.v1.yaml",
       "mediaType": "application/yaml",
-      "size": 28180,
-      "sha256": "1b0537a72055a0673da38a402e47072b22ac0c8cac3c86e9c5b095d845a1ae17",
+      "size": 28955,
+      "sha256": "f01e94fb84094a12dba5001ad4d4c60d1f77799d60b950a8aed99ee0019c03bc",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -13063,8 +13549,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "mediaType": "application/json",
-      "size": 155852,
-      "sha256": "8e5d4883d0b2cc32f27beeed735433ac6a8dedb3c8603b75c4e8764d2d09fc29",
+      "size": 156765,
+      "sha256": "fa2d2b974fa3ce13987adb61cea0f76eeccb4777160f6dfdc545b1de114dfbfa",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -13090,8 +13576,8 @@
     {
       "path": "database/baseline/000_enums_lookups.sql",
       "mediaType": "application/sql",
-      "size": 29254,
-      "sha256": "107b1e073402ca556189df90a361a74120374ee1bace18c6d6f60bd09f3718b1",
+      "size": 29662,
+      "sha256": "de8fdedc47ef666a25e79f671d24b58b3a19673a2a0edec9f61ce31c4b156299",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -13880,6 +14366,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "database/migrations/2026-07-17-tkt226-retro-related-subtype.sql",
+      "mediaType": "application/sql",
+      "size": 929,
+      "sha256": "0ac65c5953f17bcccbd4aa76260eabe47dd69ec17644478ffab9b4d20ae37531",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
       "path": "database/migrations/README.md",
       "mediaType": "text/markdown",
       "size": 925,
@@ -13893,6 +14388,24 @@
       "mediaType": "text/x-shellscript",
       "size": 16654,
       "sha256": "a74d66757589de96e071621c7c81d57e1d8a13d0a33de45b78db2ac42d3cdba2",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/operations/tkt230-clear-stale-unable-to-locate.sql",
+      "mediaType": "application/sql",
+      "size": 3912,
+      "sha256": "14bcbdab29be04bc2c9403338481b099710e0e1844b738fceb42db9371e7cfac",
+      "category": "source",
+      "owner": "data-platform",
+      "lifecycle": "active"
+    },
+    {
+      "path": "database/operations/tkt233-clear-own-domain-claimant-emails.sql",
+      "mediaType": "application/sql",
+      "size": 1857,
+      "sha256": "01563f286b27848a7cca1ba48dffdeb9510eb0eb5785f65f81f92562f474843d",
       "category": "source",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -14008,8 +14521,8 @@
     {
       "path": "database/tests/code-table-parity.mjs",
       "mediaType": "text/javascript",
-      "size": 8358,
-      "sha256": "8c8c6536e9fbfc799a156608394778454a1ac9425bd8c3aaf0f8c3e684d5b837",
+      "size": 8456,
+      "sha256": "50db0412af29f4cf65385f391c9f742046abb512315678ee7baa9d24af29f4cb",
       "category": "test",
       "owner": "data-platform",
       "lifecycle": "active"
@@ -14044,8 +14557,8 @@
     {
       "path": "docs/adr/0002-vrm-open-case-correlation.md",
       "mediaType": "text/markdown",
-      "size": 838,
-      "sha256": "21aab6b21a49ff817d5485895b901e52d1eff41d8bd9aac2696ab2b294ec0048",
+      "size": 2021,
+      "sha256": "5f54144f68c373206c54d4929ecc6c9b9ac7d39d048f8ec9f1d7e6e95bd4a1d1",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14053,8 +14566,8 @@
     {
       "path": "docs/adr/0003-channel-aware-chasers-whatsapp-constraint.md",
       "mediaType": "text/markdown",
-      "size": 823,
-      "sha256": "601de287d4305058b10d7cdcb9538658402df4ffaf44b7db38bab3f0eb38ad8c",
+      "size": 925,
+      "sha256": "657e0ff93e2abf876b865fd31d8454a5faa22caf58afac7438c4e4d5f684bc90",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14062,8 +14575,8 @@
     {
       "path": "docs/adr/0004-parser-as-azure-function-inline.md",
       "mediaType": "text/markdown",
-      "size": 921,
-      "sha256": "d019ea3c05d4893a9a3404bb076744114106b0aced1c17eeb00846897a6bb24a",
+      "size": 1125,
+      "sha256": "5cb74f6e4d8824a9961407ed61bae53a60860561fa328754706e70a2a22fba53",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14080,17 +14593,17 @@
     {
       "path": "docs/adr/0006-vehicle-enrichment-service-boundary.md",
       "mediaType": "text/markdown",
-      "size": 1029,
-      "sha256": "62f6a970b44b15f8191dd3e303b0bc3b226966d242442dd67a89beeddd105844",
+      "size": 1730,
+      "sha256": "f8fd6391cd45b228d8eae40d939065714531929d5826a05b4b61b91b4feeb683",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
     },
     {
-      "path": "docs/adr/0007-whatsapp-intake-manual-bulk-ocr-match.md",
+      "path": "docs/adr/0007-receipt-of-images.md",
       "mediaType": "text/markdown",
-      "size": 812,
-      "sha256": "13f016edfa9185822ace2729274cf702934964bddb9ad67c6bf1b0d83df7838d",
+      "size": 2574,
+      "sha256": "c78dea81a656ea526d38ed716b24e2c02bfeca1919667dd87bfa3fea515b7997",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14098,8 +14611,8 @@
     {
       "path": "docs/adr/0008-tool-boundary-ends-at-eva-handoff.md",
       "mediaType": "text/markdown",
-      "size": 682,
-      "sha256": "a3f54aaa5660a1b40ab93c4e2774206b82d690ef129ddc736ed4061d539e417e",
+      "size": 1931,
+      "sha256": "06f2cc67954001e1e6f4777ccca63a35ef1c801df2d93e73a77f44fd68858b6c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14107,8 +14620,8 @@
     {
       "path": "docs/adr/0009-image-processing-suggestion-first.md",
       "mediaType": "text/markdown",
-      "size": 953,
-      "sha256": "3a4953ab7397b0b1014661d344636ffd7e2ec6a1681d7589d69925c01d668a49",
+      "size": 1911,
+      "sha256": "6cc61feee8d8e5e9c6c6bae01fdbcf3815841762f342f44b1a88df7f4441760b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14116,8 +14629,8 @@
     {
       "path": "docs/adr/0010-dedup-reference-disambiguated-no-time-window.md",
       "mediaType": "text/markdown",
-      "size": 1096,
-      "sha256": "33c9cc4733c9c1dcc382ebe985ec0a1581f01156a70ccfb607055c69b1f383a9",
+      "size": 1887,
+      "sha256": "0d96b29f98c47f11e7d4b0bdd0c2e3d4772c097aca41ffb8ffdb3feb8ae62703",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14125,8 +14638,8 @@
     {
       "path": "docs/adr/0011-work-provider-intermediary-garage-roles.md",
       "mediaType": "text/markdown",
-      "size": 1038,
-      "sha256": "145fde2672aa88f6ac1f735b0c9549ae5d2ad398b81d20de8d94942663be9816",
+      "size": 1844,
+      "sha256": "dcbbf19706d23edb617471253e1e6775309ef45150643fbaa815f8e0d521cebb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14134,8 +14647,8 @@
     {
       "path": "docs/adr/0012-box-centric-intake-additive-hybrid.md",
       "mediaType": "text/markdown",
-      "size": 1442,
-      "sha256": "5b299d76195320056f0a30b6ac01738823cc0648ed3786e835d803930204039a",
+      "size": 1801,
+      "sha256": "871a6a4f01a0b51d5425122bae06a7201c7b37ccf85da256147ca9f6c2f0fcf6",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14143,8 +14656,8 @@
     {
       "path": "docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md",
       "mediaType": "text/markdown",
-      "size": 2340,
-      "sha256": "e16b50809f53f0e81d783062086fc4207f34099baae61c062a9159ead9932cb3",
+      "size": 3048,
+      "sha256": "0446416a99860266905ee93c3dfb8fbfec552fa8229735e8cbbc12964f6cbe8e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14152,8 +14665,8 @@
     {
       "path": "docs/adr/0014-audit-case-type-second-inspection.md",
       "mediaType": "text/markdown",
-      "size": 896,
-      "sha256": "9a6089a503d909ccf38255cfe09ac1433611be5114312566849e6a774801d1a4",
+      "size": 2017,
+      "sha256": "3983879049c9f75358dd1b9c014e0d2958d2cb052520f601dfad73c66e357dd4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14161,8 +14674,8 @@
     {
       "path": "docs/adr/0015-email-triage-inbox-management.md",
       "mediaType": "text/markdown",
-      "size": 1201,
-      "sha256": "aaf3fae5359a87386cf64463bb606d9ba1b6fa6da9c6c523c358122162bd9ecb",
+      "size": 2312,
+      "sha256": "a82448254a77636b54b00599f693f4756cbfa2c3943909fa8fd05d4670fe3576",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14170,17 +14683,8 @@
     {
       "path": "docs/adr/0016-inspection-address-corpus-eva-export.md",
       "mediaType": "text/markdown",
-      "size": 1133,
-      "sha256": "b89995ef72bda82ddeb02455f80827d9e1a279a53a302fbb39cd61c5725d640d",
-      "category": "documentation",
-      "owner": "documentation",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/adr/0017-data-retention-erasure-pii-lifecycle.md",
-      "mediaType": "text/markdown",
-      "size": 1095,
-      "sha256": "90802ce88dfd1459f342ed3c26851e2648551605530abef26af4ee856f745417",
+      "size": 1879,
+      "sha256": "80b28db2c75ad4070291145e248727f251d194dd0c238a6728ee49bcf3d2b7f8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14206,8 +14710,8 @@
     {
       "path": "docs/adr/0020-provider-api-intake-channel.md",
       "mediaType": "text/markdown",
-      "size": 1240,
-      "sha256": "ee0b555c77b27b27a8325695e18f81806ec7f78bdf1237e421434209152dbc87",
+      "size": 1567,
+      "sha256": "44847cd29af81e18ca8b90e470726a9c2e1350ded6a05f8e3452f269bd7cff36",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14215,8 +14719,8 @@
     {
       "path": "docs/adr/0021-case-po-marker-taxonomy.md",
       "mediaType": "text/markdown",
-      "size": 1127,
-      "sha256": "ecf9b96a09b8a5c794d010308104f9aa684b07134630c337cbbdb5bfc51335e9",
+      "size": 1494,
+      "sha256": "702179ae83f7b501faddf91e49fb216bce0d13a92671309b2b18ade41dcaa268",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14224,8 +14728,8 @@
     {
       "path": "docs/adr/0022-retroactive-case-reconstruction.md",
       "mediaType": "text/markdown",
-      "size": 1314,
-      "sha256": "eef2c89739518a4d2e940d839ee5e2709b01eb53ce286d4d2915f7ea627b72b9",
+      "size": 4925,
+      "sha256": "6bba82f9e848e17c98eb9130bb53b481d04a149e3bc1a5472d3cd4ae46e95255",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14233,8 +14737,8 @@
     {
       "path": "docs/adr/0023-mcp-server-hosting-and-auth.md",
       "mediaType": "text/markdown",
-      "size": 1251,
-      "sha256": "499811bf1d59526965adbeb393d95ca7652b78749936881f623b93ac46534b59",
+      "size": 2648,
+      "sha256": "fa19f5733cf1d558205eb49633dfe239c224dba2b1b48b8632aa45ef5bd13a45",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14242,8 +14746,8 @@
     {
       "path": "docs/adr/0024-assistant-write-tier-confirmation-protocol.md",
       "mediaType": "text/markdown",
-      "size": 1099,
-      "sha256": "19f4f154580a8190386e4a58d75b9a48b6111cec7ccc799039beb9724b5ac140",
+      "size": 1663,
+      "sha256": "ed43abbe28eb2e65af7eee3bb26a8049acc55c4420d0c5f72a6804ea7e2c5a0f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14251,8 +14755,8 @@
     {
       "path": "docs/adr/0025-shared-capability-registry.md",
       "mediaType": "text/markdown",
-      "size": 1181,
-      "sha256": "7fb3fddb1f21ed2f9bb4b6b252087a39c9c38cb46f483c59db920984be1387ca",
+      "size": 1505,
+      "sha256": "4930d8061e81d3eaf345eb7c2e96312b14c5ea3e9b3218c2cd4894e9def4565b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14260,8 +14764,8 @@
     {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 3183,
-      "sha256": "0c2e6c6a017ee77cd2915fe4f462750603c0d2e2091d1317759a221b0c5f31f3",
+      "size": 4093,
+      "sha256": "e32c0e57f150781bdd39c9b49f0c95cdb6c1ee90aeb973e595c062f7c882502f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14305,8 +14809,8 @@
     {
       "path": "docs/architecture/eva-sentry-api.md",
       "mediaType": "text/markdown",
-      "size": 1983,
-      "sha256": "4b3773277069e054cb7962ee2db6e1ae92b0013773429e5a5743e82fbd03b229",
+      "size": 2082,
+      "sha256": "0c765d926e45700ce1853bca5b1862558fb62ed8c0f557ed7da9bd53cff579df",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14323,8 +14827,8 @@
     {
       "path": "docs/architecture/integrations.md",
       "mediaType": "text/markdown",
-      "size": 2245,
-      "sha256": "270f5dbc968060e5a7e14a91f580822d70c8abf0e38299b65d822d72e00aacb0",
+      "size": 3349,
+      "sha256": "f601eea033d6b34fcca4b4a0bb28f1a9b7bb289b0f1652707603bd7f635b1e5e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14341,8 +14845,8 @@
     {
       "path": "docs/architecture/system-overview.md",
       "mediaType": "text/markdown",
-      "size": 2497,
-      "sha256": "483591c530177c6cde3f96d80c56d5f2b740b1699c59600997f034470dbc699a",
+      "size": 2644,
+      "sha256": "17175ee2a4b98422cab28e222fa3594af5a943b32b7ce929f5f21eb0d0934375",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14440,7 +14944,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1344478,
+      "size": 1432362,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -14458,8 +14962,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4053176,
-      "sha256": "76a36a07a89b09f302365ef7e274a60239b2553dbcda065f6dab9bd701762fec",
+      "size": 4167026,
+      "sha256": "f1818f0747ad15210006c6653f2d8fdfab13940a50d52c01dd3f91310bdc91f8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14467,8 +14971,8 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 870,
-      "sha256": "b2749dabd60f5d611dc8024d0bc73c585f7bfda983d8f9740a222bfa4645e7f6",
+      "size": 985,
+      "sha256": "667e124a2fda6e4da69a86c8dd2846eb7c79434f8ee3ebbbbc5edd66a800e018",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14478,6 +14982,15 @@
       "mediaType": "text/markdown",
       "size": 998,
       "sha256": "8b9e9b7a224fa0c5fc408f10d7414ee7bcd8d46b5603c03ecdd039e3b94ccb6e",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/cloud-inventory-2026-07-17.md",
+      "mediaType": "text/markdown",
+      "size": 32772,
+      "sha256": "e3eedfdf85e3586df19ddbd937989cf6b0862e9afdb0e9ac4975fde2f9a107d4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14798,6 +15311,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/reviews/160726/checklist.md",
+      "mediaType": "text/markdown",
+      "size": 6384,
+      "sha256": "ec6fd0b12e8eec21ff2aa456736f53c7faa9b4547a257b79308d4c6e05bc3a71",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/decisions.md",
+      "mediaType": "text/markdown",
+      "size": 13056,
+      "sha256": "601d6482d3221e78b570ad32b7dc48e573fb9fd39fd4312f01716523dac6eb20",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/overview.md",
+      "mediaType": "text/markdown",
+      "size": 1990,
+      "sha256": "d2dd0d6ec8e166dd3e9c3ece2924a485fc000819e762d5bf352d718c95835a19",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/review.md",
+      "mediaType": "text/markdown",
+      "size": 5245,
+      "sha256": "a519850b4d6e9052886fa4df3ffee3109e654da47d9e1021db7c321ccce47427",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/reviews/190626/broad-review/review.md",
       "mediaType": "text/markdown",
       "size": 429,
@@ -14899,8 +15448,8 @@
     {
       "path": "docs/reviews/README.md",
       "mediaType": "text/markdown",
-      "size": 1958,
-      "sha256": "cf5575e2bda87093e7c8d20db954c7a4da019b8fdd221678961b1786b2ddf60c",
+      "size": 2173,
+      "sha256": "9b0460bed2d99da432b627d95566c6b1f0921475d93679d4aa2743025f2b6d5d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14908,8 +15457,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 38063,
-      "sha256": "c52b16cad2f23033400a02c255bee46ae2bfdc320dd7f7669bc9864907c27986",
+      "size": 43554,
+      "sha256": "08f36ee8f5d3f21690970fcb97e861cbf48f0e92c9452c32ddc2c1b56db78739",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -14917,8 +15466,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 40156,
-      "sha256": "cf920b85e0f10267af8b7c53d5f63718db15f7b8a8c3d01edc39e7a5c29126ba",
+      "size": 45745,
+      "sha256": "336ea3eb43e96fc9d10a292864f10d712023d8ff24b463903c41e1b41911a078",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16193,60 +16742,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
-      "mediaType": "text/markdown",
-      "size": 4694,
-      "sha256": "554cf57dc7afafd0e0f75665d2d7afc7c00544cdb1420033d588c5191fe7c53b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 434,
-      "sha256": "4921fc7af367b9851e0fc6e2789b5c97ff0208b7c1d6e9035651dd4da11cfe24",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence-manifest.json",
-      "mediaType": "application/json",
-      "size": 478,
-      "sha256": "30e3f59c7d722b71ba79f8072b2f545f77299c242c1d9748d6ab9affe5abc987",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
-      "mediaType": "text/markdown",
-      "size": 294,
-      "sha256": "40f497082692e9f46d29253ea6604a448afae85fb352fc4f08cad95a08698039",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
-      "mediaType": "text/markdown",
-      "size": 449,
-      "sha256": "83399e40061f3500f2aa7e2a979a71669e1f03250090ea2424410d84af4e8a77",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-194-unidentified-reason-explanation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3208,
-      "sha256": "1770c00395c24c2529a5175924e0b62b2d7c24e7276affa18d8ac983bd9b9c4c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-195-entra-staff-access-management/TKT-195-entra-staff-access-management.md",
       "mediaType": "text/markdown",
       "size": 7472,
@@ -16467,6 +16962,420 @@
       "mediaType": "text/markdown",
       "size": 286,
       "sha256": "03b729d4e203c92f0a39a3b8c7b47fcaecc592356ee537af88bd6a2342b87546",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/TKT-224-reclassify-stale-abstains.md",
+      "mediaType": "text/markdown",
+      "size": 3004,
+      "sha256": "5aa7f66db6cd7ba2edb8c37e3557b3f483ce4e97dba876c52c31505cf93afe4c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/changes.md",
+      "mediaType": "text/markdown",
+      "size": 58,
+      "sha256": "5fe305d2a96b4d929afa65b5aef2af818628ef0b0132f57410564640f668fabf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-224-reclassify-stale-abstains/verification.md",
+      "mediaType": "text/markdown",
+      "size": 60,
+      "sha256": "d1bce8899ee74abfcff144c0058ba5026145569f656bae414b1186c6bcbbd798",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/TKT-234-own-report-recognition.md",
+      "mediaType": "text/markdown",
+      "size": 5750,
+      "sha256": "cb263245348f59da19925c0649da8ad787dde9520dcb4dfbeb08790cea667d9a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/changes.md",
+      "mediaType": "text/markdown",
+      "size": 138,
+      "sha256": "977032bc6045fda097ad782b7df6a03d1badf3409316473244d356e1bb76c116",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 2697,
+      "sha256": "2c817e85ca4b9a815a08b0970f95cb0b76f05c8a757989b5ce9657ea636ed4af",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-234-own-report-recognition/verification.md",
+      "mediaType": "text/markdown",
+      "size": 282,
+      "sha256": "4603c5ed7a0124b8d855ae60c20a8a09001cb7ad2e4d9b040d412c91fe9d9812",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/TKT-235-no-instruction-mint-hold.md",
+      "mediaType": "text/markdown",
+      "size": 3940,
+      "sha256": "f4d23aa8ca698ffd6504cb982487c442a48636fc1710784910c190dc84aa86d7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/changes.md",
+      "mediaType": "text/markdown",
+      "size": 128,
+      "sha256": "3cf3c30c81dfe529df91a099c7fa47d1412ec02130bcbb8cf52b5e39426a74c0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 2129,
+      "sha256": "e1872e17cb5765d964d5edc8723b39b12a8a1858ab81213881df893b6cfefedc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-235-no-instruction-mint-hold/verification.md",
+      "mediaType": "text/markdown",
+      "size": 272,
+      "sha256": "788a9d902ee79233b340b83978806a068a84779f2b0d32e136fd98b0cc9c2313",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/TKT-236-pre-mint-archive-probe.md",
+      "mediaType": "text/markdown",
+      "size": 3458,
+      "sha256": "7a689a9af4efb3166eeda19fe08f7917c9590ec82e92ac99a56fd10b7f86a03b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/changes.md",
+      "mediaType": "text/markdown",
+      "size": 122,
+      "sha256": "53265e196965797e61b1090c6a533a045f537940600716f0753e9d0bac411acb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 1804,
+      "sha256": "77551ee728dfa5a51ef6aa6028fc2e67343cf107e8251ded265194f7d250ca99",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-236-pre-mint-archive-probe/verification.md",
+      "mediaType": "text/markdown",
+      "size": 266,
+      "sha256": "cdcdea5dc59a5a17968040769497a7805503f00912b6d001280e1d685aa2bf40",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/TKT-237-qdos26007-abstain-eval-fixture.md",
+      "mediaType": "text/markdown",
+      "size": 3151,
+      "sha256": "e3869fa2ed425904da526a971116ddfcec35d38ecdd926a5b76068d3ae8ffcfc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/changes.md",
+      "mediaType": "text/markdown",
+      "size": 133,
+      "sha256": "66af10d6782a39a12d67926ccc31e9428df81c3b44fe9a465bb282fbf3d688e6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 995,
+      "sha256": "1fede7f131726b74f8b265df6e4555d747b67e44ad6199523a2610d733053e91",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/verification.md",
+      "mediaType": "text/markdown",
+      "size": 277,
+      "sha256": "eef797c2a6fb795771e6b281d1708ad341663765bb0aa6dd0b01a12616d1f0de",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md",
+      "mediaType": "text/markdown",
+      "size": 1965,
+      "sha256": "ac9300f0c4b48cfc945158744225f71a93282fa6c32ec62ba9d84fd2959159e5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/changes.md",
+      "mediaType": "text/markdown",
+      "size": 125,
+      "sha256": "17474eabd9aa3c6567d3441009980b460b54b1fa22cf502d758f79ec6e4da6ef",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/verification.md",
+      "mediaType": "text/markdown",
+      "size": 269,
+      "sha256": "dd955e16b15245dd30b43e9b17bd2c9cbc4a924a93dc06579660b121e602176b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/TKT-239-image-first-registration-suffix.md",
+      "mediaType": "text/markdown",
+      "size": 1777,
+      "sha256": "4aa458c474df9ffd40989909df39d22deea7b1c7d3aa708334c56dc3f7bff6ff",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/changes.md",
+      "mediaType": "text/markdown",
+      "size": 119,
+      "sha256": "8d2855950ff0e4957bceb2aa32e29678698d455f7618e7945b1023c99c57fbbc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/verification.md",
+      "mediaType": "text/markdown",
+      "size": 263,
+      "sha256": "615552e4e4969a6d364d56361efa256f7d02073cf9f26c2505378c48c68a4e92",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md",
+      "mediaType": "text/markdown",
+      "size": 1800,
+      "sha256": "c85aa9ccf3ff3abb0f4110db02496fdf054b27e12c88c55f3ad234822cbfa0ee",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/changes.md",
+      "mediaType": "text/markdown",
+      "size": 106,
+      "sha256": "e9ffa1d124b345e5cc1dca82be49ab2d5a6e94f3d65b68af455d6b5e1510d310",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/verification.md",
+      "mediaType": "text/markdown",
+      "size": 250,
+      "sha256": "fe7df0fc0438353ca12f770e8854e9a646676e36ff7b190a18718ebd00660cf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/TKT-241-odometer-vision-dvsa-crosscheck.md",
+      "mediaType": "text/markdown",
+      "size": 1738,
+      "sha256": "0ae6849b2bce2ff819bbc75096b6cec5a74682790048be2c5033794cfc28e4f4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/changes.md",
+      "mediaType": "text/markdown",
+      "size": 102,
+      "sha256": "673d4bb35bcb2a2e932a8f98f245cdc6fccf5a2572e008ca8152cf8325dd606e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/verification.md",
+      "mediaType": "text/markdown",
+      "size": 246,
+      "sha256": "962ff44dc509822e3cc18ca624e55342415ee1a719a2ebc68811aafa1332716c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md",
+      "mediaType": "text/markdown",
+      "size": 1504,
+      "sha256": "66b5de414369a588e7b8a20366be0e24fd654cb4a485f6a9a553ed4522d2545a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/changes.md",
+      "mediaType": "text/markdown",
+      "size": 95,
+      "sha256": "120586af6bb79e4f9fc8d704776804ec822a0e71c4eb57e1fe6845aade4c55d3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/verification.md",
+      "mediaType": "text/markdown",
+      "size": 239,
+      "sha256": "530a04ab6e994d9dd191c1fb84ccccce261c4ecb04dc913c055639a7bf7a06ec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md",
+      "mediaType": "text/markdown",
+      "size": 2372,
+      "sha256": "b1d0a013063744f6031602984d3fa244b22401d29dd293d678a37580c0de057d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/changes.md",
+      "mediaType": "text/markdown",
+      "size": 101,
+      "sha256": "5907d222f5ea7318be114fae5d15d65ae505d91940acb30d005ac2d3ef0cc839",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/verification.md",
+      "mediaType": "text/markdown",
+      "size": 245,
+      "sha256": "00d6a69c72291e7309baada199883e848d0b5365c741d7e9660dcf96307db645",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md",
+      "mediaType": "text/markdown",
+      "size": 1804,
+      "sha256": "adc41ff8e7651f46da74a883d5036928902ef446c5a104337d5ebf8042410143",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/changes.md",
+      "mediaType": "text/markdown",
+      "size": 105,
+      "sha256": "8cf52ba60feed42c382e134ea761e2a43f002a15e9af893fa064444eb448ea62",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/verification.md",
+      "mediaType": "text/markdown",
+      "size": 249,
+      "sha256": "53041c3ff46d15e75ed5ed18b24617c65a4c9720f01d7084c22b3d928da3b9db",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md",
+      "mediaType": "text/markdown",
+      "size": 2109,
+      "sha256": "b843ab470b4fa135147e4cbc65609ad8be55cc21b665823fae448380df5e4ebb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/changes.md",
+      "mediaType": "text/markdown",
+      "size": 114,
+      "sha256": "9208ca8946cdf03ddbc550e96f2808e875276fb52453531bc424a57cf8e8288d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/verification.md",
+      "mediaType": "text/markdown",
+      "size": 258,
+      "sha256": "ca045a65eff1aa76d4a2f93a21e3956ed93800367b734ad283a296436cf4ac69",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
+      "mediaType": "text/markdown",
+      "size": 2241,
+      "sha256": "f8f1aa114654e04f90b1b3ab000dd94129aac3e2c4b246365fefe631f04829b6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/changes.md",
+      "mediaType": "text/markdown",
+      "size": 87,
+      "sha256": "4c8b093d83a382018f3b52ae71881a2c68725bc6df58b32b1d9173a8168591dc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/verification.md",
+      "mediaType": "text/markdown",
+      "size": 231,
+      "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16726,8 +17635,8 @@
     {
       "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md",
       "mediaType": "text/markdown",
-      "size": 23465,
-      "sha256": "f540305e0a9acd97e4f5e1bc07917c2c4e5ed51652526e35b6b3e37ff6d4d83b",
+      "size": 23596,
+      "sha256": "4238315d9931a953e5186c10222a18f650a32f0aaa7f5a0b6dacb4beb63bc8bc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16755,6 +17664,15 @@
       "mediaType": "text/markdown",
       "size": 1176,
       "sha256": "01efbe9fe81c98f738e327c4a0fbe41af4ee1c158a1609e0cb964122bf096220",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence/retro-po-adoption-flip-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 2537,
+      "sha256": "554e830a47d3d67707439522691e20170bfb60428cf526da719d4ecea1ce3930",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -20137,8 +21055,8 @@
     {
       "path": "docs/tickets/done/TKT-119-retro-locate-ack-hardening/changes.md",
       "mediaType": "text/markdown",
-      "size": 6066,
-      "sha256": "5203ff25b6e0086f093b201ff594db3d7292f02231e1b74c78add8cec20e30d7",
+      "size": 6839,
+      "sha256": "c3f2b70f811264f17504f3c7b9667c933d8b0e610b790fa98f9923bb3b522252",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -21431,6 +22349,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md",
+      "mediaType": "text/markdown",
+      "size": 3411,
+      "sha256": "8acc28b599adef00057aa33e77edca8011ed9f0015f16429142eeb18de4ec586",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1948,
+      "sha256": "cdf71f951fc2ec7871206d1f546d51b5fdcd128959775f3079a654d0d4aeccd2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1302,
+      "sha256": "210d73536c38bf43a105d79b8db110d145e4ef7f3a7c28089b34b62b77cf88d3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -22340,46 +23285,55 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/TKT-194-unidentified-reason-explanation.md",
       "mediaType": "text/markdown",
-      "size": 3512,
-      "sha256": "eaef5cb5c18a82e095a791cc1b44d231bae191bf5450f56c4654e75d0d712e25",
+      "size": 4685,
+      "sha256": "c2890736732661cf471daa7c7dac24e94a8e19882bd69be37517cff86a494e9a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/changes.md",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/changes.md",
       "mediaType": "text/markdown",
-      "size": 1052,
-      "sha256": "c19c18a3a7fa4849b9178e2a70597823fd14eaa7782b5f9d83150b0c97e0315a",
+      "size": 434,
+      "sha256": "4921fc7af367b9851e0fc6e2789b5c97ff0208b7c1d6e9035651dd4da11cfe24",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence-manifest.json",
       "mediaType": "application/json",
-      "size": 1218,
-      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
+      "size": 532,
+      "sha256": "5e572ddd97cffe2d81f626810f047c1616fbebecf9af76a25ffe41b088422b4f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
-      "mediaType": "text/plain",
-      "size": 296,
-      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-169-email-hover-preview-bounds/verification.md",
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/operator-source/info.md",
       "mediaType": "text/markdown",
-      "size": 3587,
-      "sha256": "647818299584e60f0d0aacd788ae12ea77d11de33d0b12acf77c6212f8adc10a",
+      "size": 294,
+      "sha256": "40f497082692e9f46d29253ea6604a448afae85fb352fc4f08cad95a08698039",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/evidence/unidentified-reason-live.md",
+      "mediaType": "text/markdown",
+      "size": 449,
+      "sha256": "83399e40061f3500f2aa7e2a979a71669e1f03250090ea2424410d84af4e8a77",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-194-unidentified-reason-explanation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3208,
+      "sha256": "1770c00395c24c2529a5175924e0b62b2d7c24e7276affa18d8ac983bd9b9c4c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22432,8 +23386,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/changes.md",
       "mediaType": "text/markdown",
-      "size": 4007,
-      "sha256": "8a561446efd7530278b3e20a84c3cfc3beb3273ba6200b7a47903105bc6eca20",
+      "size": 8909,
+      "sha256": "b7448f950b461ca43dc7aad1f728d6ec0f1f0b0bd05ce61341bbebb40593b571",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -22601,6 +23555,429 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md",
+      "mediaType": "text/markdown",
+      "size": 3977,
+      "sha256": "cf37814039551938a42e4d085f02040536fa08f0a71931b8cc5a0af0b8510bdf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/changes.md",
+      "mediaType": "text/markdown",
+      "size": 5240,
+      "sha256": "2a36aad137a0785bcae7a5bdc5bf184ad756ec21208a369862f7c2bad3646fe6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-225-retro-related-attachment-ingest/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2584,
+      "sha256": "be999edbdb9224e2b06f71451b6b1125b154f38b9d38f8d27a858d89b565f601",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md",
+      "mediaType": "text/markdown",
+      "size": 6706,
+      "sha256": "185804d5d44367d9e49986613d2c3e5af27486ca5b09d123dcaf1ae958160999",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/changes.md",
+      "mediaType": "text/markdown",
+      "size": 10205,
+      "sha256": "82a3a2e19e4265f127baa02b61c0c67222195941c0af58ea3cd15bd19b29a957",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_api.kql",
+      "mediaType": "application/octet-stream",
+      "size": 422,
+      "sha256": "2fc3a583c99ac538900a44f68ad92d7243bdf9960635816a954d2c076164494a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_api_traces.json",
+      "mediaType": "application/json",
+      "size": 2359,
+      "sha256": "84cae76b7f736904c04d6fddb64403d1858d99a837696e74087ed8354c8cdce3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_boxwh.kql",
+      "mediaType": "application/octet-stream",
+      "size": 301,
+      "sha256": "fa558ecb1e35f83643609dd49b790c531cbef54d0a3b51660e5e84eda9c2463e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_boxwh2.kql",
+      "mediaType": "application/octet-stream",
+      "size": 356,
+      "sha256": "97e06980e4999e8283a0ca3b4d627e555a7b5dd46de3ed5ca9e81a3242af8978",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro2.kql",
+      "mediaType": "application/octet-stream",
+      "size": 470,
+      "sha256": "e4522e2a0c91bbe9c8dd1d9a450e13c552b44241f7d5db04e3bd206cdbbd5afc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro2_orch.json",
+      "mediaType": "application/json",
+      "size": 62349,
+      "sha256": "dd1903664877db854366467ef666ad4fae70923dc8178e98f2b14b6d4c0bd9fb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_retro_orch_result.json",
+      "mediaType": "application/json",
+      "size": 51473,
+      "sha256": "8c660a4b6bf71617d52c1abf4a0152e68ab4457c6091883aef61b04bfd06d7fa",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_images.json",
+      "mediaType": "application/json",
+      "size": 8389,
+      "sha256": "5981bf34baa98418a093c200aba73caba4f9293d70e42adb4127734b75c6c692",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_images.kql",
+      "mediaType": "application/octet-stream",
+      "size": 267,
+      "sha256": "7d33108397e419d57fc5601ac857137437dfec907edafe166ca2562625349c15",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_triage_result.json",
+      "mediaType": "application/json",
+      "size": 2438,
+      "sha256": "9dbccc6caf18a4501b4417e1b240b8c8fb28c2727c3718c43bffd905ed0bc51f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/fw_window.kql",
+      "mediaType": "application/octet-stream",
+      "size": 117,
+      "sha256": "96f128a3fbf463d7eb9a8ceae5ae1ff1b6bc18e44675ec51d788ecd20b980045",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/evidence/incident-summary-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 4929,
+      "sha256": "5185d1f207e88f12f3430b774545763a810957384656b29727d5a905cbca00e4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-226-honest-box-upload-labels-retro-subtype/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4945,
+      "sha256": "0f8d1e581fb114eac85d3a4a51b494a066caed1cf5a00ed81a021db14f26786a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/TKT-227-box-purge-connection-exhaustion.md",
+      "mediaType": "text/markdown",
+      "size": 4023,
+      "sha256": "9aff8a7efa3ae2dfe798ccfa25264d74b750c0581b1b93aa885b28c5ee1ee332",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2065,
+      "sha256": "c474dd31a8641be9059597350467b61ab95843b5c90eeca22c3e2cf0e20e71c6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/evidence/audit-findings-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 2711,
+      "sha256": "82f2e0c8397b501c8ab343caee92a10d76854ba2cfa662c3cf61c33561c03e69",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3191,
+      "sha256": "f7b432fc2df07191a7ac084f78818292adbd4c3a51f4d15f8d4d11e4a0df064b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md",
+      "mediaType": "text/markdown",
+      "size": 4282,
+      "sha256": "24d09f4095fb4a6107bdb88e3d3117a348cdc507c5b063eadce9876865a69067",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2157,
+      "sha256": "45724aabe70e1b19ca35e6fc0c182f8f6da75dd7fdf5a112b59e45c650e9226c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 3326,
+      "sha256": "27f2da5007e0727d489348733b6c9df3b927fc25c963270ad0a29ee6c9f00cea",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3216,
+      "sha256": "3973c84e3f479f65dae5c810a5eb8572c61e7a9ef587d949ce11cf75f8afee6e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md",
+      "mediaType": "text/markdown",
+      "size": 5088,
+      "sha256": "899724d10c5cc018a5c324b73590259517de15605ecec9c46765bacd5126f0d2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4932,
+      "sha256": "c886c3950a7f2ac668ba6fab9deff694c6e37dc71367a6aea9c18dd51cf5509b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/evidence/post-sweep-audit-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 3227,
+      "sha256": "e7474380879dac820344b7029c8f3f653941e6ed17fcea394510ee8d6a434c7b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-229-archive-mirror-origin-audit-dedup/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2256,
+      "sha256": "8b79af3428c424da21310f2016d4ed8f0ad7c65f2a869f878ca1a1e7fab85090",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md",
+      "mediaType": "text/markdown",
+      "size": 7147,
+      "sha256": "178ba58a01643d250e3b40edc51c19e36dd4fa40e4f7af5634ab564c62a90e89",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4482,
+      "sha256": "fa610b2345fee8d18aac22815fd8ea7fd750c9627aced6f495ad00cc755ccaf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/evidence/post-sweep-audit-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 4745,
+      "sha256": "7fb62b141314f50e61ec5cdd6f3cc8a85cccb49e761d244997a02ad28c0ba0b0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-230-retro-post-sweep-remediation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4767,
+      "sha256": "e48479c10207d2c2690eb1496b5b459b2cfb8a4a4abd067e4f6f78c908dab10d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md",
+      "mediaType": "text/markdown",
+      "size": 4156,
+      "sha256": "f893013eb68d217982e0dae15b3da90397c3b813d704b28f709fe2bcaaa5a148",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3135,
+      "sha256": "a9fbf0fe766aedd820c51cd231ead1941aaed107420f4c73c302fa30a20f2ff1",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/evidence/post-sweep-audit-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 2654,
+      "sha256": "f897ee371f36409ad2b5c662e28b5771e4795c1866bea7fd08bdee07a17fb43b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-231-retro-ambiguous-case-link-suggestions/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1939,
+      "sha256": "826c24b7bb818d59fa229a6d114358778ad4bfc871729e23d6583e7f8145204b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md",
+      "mediaType": "text/markdown",
+      "size": 3351,
+      "sha256": "2679c0b851badc8a34e39227e940a64247c8563b315a70aaf54893936d4ef636",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 7347,
+      "sha256": "59d731524ed4be98f5a75b7909c04a315586ec671a081aa6be06e00fcb495403",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/evidence/triage-2026-07-17.md",
+      "mediaType": "text/markdown",
+      "size": 3927,
+      "sha256": "d859733f7b547393218b6cf8ae25272557580a7eb209578a4961e946f4d28645",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-232-pr102-review-remediation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3097,
+      "sha256": "62f2ed2986d5ed7ad467be5ae35e9139e31c52241e9852f2d2693cad2b26b8eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md",
+      "mediaType": "text/markdown",
+      "size": 3949,
+      "sha256": "a8794f06853c2ba1adc434d99d9f6195cb45b7a4d7972bd17813d025b865518b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3686,
+      "sha256": "2f2e5975b2acd0d83afbae39ce3970ae7ac53e988fa01041adef43022b6a4451",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence/live-defects-2026-07-17.md",
+      "mediaType": "text/markdown",
+      "size": 3055,
+      "sha256": "64a0cf95917a4079412f4b6c9df8d1b53137d62c3793cc44921720607c5852d0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence/ops-sql-run-2026-07-17.md",
+      "mediaType": "text/markdown",
+      "size": 1484,
+      "sha256": "5669ea66d554509c3cc0507479a5c0528a97d34036ba58f6e2018aedb61a648e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2380,
+      "sha256": "745f30d877ad7562e55fe0c4e91e3df52db73894db54d9aa2a5ec11333213c30",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4510,
@@ -22630,8 +24007,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 11651,
-      "sha256": "d5f2740b68d2ed90310c1904407d0fd4ba0492d7ec0f3e59fd402025ba3ebcb8",
+      "size": 12915,
+      "sha256": "4f923600e5665cc8645ac9ad2d59878322fdce71054f1d3d783f51b1b5d7f3e7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24158,6 +25535,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md",
+      "mediaType": "text/markdown",
+      "size": 3518,
+      "sha256": "aea289d7c67b065e14871a9eba93f93627912056af9e1ba0f6466095a32a5a4e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/changes.md",
+      "mediaType": "text/markdown",
+      "size": 7563,
+      "sha256": "cd6e046c12b13fca7437802dc4bbd9fbb25ad2fe02511a6070751f224478064f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence-manifest.json",
+      "mediaType": "application/json",
+      "size": 1218,
+      "sha256": "1ebdec0bca2450240e2a54e15551e4f965b094fc5db019480fbccd6d8034563c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/evidence/followup-2026-07-13/TKT-to-distill.txt",
+      "mediaType": "text/plain",
+      "size": 296,
+      "sha256": "5b09df575d5c2405ee1e4923a0887f9dac36e8da7e7ba1d1ceb132190331856d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-169-email-hover-preview-bounds/verification.md",
+      "mediaType": "text/markdown",
+      "size": 6467,
+      "sha256": "e9a96a37f84fc81cced1d21ef805f20f1a03ba2c5439b0574c52abc0dde82686",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md",
       "mediaType": "text/markdown",
       "size": 3788,
@@ -24486,6 +25908,132 @@
       "mediaType": "text/markdown",
       "size": 1625,
       "sha256": "f3ae43baec14df169af65ec3c1a3369f822215cac5bb73f996773d10dc768ba5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md",
+      "mediaType": "text/markdown",
+      "size": 6791,
+      "sha256": "77efd86b4b55ed727841388b23a4a56b3d62d55bf397f4af327a99e8aac5ec0c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/changes.md",
+      "mediaType": "text/markdown",
+      "size": 5791,
+      "sha256": "f449de6e6ec7ef3112d6b3f86f6e955afbf76d28d5fd799be28c56b9c4eb649c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/investigation-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 4440,
+      "sha256": "ec8805b6771c98a28c25a32c0c8d92953aa6a08dcd8522bc3c24c7fb83a60074",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 2322,
+      "sha256": "2f85a0d96bcf5987074bac3c1e71a4ca73b82230500bed483506e34fd549c2bb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-219-retro-parallel-reconstruction/verification.md",
+      "mediaType": "text/markdown",
+      "size": 6998,
+      "sha256": "d85e7f7de34422a254866e972fda492482359b13935e1e8cc017d78a2068520b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md",
+      "mediaType": "text/markdown",
+      "size": 2933,
+      "sha256": "9da36641a5266680ba74b3587678080870478418a56be1424bd48d88a3e5f70f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1829,
+      "sha256": "21d95f8149172a3597f9f6d1356cd276ded72a70be82fd77c0ccc93acef06ccc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-220-retro-intake-parity/verification.md",
+      "mediaType": "text/markdown",
+      "size": 415,
+      "sha256": "52438039d60e8eb460e5da20d7baefc2c95ca56bb0d1c0fc10d563fa8b0ddbcd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md",
+      "mediaType": "text/markdown",
+      "size": 3181,
+      "sha256": "e5de65ccd27786820e817355818251e8910cbcb910e8dce0243ae817fcf83ac6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1348,
+      "sha256": "ae1a0b1e0c70990a90c641290ac93193226028173e714a483dcba25c6aff1986",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-222-retro-link-related-emails/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1049,
+      "sha256": "f178b91a0e6228ca55738e2e64ad0e695480a6038029422e2bb0b71baa1c1f86",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md",
+      "mediaType": "text/markdown",
+      "size": 1806,
+      "sha256": "70158cef4595a2c348ded4354102b953765c4f556221cd8a7cea061baf0fa086",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/changes.md",
+      "mediaType": "text/markdown",
+      "size": 506,
+      "sha256": "882e8ee526172ea2ab876084cd3adf0472599e9f1dd5ddac9b489dc484d2f09e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-223-retro-force-rerun/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1753,
+      "sha256": "5831652286deef7df9674e625c8df7d34673b7b0c1847b43b75e94d161141010",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26374,8 +27922,8 @@
     {
       "path": "packages/domain/src/codecs/index.test.ts",
       "mediaType": "text/typescript",
-      "size": 6552,
-      "sha256": "88d7a0e6617d6329cb8f6d80a66004e5e6bed24576f099c4c6faab284dac1566",
+      "size": 6805,
+      "sha256": "c61d53b2609b4ee0807d98b90024dac49acbff0fab9dfb42e96c7962d0f213e8",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26617,8 +28165,8 @@
     {
       "path": "packages/domain/src/data/code-tables/inbound-email-classification.json",
       "mediaType": "application/json",
-      "size": 4316,
-      "sha256": "bd938ce8da6b321b25020840fad2cdbbf158d53dae96533a190ae4414fce86c4",
+      "size": 4450,
+      "sha256": "6718a0144ceefdbec14fcb7208738735151f14b6366af6ac39332f882068712b",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26842,8 +28390,8 @@
     {
       "path": "packages/domain/src/domain/outlook-folder.test.ts",
       "mediaType": "text/typescript",
-      "size": 2127,
-      "sha256": "09d76b6619ff1dc5d4bd618f7a749ae87341bf1a4ac597913c139de5281590ee",
+      "size": 2295,
+      "sha256": "ea5219cd63c1945ba5fc5396550e9ba057c263505e975690c4905f681dd23a9f",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26851,8 +28399,8 @@
     {
       "path": "packages/domain/src/domain/outlook-folder.ts",
       "mediaType": "text/typescript",
-      "size": 2763,
-      "sha256": "e0c255524a0d81e5b21e131ec00d362fe7e3f43ee79fbeae46e32badfe30c64f",
+      "size": 2970,
+      "sha256": "13ea5a07208177fb4d25434d021009414fd1a1c79038bac3fcb922afc148a4a0",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26914,8 +28462,8 @@
     {
       "path": "packages/domain/src/domain/retro-case.test.ts",
       "mediaType": "text/typescript",
-      "size": 12279,
-      "sha256": "148d84f5733a548e9cfd6074931fff2fdf6af94e5645ed101bcba06f4fff6792",
+      "size": 18465,
+      "sha256": "044c9082eb3835df20b993771839711d542dce2c54544ab0b0e4371a80278242",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -26923,8 +28471,8 @@
     {
       "path": "packages/domain/src/domain/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 17091,
-      "sha256": "cf05d915d6c741ef6f9ee27576550ba9b57f2b7ee1101bf8ea4b4ffb53c37aa8",
+      "size": 25231,
+      "sha256": "6cabc80b8f6745e367d9880cfcabaa0d8434c1c8be2e738f31c61e5680b28192",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -27022,8 +28570,8 @@
     {
       "path": "packages/domain/src/dto/index.ts",
       "mediaType": "text/typescript",
-      "size": 37431,
-      "sha256": "4c498847047cca4522818bc3068a09ca7b1f48a86e34421a21de45a5f529f6f8",
+      "size": 37932,
+      "sha256": "5a19b8c6cd3a91d930704ff8e701d17da969d40e943c3b39fe2a0663ec9bd405",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -27040,8 +28588,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 18315,
-      "sha256": "89556ac104c9574af366765a1cbfee7b211c51a25cfe923e29311cc90cd2221f",
+      "size": 19858,
+      "sha256": "47846c375d78f2473fe2476ac1c39664d96f5f43275200b2d59a487a67492966",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -27229,8 +28777,8 @@
     {
       "path": "scripts/checks/check-forbidden-references.mjs",
       "mediaType": "text/javascript",
-      "size": 8416,
-      "sha256": "dd48b0514065ed61e27efddb8c76bf95686e552862e7d892ce9e78db6eb8c1a4",
+      "size": 9104,
+      "sha256": "9a445aaceffef98d20aac7134700af6021a16061c273ff7452daea48ec59faff",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -27427,8 +28975,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 422,
-      "sha256": "e1f178c9f95deabd9fab022569dbddf3f74ddd3875ca2fd65ec0524e21164214",
+      "size": 784,
+      "sha256": "03599c914df5be550a47b9f5e4163d0c0d542694137983523b22229f3f7df972",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -27656,6 +29204,69 @@
       "sha256": "b2f9f112c89af4c60f2ac885e93c49182ce2ef286b6980f67c5ae65c0c27f2d9",
       "category": "automation",
       "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/00-common.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 12119,
+      "sha256": "65715a12b84999e6a08cde2cf4e2d3e5140b1366707d506ab6d731dc24aea8cf",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/01-collect-arm.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 26863,
+      "sha256": "0622986576f9298dfaa66aefdc916e5efa76376e3650e18aac43dbfb6f06fb22",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/02-collect-graph.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 8659,
+      "sha256": "6ee2c1818fe5582f103e241abd47926e9244727963b75384e03b0ce089b04c36",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/03-collect-cost.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 2168,
+      "sha256": "d931d51bcdeebd0ddfddade96c8def86280a94e4cba4e8d3ec2662fe9a82e68d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/04-redact-sweep.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 2272,
+      "sha256": "3dc0bdbad202111e98eb83838989746f8f57e3cdf575eee6de60fc24c517f057",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/05-digest.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 28767,
+      "sha256": "026ce9642d37533bf521fe92cd1e449c5c089e6c9c538766c61811dbf6c040d8",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/cloud-inventory/README.md",
+      "mediaType": "text/markdown",
+      "size": 2323,
+      "sha256": "24960ce2f2856c5638fcb2251eb001c9eadbdf312cf72b9bb9315cc5f81a147e",
+      "category": "automation",
+      "owner": "repository-governance",
       "lifecycle": "active"
     },
     {
@@ -28255,8 +29866,8 @@
     {
       "path": "services/data-api/src/features/cases/archive-holding.test.ts",
       "mediaType": "text/typescript",
-      "size": 33731,
-      "sha256": "0c536b7efc8e1aaa871e23588cde358c24ac6e501d538797b99ea3012cf61dc6",
+      "size": 37647,
+      "sha256": "df9033f61b9b471b9370f8e135b561b853092009fd0c6144283214f2fb86260e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28264,8 +29875,8 @@
     {
       "path": "services/data-api/src/features/cases/archive-holding.ts",
       "mediaType": "text/typescript",
-      "size": 42292,
-      "sha256": "5d2aba7e3972a267bd99d532036fffc7ed6e19559755e07f26a6d644c7ac4494",
+      "size": 42756,
+      "sha256": "ac24c6a1a7574f233b702d290dfbc617bba0401befc53fc17f12a5564f72669c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28291,8 +29902,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-blob-security.test.ts",
       "mediaType": "text/typescript",
-      "size": 3084,
-      "sha256": "2726b4e82741b0783e721acf1f2c1206cf2d6797c93fb243743a4af7704420cf",
+      "size": 3406,
+      "sha256": "473fc2a4cd1660ca88cb257ad20c7898461040b789166cd00665f690bdb79093",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28300,8 +29911,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-cleanup.test.ts",
       "mediaType": "text/typescript",
-      "size": 16564,
-      "sha256": "f49ad2073b1e852cb069d3d262d20d92d693b240e8f822c3ee8f57aaaf63a931",
+      "size": 16498,
+      "sha256": "32b3fc1af8aa35ec2dfb04a45f65d29dd89efbc2cc53dcdf1b888f0692157ad2",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28309,8 +29920,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-cleanup.ts",
       "mediaType": "text/typescript",
-      "size": 9826,
-      "sha256": "7e43fea6b5d263f9a6218594bb8be434ee66aa759508c4c4a6bbfc0a45baf8b7",
+      "size": 10279,
+      "sha256": "73cf62d81366e1b1899c03f5106c235a429df17b3d41bde95fa189ad19a52938",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28318,8 +29929,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-plans.test.ts",
       "mediaType": "text/typescript",
-      "size": 1594,
-      "sha256": "b43de37502e35a08ae2cc0f6a2dbc4eac654fce4b7e74d50bc8cecc4e296908a",
+      "size": 1595,
+      "sha256": "89be56a3f077b09dac90725feee773715d677d29de2d4b286a1c8d13c01c4808",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28327,8 +29938,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-plans.ts",
       "mediaType": "text/typescript",
-      "size": 3887,
-      "sha256": "0efd88e9677e2a1bb176933bb606b9fb59cc2dc7a7d2d45413c45415efcb6d8d",
+      "size": 3888,
+      "sha256": "d28848a79f917a6526bfa7d163f9e8b0530be2828a9c75709ab2b4294fc6f6b8",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28336,8 +29947,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-rate-limit.test.ts",
       "mediaType": "text/typescript",
-      "size": 6284,
-      "sha256": "21094ddfc77c9c84c8a6c35976a6ea7ef45be1a1320eab072894789e99afb378",
+      "size": 10694,
+      "sha256": "f0dc3b03a128d026edee5a5953128fac5687e7d4b7941af622643119c06626e3",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28345,8 +29956,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-rate-limit.ts",
       "mediaType": "text/typescript",
-      "size": 7240,
-      "sha256": "b14c4527dcb48e01a42da6a6a320327e79509820ad1b73e0fd3dd1ee36fb43ed",
+      "size": 12441,
+      "sha256": "6afcf733085e72eb25be81558ed69abad0d8fac7a4e4cac4d2e8139c712bb1c9",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28354,8 +29965,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-schema.test.ts",
       "mediaType": "text/typescript",
-      "size": 7450,
-      "sha256": "44ef32361b0ffe80dcc7367cfca348d7c96a9470a488829f620b20d42ffce481",
+      "size": 8946,
+      "sha256": "854c78950505dfd26acc05013bbe10581734493b7aeccad211b4c6a65286d02d",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28363,8 +29974,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.test.ts",
       "mediaType": "text/typescript",
-      "size": 90990,
-      "sha256": "1036685d731f155794a615c6f654707a5b2faf161ffd9428735642754a03213e",
+      "size": 93106,
+      "sha256": "8a29601de4c4052612a9aace75b60ee81e39d24bbe96eb0c55f439caf02de169",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28372,8 +29983,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.ts",
       "mediaType": "text/typescript",
-      "size": 73044,
-      "sha256": "d2e1713bc80dfba1b92fd0e13d433c4b0b20dd93ba4ae8ed9cec3c7a1b8d28a2",
+      "size": 74011,
+      "sha256": "849e909f84c3f317b83769bfb38cd8cb6053cd96c598a1bcc52dfced4e9e3702",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28631,10 +30242,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/internal-operations-routes.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6007,
+      "sha256": "4ee7de6c8c46d5589ed212e356955cd72f46e543c47fd52587d6522fb08a5eee",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/internal-operations-routes.ts",
       "mediaType": "text/typescript",
-      "size": 17548,
-      "sha256": "d88849183ffc4a2a19178e15ac26bd1433c0f8db9bc066c364260dbafa039ee9",
+      "size": 19285,
+      "sha256": "f9d746cb52c3ce79c03c89ebf2be48b10a53d81f13a9cb54618397e0cbcfc67c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28939,8 +30559,8 @@
     {
       "path": "services/data-api/src/features/evidence/blob-store.ts",
       "mediaType": "text/typescript",
-      "size": 14207,
-      "sha256": "e6ad03b066d6e8f2e3cc033fc5ff2682c6552b0c72cc0f1df2979e0beaf13337",
+      "size": 14757,
+      "sha256": "55ad29d9b9cf4a1172a34c3737eeaf8e5fc3f3974b9a9bf0268a0e3c4b4a14fc",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28975,8 +30595,8 @@
     {
       "path": "services/data-api/src/features/evidence/internal-persist-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 18539,
-      "sha256": "50f38c86a4e973a855a5ddd90ad77a46461efdbff98b170e713c34f83d357ef0",
+      "size": 24568,
+      "sha256": "a37c7680805c1ffaf528add9bc1369eed98000f823d3ac371b9f2afa00ddeeaa",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -28984,8 +30604,8 @@
     {
       "path": "services/data-api/src/features/evidence/internal-persist-routes.ts",
       "mediaType": "text/typescript",
-      "size": 29316,
-      "sha256": "86fecb08804940c2ab069a1dcd5cd4de7cf9809d3e03007cca98fb69d0c2b362",
+      "size": 32198,
+      "sha256": "2adf8e480baf69aee19b03fece1de1cceab0d5612ce9a5fa9470bf370c694bf0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29108,10 +30728,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/inbound/inbox-anchor-exclusion.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4485,
+      "sha256": "5f75224ca4a52fa289c17db729c10d49c10f4809224f6a7723ad555160fa8cb2",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/inbound/internal-record-routes.ts",
       "mediaType": "text/typescript",
-      "size": 8406,
-      "sha256": "035cb54f4a1f40790647d5e0e5135d0255945173373f04fae17f7619f60b8650",
+      "size": 8410,
+      "sha256": "ce5a1c11a1df2513211df1ee0d8d8ac647a152a9e6bab295efe2ffed6aa12ebb",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29119,8 +30748,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal-triage-routes.ts",
       "mediaType": "text/typescript",
-      "size": 21380,
-      "sha256": "e2cc9e050b05064d4c923b934649f419ec2e33a2dc29ec62a0db74d359424993",
+      "size": 16956,
+      "sha256": "9f14295964f884f81d6d7bba73506e794158f83d6a0d1624c029363e6f964f22",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29155,8 +30784,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal/parser-fields.ts",
       "mediaType": "text/typescript",
-      "size": 23353,
-      "sha256": "162b4a5393270a9e3901044f81e13aa546572bd603d78453fdab631922a09507",
+      "size": 23442,
+      "sha256": "cbb5dfb3c0e7bf042e662264509b8825d01b54136193b90ebfe13557eaca8a6e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29173,8 +30802,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal/service-support.ts",
       "mediaType": "text/typescript",
-      "size": 7829,
-      "sha256": "2af689832de7bd313ef20c7a49326c5ed2b2953d423b600559da08de6172f620",
+      "size": 7953,
+      "sha256": "6b282af0ca8cf93cf8a25b09b80e8b349e5438855a40a2266aa8db61b613b06d",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29279,10 +30908,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/inbound/persistence.test.ts",
+      "mediaType": "text/typescript",
+      "size": 10150,
+      "sha256": "dba14ce3e81edacdd0b92cd636f8ee1b443a657c151b55e923b063a61c6e4a9e",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/inbound/persistence.ts",
       "mediaType": "text/typescript",
-      "size": 8450,
-      "sha256": "c80a8098cbffa7d444ad77efe721a6380799f18b120ab347e7ca841eb539f000",
+      "size": 12902,
+      "sha256": "bd2224fa017c55bb4957cf11b3edcaaffc927e9327e72f5b1e0f2a7871d39ae0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29290,8 +30928,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 8047,
-      "sha256": "50bcda0cb02753690eedec1869436b387edf1ad058ed11b8b16753bb582c4d15",
+      "size": 37674,
+      "sha256": "512e1e34ea38949d0783f5a0d39122f1a85a6ed58fba61d728c5bc3a9361830c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29299,8 +30937,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.ts",
       "mediaType": "text/typescript",
-      "size": 27892,
-      "sha256": "52f427ab14971d2e448aca7305a0cd38402cf42b1f809e50c472b4f00e72f51b",
+      "size": 45504,
+      "sha256": "c4b58fe42e10d21a346c8666ef2eab25c2689b7b9039268cf9632bb84ac38d3c",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29308,8 +30946,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.test.ts",
       "mediaType": "text/typescript",
-      "size": 3533,
-      "sha256": "84da7f8774ea5630aaddfb640460f660304834470a92d6a3291d5f978ea7ddeb",
+      "size": 4160,
+      "sha256": "22957f89caaf486719d190817f63051a700775072c36e9cf44c7722377830d00",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29317,8 +30955,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-validate.ts",
       "mediaType": "text/typescript",
-      "size": 7049,
-      "sha256": "b518ade15aaba06628baa7b2b84eefd4085c45b0c2cdfa8951f997967ddaa440",
+      "size": 8740,
+      "sha256": "4a6ea1c80fa4c5190d330f0507a130267042b2d82f7f811184a4ac0e66ae2915",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29326,8 +30964,17 @@
     {
       "path": "services/data-api/src/features/inbound/routes.ts",
       "mediaType": "text/typescript",
-      "size": 26384,
-      "sha256": "337c09981e53e3af287751b0bb5717cc416fba658843ec0ae535c05b2d713825",
+      "size": 28774,
+      "sha256": "647f8047fe69a9e82978098c4f1f90924b4a5141cdbc7b9f0f49eeab3dc5ee38",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/suggestion-write.ts",
+      "mediaType": "text/typescript",
+      "size": 7668,
+      "sha256": "e03c28b186095346a93c98ecdb6aef176612bb3249ef8dec9e593ddece6c300a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29425,8 +31072,8 @@
     {
       "path": "services/data-api/src/features/providers/recovery.test.ts",
       "mediaType": "text/typescript",
-      "size": 11431,
-      "sha256": "18dc00334c362b040e064e5e82f4672f4d85bfd2d703320a40abb6d4814ddcce",
+      "size": 12068,
+      "sha256": "a38d5bd491ff098b75b30312a32c473a9459e8c34ac30501752ab9fd0bca7f5f",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29434,8 +31081,8 @@
     {
       "path": "services/data-api/src/features/providers/recovery.ts",
       "mediaType": "text/typescript",
-      "size": 10253,
-      "sha256": "00e202d9c628977c01b22d674f9303868d2fe819e304fe3094de6dc7e94949da",
+      "size": 10755,
+      "sha256": "e69fcc8105788554c7ff1f7b3e887cc76bb5e1e59b0c457a2b56e103da289202",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29542,8 +31189,8 @@
     {
       "path": "services/data-api/src/generated/capture-api.ts",
       "mediaType": "text/typescript",
-      "size": 28652,
-      "sha256": "a880129a05ff98068eb34d320250cd6a0fba20aaccabc605a9c61cd9fa4bd60e",
+      "size": 29168,
+      "sha256": "42f146d59cffcbbe15693caa58c6b193ea5e355f15ef1723bb4d36ef4fb30bd9",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29603,10 +31250,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/platform/db/client.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1291,
+      "sha256": "c0c6922e47906abad5a34b2cc472911a29331268f7aa38c4bdc8482f945e6d54",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/platform/db/client.ts",
       "mediaType": "text/typescript",
-      "size": 5310,
-      "sha256": "14a4c83f58e8982555f1ac32c725a70543cfad8739b3709d9d137578f1752c1a",
+      "size": 6073,
+      "sha256": "a316d24baa620f2883979c1d224ee55bf66be3ffb0565b2c9d9f4dc6754768fd",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29713,8 +31369,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.test.ts",
       "mediaType": "text/typescript",
-      "size": 6665,
-      "sha256": "f64a61a3d99ccf97c20205ce953044e3c51800651b0aac018419cd7fff8917a3",
+      "size": 10519,
+      "sha256": "c4200f744b28deb21bce11d3a1f6396d5263436ad564fcc36b965849b3881cd0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29722,8 +31378,8 @@
     {
       "path": "services/data-api/src/shared/last-activity.ts",
       "mediaType": "text/typescript",
-      "size": 8345,
-      "sha256": "92aadb007eea28e3c1684e217f84dcc78f07616847047b5165b8d0d4a9db25bf",
+      "size": 11576,
+      "sha256": "82dc2a076b8ae7814b9684ce3acc0189693f8b568535e8c64355a19a337aeee1",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29731,8 +31387,8 @@
     {
       "path": "services/data-api/src/shared/mapping/cases.ts",
       "mediaType": "text/typescript",
-      "size": 14382,
-      "sha256": "a5f171957b03cee2d8371544228da35debb3b0098172d8d199c0b41f9f0c5b0a",
+      "size": 16114,
+      "sha256": "5a4dd0904c072e61c73123bce412cf950182134fcc4fd7bbba9e158c35b1e758",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29740,8 +31396,8 @@
     {
       "path": "services/data-api/src/shared/mapping/evidence.ts",
       "mediaType": "text/typescript",
-      "size": 8063,
-      "sha256": "d6bb67c9caee21f06986a7e512066fcce805aaaf9dc1ba800056176ddf75cde6",
+      "size": 9462,
+      "sha256": "451c2ba64ec770bb1da5c4009c7825941341cc014a7969408c33316acc38de00",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29749,8 +31405,8 @@
     {
       "path": "services/data-api/src/shared/mapping/inbound.ts",
       "mediaType": "text/typescript",
-      "size": 11011,
-      "sha256": "27cc8db9c7da56c4e4259957572ae4584a3218de78414a79093999e623c981a1",
+      "size": 11234,
+      "sha256": "6d907efc4129797a4a08e819b14aec40c7d8f111b1b1d7f77b53387d4584e030",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29758,8 +31414,8 @@
     {
       "path": "services/data-api/src/shared/mapping/index.test.ts",
       "mediaType": "text/typescript",
-      "size": 22438,
-      "sha256": "c7069f08bc97447d383bebe3b5619aa286b3d6cc4ae9cd87314f5c469fdbbc0e",
+      "size": 27134,
+      "sha256": "d8ed8ccdee72c510425985b8d2e14b4dfeac6138d45b040235326b827c4a3cae",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -29920,8 +31576,8 @@
     {
       "path": "services/functions/box-webhook/data_api_client.py",
       "mediaType": "text/x-python",
-      "size": 19325,
-      "sha256": "89bf5a262017cd3e4ed2b9c84f450d3b0e508d62cb533ce3607cfdfdfd3a2881",
+      "size": 22018,
+      "sha256": "0c54f3ef449bf0a7a8dd987adff5dec29db4e790b636bd7a0932665b0abb2027",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -29938,8 +31594,8 @@
     {
       "path": "services/functions/box-webhook/function_app.py",
       "mediaType": "text/x-python",
-      "size": 40074,
-      "sha256": "84f7bded3eed3392230b2b1044d8516a89c3cab34a9479291a7164b22a36c639",
+      "size": 42257,
+      "sha256": "b59d045a8ece9bf6ca391990dc4b5c8b2f1a533d6ed369194243b6803e378a19",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -30037,8 +31693,8 @@
     {
       "path": "services/functions/box-webhook/tests/test_data_api_client.py",
       "mediaType": "text/x-python",
-      "size": 17096,
-      "sha256": "6953d1ef39f3cb7ef992831d25d1e2b899933f86d116ccf3d9d8ce5ad34929b1",
+      "size": 21435,
+      "sha256": "f634ad1dd38f436756cfb79a616e52a8e607355be3fdcb0d4abdcf9a64defc3b",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -30109,8 +31765,8 @@
     {
       "path": "services/functions/box-webhook/tests/test_webhook.py",
       "mediaType": "text/x-python",
-      "size": 32861,
-      "sha256": "8a179ac017ba18728d29a8d985ac68229468e26d0363ec82c293bb524ba471d1",
+      "size": 39507,
+      "sha256": "723339eab004d59714695358d503d46e45c215c7a7323009460f0d32f511d92a",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -30686,7 +32342,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
       "mediaType": "text/markdown",
       "size": 2113,
-      "sha256": "88b89bbfeb838a1b7bb74ee9ba68ce820bc85fc889f0a146bb04f5cc20751d83",
+      "sha256": "34167c05ca7c3b266a345880a2b106da1d4bcb862f4c1ab0041c26a3487512dc",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -30695,7 +32351,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/VENDOR_LOCK.json",
       "mediaType": "application/json",
       "size": 850,
-      "sha256": "8777478b48e1a3fd27246cc2317e4e53cf2779a462bf08449980fc0b17084e55",
+      "sha256": "210887fd2a11b55a5a613773d4e07e1117ae044251068422ee7c9126d8907c50",
       "category": "vendored-source",
       "owner": "document-parsing",
       "lifecycle": "vendored"
@@ -30991,8 +32647,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/engine.py",
       "mediaType": "text/x-python",
-      "size": 146067,
-      "sha256": "240221b8426aa936bba9f07c0758a062daa02d4929b2c90ad274c21e9465c5c4",
+      "size": 146786,
+      "sha256": "9f9e8691b292b66a60e55941ef596f8c1b0b0ee42dd9f4c557839fccf5d6b0e1",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -31036,8 +32692,8 @@
     {
       "path": "services/functions/parser/function_app.py",
       "mediaType": "text/x-python",
-      "size": 30945,
-      "sha256": "2f2e98924d8397731b79524f79608b643394deee1f404a3d7312f4d315b5853a",
+      "size": 37526,
+      "sha256": "e415541b98f21967527cace4a380761058417286537e0045199d51d95051a994",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -31128,6 +32784,15 @@
       "mediaType": "text/x-python",
       "size": 409,
       "sha256": "7472e607803fefb209226abdda875fd4b5698944f7a6f793e2cc02c50b5b7d72",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/parser/tests/fixtures/SYNTHETIC_RETRO_MSG_01.msg",
+      "mediaType": "application/octet-stream",
+      "size": 7680,
+      "sha256": "d7ed0978695908d2e76744b67d1e05327dd0547febe1480a693ab94b8b1e5fa4",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -31232,6 +32897,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/parser/tests/fixtures/make_synthetic_msg.py",
+      "mediaType": "text/x-python",
+      "size": 6651,
+      "sha256": "bfc7f557ab2dc6606c79bbd196411c39364d79f5e2a85b02f2e9609a23b79fdc",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/parser/tests/fixtures/parser_record_complete.json",
       "mediaType": "application/json",
       "size": 3361,
@@ -31279,8 +32953,8 @@
     {
       "path": "services/functions/parser/tests/test_contact_extraction.py",
       "mediaType": "text/x-python",
-      "size": 8151,
-      "sha256": "5cf072de5d396d8cad90796816ecc67e7c2a80630c27e20678ba6cfea010f5e6",
+      "size": 9816,
+      "sha256": "c6e0fa590e61c8d7dd9c1dd1db06376320436c4b2afa872729d7127e03d6ddf0",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -31371,6 +33045,15 @@
       "mediaType": "text/x-python",
       "size": 5654,
       "sha256": "c4eaf9a96d6ecf8e7c488f858e21f125202feed185552c48bcc4efa9bb86a831",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/parser/tests/test_explode_msg.py",
+      "mediaType": "text/x-python",
+      "size": 6751,
+      "sha256": "a983a6fc1cef9106a1cb73513081832c611a8d0f0b50dc9205494e65c3bae086",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -31693,8 +33376,8 @@
     {
       "path": "services/orchestration/src/adapters/aoai.ts",
       "mediaType": "text/typescript",
-      "size": 21039,
-      "sha256": "1316c45515177b1d1d64baea41f93604c1671b676d5bd42f4d221e82d4f3eb7f",
+      "size": 21174,
+      "sha256": "1ddb935da023dc44fba94b82a0e9e2453a835de82ecbf4f7a7f1cb1d09415a52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31765,8 +33448,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "mediaType": "text/typescript",
-      "size": 38591,
-      "sha256": "6472848c722196d3f1702a34f5785668a43fbf44dea5120e0b443b0e1dc16601",
+      "size": 41045,
+      "sha256": "c7e5f1b6927929527135584f77d1de81b335451d2d08983f392bb615639f3735",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31783,8 +33466,8 @@
     {
       "path": "services/orchestration/src/adapters/graph.test.ts",
       "mediaType": "text/typescript",
-      "size": 13911,
-      "sha256": "2575cd112fe896b80f9a44ca96e1f86dd9b49fa23596335ae80786b8e1548539",
+      "size": 14374,
+      "sha256": "de0f2a870d2514e6d35b6006ba0f1edcc15cbafbf874f74e44a4439680414744",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31792,8 +33475,8 @@
     {
       "path": "services/orchestration/src/adapters/graph.ts",
       "mediaType": "text/typescript",
-      "size": 24182,
-      "sha256": "cd1b7e1931c73fef4601f6d69a46974b73c3f93ab83f610fc27426758f7f0289",
+      "size": 26066,
+      "sha256": "e9e83b7b8a23604377876cac2cbbc1a824a14c0cb05f2e11391ef49dd0299ea9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -31810,8 +33493,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 4450,
-      "sha256": "ceb479621f2a8a932e13e035959db589cf9dbb985af43aaa2c6ce0cb46c8ea67",
+      "size": 4580,
+      "sha256": "ee89e6cfebc187edba89031fff237b90abd15a4d3f19d2555ce0e8a14b90f0fc",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32033,10 +33716,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/archive/box-blob-purge.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4767,
+      "sha256": "3bbb42e36936ba11c512efd3d2e08ca38073414cb2baf186a35ba30009e1ac33",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/archive/box-blob-purge.ts",
       "mediaType": "text/typescript",
-      "size": 2374,
-      "sha256": "92b2cf71b3ccdb8082f98dde1f8211ebf5b85b83bd6a1edaa39f355726bf3f78",
+      "size": 3420,
+      "sha256": "d91649ae91b701359c5dbcb4bfae697368d17bc8a4be967a2b12cae2ccf1a65d",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32170,8 +33862,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/classifyPersist.test.ts",
       "mediaType": "text/typescript",
-      "size": 3060,
-      "sha256": "c360fe19d29980d3e1414137da1e3aed22f2ba11c2453128c2ab0e02656ecc70",
+      "size": 6775,
+      "sha256": "75ddd5baf7d547f8a808c9ab4be54ccfc05fe6def300171c1e6871f169923085",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32179,8 +33871,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/classifyPersist.ts",
       "mediaType": "text/typescript",
-      "size": 10395,
-      "sha256": "3c15fe20344cde78974fb2f7a704fd55c2de768fa47d822379806186864a0dd0",
+      "size": 10861,
+      "sha256": "706dd4d972298ff3159e4a816225acfe73c507a82bcde3f5b46e1e46ecd10762",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32404,8 +34096,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 42775,
-      "sha256": "ad3043509b9bd0d4ef2f724ed5ba13a1ca5cf824ba68f953dc4f7c1beaeca4f3",
+      "size": 44418,
+      "sha256": "57c46a414ef44fc9e56cc2667b513af886c63d7b79fc88780380ce0501318eb9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32672,10 +34364,37 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/retro/retro-activities.test.ts",
+      "mediaType": "text/typescript",
+      "size": 20542,
+      "sha256": "5220700745bd92637bd1c11c35673b135cacca83f73d79367227d3521f7c9c6e",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/retro/retro-activities.ts",
       "mediaType": "text/typescript",
-      "size": 19100,
-      "sha256": "67837a6accee7fe8b42f449b69177bbd412354dabd1054ea43fdcb63de1ef1e7",
+      "size": 44239,
+      "sha256": "786a506ab89a58f7c021efecf443c6d9c23f8e4bab931045cbd968ed5d611ede",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-case-force-restart.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6220,
+      "sha256": "995d53235d826ddcda41cd08357739b2c86b15c6f2b7da4af644af8d4a937579",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-case-postsweep.test.ts",
+      "mediaType": "text/typescript",
+      "size": 11113,
+      "sha256": "3692951c6c870eb01db2fc646d465a03c065940588571ff35b03696d65a1ec52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32683,8 +34402,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case-provider-recovery.test.ts",
       "mediaType": "text/typescript",
-      "size": 5373,
-      "sha256": "c406288a10f8263d65d73562022505f19186aa10dd6fe920bd8b8dbd5fc8aac8",
+      "size": 21561,
+      "sha256": "d803c95cb0305ac9668cc9c398e7491a615b9d91b226127a953231f4929db36f",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32692,8 +34411,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 29390,
-      "sha256": "eae1fc9c2cd57d389fbc6ddb21033e114ff575b0fdff9b7fe2f1bce1836af3d8",
+      "size": 61018,
+      "sha256": "45c5184e3c7e5c40e8e3b8ce6e4b43360607d2cdc5d9e787f306256653559993",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32710,8 +34429,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-envelope.test.ts",
       "mediaType": "text/typescript",
-      "size": 8703,
-      "sha256": "9d7d130f6dff5e75fb4cee19d983da3bb02da1f325329db764fe89b22f679bf3",
+      "size": 13397,
+      "sha256": "2c1d518ec6df89c6dc36a53a1f0454ed9d7481ecd735071721529ab289417e52",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -32719,8 +34438,26 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-envelope.ts",
       "mediaType": "text/typescript",
-      "size": 11219,
-      "sha256": "ae2debcfbba2750a14cf063548864a0923e05507b46181f3644df610efc32ae8",
+      "size": 16425,
+      "sha256": "8688f123feab9ff15f17018be33df71949ec4e6c78bed3a7031af15c33e54b7a",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-ingest.test.ts",
+      "mediaType": "text/typescript",
+      "size": 12589,
+      "sha256": "c6d0b6e42c53cb674a20de6946e868c88348b3d718d7a7363037917fefe1bdb5",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-ingest.ts",
+      "mediaType": "text/typescript",
+      "size": 9407,
+      "sha256": "0d092df8230a9f19080442f403608453d357cb36557efbb652c19dd10964aba9",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -38434,8 +40171,8 @@
     {
       "path": "tests/fixtures/manifests/evidence.json",
       "mediaType": "application/json",
-      "size": 438066,
-      "sha256": "8df16971b92ec2570239caf392ede5c8cc705be936eb64ed2721b80639ef03dc",
+      "size": 438075,
+      "sha256": "c6949713c92c4e4191ee39928abc2b07bfcf20c0e91cbf35adad083362f6f4ea",
       "category": "fixture",
       "owner": "quality-and-evaluation",
       "lifecycle": "active"
@@ -38497,8 +40234,8 @@
     {
       "path": "tools/box-scope.json",
       "mediaType": "application/json",
-      "size": 425,
-      "sha256": "9ce2a86ea91d02c68123d0ed493f734bc7eb9fd1d0a53fd22c3f0789bcb1279f",
+      "size": 798,
+      "sha256": "4dbf9405c9ca39b5fb134ae46fbefe2766c915cb9079667c2eefa5429b538c9b",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -38603,6 +40340,15 @@
       "lifecycle": "working"
     },
     {
+      "path": "workingspace/adr-rewrite.txt",
+      "mediaType": "text/plain",
+      "size": 22000,
+      "sha256": "f8be6430bf3f9e47bd6e669db60f619f7792b6086bb1a71b31fc735568679e3d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
       "path": "workingspace/ai-realignment-plans/00-ai-estate-inventory.md",
       "mediaType": "text/markdown",
       "size": 13015,
@@ -38688,6 +40434,708 @@
       "mediaType": "text/plain",
       "size": 10932,
       "sha256": "1e092f72364e78ba05aeaeae022e73ac83d89f76122e131fb17743ab03a3126c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/00-overview-register-and-plan0-handoff.md",
+      "mediaType": "text/markdown",
+      "size": 11470,
+      "sha256": "056dcd1c761c4bf29ad8f3f52ab5e6c91af6eed92125a2882fa49237cad6fd34",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/01-server-runtime-foundation.md",
+      "mediaType": "text/markdown",
+      "size": 5397,
+      "sha256": "59fa8c9933f5a439682ab5957d7f272da6af774b5c3788f5b548383972429746",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/02-canonical-service-routes.md",
+      "mediaType": "text/markdown",
+      "size": 4969,
+      "sha256": "6aa47df2fc6752304414ad6bb1a0f9c8612536816e949b9dc1d60065d496d36d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/03-cloud-estate-cleanup.md",
+      "mediaType": "text/markdown",
+      "size": 5261,
+      "sha256": "64de10564f1983d5b2f656fb094764c404dcb0fc0236ecc61cc1212fe17ae5dd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/04-scripts-and-tooling-dedup.md",
+      "mediaType": "text/markdown",
+      "size": 4354,
+      "sha256": "cf25ae599af80a5574c04f7f1857e72ed872211b88e566fb75d31bb2ee495ab6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/05-python-doctrine-and-parity.md",
+      "mediaType": "text/markdown",
+      "size": 4287,
+      "sha256": "e3ef3313b1072c9804cb387cfa0e955248a2f1d7603c28a1eca9de85b4dea3df",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/architecture-simplification/README.md",
+      "mediaType": "text/markdown",
+      "size": 6523,
+      "sha256": "97e9fee2ebe0351ee2d2e799d00da0fc7d41a7744810fccbc96d7a30b475686e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 325,
+      "sha256": "9ac50756ffdc8c38d14c3c162f49b171dacbfcb5e4bdeb2749c1ddbce144ce6c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/completion-state-2026-06.md",
+      "mediaType": "text/markdown",
+      "size": 3627,
+      "sha256": "197e1ebe9dc89da678777ad9409cbb6c705d91134bee8ef7105fda69d0d13609",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/fullbuild-decisions-2026-06.md",
+      "mediaType": "text/markdown",
+      "size": 1941,
+      "sha256": "825a600f44ba6581de016879a5fc4c32bf554281e32d2e761e81f3619504cc5d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 457,
+      "sha256": "6d4b2b0092e5c0c960fc55e47eb06018fa4b64493c7fcf3e8df98efb81a1a91f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/collisionrenderer-is-live-single-render-path.md",
+      "mediaType": "text/markdown",
+      "size": 2407,
+      "sha256": "df07278e57aec19e00ecb670ecfd9be2a11877c688e55ae05ac8990b88ff2896",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/vehicle-assessment-estimate-first-refocus.md",
+      "mediaType": "text/markdown",
+      "size": 2883,
+      "sha256": "a4ad60f46a9259b3dbf344fe9da9d2509eb49b7eab031b38e4c50ccd4957e147",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 6154,
+      "sha256": "4000595f2ba653bbaa3a5f285fa2b73081242bc891eebc7227ef152c6bddd517",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/audit-case-type.md",
+      "mediaType": "text/markdown",
+      "size": 3096,
+      "sha256": "d59817def1cd5bf2f2afb0192aea751b1022e16f86e25733b50d50c8d0400f6f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/az-appsettings-file-gotcha.md",
+      "mediaType": "text/markdown",
+      "size": 1571,
+      "sha256": "555cf8a2998d4f7f3446d095925e4c74ae53575f8179636c701ac0a810b86107",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-integration-pivot-findings.md",
+      "mediaType": "text/markdown",
+      "size": 4036,
+      "sha256": "efc4108ca5e80156348de0ba39d5776bd794ac4eb9827125c0f8d93cbd080906",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-pivot-phase7-committed.md",
+      "mediaType": "text/markdown",
+      "size": 4575,
+      "sha256": "df27ed4f9c05ba319e8a22c0ddccb93b8629ed58e26aaf56fbebc47d1ec44a07",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-scope-guard.md",
+      "mediaType": "text/markdown",
+      "size": 2058,
+      "sha256": "3c62b8266cc4e041c01e2386bd73901e3238e63dc55447d4f2708af01f5c12f2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-test-account.md",
+      "mediaType": "text/markdown",
+      "size": 3048,
+      "sha256": "a65eb793f4303062e8d85f0880e51ea6b245d1027a2da936d429f87d75d34879",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/codeapp-apikey-connector-connection.md",
+      "mediaType": "text/markdown",
+      "size": 2183,
+      "sha256": "af760195bb6b7d880944df995b8096edcec07b341b9ea0f786e99a768c9bc57c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/codeapp-csp-use-connectors.md",
+      "mediaType": "text/markdown",
+      "size": 2024,
+      "sha256": "3900beaa506b9bc6be1dcec479fa5477d48ad00f4266e215a5155d83744455ca",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/codeapp-envvar-tables-not-wired.md",
+      "mediaType": "text/markdown",
+      "size": 2324,
+      "sha256": "82473792e029d1139031adf3cf5ebaaf244ea69bfd58c83c1f9f12a06fb7a05b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/codeapp-lookup-write-odata-bind.md",
+      "mediaType": "text/markdown",
+      "size": 1814,
+      "sha256": "4adfbe7ab74600026ea712630637400622a17115ebee501f088c62c2b9d43073",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/enrichment-activated.md",
+      "mediaType": "text/markdown",
+      "size": 2988,
+      "sha256": "6924814be402f9b20f733d1651285b25e7dc618a90977f5e83ec12fc9c05a0fc",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/flow-webhook-trigger-provisioning.md",
+      "mediaType": "text/markdown",
+      "size": 3272,
+      "sha256": "46a533f7afa400bf145d8d1ba22f573dd08b3263fa06b9c3cb4f6da6de443c0d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/inspection-image-based-detection.md",
+      "mediaType": "text/markdown",
+      "size": 2380,
+      "sha256": "949c35965f655b05b957bcc2883a9a001130264906f6096512610511f0ac9c04",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/intake-repo-trails-live.md",
+      "mediaType": "text/markdown",
+      "size": 1622,
+      "sha256": "31af979a31e8b1e0ce2be873654ce353a94ee48b98014404bb1c117c2ddb0349",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/jobsheet-provider-rules.md",
+      "mediaType": "text/markdown",
+      "size": 4151,
+      "sha256": "394984b2442a2d08779ecedc622a4d81ad43c6e775eb548e8f23c8b2c9f4cbdc",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/live-services-boundary.md",
+      "mediaType": "text/markdown",
+      "size": 2663,
+      "sha256": "7a97ff778b65bfa5eb6bf9c7425e10c45f5f809921ae4dd72c3be1358e1964f6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/loc-export-artifact-no-address-matcher.md",
+      "mediaType": "text/markdown",
+      "size": 2509,
+      "sha256": "da919bc34d5030500a8c8b252d168f64f1fe70f5b055d74b1c82aa83a85326d7",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/parser-vendored-divergence.md",
+      "mediaType": "text/markdown",
+      "size": 2048,
+      "sha256": "ade45d6f26d8976d0e677239b165160c3c6406bc2affd479f990b025ea70cd37",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/powerplatform-connector-base64-double-encode.md",
+      "mediaType": "text/markdown",
+      "size": 3536,
+      "sha256": "e0675720af7fddb58f0f066431c796b17afed1a6fbd6f1c48eddcd2c2b723ef1",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/provider-corpus-analysis.md",
+      "mediaType": "text/markdown",
+      "size": 2736,
+      "sha256": "443cc5964cbd32d5dff0b6b07f5a6c58d0416001861a2d5ef481a1fd7d0cc0b6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/pymupdf-licensed.md",
+      "mediaType": "text/markdown",
+      "size": 863,
+      "sha256": "48c7fc64a31458ec441752a0899da493ceda072d79d0612bc1b27df8fad9d40d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/queue-case-model.md",
+      "mediaType": "text/markdown",
+      "size": 2634,
+      "sha256": "5ea7f5fbd6bf318515ef4605f015a76b309d4505c7f9e2f7b8c92d1bc749bea0",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 4695,
+      "sha256": "758e9ae48543edda919798c6ac1f6ff241c95cab067dadeb11112f7fb95e72d6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/adr-rewrite-160726-plan-updated.md",
+      "mediaType": "text/markdown",
+      "size": 2206,
+      "sha256": "1138c83de40fce02c91b8bc8695fdad15155a260182168fcea50d8399802e269",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/ai-realignment-plans-authored.md",
+      "mediaType": "text/markdown",
+      "size": 2261,
+      "sha256": "0573fe2350c6c86908f0526bb5d369c56f3b809a96fae6bbefd5601f5a4bade0",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/app-insights-retention-collapse.md",
+      "mediaType": "text/markdown",
+      "size": 1581,
+      "sha256": "a1a3f321fe7c5e1095a2e2bfd4db279d23b6bd34b807fd907ae3469372224c0c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/arch-simplification-series-state.md",
+      "mediaType": "text/markdown",
+      "size": 1952,
+      "sha256": "8a376db4560aeebfc63674b3ce4e6e3df6769cbcae2ddcbefd0a628e3190afb2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/azure-deploy-toolchain-gotchas.md",
+      "mediaType": "text/markdown",
+      "size": 3895,
+      "sha256": "c4c7743bd0a4699de27a98fc29fa15533e36ffbe23dbf77af7ebf30adb06e894",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/governance-ledgers-stage-then-regenerate.md",
+      "mediaType": "text/markdown",
+      "size": 1702,
+      "sha256": "4bd9b3edcb5857c43f208bed4989a5a6a80a6d9f33f74aef97ab1b1fdb5d0095",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/live-postgres-connect-path.md",
+      "mediaType": "text/markdown",
+      "size": 1790,
+      "sha256": "964e05cd43e0969b7155b7f0582e7e392d8fc65d2dc377a255aa1bc77b20117e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/plan-001-vision-family-built-dark.md",
+      "mediaType": "text/markdown",
+      "size": 2514,
+      "sha256": "6f12208b771237b46216410f3ee45c9adadd117e52997341452b03324d32b900",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr100-plan006-reset-review.md",
+      "mediaType": "text/markdown",
+      "size": 2490,
+      "sha256": "a2509f43330dcb9a5a08d88b0616c8135eb0873da7f622a4aa29cd35890729c3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr73-tkt154-rebased-remediated.md",
+      "mediaType": "text/markdown",
+      "size": 2184,
+      "sha256": "f31ccf5434753f34b22212f15ca66eb55f1ce1ae545f9fee0eca56e9eda8ab81",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr89-tkt034-landed-dark.md",
+      "mediaType": "text/markdown",
+      "size": 3703,
+      "sha256": "d2c864498af8e46a3dca8337d9690cb444f87deade87a9cc4844c8cf2a0155cd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/reciprocal-ai-review-retired.md",
+      "mediaType": "text/markdown",
+      "size": 1477,
+      "sha256": "f92c2d8cc00ec715ea42ee582b9df6a991c281914a2ff427c1292d40c22f1b1f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/retro-drain-sequential-only.md",
+      "mediaType": "text/markdown",
+      "size": 1679,
+      "sha256": "fbb1d900c7559d013f61fd5fbe0c05de9645d024f006150c96aa98d62ebcb2d8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/sibling-repo-fetch-before-recut.md",
+      "mediaType": "text/markdown",
+      "size": 1375,
+      "sha256": "69eea76b167b075ffc95f767e4f3016def7a1c850f51318e62e3281020ab2227",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/ticket-orchestration-layer.md",
+      "mediaType": "text/markdown",
+      "size": 2739,
+      "sha256": "e31cbcdea5211b7dac34150d20f166541e533ddd7a406793e556f14c1f0fa20e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/windows-parser-test-preexisting-failures.md",
+      "mediaType": "text/markdown",
+      "size": 1623,
+      "sha256": "7ebf76b4fc5993f61f57b5bfd027da4d9a37877ed1d5fe06d381623bca881d89",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/windows-worktree-esbuild-lock-cleanup.md",
+      "mediaType": "text/markdown",
+      "size": 1471,
+      "sha256": "ef9ee83b8c95e7c0389d1377a7efafacf7a5987cd197cd91c087f7d4a91df293",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 5223,
+      "sha256": "8717634533afcd92033c84e2b7d34727a2efaf001291974422df3d41fd20c3dd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/base44-website-push-guard.md",
+      "mediaType": "text/markdown",
+      "size": 1043,
+      "sha256": "055a200910259a467447204c7df1613944ac3021c1aa88d99adaa79240a29c8d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/capture-hardening-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 2481,
+      "sha256": "cffb1e598447f80a22a34130c41d8ed88075cf6855901df2135a26722dc39de5",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/capture-server-exists-tkt200.md",
+      "mediaType": "text/markdown",
+      "size": 1444,
+      "sha256": "123decf929a27484b51d142b40bac90cb1c0f17558d467dcf09c6e286e8bf6d6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/mcpb-unset-userconfig-literal-token.md",
+      "mediaType": "text/markdown",
+      "size": 2533,
+      "sha256": "2fafc4e1c8df29a25573805c62257f02e2dadf65455abe3c715cac8658cb7982",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/org-directory-distribution.md",
+      "mediaType": "text/markdown",
+      "size": 2950,
+      "sha256": "6620b41c56feba8f8150727f78372fd5047e0a9938290fa3e9811faffe393c9f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-claude-desktop-debug-skill.md",
+      "mediaType": "text/markdown",
+      "size": 1910,
+      "sha256": "f7d8fd56c1f007da38107319b74b4ac17cdfd0bdc818b219ff92c2b9748dd7ff",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-collisionsuite-structure.md",
+      "mediaType": "text/markdown",
+      "size": 5670,
+      "sha256": "e822c96ac56058076d807c40c39eba68c253280aef3477949a2a89193bb821ad",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-grand-architecture-overview.md",
+      "mediaType": "text/markdown",
+      "size": 2265,
+      "sha256": "d856ef281e596e01a128575714f052c40c258271d694b0fee500c687727d14a8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-renderer-convergence.md",
+      "mediaType": "text/markdown",
+      "size": 5746,
+      "sha256": "e49de43c1734e383c41b2a8a5f759113bc10c99f9cc12b83a1f7c03cb2d8ecd3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-agents-policy.md",
+      "mediaType": "text/markdown",
+      "size": 3274,
+      "sha256": "68c9c564addf906390d4271b945d5a0a3a75df769e04d5e517429e8b141b1e77",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-manifest-tooling.md",
+      "mediaType": "text/markdown",
+      "size": 2513,
+      "sha256": "844462b113cf471760b14b3c8f44373434d6e488f61a24ef74534245a6cfce4e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-plans-plan-set.md",
+      "mediaType": "text/markdown",
+      "size": 1754,
+      "sha256": "a3b72c5f9d3235cbbfe0eeeaf53bb24f4e71ae336c11439da49c928560c627f2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-capture-quirks.md",
+      "mediaType": "text/markdown",
+      "size": 9628,
+      "sha256": "04859b90fedc415b2aefc744b041489e0fc55e46c1083372a656b71fce296ee3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-evidence-file-handoff.md",
+      "mediaType": "text/markdown",
+      "size": 2489,
+      "sha256": "9ba74c2c9545c6d7f32bee00ec7d8a637f2ba064318d5427dfbeef78818073ea",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-suite-integration-map.md",
+      "mediaType": "text/markdown",
+      "size": 4063,
+      "sha256": "3fef079d2261fb16101c05da92c5da13cccf5b67e2e67ef2bdc91022aa54db91",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuationbot-chromium-autoinstall-electron-fix.md",
+      "mediaType": "text/markdown",
+      "size": 4395,
+      "sha256": "aa5650d8bf8ba086c812c5c785ed3ee339c96301afe171dbccac50337abad24b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuationbot-detached-launch-this-loss.md",
+      "mediaType": "text/markdown",
+      "size": 2173,
+      "sha256": "1db666eadff5bfd94070d6c445ead743ed6f22e6e1af2ceee4abdcca99aef4d4",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 336,
+      "sha256": "98d7a8df01bd6e946e7e08411a41f347e3b62443b49df8636e831f87abd5a27d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/feedback-approach.md",
+      "mediaType": "text/markdown",
+      "size": 2008,
+      "sha256": "6ab8bf7058ea6c1414c4ad8f66d4df1750854142d2562a90f1b38d2448e4155b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/project-reglookup.md",
+      "mediaType": "text/markdown",
+      "size": 3053,
+      "sha256": "239d14029806b05b1c25047099179c22dcad5bced27e514faa8058d3675be0a6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/user-profile.md",
+      "mediaType": "text/markdown",
+      "size": 1157,
+      "sha256": "aec5aba9d222b4cdc190682a719bbc7e91acabe09acd168e4a0820d5133f3995",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev/MEMORY.md",
+      "mediaType": "text/markdown",
+      "size": 155,
+      "sha256": "98a7af1eb616bd03c87ae4555cdc9ac26b79b2f1cae1bba7c1d323d845f02dec",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev/project_repo_structure.md",
+      "mediaType": "text/markdown",
+      "size": 1031,
+      "sha256": "f0fe5d86f7040606380f3e7822a7c651d9d6dae735721ac9898e5c40dd04dbd0",
       "category": "working-document",
       "owner": "user-workspace",
       "lifecycle": "working"

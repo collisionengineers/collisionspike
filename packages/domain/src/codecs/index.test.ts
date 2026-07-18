@@ -91,6 +91,11 @@ describe('inboundSubtypeCodec — round-trip', () => {
     expect(inboundSubtypeCodec.toName(100000015)).toBe('website_general_enquiry');
   });
 
+  it('appends retro_related at 100000016 (TKT-226 — the retro link-related lane subtype)', () => {
+    expect(inboundSubtypeCodec.toInt('retro_related')).toBe(100000016);
+    expect(inboundSubtypeCodec.toName(100000016)).toBe('retro_related');
+  });
+
   it('the pre-existing codes are unchanged (never-renumber discipline)', () => {
     expect(inboundSubtypeCodec.toInt('existing_provider_instruction')).toBe(100000000);
     expect(inboundSubtypeCodec.toInt('existing_provider_diminution')).toBe(100000006);

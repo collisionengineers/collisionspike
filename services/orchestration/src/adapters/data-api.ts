@@ -258,7 +258,7 @@ export const dataApi = {
    */
   retroResolveExisting(payload: {
     trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
     providerId?: string;
     triggerCategory?: string;
   }): Promise<{
@@ -277,7 +277,7 @@ export const dataApi = {
   retroCreate(payload: {
     original: unknown;
     trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string };
+    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
     casePo?: string;
     vrm?: string;
     statusName: 'eva_submitted' | 'needs_review';
@@ -285,6 +285,8 @@ export const dataApi = {
     actionReason?: 'needs_review';
     reconstructionSource: 'box_eml' | 'box_doc' | 'outlook' | 'minimal';
     providerId?: string;
+    /** TKT-219 — the trigger sender's Image-Source intermediary match (TKT-021). */
+    intermediary?: { imageSourceId: string; candidateProviderIds: string[] };
     parserVrm?: string;
     parserRef?: string;
     parserMileage?: string;
@@ -300,9 +302,55 @@ export const dataApi = {
     casePo?: string | null;
     newClient?: boolean;
     candidateCount?: number;
+    /** TKT-219 — the provider the create actually resolved (PO principal / parser content /
+     *  recovery), so the orchestrator's evidence chain can honour the AI opt-out. */
+    resolvedProviderId?: string;
     providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
   }> {
     return request('POST', '/api/internal/retro/create', payload);
+  },
+
+  /**
+   * TKT-222 — link related mailbox emails (replies, chasers, our own sent responses) to a
+   * reconstructed retro case. Server-side: never re-points a row that already carries a
+   * case_id; rows land 'routed' with retro_related_linked provenance. TKT-225: the
+   * response additionally identifies WHICH rows linked (`linkedIds`) and which were
+   * already linked to THIS case (`alreadyLinkedIds`) — both ingest-eligible; rows linked
+   * to a different case are never returned.
+   */
+  retroLinkRelated(payload: {
+    caseId: string;
+    rows: unknown[];
+  }): Promise<{
+    linked: number;
+    skipped: number;
+    linkedIds?: string[];
+    alreadyLinkedIds?: string[];
+    /** PR-review fix — the route now applies the 25-new-links per-case cap itself
+     *  (already-linked rows don't consume it) and reports how many rows it skipped. */
+    skippedByCap?: number;
+  }> {
+    return request('POST', '/api/internal/retro/link-related', payload);
+  },
+
+  /**
+   * TKT-225 — fill-gaps parser-field application from a retro-linked RELATED email.
+   * Wraps the Data API's applyParserFields engine with NO sender-provider, NO
+   * intermediary and NO recoveryContext: strictly fill-if-empty (plus a VRM
+   * fill-if-empty with provenance), no Case/PO mint, no provider-recovery completion —
+   * a chaser is weaker provenance than an instruction. 'gated_off' while
+   * RETRO_CASE_ENABLED is off on the API app.
+   */
+  retroBackfillFields(payload: {
+    caseId: string;
+    sourceInternetMessageId: string;
+    parserVrm?: string;
+    parserRef?: string;
+    parserMileage?: string;
+    parserMileageUnit?: string;
+    parserEva?: ParserEvaFields;
+  }): Promise<{ outcome: 'applied' | 'noop' | 'gated_off'; vrmFilled?: boolean }> {
+    return request('POST', '/api/internal/retro/backfill-fields', payload);
   },
 
   /**
@@ -314,6 +362,9 @@ export const dataApi = {
   markInboundAttention(payload: {
     sourceMessageId: string;
     reason: 'unable_to_locate' | 'images_no_match';
+    /** PR-review fix (CHANGE 2) — the trigger row's source mailbox; when present the
+     *  route scopes its UPDATE to (source_message_id, source_mailbox). Optional. */
+    sourceMailbox?: string;
   }): Promise<{ stamped: boolean; detail?: string }> {
     return request('POST', '/api/internal/inbound/attention', payload);
   },

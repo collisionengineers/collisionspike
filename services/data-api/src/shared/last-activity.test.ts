@@ -7,7 +7,7 @@
  * "Chase suggested", and staff/manual chaser rows → "Chased".
  */
 import { describe, expect, it } from 'vitest';
-import { auditActionLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity.js';
+import { auditActionLabel, boxUploadLabel, humanActorName, lastActivityLabel, plainDetail } from './last-activity.js';
 
 describe('auditActionLabel', () => {
   it('maps the seeded controlled codes to plain English', () => {
@@ -16,7 +16,9 @@ describe('auditActionLabel', () => {
     expect(auditActionLabel(100000003)).toBe('Case created'); // case_created
     expect(auditActionLabel(100000013)).toBe('Details updated'); // status_changed
     expect(auditActionLabel(100000015)).toBe('Sent to EVA'); // eva_submitted
-    expect(auditActionLabel(100000021)).toBe('Images received'); // box_upload_received
+    // TKT-226 — the honest no-payload default: a Box upload is not proven to be
+    // images without a payload/summary saying so (boxUploadLabel owns the upgrade).
+    expect(auditActionLabel(100000021)).toBe('File added to archive'); // box_upload_received
     expect(auditActionLabel(100000023)).toBe('Chased'); // chaser_sent
     expect(auditActionLabel(100000030)).toBe('Case closed'); // case_removed
   });
@@ -103,11 +105,99 @@ describe('plainDetail — the TKT-134 detail-line safety filter', () => {
   });
 });
 
+describe('boxUploadLabel — TKT-226 honest Box-upload wording (decision table)', () => {
+  it('payload image class → Images received', () => {
+    expect(boxUploadLabel({ evidenceClass: 'image', origin: 'external_upload' })).toBe(
+      'Images received',
+    );
+  });
+
+  it('payload non-image classes → File added to archive (.eml / .pdf-instruction / video / report)', () => {
+    expect(boxUploadLabel({ evidenceClass: 'email', origin: 'external_upload' })).toBe(
+      'File added to archive',
+    );
+    expect(boxUploadLabel({ evidenceClass: 'instruction', origin: 'external_upload' })).toBe(
+      'File added to archive',
+    );
+    expect(boxUploadLabel({ evidenceClass: 'other', origin: 'external_upload' })).toBe(
+      'File added to archive',
+    );
+    expect(boxUploadLabel({ evidenceClass: 'engineer_report', origin: 'external_upload' })).toBe(
+      'File added to archive',
+    );
+  });
+
+  it('origin archive_mirror beats every class — the system echo reads Archived', () => {
+    expect(boxUploadLabel({ evidenceClass: 'image', origin: 'archive_mirror' })).toBe('Archived');
+    expect(boxUploadLabel({ evidenceClass: 'email', origin: 'archive_mirror' })).toBe('Archived');
+    expect(
+      boxUploadLabel({ origin: 'archive_mirror', summary: 'box_upload_received: IMG_0001.jpg' }),
+    ).toBe('Archived');
+  });
+
+  it('legacy rows (no payload) self-heal from the summary filename via the shared extension table', () => {
+    // The FW26029 shape: the archive-mirrored .eml must NEVER read as images.
+    expect(boxUploadLabel({ summary: 'box_upload_received: message-ab12cd34.eml' })).toBe(
+      'File added to archive',
+    );
+    expect(boxUploadLabel({ summary: 'box_upload_received: IMG_0001.jpg' })).toBe(
+      'Images received',
+    );
+    expect(boxUploadLabel({ summary: 'box_upload_received: report.pdf' })).toBe(
+      'File added to archive',
+    );
+    expect(boxUploadLabel({ summary: 'box_upload_received: clip.mp4' })).toBe(
+      'File added to archive',
+    );
+  });
+
+  it('unparsable/unknown falls back to File added to archive — never a false Images received', () => {
+    expect(boxUploadLabel({})).toBe('File added to archive');
+    expect(boxUploadLabel({ summary: '3 files landed' })).toBe('File added to archive');
+    expect(boxUploadLabel({ summary: 'box_upload_received: 3 files landed' })).toBe(
+      'File added to archive', // extensionless "filename" classifies as other
+    );
+    expect(boxUploadLabel({ evidenceClass: null, origin: null, summary: null })).toBe(
+      'File added to archive',
+    );
+  });
+});
+
 describe('lastActivityLabel — the three row kinds', () => {
   it('audit rows use the controlled-action mapping', () => {
     expect(lastActivityLabel({ kind: 'audit', actionCode: 100000023 })).toBe('Chased');
     expect(lastActivityLabel({ kind: 'audit', actionCode: 100000054 })).toBe(
       'Chase suggested',
+    );
+  });
+
+  it('box_upload_received audit rows route through boxUploadLabel (TKT-226)', () => {
+    // Object-payload rows: class and origin decide.
+    expect(
+      lastActivityLabel({ kind: 'audit', actionCode: 100000021, evidenceClass: 'image' }),
+    ).toBe('Images received');
+    expect(
+      lastActivityLabel({ kind: 'audit', actionCode: 100000021, evidenceClass: 'email' }),
+    ).toBe('File added to archive');
+    expect(
+      lastActivityLabel({
+        kind: 'audit',
+        actionCode: 100000021,
+        evidenceClass: 'image',
+        origin: 'archive_mirror',
+      }),
+    ).toBe('Archived');
+    // Legacy rows: the summary filename heals the label read-time.
+    expect(
+      lastActivityLabel({
+        kind: 'audit',
+        actionCode: 100000021,
+        summary: 'box_upload_received: message-ab12cd34.eml',
+      }),
+    ).toBe('File added to archive');
+    // Bare row (no payload, no summary): the honest default, never a false image claim.
+    expect(lastActivityLabel({ kind: 'audit', actionCode: 100000021 })).toBe(
+      'File added to archive',
     );
   });
 

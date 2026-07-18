@@ -6,13 +6,16 @@ is injected). respx mocks the Data API ``/api/internal/*`` routes.
 Covered:
 * resolve_case_by_folder GETs box/case-by-folder/{id} and returns { caseId } (or
   None when the folder resolves to no case).
-* evidence_exists_for_box_file is the interface-compat shim → always False, no
-  HTTP (the durable dedup is the idempotent evidence POST).
+* evidence_exists_for_box_file is GONE (TKT-229) — the idempotent evidence POST is
+  the single dedup authority; the removal is pinned so nothing resurrects the seam.
 * create_evidence POSTs ONE Box row to cases/{id}/evidence with the box:file:<id>
   dedup tag + boxFileId mirror + evidenceClass=image + acceptedForEva=true, leaves
-  storage_path to the API (blank), and returns a truthy marker only when persisted.
+  storage_path to the API (blank), and returns an EvidenceWriteResult whose ``tag``
+  is truthy only when persisted (TKT-226: ``merged``/``updated`` surfaced too;
+  TKT-229: ``mirrored`` parsed with None preserved for older API builds).
 * write_audit POSTs the action NAME ('box_upload_received') + summary + after, and
-  is best-effort (a non-2xx does NOT raise).
+  is best-effort (a non-2xx does NOT raise). TKT-226: ``after_fields`` upgrades
+  ``after`` to an object payload; the no-kwarg call stays byte-identical (string).
 * reinvoke_status_evaluate POSTs cases/{id}/status-evaluate, no-ops to False when
   DATA_API_URL is unset, and raises DataApiError on a genuine call failure.
 * the audience normalisation (bare GUID → api://GUID) and the 429/5xx retry.
@@ -115,13 +118,15 @@ def test_resolve_case_context_empty_id_short_circuits():
 
 
 # ===========================================================================
-# evidence_exists_for_box_file (interface-compat shim)
+# evidence_exists_for_box_file — REMOVED (TKT-229)
 # ===========================================================================
 
-def test_evidence_exists_is_false_shim_no_http():
-    # Always False (the idempotent POST is the dedup authority); makes no HTTP call.
+def test_evidence_exists_shim_is_gone():
+    # TKT-229 removed the always-False interface-compat shim: the idempotent POST is
+    # the single evidence-write dedup authority and the audit onceKey is the audit
+    # dedup authority. Nothing must quietly resurrect the dead seam.
     c = _client()
-    assert c.evidence_exists_for_box_file("CASE-1", "999") is False
+    assert not hasattr(c, "evidence_exists_for_box_file")
     c.close()
 
 
@@ -139,8 +144,10 @@ def test_create_evidence_posts_box_row_and_returns_marker():
 
     respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(side_effect=handler)
     c = _client()
-    marker = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
-    assert marker == "box:file:999"  # truthy marker on a fresh write
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.tag == "box:file:999"  # truthy tag on a fresh write
+    assert result.persisted == 1
+    assert result.merged == 0  # absent counter -> honest 0 (older API builds)
     rows = captured["body"]["rows"]
     assert len(rows) == 1
     row = rows[0]
@@ -162,8 +169,74 @@ def test_create_evidence_returns_empty_marker_when_deduped():
         return_value=httpx.Response(200, json={"persisted": 0})
     )
     c = _client()
-    # persisted: 0 -> the server-side dedup skipped the write -> '' (falsy) marker.
-    assert c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999") == ""
+    # persisted: 0 -> the server-side dedup skipped the write -> '' (falsy) tag.
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.tag == ""
+    assert result.persisted == 0
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_surfaces_merged_twin_counter():
+    # TKT-226: {"persisted":0,"merged":1} = the API collapsed this delivery onto an
+    # existing sha256 twin (the email-lane mirror) — no fresh row, merged surfaced.
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 0, "merged": 1})
+    )
+    c = _client()
+    result = c.create_evidence(
+        case_id="CASE-1", filename="message-ab12cd34.eml", box_file_id="998",
+        evidence_class="email",
+    )
+    assert result.tag == ""  # no fresh row -> falsy tag (legacy semantics kept)
+    assert result.persisted == 0
+    assert result.merged == 1
+    # TKT-229: an older API build omits `mirrored` -> preserved as None (NOT 0) so the
+    # receiver's rolling-deploy fallback can fire.
+    assert result.mirrored is None
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_parses_mirrored_counter():
+    # TKT-229: the new API reports `mirrored` — parsed as an int and kept distinct
+    # from `merged` (a sameIdentity echo is mirrored without ever being merged).
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 0, "merged": 0, "mirrored": 1})
+    )
+    c = _client()
+    result = c.create_evidence(
+        case_id="CASE-1", filename="message-ab12cd34.eml", box_file_id="998",
+        evidence_class="email",
+    )
+    assert result.mirrored == 1
+    assert result.merged == 0
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_parses_mirrored_zero_as_zero():
+    # mirrored: 0 is a REAL answer ("not a mirror echo"), distinct from None ("old API").
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 0, "merged": 1, "mirrored": 0})
+    )
+    c = _client()
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.mirrored == 0
+    assert result.merged == 1
+    c.close()
+
+
+@respx.mock
+def test_create_evidence_fresh_write_reports_merged_zero():
+    respx.post(f"{BASE}/api/internal/cases/CASE-1/evidence").mock(
+        return_value=httpx.Response(200, json={"persisted": 1})
+    )
+    c = _client()
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.tag == "box:file:999"
+    assert result.merged == 0
+    assert result.updated == 0
     c.close()
 
 
@@ -229,6 +302,41 @@ def test_write_audit_posts_action_name_summary_and_after():
     assert body["summary"] == "box_upload_received: IMG_1.jpg"
     assert body["after"] == "FILE.UPLOADED folder=777 file=999"
     assert body["caseId"] == "CASE-1"
+    c.close()
+
+
+@respx.mock
+def test_write_audit_after_fields_upgrades_after_to_object():
+    # TKT-226: after_fields makes the after payload an OBJECT carrying the honest
+    # label fields, with the legacy detail string kept under "detail".
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(204)
+
+    respx.post(f"{BASE}/api/internal/audit").mock(side_effect=handler)
+    c = _client()
+    c.write_audit(
+        action=AUDIT_BOX_UPLOAD_RECEIVED,
+        case_id="CASE-1",
+        name="box_upload_received: message-ab12cd34.eml",
+        detail="FILE.UPLOADED folder=777 file=998",
+        after_fields={
+            "filename": "message-ab12cd34.eml",
+            "evidenceClass": "email",
+            "origin": "archive_mirror",
+        },
+    )
+    body = captured["body"]
+    assert body["after"] == {
+        "detail": "FILE.UPLOADED folder=777 file=998",
+        "filename": "message-ab12cd34.eml",
+        "evidenceClass": "email",
+        "origin": "archive_mirror",
+    }
+    # Summary format is stable — it is the legacy read-time fallback key.
+    assert body["summary"] == "box_upload_received: message-ab12cd34.eml"
     c.close()
 
 
@@ -449,7 +557,8 @@ def test_create_evidence_retries_through_503():
         ]
     )
     c = _client()
-    assert c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999") == "box:file:999"
+    result = c.create_evidence(case_id="CASE-1", filename="IMG_1.jpg", box_file_id="999")
+    assert result.tag == "box:file:999"
     assert route.call_count == 2
     c.close()
 

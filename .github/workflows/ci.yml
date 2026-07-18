@@ -9,27 +9,98 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect change scope
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so base/before commits are available for the diff.
+          fetch-depth: 0
+      - id: detect
+        name: Classify changed files as code or docs-only
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -uo pipefail
+          # Fail safe: run the full heavy suite unless we can PROVE that every
+          # changed file is documentation (markdown anywhere) or under docs/.
+          run_heavy=true
+          files=""
+          have_diff=0
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if git rev-parse --verify --quiet "${PR_BASE_SHA}^{commit}" >/dev/null 2>&1; then
+              files="$(git diff --name-only "${PR_BASE_SHA}...${PR_HEAD_SHA}")"
+              have_diff=1
+            fi
+          elif [ "$EVENT_NAME" = "push" ]; then
+            if [ -n "${PUSH_BEFORE:-}" ] \
+               && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ] \
+               && git rev-parse --verify --quiet "${PUSH_BEFORE}^{commit}" >/dev/null 2>&1; then
+              files="$(git diff --name-only "$PUSH_BEFORE" "$PUSH_AFTER")"
+              have_diff=1
+            fi
+          fi
+
+          if [ "$have_diff" = "1" ]; then
+            # docs-only == NO changed file falls outside the documentation
+            # allowlist (*.md anywhere, or anything under docs/).
+            if printf '%s\n' "$files" | grep -vE '(\.md$|^docs/)' | grep -q '[^[:space:]]'; then
+              run_heavy=true
+            else
+              run_heavy=false
+            fi
+          fi
+
+          echo "code=${run_heavy}" >> "$GITHUB_OUTPUT"
+          echo "event=${EVENT_NAME} have_diff=${have_diff} run_heavy=${run_heavy}"
+          echo "changed files:"
+          printf '%s\n' "$files"
+
   typescript:
     name: TypeScript build, test, and package
     runs-on: ubuntu-latest
+    needs: [changes]
+    # Always run so the required context reports a real success; run even if the
+    # detector failed (fail-safe toward running the heavy suite).
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        if: ${{ needs.changes.outputs.code != 'false' }}
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
-      - run: npm run package:deploy
+      - if: ${{ needs.changes.outputs.code != 'false' }}
+        run: npm ci
+      - if: ${{ needs.changes.outputs.code != 'false' }}
+        run: npm run build
+      - if: ${{ needs.changes.outputs.code != 'false' }}
+        run: npm test
+      - if: ${{ needs.changes.outputs.code != 'false' }}
+        run: npm run package:deploy
       - name: Smoke-load generated function bundles
+        if: ${{ needs.changes.outputs.code != 'false' }}
         run: |
           node -e "require('./.artifacts/deploy/data-api/main.cjs')"
           node -e "require('./.artifacts/deploy/orchestration/main.cjs')"
+      - name: Docs-only skip notice
+        if: ${{ needs.changes.outputs.code == 'false' }}
+        run: echo "Docs/data-only change; skipping TypeScript build, test, and package."
 
   python:
     name: Python ${{ matrix.service }}
     runs-on: ubuntu-latest
+    needs: [changes]
+    # MUST stay job-level unconditional (only !cancelled) so the matrix expands
+    # and every 'Python <service>' required leg is created and reports success.
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -43,26 +114,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
+        if: ${{ needs.changes.outputs.code != 'false' }}
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: services/functions/${{ matrix.service }}/requirements*.txt
       - name: Install service dependencies
+        if: ${{ needs.changes.outputs.code != 'false' }}
         working-directory: services/functions/${{ matrix.service }}
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then python -m pip install -r requirements-dev.txt; fi
       - name: Run service tests
+        if: ${{ needs.changes.outputs.code != 'false' }}
         working-directory: services/functions/${{ matrix.service }}
         run: |
           test -d tests || { echo "Required test suite is missing" >&2; exit 1; }
           python -m pytest tests -q
       - name: Run email evaluation checks
-        if: matrix.service == 'parser'
+        if: ${{ needs.changes.outputs.code != 'false' && matrix.service == 'parser' }}
         run: |
           python -m pytest scripts/evaluation/email/tests -q
           python scripts/evaluation/email/run_ab.py --limit 1
+      - name: Docs-only skip notice
+        if: ${{ needs.changes.outputs.code == 'false' }}
+        run: echo "Docs/data-only change; skipping Python ${{ matrix.service }} tests."
 
   hygiene:
     name: Repository contracts and hygiene
@@ -129,11 +206,12 @@ jobs:
   parser-vendor-source:
     name: Parser vendor source (immutable private tag)
     runs-on: ubuntu-latest
+    needs: [changes]
     permissions:
       contents: read
     # Secrets are unavailable to fork PRs. Never use pull_request_target because
-    # this job executes the branch verifier.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # this job executes the branch verifier. Skipped on docs/data-only changes.
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
     steps:
       - uses: actions/checkout@v4
       - name: Check out the read-only parser authoring source
@@ -156,10 +234,10 @@ jobs:
   verify-live:
     name: Verify live registry drift (gated)
     runs-on: ubuntu-latest
-    needs: [typescript, hygiene]
+    needs: [changes, typescript, hygiene]
     env:
       HAVE_AZURE: ${{ secrets.AZURE_CREDENTIALS != '' }}
-    if: ${{ needs.typescript.result == 'success' && needs.hygiene.result == 'success' }}
+    if: ${{ needs.changes.outputs.code != 'false' && needs.typescript.result == 'success' && needs.hygiene.result == 'success' }}
     steps:
       - uses: actions/checkout@v4
       - name: Skip notice

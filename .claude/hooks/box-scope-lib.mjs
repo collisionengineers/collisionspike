@@ -14,13 +14,19 @@ export const CONFIG_PATH = resolve(HERE, '..', '..', 'tools', 'box-scope.json');
 
 export function loadConfig() {
   const cfg = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'));
-  const allowedKeys = new Set(['allowedRoot', 'allowedIds', 'mode', '_comment']);
+  const allowedKeys = new Set(['allowedRoot', 'allowedIds', 'readOnlyRoots', 'mode', '_comment']);
   const unexpected = Object.keys(cfg).filter((key) => !allowedKeys.has(key));
   if (unexpected.length) throw new Error(`unexpected Box scope setting(s): ${unexpected.join(', ')}`);
   if (!Array.isArray(cfg.allowedIds)) throw new Error('allowedIds must be an array');
+  if (cfg.readOnlyRoots !== undefined && !Array.isArray(cfg.readOnlyRoots)) {
+    throw new Error('readOnlyRoots must be an array when present');
+  }
   return {
     allowedRoot: String(cfg.allowedRoot),
     allowedIds: cfg.allowedIds.map(String),
+    // Operator decision 2026-07-16: ids (e.g. the production archive root) that may be
+    // referenced by READ-ONLY Box operations only. Never grown automatically.
+    readOnlyRoots: (cfg.readOnlyRoots || []).map(String),
     mode: String(cfg.mode || ''),
   };
 }
@@ -49,6 +55,37 @@ export function isBoxCommand(cmd) {
   return BOX_CLI_RE.test(cmd) || BOX_REST_RE.test(cmd) || BOX_SDK_RE.test(cmd) || BOX_TOOL_RE.test(cmd);
 }
 
+// Read-only classification (operator decision 2026-07-16 — archive root read allowance).
+// FAIL-CLOSED: a command qualifies only when every Box surface it touches is positively a
+// read. CLI: every `box topic:action[:sub…]` chain must END in a read verb. REST: GET only
+// (an explicit non-GET method or any body/upload flag disqualifies). SDK entrypoints and
+// tools/box scripts cannot be classified from the command line — never read-only.
+const READONLY_LAST_SEGMENT = new Set(['get', 'list', 'items', 'download']);
+const BOX_CLI_CHAIN_RE =
+  /(^|[\n;&|()`]\s*)(?:npx\s+)?box(?:\.cmd)?\s+([a-z][a-z0-9-]*(?:\s*:\s*[a-z][a-z0-9-]*)+)/gi;
+
+export function isReadOnlyBoxCommand(cmd) {
+  if (BOX_SDK_RE.test(cmd) || BOX_TOOL_RE.test(cmd)) return false;
+  if (BOX_REST_RE.test(cmd)) {
+    // Explicit method: spaced (-X DELETE), attached (-XDELETE), and = (-X=DELETE) forms all
+    // disqualify; every separator variant of GET (-X GET / -XGET / -X=GET) stays allowed
+    // because \b after GET holds at a following space, quote, or end-of-string.
+    if (/(-X|--request)[=\s]*["']?(?!GET\b)[A-Z]+/i.test(cmd)) return false;
+    // Body/upload flags imply a write (--json also implies POST). Short forms match
+    // case-sensitively with NO trailing \b so attached values (-dDELETE, -Tfile, -Fname=x)
+    // are caught — curl short flags are case-sensitive (-d data vs -D dump-header) — while
+    // the (\s|^) anchor keeps unrelated long flags like --dump-header from matching.
+    if (/(\s|^)(-[dTF]|--data(?:-[a-z]+)?\b|--json\b|--upload-file\b|--form\b)/.test(cmd)) return false;
+  }
+  const chains = [...cmd.matchAll(BOX_CLI_CHAIN_RE)];
+  if (chains.length === 0 && !BOX_REST_RE.test(cmd)) return false;
+  for (const m of chains) {
+    const segments = m[2].toLowerCase().replace(/\s+/g, '').split(':');
+    if (!READONLY_LAST_SEGMENT.has(segments[segments.length - 1])) return false;
+  }
+  return true;
+}
+
 // Extract every Box object id referenced by the command, plus webhook-create intent.
 export function analyze(cmd) {
   const ids = new Set();
@@ -59,11 +96,15 @@ export function analyze(cmd) {
     ids.add(m[2]);
     if (m[1].toLowerCase() === 'target') targetIds.push(m[2]);
   }
-  // 2. box CLI positional id: `topic:action <id>` (first positional after the verb).
+  // 2. box CLI positional id: `topic:action[:sub…] <id>` (first positional after the verb
+  //    chain — multi-segment actions like folders:collaborations:add included, so a
+  //    collaboration grant's target folder is always extracted).
   //    Covers folders:create <PARENT>, folders:get/items/delete/share <id>,
   //    file-requests:copy/get/delete <id>, webhooks:get/delete <id>, shared-links:create <id>, etc.
-  for (const m of cmd.matchAll(/box(?:\.cmd)?\s+([a-z][a-z0-9-]*)\s*:\s*([a-z][a-z0-9-]*)\s+["']?(\d+)["']?/gi)) {
-    ids.add(m[3]);
+  for (const m of cmd.matchAll(
+    /box(?:\.cmd)?\s+([a-z][a-z0-9-]*(?:\s*:\s*[a-z][a-z0-9-]*)+)\s+["']?(\d+)["']?/gi,
+  )) {
+    ids.add(m[2]);
   }
   // 3. REST URLs: /2.0/{folders|files|file_requests|webhooks}/{id}
   for (const m of cmd.matchAll(/\/2\.0\/(?:folders|files|file_requests|webhooks)\/(\d+)/gi)) {

@@ -1,0 +1,27 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "timestamp",
+          "type": "datetime"
+        },
+        {
+          "name": "d",
+          "type": "string"
+        }
+      ],
+      "name": "PrimaryResult",
+      "rows": [
+        [
+          "2026-07-16T18:07:20.483Z",
+          "{\"messageId\":\"AAMkADg0NjIyOGEwLTAyNDEtNDZkMC05N2I3LWY5M2RiMGJiNzUxMgBGAAAAAADTdWuKVEL4S6d58Wv9d5MGBwCWTxZhTpNoTLMCLOZNXAVbAAAAAAEMAACWTxZhTpNoTLMCLOZNXAVbAANyTIyBAAA=\",\"actingAction\":\"proceed_default\",\"shadowAction\":\"proceed_default\",\"actingFinalCategory\":\"query\",\"actingFinalSubtype\":\"query_existing_work\",\"shadowFinalCategory\":\"query\",\"shadowFinalSubtype\":\"query_existing_work\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"desk@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"default\\\",\\\"gates\\\":{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true},\\\"openCaseMatchCount\\\":0,\\\"duplicateInternetMessageId\\\":false}\",\"taxonomyVersion\":\"4\"}"
+        ],
+        [
+          "2026-07-16T23:09:38.283Z",
+          "{\"messageId\":\"AAMkADA2ZDk3OWIwLTBmYzItNGZmZS04ZDg1LWI2MTkyNGU2YTU0MABGAAAAAAAMkWLYDoO4TZJNg5kN5lZNBwDui8m4J_0AR7UG5LtWTQ4wAAAAAAEMAADui8m4J_0AR7UG5LtWTQ4wAANvWhM-AAA=\",\"actingAction\":\"suggest_attach\",\"shadowAction\":\"suggest_attach\",\"actingFinalCategory\":\"other\",\"actingFinalSubtype\":\"other\",\"shadowFinalCategory\":\"other\",\"shadowFinalSubtype\":\"other\",\"policyVersion\":\"triage-policy-v2\",\"gatesSnapshot\":\"{\\\"refGate\\\":true,\\\"cancellation\\\":true,\\\"imagesRouting\\\":true,\\\"caseUpdate\\\":true,\\\"autoAttach\\\":true}\",\"sourceMailbox\":\"engineers@collisionengineers.co.uk\",\"decisionInputs\":\"{\\\"rung\\\":\\\"ref_gate\\\",\\\"matchTier\\\":\\\"vrm\\\",\\\"matchCount\\\":1,\\\"openCaseMatches\\\":[{\\\"caseId\\\":\\\"9ae1c7c1-8b2d-4bfe-8fc7-9d98a0200ca3\\\",\\\"casePo\\\":\\\"KMR26003\\\",\\\"matchedOn\\\":\\\"vrm\\\",\\\"status\\\":\\\"needs_review\\\"}],\\\"conversationSiblingCaseIds\\\":[],\\\"caseUpdateApplied\\\":false,\\\"autoAttachApplied\\\":false,\\\"hasAttachments\\\":false,\\\"imagesOnly\\\":false}\",\"taxonomyVersion\":\"4\"}"
+        ]
+      ]
+    }
+  ]
+}

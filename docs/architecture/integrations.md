@@ -10,13 +10,15 @@ subscriptions. Scope remains limited to the configured mailboxes.
 
 The current handoff is the schema-validated JSON export. The Sentry REST path remains unavailable until
 the vendor supports multiple Principal Codes and a test-versus-current parity run passes. See the
-[field model](./eva-field-model.md) and [API reference](./eva-sentry-api.md).
+[field model](./eva-field-model.md) and [API reference](./eva-sentry-api.md). Decision of record:
+[ADR-0005](../adr/0005-eva-api-full-scope-test-environment.md).
 
 ## Archive
 
 Box provides the human-navigable Archive, per-Case/PO folders, and account-free File Requests. Calls use a
 service identity held by the Archive service. Incoming events are signature-checked, replay-protected,
-deduplicated, and scope-checked. Archive updates are additive and one-way.
+deduplicated, and scope-checked. Archive updates are additive and one-way. Decision of record:
+[ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md).
 
 ## Vehicle facts
 
@@ -39,8 +41,19 @@ not replace source bytes.
 ## AI capabilities
 
 AI features expose suggestions and bounded tools through a shared capability registry. Authorization is
-enforced at the Data API. Destructive actions are human-only. Assistant writes use propose, current-state
-re-read, confirmation, optimistic concurrency, and the existing staff-authorized route.
+enforced at the Data API. Within a single case the assistant is not read-only: it may perform
+non-destructive writes through propose, current-state re-read, confirmation, optimistic concurrency, and
+the existing staff-authorized route. Destructive actions are human-only **by default** — and a central
+aim of this work is to determine which of them can be enabled for the assistant: where certainty is high
+enough, a capability is promoted out of human-only decision through the confirm protocol
+([ADR-0024](../adr/0024-assistant-write-tier-confirmation-protocol.md)) and the capability registry
+([ADR-0025](../adr/0025-shared-capability-registry.md)). A destructive action is one that cannot be undone
+or that reaches beyond the single case in hand — deleting or purging evidence or records, or a cross-case
+operation such as a merge; these, with forced status changes and raw byte uploads, are the current
+human-only set. Decisions of record:
+[ADR-0023](../adr/0023-mcp-server-hosting-and-auth.md),
+[ADR-0024](../adr/0024-assistant-write-tier-confirmation-protocol.md),
+[ADR-0025](../adr/0025-shared-capability-registry.md).
 
 ## Failure policy
 

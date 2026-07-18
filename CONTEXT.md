@@ -32,7 +32,8 @@ that provider.
 **VRM / Registration**
 
 The vehicle registration mark. It is a strong correlation signal but not, by itself, proof that two
-arrivals belong to the same claim.
+arrivals belong to the same claim. For a case that begins with photographs alone, the registration is
+the case's temporary identity until the instruction arrives.
 
 **Repairer**
 
@@ -95,7 +96,8 @@ closes a Case automatically.
 **Retroactive Case**
 
 A Case reconstructed after the fact for real work the system did not originally capture. Its Case/PO is
-discovered from authoritative material, never invented by the reconstruction path.
+discovered from authoritative material, never invented by the reconstruction path. Reconstruction
+locates and proposes; the result joins the live case record only through a gated staff adoption step.
 
 **Case Type**
 
@@ -109,14 +111,31 @@ the Work Provider; its report is separate evidence and is never treated as the i
 
 **Audit Total Loss**
 
-An audit whose vehicle is a total loss. It is a review-time refinement because the instruction alone may
-not distinguish it.
+An audit of a report whose original engineer's verdict is total loss. That verdict is always stated in
+the original engineer's report — recording repairable versus total loss is one of the report's core
+purposes — so the marker is read from the report, never inferred from our audit's outcome.
 
 **Diminution**
 
 A diminution-in-value engagement. It is its own case type, not an audit subtype.
 
+**Triage request**
+
+An early request to make an initial call on a vehicle — repairable or total loss, roadworthy or not —
+before, and often instead of, a full case. It is recorded work in its own right. Distinct from message
+triage, the classification every inbound email passes through.
+
 **Archive**
 
 The staff-facing Box folder structure holding case material. The Archive is a one-way operational copy;
 the relational case record remains authoritative.
+
+**File Request**
+
+An account-free upload link issued from the operator-maintained template against a Case's Archive
+folder, so a claimant or repairer can supply photos without an account.
+
+**Guided Capture**
+
+A structured photo flow that walks the person at the vehicle through taking the required photos. It is
+under evaluation as a channel; File Requests carry the need today.

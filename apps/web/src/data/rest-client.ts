@@ -439,6 +439,9 @@ export function createRestDataAccess(opts: RestClientOptions): DataAccessExt {
       if (facet?.category) parts.push(`category=${enc(facet.category)}`);
       if (facet?.subtype) parts.push(`subtype=${enc(facet.subtype)}`);
       if (facet?.view) parts.push(`view=${enc(facet.view)}`);
+      // caseId switches the server to the case-scoped slice, which KEEPS retro
+      // reconstruction anchor rows the un-scoped triage list hides (TKT-233).
+      if (facet?.caseId) parts.push(`caseId=${enc(facet.caseId)}`);
       const q = parts.length ? `?${parts.join('&')}` : '';
       return get<InboundEmail[]>(`/api/inbound${q}`);
     },

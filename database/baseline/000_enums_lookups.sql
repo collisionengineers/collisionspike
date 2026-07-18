@@ -453,7 +453,12 @@ INSERT INTO choice_inbound_subtype (code, name, label) VALUES
   -- pre_instruction's only subtype).
   (100000013, 'payment_remittance',         'Payment received'),
   (100000014, 'pre_instruction_directions', 'Pre-instruction directions'),
-  (100000015, 'website_general_enquiry',    'Website general enquiry');
+  (100000015, 'website_general_enquiry',    'Website general enquiry'),
+  -- append-only (TKT-226 -- see migrations/2026-07-17-tkt226-retro-related-subtype.sql):
+  -- retro_related is stamped by the retro link-related lane (TKT-222) for correspondence
+  -- retroactively linked to a reconstructed case. System-stamped only -- the classifier
+  -- never emits it (classifierEmits: false, diminution precedent).
+  (100000016, 'retro_related',              'Related (retro-linked)');
 
 -- ---------------------------------------------------------------------------
 -- inspection_decision_mode  (inspection-decision-mode.json)

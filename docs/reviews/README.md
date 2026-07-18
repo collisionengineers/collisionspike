@@ -32,3 +32,4 @@ transcribed into the adjacent review files before action.
 | [2026-07-01](./010726/overview.md) | Colour, dashboard, tables, bulk actions, quick peek, empty states and accessibility | Shipped; D16 superseded below |
 | [2026-07-02](./020726/decisions.md) | Inbox simplification, case links, references, mailbox naming and suggested filing | Current inbox ruling |
 | [2026-07-15](./150726/overview.md) | Code review of PR #100 (PLAN-006 repository reset) — reconciliation, docs, tickets, runtime surface, DDL/SPA, agents/CI, purge | Stage-3 remediation; release validation pending |
+| [2026-07-16](./160726/overview.md) | ADR consistency review — comments on ~17 of 25 ADRs, contradiction rulings D1–D17, corpus rewrite and follow-up tickets | Current ADR ruling; rewrite executed 2026-07-17 |

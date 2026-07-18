@@ -72,3 +72,39 @@ rate-limit path, animated-image and hash-mismatch rejections, and a real-Chromiu
   purge now runs on every timer tick rather than only when retention cleanup is on.
 - Added committed coverage of the UPSERT admission-guard WHERE clause and the socket-IP /
   spoofed-leftmost / trusted-hop-depth caller-key cases.
+
+### 2026-07-18 — PR #107 review round (Codex triage + main merge)
+
+Triaged the two automated review findings on PR #107 and merged `origin/main` into the branch (the
+three generated governance/contract ledgers reconverged; no functional conflicts).
+
+- **PII-safe caller-key debug trace (Codex P2 — fixed).** `logCallerKeyDerivation`
+  (`services/data-api/src/features/cases/capture-rate-limit.ts`) previously emitted the raw
+  `X-Azure-ClientIP`, `X-Azure-SocketIP`, the full `X-Forwarded-For` chain, and the resolved key
+  (all personal data / request-controlled) whenever `CAPTURE_CALLER_KEY_DEBUG=true` — the exact flag
+  the go-live diagnostic asks operators to enable, in direct conflict with the ticket's PII-safe
+  telemetry / no-secret-logging acceptance criterion. Rewritten to log only non-personal signals:
+  the `X-Azure-FDID` value (the Front Door instance id to copy into `CAPTURE_SWA_FDID` — not personal
+  data), whether it already matches the configured id, presence booleans for the client/socket IPs,
+  whether Front Door resolved a client distinct from the proxy peer, the `X-Forwarded-For` hop count,
+  and which source (`forwarded-client` / `socket-peer` / `trusted-xff-hop` / `unknown`) the key came
+  from. Same diagnostic value for verifying the header contract, zero raw IPs. Off-by-default and
+  still marked TEMPORARY — drop once the FDID is verified.
+- **Front-Door trust needs platform ingress lockdown (Codex P1 — operational go-live gate, not a
+  code change).** An in-app `X-Azure-FDID` match cannot by itself prove a request transited Front
+  Door: the Front Door id is not a secret, and if the Function's direct `*.azurewebsites.net`
+  endpoint stays reachable, a caller can forge `X-Azure-FDID` alongside a rotating `X-Azure-ClientIP`
+  and evade the per-caller throttle. The code is safe as shipped — it fails closed to the socket peer
+  until `CAPTURE_SWA_FDID` is set — but there is no correct code-only fix (the app cannot
+  cryptographically attest Front Door transit; direct staff access is a supported path). **Go-live
+  prerequisite (before setting `CAPTURE_SWA_FDID`):** restrict the Function App's ingress at the
+  platform to accept traffic only from your Front Door — App Service access restrictions with the
+  `AzureFrontDoor.Backend` service tag **and** an `x-azure-fdid=<your Front Door id>` header match
+  (or Private Link). The service tag alone is insufficient (all Front Door tenants share it) and the
+  header alone is insufficient (forgeable on a direct hit); both are required together. Ref:
+  https://learn.microsoft.com/azure/frontdoor/origin-security#public-ip-address-based-origins and
+  https://learn.microsoft.com/azure/app-service/app-service-ip-restrictions#access-restriction-advanced-scenarios
+- **Source-size ratchet raised to the real counts.** `scripts/checks/source-size-budget.json` bumped
+  to `capture.ts` = 1689 and `capture.test.ts` = 1993 (the committed branch bump undershot the actual
+  nonblank line counts, failing `check:source-size`). Also fixed a comment-only key-shape nit in the
+  rate-limit module header (`{scope}:{id}`, not `session:{scope}:{id}`).

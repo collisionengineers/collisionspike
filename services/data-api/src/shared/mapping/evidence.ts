@@ -2,7 +2,7 @@
 
 import { type ActivityEvent, type Evidence, type EvidenceKind, type Provider, type SuggestedAddress } from '@cs/domain';
 import { auditActionCodec, auditActionToActivityKind, automationModeCodec, evidenceKindCodec, imageRoleCodec, inspectionPolicyCodec } from '@cs/domain/codecs';
-import { auditActionLabel, humanActorName, plainDetail } from '../last-activity.js';
+import { auditActionLabel, boxUploadLabel, humanActorName, plainDetail } from '../last-activity.js';
 import { pad, type Row, toIso } from './cases.js';
 
 export function rowToEvidence(rec: Row): Evidence {
@@ -176,6 +176,25 @@ function formatOccurredAt(v: Date | string | undefined): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+/** TKT-226 — the audit `after` payload as an object, when (and only when) the row
+ *  carries the object form. Legacy rows hold a JSON string scalar or free text →
+ *  undefined (the label seam then falls back to the summary filename). */
+function afterPayloadObject(raw: unknown): Record<string, unknown> | undefined {
+  if (raw != null && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  if (typeof raw !== 'string') return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed != null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    /* legacy free-text after — not an object payload */
+  }
+  return undefined;
+}
+
 export function rowToActivityEvent(rec: Row): ActivityEvent {
   const action = auditActionCodec.toName(
     rec.action_code == null ? undefined : Number(rec.action_code),
@@ -192,6 +211,18 @@ export function rowToActivityEvent(rec: Row): ActivityEvent {
     (s): s is string => Boolean(s && s.trim()),
   );
   const technical = technicalParts.join(' — ');
+  // TKT-226 — a Box upload's line is derived from what actually arrived (the
+  // `after` object payload, or the legacy summary filename), so the Action log
+  // tells the same truth as the queue chip.
+  const after = action === 'box_upload_received' ? afterPayloadObject(rec.after) : undefined;
+  const description =
+    action === 'box_upload_received'
+      ? boxUploadLabel({
+          evidenceClass: typeof after?.evidenceClass === 'string' ? after.evidenceClass : null,
+          origin: typeof after?.origin === 'string' ? after.origin : null,
+          summary: rawSummary,
+        })
+      : auditActionLabel(rec.action_code == null ? undefined : Number(rec.action_code));
   return {
     id: rec.id ?? '',
     caseId: rec.case_id ?? '',
@@ -200,7 +231,7 @@ export function rowToActivityEvent(rec: Row): ActivityEvent {
     // GUID/system actors never render (humanActorName) — degrade to 'System'.
     actor: humanActorName(rec.actor) ?? 'System',
     timestamp: formatOccurredAt(rec.occurred_at),
-    description: auditActionLabel(rec.action_code == null ? undefined : Number(rec.action_code)),
+    description,
     ...(detail ? { detail } : {}),
     ...(technical ? { technical } : {}),
   };

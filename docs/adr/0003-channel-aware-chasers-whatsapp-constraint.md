@@ -17,4 +17,5 @@ system can send would create false completion and an unaudited communication gap
 ## Consequences
 
 The Case records channel, recipient, draft, staff disposition, and timestamps. UI copy distinguishes a
-prepared message from one actually sent.
+prepared message from one actually sent. The receipt channels images arrive through are catalogued in
+[ADR-0007](./0007-receipt-of-images.md).

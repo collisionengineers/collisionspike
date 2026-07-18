@@ -118,6 +118,39 @@
       "dataApi": false,
       "orchestration": false
     },
+    "retroReconstruction": {
+      "lastVerified": "2026-07-17T10:57:00Z",
+      "deployedCommit": "d6ee70de",
+      "evidence": "az appsettings list both apps (02:20Z) + post-deploy live probes of the code-only d6ee70de deploy per the deployment runbook (2026-07-17: data-api + orchestration from packaged artifacts, parser remote build, SPA via swa): force re-drive of a prior linked instance refused 200 {deduped, outcome: linked}, force re-drive of a prior trigger_not_found instance restarted 202; Triage Inbox chips honest in Chrome",
+      "forceReDrive": {
+        "note": "Since the d6ee70de deploy, force=true on a Completed instance restarts only failure-family outcomes (trigger_not_found / no_source / not_eligible / ambiguous / skipped / bad_input); a prior created / linked / already_exists_linked outcome is refused and returned to the caller instead of a re-drive. Proven live both ways 2026-07-17. Live/Pending instances are never restarted."
+      },
+      "triageInboxAnchors": {
+        "behavior": "hidden from the Triage Inbox, kept on the case",
+        "note": "Since the d6ee70de deploy (2026-07-17) the inbox list slice excludes retro reconstruction anchor rows server-side (all three anchor variants, NULL-safe predicates); the case-scoped GET /api/inbound?caseId= slice keeps them, so the case Emails tab retains reconstruction provenance. Verified in Chrome post-deploy: the 'Other source' chip dissolved and mailbox chip counts dropped to real mail only (~149 anchor rows hidden)."
+      },
+      "RETRO_CASE_ENABLED": {
+        "dataApi": true,
+        "orchestration": true
+      },
+      "RETRO_OUTLOOK_SEARCH_ENABLED": {
+        "orchestration": true
+      },
+      "RETRO_BOX_ARCHIVE_ROOT_IDS": {
+        "dataApi": "3221031282",
+        "orchestration": "3221031282",
+        "note": "Repointed 2026-07-16 evening to the Workflow/Reports/Reports archive root (operator decision). Matched pair with the Box facade's BOX_READONLY_ROOT_IDS — all three settings must stay aligned. Service-account Viewer grant on 4077648161 created 2026-07-16 (collab 74177634786, accepted); rung proven live (WF69NDX located its case folder)."
+      },
+      "RETRO_ADOPT_ARCHIVE_PO_ENABLED": {
+        "dataApi": false,
+        "note": "TKT-219 dev/test posture: retro creates mint via the normal allocator (since d6ee70de the create seam acknowledges the discovered archive identity, so the unverified-archive-folder hold no longer blocks dev minting); the discovered archive PO is noted on the case and recorded queryably in the retro_case_created audit's after.discoveredArchivePo — case_ref keeps its normal externalRef precedence. Flip at production cutover after TKT-004 floor seeding (TKT-178 runbook)."
+      },
+      "RETRO_RELATED_INGEST_ENABLED": {
+        "orchestration": true,
+        "setAt": "2026-07-17T02:05:00Z",
+        "note": "TKT-225 related-correspondence ingest lit after the dark deploy. Rung-1 re-drives of already-linked cases stop before the ingest seam by design — and since the d6ee70de deploy a force re-drive of a prior created/linked outcome is refused at the trigger route — so live chain proof comes from fresh reconstructions (sweep of 2026-07-17). Related-mail linking caps at 25 NEW links per run route-side (alreadyLinked rows never consume cap; overflow reported as skippedByCap)."
+      }
+    },
     "boxWrites": {
       "allowedRootId": "392761581105",
       "scope": "approved test folder only"

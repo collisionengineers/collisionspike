@@ -193,3 +193,47 @@ def test_ax_credit_repair_team_inbox_is_not_claimant_email():
         "VRM: AB12 CDE",
     )
     assert fields[FieldKey.CLAIMANT_EMAIL].value == ""
+
+
+def test_own_intake_address_is_not_claimant_email():
+    """Instruction boilerplate quoting OUR OWN intake mailbox must never win —
+    even as the sole address in the document (the live PCH defect shape, where
+    engineers@collisionengineers.co.uk was harvested via fallback_email_sole)."""
+    fields = _extract(
+        "Vehicle Inspection Instruction",
+        "Please forward the completed engineer's report to",
+        "engineers@collisionengineers.co.uk",
+        "Name: Mr Sample Claimant",
+        "VRM: AB12 CDE",
+    )
+    assert fields[FieldKey.CLAIMANT_EMAIL].value == ""
+
+
+def test_own_domain_is_rejected_even_with_claimant_context():
+    """An own-domain address sitting inside claimant context lines still loses."""
+    fields = _extract(
+        "Our client: Mr Sample Claimant",
+        "info@collisionengineers.co.uk",
+        "VRM: AB12 CDE",
+    )
+    assert fields[FieldKey.CLAIMANT_EMAIL].value == ""
+
+
+def test_own_subdomain_is_rejected():
+    """Subdomains of our domain (website form sender) are ours too."""
+    fields = _extract(
+        "Claimant Email: mail@noreply.collisionengineers.co.uk",
+        "VRM: AB12 CDE",
+    )
+    assert fields[FieldKey.CLAIMANT_EMAIL].value == ""
+
+
+def test_genuine_claimant_email_still_extracted_alongside_own_address():
+    """The exclusion must not suppress the claimant's real address."""
+    fields = _extract(
+        "Our client: Mr Sample Claimant",
+        "Claimant Email: sample.claimant@example.co.uk",
+        "Return the report to engineers@collisionengineers.co.uk",
+        "VRM: AB12 CDE",
+    )
+    assert fields[FieldKey.CLAIMANT_EMAIL].value == "sample.claimant@example.co.uk"

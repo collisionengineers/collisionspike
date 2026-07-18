@@ -58,6 +58,55 @@ export const RETRO_TRIGGER_CATEGORIES: readonly InboundCategory[] = [
 export const RETRO_TRIGGER_ACK_SUBTYPE = 'acknowledgement';
 
 /**
+ * TKT-219 (operator decision 2026-07-16): `other` — genuinely unidentified mail — may also
+ * trigger the ladder, LOCATE-ONLY: it may link to an existing case (rung 1) or reconstruct a
+ * FOUND original (Box/Outlook), but an `other` email itself may never anchor a new case — the
+ * create seam keeps `other` in its blocked-original list, exactly the acknowledgement pattern.
+ * Junk-key hygiene is load-bearing for this widening ({@link isJunkRetroKey}): unidentified
+ * mail is where sniffed date/money/model-code artifacts concentrate (TKT-140 measured 13 such
+ * keys saturating the $search cap).
+ */
+export const RETRO_TRIGGER_OTHER_CATEGORY = 'other';
+
+/* ----------  Junk-key guard (TKT-219; evidence TKT-140 dry-run)  ---------- */
+
+/** Month-name + 2/4-digit year sniff artifact ("MAY2026", "OCT 25"). */
+const JUNK_MONTH_YEAR_RE =
+  /^(?:JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY|JUN(?:E)?|JUL(?:Y)?|AUG(?:UST)?|SEP(?:T|TEMBER)?|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)\s?\d{2}(?:\d{2})?$/;
+/** Numeric date fragment ("2025/09", "09/2025", "2025-09"). */
+const JUNK_NUMERIC_DATE_RE = /^(?:\d{4}[\/\-.]\d{1,2}|\d{1,2}[\/\-.]\d{4})$/;
+/** Money amount ("768.00", "900.62") — always digits with exactly two decimals. */
+const JUNK_MONEY_RE = /^\d{1,7}[.,]\d{2}$/;
+/** Letters-then-digits-only token sniffed as a VRM ("AT850", "CL500", "ON10", "RTA2") — the
+ *  dateless-plate shape. Genuine dateless plates are vanishingly rare in this corpus while the
+ *  shape is the dominant junk class (vehicle model codes, prose fragments whose SPACED $search
+ *  variant matches ordinary text: "ON 10" ⊂ "on 10/05/2026"). Applied to the VRM key ONLY —
+ *  external refs legitimately take this shape (PHA5007, HD4110). */
+const JUNK_DATELESS_PLATE_RE = /^[A-Z]{1,3}\d{1,4}$/;
+/** "<plate-prefix> vehicle" sniff artifact ("KW20VEH" from "KW20 vehicle…"). */
+const JUNK_VEHICLE_WORD_RE = /^[A-Z]{2}\d{2}VEH$/;
+
+/**
+ * TKT-219 junk-key guard: is this candidate retro search key a known sniff-artifact shape that
+ * must never drive the reconstruction ladder? Pinned against the 13 TKT-140 dry-run junk keys
+ * (`2025/09`, `768.00`; `AT850`, `CL500`, `KW20VEH`, `MAY2026`, `ON2/10/16/23/27/29`, `RTA2`) —
+ * every one rejects; the known-good corpus keys (PHA5007, 575689, KA08XTR, 46458/1,
+ * DIK/JMO/46440/1) all pass. Kind-aware: the dateless-plate and vehicle-word shapes apply only
+ * to the VRM key. Pure and deterministic.
+ */
+export function isJunkRetroKey(raw: string | null | undefined, kind: 'external_ref' | 'vrm'): boolean {
+  const token = (raw ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!token) return false;
+  if (JUNK_MONTH_YEAR_RE.test(token)) return true;
+  if (JUNK_NUMERIC_DATE_RE.test(token)) return true;
+  if (JUNK_MONEY_RE.test(token)) return true;
+  if (kind === 'vrm' && (JUNK_DATELESS_PLATE_RE.test(token) || JUNK_VEHICLE_WORD_RE.test(token))) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Anchored full-match mirror of the Python extractor `CASEREF_RE`
  * (services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py — the vendored
  * engine is the authority; this mirror must track it):
@@ -87,11 +136,20 @@ export function normalizeCasePo(raw: string | null | undefined): string {
 /* ----------  Trigger eligibility (the intake-orchestrator seam)  ---------- */
 
 /** The reconstruction search keys, strongest first: an opportunistic CE Case/PO
- *  (quoted thread), the provider's external/claim reference, the registration. */
+ *  (quoted thread), the provider's external/claim reference, the registration, and
+ *  (TKT-219, weakest) the claimant name sniffed from the trigger body. The Case/PO is
+ *  opportunistic ONLY — a pre-system trigger normally cannot cite one (operator note
+ *  2026-07-16); the primary search keys are externalRef / vrm / claimant. */
 export interface RetroKeys {
   casePo?: string;
   externalRef?: string;
   vrm?: string;
+  claimant?: string;
+}
+
+/** At least one search key present (the shared attempt predicate). */
+export function hasUsableRetroKey(keys: RetroKeys | null | undefined): boolean {
+  return Boolean(keys && (keys.casePo || keys.externalRef || keys.vrm || keys.claimant));
 }
 
 /** Checkpointed values from the intake orchestrator — classification fields come
@@ -105,6 +163,9 @@ export interface RetroTriggerInput {
   bodyCaseref?: string | null;
   bodyJobref?: string | null;
   bodyVrm?: string | null;
+  /** TKT-219 — claimant name sniffed from the trigger body (the caller derives it via the
+   *  orchestration `supplementClaimantNameFromBody` helper; this module stays pure). */
+  bodyClaimant?: string | null;
   candidateRef?: string | null;
   candidateVrm?: string | null;
   isReply: boolean;
@@ -144,16 +205,21 @@ export function decideRetro(input: RetroTriggerInput): RetroTriggerDecision {
   const ackEligible =
     input.category === 'non_actionable' &&
     (input.subtype ?? '').trim() === RETRO_TRIGGER_ACK_SUBTYPE;
-  if (!RETRO_TRIGGER_CATEGORIES.includes(input.category) && !ackEligible) {
+  // TKT-219: `other` is eligible LOCATE-ONLY (the create seam still refuses an `other`
+  // original as the case anchor — nothing found ends in a visible "Unable to locate").
+  const otherEligible = input.category === RETRO_TRIGGER_OTHER_CATEGORY;
+  if (!RETRO_TRIGGER_CATEGORIES.includes(input.category) && !ackEligible && !otherEligible) {
     return { attempt: false, keys, reasons: [`category_not_eligible:${input.category}`] };
   }
   if (ackEligible) reasons.push('ack_subtype_eligible');
+  if (otherEligible) reasons.push('other_locate_eligible');
 
   // Key extraction. bodyCaseref is already the CASEREF_RE extraction (shaped by
   // construction) but is re-asserted here rather than trusted (dedup.ts's
   // "never trust the caller alone" discipline). candidateRef (subject sniff) may
   // be any shape: CE-shaped -> casePo; otherwise it still counts as an external
-  // reference rather than being dropped.
+  // reference rather than being dropped. TKT-219: every non-Case/PO key passes the
+  // junk-key guard — a sniffed date/money/model-code artifact never drives a search.
   const refCandidates = [input.bodyCaseref, input.candidateRef];
   for (const raw of refCandidates) {
     const token = normalizeCasePo(raw);
@@ -162,22 +228,42 @@ export function decideRetro(input: RetroTriggerInput): RetroTriggerDecision {
       keys.casePo = token;
       reasons.push('key:case_po');
     } else if (!keys.externalRef) {
+      if (isJunkRetroKey(token, 'external_ref')) {
+        reasons.push('junk_key_skipped:external_ref');
+        continue;
+      }
       keys.externalRef = token;
       reasons.push('key:external_ref_from_subject');
     }
   }
   const jobref = (input.bodyJobref ?? '').trim().toUpperCase();
   if (jobref && !keys.externalRef) {
-    keys.externalRef = jobref;
-    reasons.push('key:external_ref');
+    if (isJunkRetroKey(jobref, 'external_ref')) {
+      reasons.push('junk_key_skipped:external_ref');
+    } else {
+      keys.externalRef = jobref;
+      reasons.push('key:external_ref');
+    }
   }
   const vrm = ((input.bodyVrm || input.candidateVrm) ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (vrm) {
-    keys.vrm = vrm;
-    reasons.push('key:vrm');
+    if (isJunkRetroKey(vrm, 'vrm')) {
+      reasons.push('junk_key_skipped:vrm');
+    } else {
+      keys.vrm = vrm;
+      reasons.push('key:vrm');
+    }
+  }
+  // TKT-219 — claimant name (weakest key): forename + surname shape only (an internal
+  // space and ≥5 chars), upper-cased with whitespace collapsed. Search-only: it feeds the
+  // Box/Outlook content searches, never the rung-1 case-table link probes.
+  const claimant = (input.bodyClaimant ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+  if (claimant && claimant.length >= 5 && claimant.includes(' ')) {
+    keys.claimant = claimant;
+    reasons.push('key:claimant');
   }
 
-  if (!keys.casePo && !keys.externalRef && !keys.vrm) {
+  if (!hasUsableRetroKey(keys)) {
     return { attempt: false, keys, reasons: [...reasons, 'no_usable_key'] };
   }
 
@@ -190,6 +276,70 @@ export function decideRetro(input: RetroTriggerInput): RetroTriggerDecision {
   }
 
   return { attempt: true, keys, reasons };
+}
+
+/* ----------  Parallel-rung reconstruction arm (TKT-219)  ---------- */
+
+/** What each locate rung reported, reduced to the decision-bearing facts. */
+export interface RetroLocateOutcome {
+  /** The rung's gate was off / preconditions absent — it never actually searched. */
+  skipped: boolean;
+  /** The rung searched and found a usable target (folder / message). */
+  found: boolean;
+}
+
+export interface RetroArmInput {
+  box: RetroLocateOutcome;
+  outlook: RetroLocateOutcome;
+  /** Present once retroBoxFetchInstruction has run for a found folder: what the folder
+   *  actually yielded ('box_eml' | 'box_doc' | 'minimal'). Absent when box.found is false. */
+  boxInstruction?: Extract<RetroReconstructionSource, 'box_eml' | 'box_doc' | 'minimal'>;
+}
+
+/** Which reconstruction arm the orchestrator should take (operator directive 2026-07-16:
+ *  Box and Outlook locate SIMULTANEOUSLY and the findings COMBINE):
+ *  - 'box_source'     — the archive folder yielded a parseable instruction; Box identity +
+ *                        Box material (today's Box arm).
+ *  - 'combined'       — the folder exists (identity: discovered Case/PO) but nothing in it
+ *                        parses, and Outlook found an original: Outlook material + Box
+ *                        identity. Replaces the data-empty minimal anchor whenever possible.
+ *  - 'outlook_only'   — no archive folder; Outlook found an original (today's Outlook arm).
+ *  - 'minimal_anchor' — folder exists, nothing parseable anywhere (today's bottom Box arm).
+ *  - 'none'           — nothing found anywhere → the failure record.
+ */
+export type RetroArm = 'box_source' | 'combined' | 'outlook_only' | 'minimal_anchor' | 'none';
+
+export interface RetroArmDecision {
+  arm: RetroArm;
+  /** Decision signals for logs/audits, never user-facing. */
+  reasons: string[];
+}
+
+/**
+ * PURE combination matrix over the two parallel locate results. Corroboration is NOT decided
+ * here — the 'combined' and 'outlook_only' arms still carry the Outlook rung's mandatory
+ * corroboration (key-in-text / parse agreement) and the cross-source contradiction demotion
+ * in the orchestrator; a failed corroboration on 'combined' falls back to 'minimal_anchor'.
+ */
+export function planRetroReconstruction(input: RetroArmInput): RetroArmDecision {
+  const reasons: string[] = [
+    `box:${input.box.skipped ? 'skipped' : input.box.found ? 'found' : 'not_found'}`,
+    `outlook:${input.outlook.skipped ? 'skipped' : input.outlook.found ? 'found' : 'not_found'}`,
+  ];
+  if (input.box.found) {
+    if (input.boxInstruction === 'box_eml' || input.boxInstruction === 'box_doc') {
+      return { arm: 'box_source', reasons: [...reasons, `instruction:${input.boxInstruction}`] };
+    }
+    // Folder found but nothing parseable (or the fetch degraded to the anchor).
+    if (input.outlook.found) {
+      return { arm: 'combined', reasons: [...reasons, 'instruction:minimal', 'outlook_fills_material'] };
+    }
+    return { arm: 'minimal_anchor', reasons: [...reasons, 'instruction:minimal'] };
+  }
+  if (input.outlook.found) {
+    return { arm: 'outlook_only', reasons };
+  }
+  return { arm: 'none', reasons };
 }
 
 /* ----------  Landing status for a reconstructed Case  ---------- */

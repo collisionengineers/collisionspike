@@ -1,0 +1,9 @@
+traces
+| where timestamp > datetime(2026-07-16T22:45:00Z)
+| where message contains "62778371" or message contains "FW26029"
+   or message contains "box_upload_received" or message contains "400654960481"
+   or message contains "retroLinkRelated" or message contains "retroResolveExisting"
+   or message contains "images_received"
+| project timestamp, message=substring(message, 0, 700)
+| order by timestamp asc
+| take 200
