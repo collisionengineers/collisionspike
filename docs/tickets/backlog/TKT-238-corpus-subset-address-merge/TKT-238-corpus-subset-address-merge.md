@@ -14,7 +14,7 @@ research-link: docs/reviews/160726/decisions.md
 
 Some EVA export rows missed the first address line, leaving only a road name and postcode, while other
 rows carry the same site's full address. The corpus build keys on the exact
-`(provider, name|line|postcode)` tuple (`scripts/evaluation/address/build_corpus.py:134-135,173`), so
+`(provider, name|line|postcode)` tuple (`scripts/evaluation/inspection-corpus/build_corpus.py:134-135,173`), so
 the same place appears as separate suggestion rows and their frequencies split — the operator's
 2+2-vs-4 example in Review 160726.
 

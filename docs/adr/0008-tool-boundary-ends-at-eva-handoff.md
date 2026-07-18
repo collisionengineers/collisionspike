@@ -14,8 +14,10 @@ The product also tracks work that arrives **before** a case — chiefly a **tria
 provider asks for an initial call on whether a vehicle is repairable or a total loss and roadworthy or
 not. A triage request is recorded work in its own right, whether or not it goes on to become a full case.
 
-Engineer assessment and report authoring remain outside the product. It observes that the report went
-out; it never produces or edits the report.
+Engineer assessment and report authoring are outside the product **at this time** — they are handled
+primarily by EVA (and some by Audatex). The product observes that the report went out; it never produces
+or edits the report today. Bringing assessment and report authoring into scope is an intended future
+expansion, not a current capability.
 
 ## Rationale
 

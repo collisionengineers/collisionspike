@@ -14,7 +14,7 @@ research-link: docs/reviews/160726/decisions.md
 
 Two concurrent active image-first cases on the same registration share one working identity, so their
 VRM-named working folders and evidence can collide
-(`services/orchestration/src/workflows/images/imagesUnmatched.ts:112`). Review 160726 decided the fix:
+(`services/orchestration/src/workflows/evidence/imagesUnmatched.ts:112`). Review 160726 decided the fix:
 `-002`/`-003` suffixes on the temporary registration identity (decided 2026-07-16; not built).
 
 ## Evidence

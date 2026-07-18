@@ -17,7 +17,7 @@
     "files": 3437,
     "entries": 4482
   },
-  "totalFileBytes": 702693300,
+  "totalFileBytes": 702694459,
   "entries": [
     {
       "path": ".",
@@ -14512,8 +14512,8 @@
     {
       "path": "docs/adr/0008-tool-boundary-ends-at-eva-handoff.md",
       "mediaType": "text/markdown",
-      "size": 1731,
-      "sha256": "4ddaeca9b2fa6cbb8fcde35dd195004aa14ac113a4c6405e37aaa2cf86a39729",
+      "size": 1931,
+      "sha256": "06f2cc67954001e1e6f4777ccca63a35ef1c801df2d93e73a77f44fd68858b6c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14638,8 +14638,8 @@
     {
       "path": "docs/adr/0023-mcp-server-hosting-and-auth.md",
       "mediaType": "text/markdown",
-      "size": 2316,
-      "sha256": "ab77bab027e112600905aa364bd795ec1d2b97d02e23320695c0e8b280ca4b46",
+      "size": 2648,
+      "sha256": "fa19f5733cf1d558205eb49633dfe239c224dba2b1b48b8632aa45ef5bd13a45",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14647,8 +14647,8 @@
     {
       "path": "docs/adr/0024-assistant-write-tier-confirmation-protocol.md",
       "mediaType": "text/markdown",
-      "size": 1549,
-      "sha256": "a3ca7ca39383ad65555655b0034c2e282885f75372cee927702ad4f3c8342d0a",
+      "size": 1663,
+      "sha256": "ed43abbe28eb2e65af7eee3bb26a8049acc55c4420d0c5f72a6804ea7e2c5a0f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14656,8 +14656,8 @@
     {
       "path": "docs/adr/0025-shared-capability-registry.md",
       "mediaType": "text/markdown",
-      "size": 1426,
-      "sha256": "aceb05506767ec5959b07953a13eb7b9e08df7481309a2d9faaa7832a50a5e5e",
+      "size": 1505,
+      "sha256": "4930d8061e81d3eaf345eb7c2e96312b14c5ea3e9b3218c2cd4894e9def4565b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14728,8 +14728,8 @@
     {
       "path": "docs/architecture/integrations.md",
       "mediaType": "text/markdown",
-      "size": 2974,
-      "sha256": "c92aa262c21acfd879db00a80cdc1b348286b3c561da7479f4230ab23c6cc515",
+      "size": 3349,
+      "sha256": "f601eea033d6b34fcca4b4a0bb28f1a9b7bb289b0f1652707603bd7f635b1e5e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17041,8 +17041,8 @@
     {
       "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md",
       "mediaType": "text/markdown",
-      "size": 1955,
-      "sha256": "e7383c041b678252ec3c000b26f670c0172bb8259ee8e2974491535534b78797",
+      "size": 1965,
+      "sha256": "ac9300f0c4b48cfc945158744225f71a93282fa6c32ec62ba9d84fd2959159e5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17068,8 +17068,8 @@
     {
       "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/TKT-239-image-first-registration-suffix.md",
       "mediaType": "text/markdown",
-      "size": 1775,
-      "sha256": "12a3f3f3ca360514cf6423149661fa327c4697df5dda42c3bdd92c49e2c27cef",
+      "size": 1777,
+      "sha256": "4aa458c474df9ffd40989909df39d22deea7b1c7d3aa708334c56dc3f7bff6ff",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17095,8 +17095,8 @@
     {
       "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md",
       "mediaType": "text/markdown",
-      "size": 1793,
-      "sha256": "fe9c422d0b0d6c45ae92ed544418de9a4150f24086b93a7125728067a8b1c9db",
+      "size": 1800,
+      "sha256": "c85aa9ccf3ff3abb0f4110db02496fdf054b27e12c88c55f3ad234822cbfa0ee",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17176,8 +17176,8 @@
     {
       "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md",
       "mediaType": "text/markdown",
-      "size": 2332,
-      "sha256": "3df4ae060564fdbfb8193d2871035fba5015ec4427562675c9f8a9b203bb79de",
+      "size": 2372,
+      "sha256": "b1d0a013063744f6031602984d3fa244b22401d29dd293d678a37580c0de057d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

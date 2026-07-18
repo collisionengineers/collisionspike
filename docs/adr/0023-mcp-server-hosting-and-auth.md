@@ -16,8 +16,11 @@ application roles, row-level context, capability registry, and activity-log surf
   Each further write capability earns its own safeguards; none inherits another's. The intended
   near-term expansion of this MCP write tier is the network-drive attach channel of
   [ADR-0007](./0007-receipt-of-images.md) (not built).
-- **Autonomous tier — future.** App-only agents are a separate authorization model. They cannot borrow
-  a user identity. Nothing in the delegated tiers implies this tier exists.
+- **App-only tier — one narrow caller ships (dark); the general tier is future.** App-only agents use a
+  separate authorization model and cannot borrow a user identity. Exactly one app-only caller exists
+  today: the dedicated `ImageIngest` role (`image_ingest_agent`), gated dark behind `MCP_SERVER_ENABLED`
+  and scoped to registration lookup + image upload only, which drives the TKT-154 image-ingest lane. No
+  general app-only agent tier exists, and nothing in the delegated read/write tiers implies one.
 
 The provider machine-to-machine API ([ADR-0020](./0020-provider-api-intake-channel.md)) is a
 deliberately **separate surface** with separate authentication; MCP capabilities and provider intake

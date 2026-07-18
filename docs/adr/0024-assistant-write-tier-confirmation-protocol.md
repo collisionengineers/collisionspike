@@ -13,7 +13,8 @@ The model never sends a mutation directly.
 3. **Execute:** after confirmation, the app calls the existing staff-authorized route with the current
    version. A stale version fails instead of overwriting newer work.
 
-Destructive, human-only, forced-status, and byte-upload actions are not model-proposable. Authorization,
+Destructive, human-only, forced-status, and byte-upload actions are not model-proposable by default; a
+capability may be promoted out of this set once proven safe (see the capability registry, ADR-0025). Authorization,
 validation, and row-level policy run again on execute, and the change is recorded in the activity log.
 ("Audit" is reserved for the Audit case type of [ADR-0014](./0014-audit-case-type-second-inspection.md);
 the tamper-evident record of what changed is the activity log.)

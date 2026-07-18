@@ -16,9 +16,9 @@ The 160726 ADR review surfaced code artifacts that contradict the corrected deci
 changes behaviour, but each seeds future drift if left:
 
 - `packages/domain/src/domain/dedup.ts:6-24` — the header claims "merge-by-registration" and
-  "test-only"; the live code is the ADR-0010 ladder (`caseResolve.ts:13,128`).
-- `services/data-api/src/features/cases/case-status.ts:32-34` and
-  `services/orchestration/src/workflows/eva/eva-report-poll.ts:1` — cite ADR-0023 for behaviour that
+  "test-only"; the live code is the ADR-0010 ladder (`services/orchestration/src/workflows/intake/caseResolve.ts:13,128`).
+- `packages/domain/src/contracts/case-status.ts:32-34` and
+  `services/orchestration/src/workflows/intake/eva-report-poll.ts:1` — cite ADR-0023 for behaviour that
   belongs to ADR-0008's delivery boundary.
 - Code comments describing `A.`/`AP.` as our audit's outcome; the ruling is the original engineer's
   verdict from source material (D1b).

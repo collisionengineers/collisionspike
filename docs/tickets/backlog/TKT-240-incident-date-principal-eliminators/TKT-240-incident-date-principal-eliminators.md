@@ -20,7 +20,7 @@ staff review.
 ## Evidence
 
 - [Review 160726 decision D13](../../../reviews/160726/decisions.md).
-- Current resolution ladder: `services/data-api/src/features/cases/caseResolve.ts`.
+- Current resolution ladder: `services/orchestration/src/workflows/intake/caseResolve.ts`.
 
 ## Proposed change
 

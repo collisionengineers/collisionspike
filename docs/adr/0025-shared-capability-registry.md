@@ -12,7 +12,7 @@ Runtime validation schemas are the source for model-facing parameter schemas. Th
 **delegated staff surface** (the in-app assistant and staff-authorized MCP clients); app-only lanes are
 governed by [ADR-0023](./0023-mcp-server-hosting-and-auth.md)'s tiered model. They require that:
 
-- destructive capabilities are human-only;
+- destructive capabilities are human-only by default, and are promoted only by explicit registry change once proven safe;
 - capabilities visible to delegated agents are non-destructive and carry their gate and safeguards in
   the registry;
 - write capabilities point to an existing route;

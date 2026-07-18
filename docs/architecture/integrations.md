@@ -43,10 +43,14 @@ not replace source bytes.
 AI features expose suggestions and bounded tools through a shared capability registry. Authorization is
 enforced at the Data API. Within a single case the assistant is not read-only: it may perform
 non-destructive writes through propose, current-state re-read, confirmation, optimistic concurrency, and
-the existing staff-authorized route. Destructive actions remain human-only. A destructive action is one
-that cannot be undone or that reaches beyond the single case in hand — deleting or purging evidence or
-records, or a cross-case operation such as a merge; these, together with forced status changes and raw
-byte uploads, are never model-proposable. Decisions of record:
+the existing staff-authorized route. Destructive actions are human-only **by default** — and a central
+aim of this work is to determine which of them can be enabled for the assistant: where certainty is high
+enough, a capability is promoted out of human-only decision through the confirm protocol
+([ADR-0024](../adr/0024-assistant-write-tier-confirmation-protocol.md)) and the capability registry
+([ADR-0025](../adr/0025-shared-capability-registry.md)). A destructive action is one that cannot be undone
+or that reaches beyond the single case in hand — deleting or purging evidence or records, or a cross-case
+operation such as a merge; these, with forced status changes and raw byte uploads, are the current
+human-only set. Decisions of record:
 [ADR-0023](../adr/0023-mcp-server-hosting-and-auth.md),
 [ADR-0024](../adr/0024-assistant-write-tier-confirmation-protocol.md),
 [ADR-0025](../adr/0025-shared-capability-registry.md).
