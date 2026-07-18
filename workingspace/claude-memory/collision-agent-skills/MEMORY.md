@@ -1,0 +1,2 @@
+- [Collisionrenderer is live — single render path](collisionrenderer-is-live-single-render-path.md) — 12 templates live; no fallback render routes in CE skills; zips are org-upload artifacts
+- [Vehicle-assessment estimate-first refocus](vehicle-assessment-estimate-first-refocus.md) — estimate = highest defensible figure (nothing invented, nothing justifiable omitted); VA=opinion, TLA=decided-outcome; uncommitted + Phase 3 pending as of 2026-07-09

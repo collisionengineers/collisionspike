@@ -1,0 +1,23 @@
+# Memory index
+
+- [Governance ledgers: stage then regenerate](governance-ledgers-stage-then-regenerate.md) — inventory/reconciliation hash stage-0 INDEX blobs; stage siblings before regenerating (one-commit convergence); CRLF is a red herring; main is push-blocked (PR only)
+- [Retro drains sequential only](retro-drain-sequential-only.md) — concurrent re-drives trip Graph MailboxConcurrency (tainted not-founds); durabletask status polls need the extension key not the function key
+
+- [adr-rewrite 160726 plan updated](adr-rewrite-160726-plan-updated.md) — EXECUTED 2026-07-17 on branch docs/adr-review-160726 (push operator-gated); T1–T9 = TKT-238..246; TKT-219 now merged; 0007 = "Receipt of images" (never call image receipt "intake"); A.=repairable / AP.=total-loss per ORIGINAL engineer's verdict
+- [arch-simplification series state](arch-simplification-series-state.md) — drafts in workingspace/architecture-simplification/ (untracked); PLAN-007..011 designed with gates; ADR 0026–0030 reserved by TKT-246, next free ADR 0031
+
+- [AI realignment plans authored](ai-realignment-plans-authored.md) — 2026-07-16 docs/workingspace/ai-realignment-plans/ = AI plan-of-record draft; matrix run uninterpretable (429s + 128-token starvation); baseline 87.9%/query 54.5%; Q1–Q5 gate rollout; tickets not minted
+
+- [App Insights retention collapse](app-insights-retention-collapse.md) — free-tier KQL window shrinks intra-day (days → ~1h by evening, seen 2026-07-10); live proofs perishable — KQL same-day + bank into ticket evidence; DB rows are the durable layer; always pass --offset
+
+- [Ticket orchestration layer](ticket-orchestration-layer.md) — ticket-orchestrate skill + verifier/implementer agents (2026-07-08); mid-session agent files aren't dispatchable until next session; verify-sweep needs the PG firewall gap solved first
+- [Azure deploy toolchain gotchas](azure-deploy-toolchain-gotchas.md) — deploy Function Apps from WINDOWS func (WSL func can't find nvm node); the two azure-* agents' non-dispatch was a malformed-frontmatter YAML bug (colon-space in description) — FIXED 2026-07-08, live next session; empty ticket status dir breaks CI check-tickets (needs .gitkeep)
+- [Sibling repo: fetch before re-cut](sibling-repo-fetch-before-recut.md) — the cedocumentmapper_v2.0 checkout can be stale; `git fetch origin --tags` + ff main before sibling-first edits
+- [Windows parser test pre-existing failures](windows-parser-test-preexisting-failures.md) — the environmental failure count DRIFTS with the .venv (1→3 same-day 2026-07-10, fitz/PyMuPDF vanished); diff failure lists vs a same-day baseline, never trust a remembered count; verify-all parser FAIL on the Windows box ≠ regression
+- [Live Postgres connect path](live-postgres-connect-path.md) — connect via WSL Entra-admin + `SET ROLE csadmin` for RLS-bypass; the csadmin KV password is stale; az can't mint an API-audience token (AADSTS65001)
+- [Windows worktree esbuild-lock cleanup](windows-worktree-esbuild-lock-cleanup.md) — `git worktree remove` fails on locked esbuild.exe/rollup .node; kill the survivor vite/esbuild node procs under the worktree first
+- [PLAN-001 vision family built dark](plan-001-vision-family-built-dark.md) — 2026-07-08 user chose "build all four" so TKT-015/016/017/068 built dark despite gated.md deferral; the build-dark→verify pattern (offline-proven, TESTED-offline, stays verify; only research/bench reaches done)
+- [Reciprocal-AI review retired](reciprocal-ai-review-retired.md) — the mandatory Claude+Codex reciprocal PR-review workflow was deleted on main (TKT-149, 2026-07-14); don't reintroduce; drop branch re-adds of test:pr-review-hooks on rebase; ticket evidence citing it / a "48 tests" suite is stale
+- [PR #73 TKT-154 rebased+remediated](pr73-tkt154-rebased-remediated.md) — 2026-07-15 rebased onto post-#99 main + 4-lane review remediation, then MERGED (2d98bdc3), shipped dark; follow-ups TKT-207/208; #83/#87/#89 now all merged too
+- [PR #89 TKT-034 landed dark](pr89-tkt034-landed-dark.md) — 2026-07-15 rebased (squash-merge to resolve 8-commit conflicts once) + merged dark (0fd662a7); Box facade collision resolved (one pinned delete_file + folder_lifecycle); 900_constraints MUST be main-based; dark=deploy-gated not env-gated; only #100 repo-reset PR left open
+- [PR #100 PLAN-006 reset review](pr100-plan006-reset-review.md) — 2026-07-15 10-lane review → REQUEST CHANGES (folder docs/reviews/150726/); blockers: stale-base reverts #73/#83/#87/#89 (5 tables+seed+SPA) + TKT-207/208 ID collision, both invisible to green CI; reconcile "0 unexplained" gate is tautological; surface/evidence/purge investigated-and-clean

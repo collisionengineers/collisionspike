@@ -7,17 +7,17 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4480
+    "entries": 4567
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3435,
-    "finalDirectories": 1045,
+    "finalFiles": 3513,
+    "finalDirectories": 1054,
     "dispositions": {
-      "delete": 1310,
+      "delete": 1276,
       "keep": 1107,
-      "move": 922,
+      "move": 956,
       "rewrite": 705
     },
     "unexplained": 0
@@ -48547,9 +48547,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/web-dev/MEMORY.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48560,9 +48560,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/mileagetool/MEMORY.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48573,9 +48573,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/cedocumentmapper/MEMORY.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48599,9 +48599,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/MEMORY.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48651,9 +48651,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/audit-case-type.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48664,9 +48664,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/az-appsettings-file-gotcha.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48677,9 +48677,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionsuite-root/base44-website-push-guard.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48690,9 +48690,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/box-integration-pivot-findings.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48703,9 +48703,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/box-pivot-phase7-committed.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48716,9 +48716,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/box-scope-guard.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48729,9 +48729,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/box-test-account.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48794,9 +48794,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "policy-redacted:sha256:33197e4d35a1a1b904117e02387a25be89765f8395bd61672ef976046e6206de",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48807,9 +48807,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "policy-redacted:sha256:d87fc87fe63191f4563128df289cbf093bc4a0af2e0a4426ece2a89555391dd0",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48820,9 +48820,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "policy-redacted:sha256:7e0f97a8ca5c7bec856c6b375e2251a3832d8552a01d012f7a895d6999d1ad43",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48833,9 +48833,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "policy-redacted:sha256:13541918e64913117e9a97b19d93e9f9a579c0cd8a7ad96548b57c71b091f6ba",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48846,9 +48846,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/cedocumentmapper/completion-state-2026-06.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48859,9 +48859,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/enrichment-activated.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48872,9 +48872,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/mileagetool/feedback-approach.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48898,9 +48898,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/flow-webhook-trigger-provisioning.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48911,9 +48911,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/cedocumentmapper/fullbuild-decisions-2026-06.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48924,9 +48924,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/inspection-image-based-detection.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48937,9 +48937,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/intake-repo-trails-live.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48950,9 +48950,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/jobsheet-provider-rules.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48963,9 +48963,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/live-services-boundary.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -48976,9 +48976,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/loc-export-artifact-no-address-matcher.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49002,9 +49002,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/parser-vendored-divergence.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49015,9 +49015,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "policy-redacted:sha256:fe8b530237168353b08adaaf783cbaa677a358cf423f1b13a9491cd6aac4fc04",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49054,9 +49054,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionsuite-root/project-grand-architecture-overview.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49067,9 +49067,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/mileagetool/project-reglookup.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49119,9 +49119,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/web-dev/project_repo_structure.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49132,9 +49132,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/provider-corpus-analysis.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49145,9 +49145,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/pymupdf-licensed.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49158,9 +49158,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/collisionspike-legacy-path/queue-case-model.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -49171,9 +49171,9 @@
       "category": "evidence",
       "owner": "quality-and-evaluation",
       "lifecycle": "evidence",
-      "disposition": "delete",
-      "finalPath": null,
-      "reason": "PLAN-006 explicitly retired this evidence path after authority review; no current authority or retained byte-equivalent remains and Git history is the recovery path.",
+      "disposition": "move",
+      "finalPath": "workingspace/claude-memory/mileagetool/user-profile.md",
+      "reason": "Identical bytes are retained at a canonical final path.",
       "ticket": "TKT-208"
     },
     {
@@ -67229,6 +67229,132 @@
       "ticket": "TKT-208"
     },
     {
+      "path": "workingspace/architecture-simplification",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
       "path": ".agents/agents/roles.json",
       "kind": "file",
       "size": 6790,
@@ -70451,8 +70577,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "kind": "file",
-      "size": 6380,
-      "sha256": "04ff0b3434a3927f616c7427bf8cd9d3b7b6e33a9468dd4499637fc194a604c4",
+      "size": 10050,
+      "sha256": "f399c8c5e3e905cb1e3aa6904fb600db7a859f2d91fd2e4aac1971efc0b5dad3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",
@@ -97989,8 +98115,8 @@
     {
       "path": "scripts/checks/check-forbidden-references.mjs",
       "kind": "file",
-      "size": 8416,
-      "sha256": "dd48b0514065ed61e27efddb8c76bf95686e552862e7d892ce9e78db6eb8c1a4",
+      "size": 9104,
+      "sha256": "9a445aaceffef98d20aac7134700af6021a16061c273ff7452daea48ec59faff",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active",
@@ -116152,6 +116278,1098 @@
       "lifecycle": "working",
       "origin": [
         "docs/workingspace/aifirstplan.txt"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/00-overview-register-and-plan0-handoff.md",
+      "kind": "file",
+      "size": 11470,
+      "sha256": "056dcd1c761c4bf29ad8f3f52ab5e6c91af6eed92125a2882fa49237cad6fd34",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/01-server-runtime-foundation.md",
+      "kind": "file",
+      "size": 5397,
+      "sha256": "59fa8c9933f5a439682ab5957d7f272da6af774b5c3788f5b548383972429746",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/02-canonical-service-routes.md",
+      "kind": "file",
+      "size": 4969,
+      "sha256": "6aa47df2fc6752304414ad6bb1a0f9c8612536816e949b9dc1d60065d496d36d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/03-cloud-estate-cleanup.md",
+      "kind": "file",
+      "size": 5261,
+      "sha256": "64de10564f1983d5b2f656fb094764c404dcb0fc0236ecc61cc1212fe17ae5dd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/04-scripts-and-tooling-dedup.md",
+      "kind": "file",
+      "size": 4354,
+      "sha256": "cf25ae599af80a5574c04f7f1857e72ed872211b88e566fb75d31bb2ee495ab6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/05-python-doctrine-and-parity.md",
+      "kind": "file",
+      "size": 4287,
+      "sha256": "e3ef3313b1072c9804cb387cfa0e955248a2f1d7603c28a1eca9de85b4dea3df",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/architecture-simplification/README.md",
+      "kind": "file",
+      "size": 6523,
+      "sha256": "97e9fee2ebe0351ee2d2e799d00da0fc7d41a7744810fccbc96d7a30b475686e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/MEMORY.md",
+      "kind": "file",
+      "size": 325,
+      "sha256": "9ac50756ffdc8c38d14c3c162f49b171dacbfcb5e4bdeb2749c1ddbce144ce6c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/MEMORY (5).md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/completion-state-2026-06.md",
+      "kind": "file",
+      "size": 3627,
+      "sha256": "197e1ebe9dc89da678777ad9409cbb6c705d91134bee8ef7105fda69d0d13609",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/completion-state-2026-06.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/cedocumentmapper/fullbuild-decisions-2026-06.md",
+      "kind": "file",
+      "size": 1941,
+      "sha256": "825a600f44ba6581de016879a5fc4c32bf554281e32d2e761e81f3619504cc5d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/fullbuild-decisions-2026-06.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/MEMORY.md",
+      "kind": "file",
+      "size": 457,
+      "sha256": "6d4b2b0092e5c0c960fc55e47eb06018fa4b64493c7fcf3e8df98efb81a1a91f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/collisionrenderer-is-live-single-render-path.md",
+      "kind": "file",
+      "size": 2407,
+      "sha256": "df07278e57aec19e00ecb670ecfd9be2a11877c688e55ae05ac8990b88ff2896",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collision-agent-skills/vehicle-assessment-estimate-first-refocus.md",
+      "kind": "file",
+      "size": 2883,
+      "sha256": "a4ad60f46a9259b3dbf344fe9da9d2509eb49b7eab031b38e4c50ccd4957e147",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/MEMORY.md",
+      "kind": "file",
+      "size": 6154,
+      "sha256": "4000595f2ba653bbaa3a5f285fa2b73081242bc891eebc7227ef152c6bddd517",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/MEMORY (7).md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/audit-case-type.md",
+      "kind": "file",
+      "size": 3096,
+      "sha256": "d59817def1cd5bf2f2afb0192aea751b1022e16f86e25733b50d50c8d0400f6f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/audit-case-type.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/az-appsettings-file-gotcha.md",
+      "kind": "file",
+      "size": 1571,
+      "sha256": "555cf8a2998d4f7f3446d095925e4c74ae53575f8179636c701ac0a810b86107",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/az-appsettings-file-gotcha.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-integration-pivot-findings.md",
+      "kind": "file",
+      "size": 4036,
+      "sha256": "efc4108ca5e80156348de0ba39d5776bd794ac4eb9827125c0f8d93cbd080906",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/box-integration-pivot-findings.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-pivot-phase7-committed.md",
+      "kind": "file",
+      "size": 4575,
+      "sha256": "df27ed4f9c05ba319e8a22c0ddccb93b8629ed58e26aaf56fbebc47d1ec44a07",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/box-pivot-phase7-committed.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-scope-guard.md",
+      "kind": "file",
+      "size": 2058,
+      "sha256": "3c62b8266cc4e041c01e2386bd73901e3238e63dc55447d4f2708af01f5c12f2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/box-scope-guard.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/box-test-account.md",
+      "kind": "file",
+      "size": 3048,
+      "sha256": "a65eb793f4303062e8d85f0880e51ea6b245d1027a2da936d429f87d75d34879",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/box-test-account.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "policy-redacted:sha256:33197e4d35a1a1b904117e02387a25be89765f8395bd61672ef976046e6206de",
+      "kind": "file",
+      "size": 2183,
+      "sha256": "af760195bb6b7d880944df995b8096edcec07b341b9ea0f786e99a768c9bc57c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "policy-redacted:sha256:7db9ab1bf8f463ceee613141a005651facff3f42dc88163dc9aa95b65eca7261"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "policy-redacted:sha256:d87fc87fe63191f4563128df289cbf093bc4a0af2e0a4426ece2a89555391dd0",
+      "kind": "file",
+      "size": 2024,
+      "sha256": "3900beaa506b9bc6be1dcec479fa5477d48ad00f4266e215a5155d83744455ca",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "policy-redacted:sha256:bada2e7ef29083cc77505c8feacfc5b560418bf328ccdf74c876d6ca52456939"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "policy-redacted:sha256:7e0f97a8ca5c7bec856c6b375e2251a3832d8552a01d012f7a895d6999d1ad43",
+      "kind": "file",
+      "size": 2324,
+      "sha256": "82473792e029d1139031adf3cf5ebaaf244ea69bfd58c83c1f9f12a06fb7a05b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "policy-redacted:sha256:0ef8f5344f44b1fd369d8c60db397d1786249df390acf63ea1b46d02527c5ac2"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "policy-redacted:sha256:13541918e64913117e9a97b19d93e9f9a579c0cd8a7ad96548b57c71b091f6ba",
+      "kind": "file",
+      "size": 1814,
+      "sha256": "4adfbe7ab74600026ea712630637400622a17115ebee501f088c62c2b9d43073",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "policy-redacted:sha256:2372a54142d1e1d8b8a7e3c58f8a58cf37385ea6db92171285d1b8203083ec10"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/enrichment-activated.md",
+      "kind": "file",
+      "size": 2988,
+      "sha256": "6924814be402f9b20f733d1651285b25e7dc618a90977f5e83ec12fc9c05a0fc",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/enrichment-activated.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/flow-webhook-trigger-provisioning.md",
+      "kind": "file",
+      "size": 3272,
+      "sha256": "46a533f7afa400bf145d8d1ba22f573dd08b3263fa06b9c3cb4f6da6de443c0d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/flow-webhook-trigger-provisioning.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/inspection-image-based-detection.md",
+      "kind": "file",
+      "size": 2380,
+      "sha256": "949c35965f655b05b957bcc2883a9a001130264906f6096512610511f0ac9c04",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/inspection-image-based-detection.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/intake-repo-trails-live.md",
+      "kind": "file",
+      "size": 1622,
+      "sha256": "31af979a31e8b1e0ce2be873654ce353a94ee48b98014404bb1c117c2ddb0349",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/intake-repo-trails-live.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/jobsheet-provider-rules.md",
+      "kind": "file",
+      "size": 4151,
+      "sha256": "394984b2442a2d08779ecedc622a4d81ad43c6e775eb548e8f23c8b2c9f4cbdc",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/jobsheet-provider-rules.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/live-services-boundary.md",
+      "kind": "file",
+      "size": 2663,
+      "sha256": "7a97ff778b65bfa5eb6bf9c7425e10c45f5f809921ae4dd72c3be1358e1964f6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/live-services-boundary.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/loc-export-artifact-no-address-matcher.md",
+      "kind": "file",
+      "size": 2509,
+      "sha256": "da919bc34d5030500a8c8b252d168f64f1fe70f5b055d74b1c82aa83a85326d7",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/loc-export-artifact-no-address-matcher.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/parser-vendored-divergence.md",
+      "kind": "file",
+      "size": 2048,
+      "sha256": "ade45d6f26d8976d0e677239b165160c3c6406bc2affd479f990b025ea70cd37",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/parser-vendored-divergence.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "policy-redacted:sha256:fe8b530237168353b08adaaf783cbaa677a358cf423f1b13a9491cd6aac4fc04",
+      "kind": "file",
+      "size": 3536,
+      "sha256": "e0675720af7fddb58f0f066431c796b17afed1a6fbd6f1c48eddcd2c2b723ef1",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "policy-redacted:sha256:fa1b6b33b2b4e4d3d2105998e4a194795be035704c77d50b665364e2952153b4"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/provider-corpus-analysis.md",
+      "kind": "file",
+      "size": 2736,
+      "sha256": "443cc5964cbd32d5dff0b6b07f5a6c58d0416001861a2d5ef481a1fd7d0cc0b6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/provider-corpus-analysis.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/pymupdf-licensed.md",
+      "kind": "file",
+      "size": 863,
+      "sha256": "48c7fc64a31458ec441752a0899da493ceda072d79d0612bc1b27df8fad9d40d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/pymupdf-licensed.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike-legacy-path/queue-case-model.md",
+      "kind": "file",
+      "size": 2634,
+      "sha256": "5ea7f5fbd6bf318515ef4605f015a76b309d4505c7f9e2f7b8c92d1bc749bea0",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/queue-case-model.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/MEMORY.md",
+      "kind": "file",
+      "size": 4695,
+      "sha256": "758e9ae48543edda919798c6ac1f6ff241c95cab067dadeb11112f7fb95e72d6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/adr-rewrite-160726-plan-updated.md",
+      "kind": "file",
+      "size": 2206,
+      "sha256": "1138c83de40fce02c91b8bc8695fdad15155a260182168fcea50d8399802e269",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/ai-realignment-plans-authored.md",
+      "kind": "file",
+      "size": 2261,
+      "sha256": "0573fe2350c6c86908f0526bb5d369c56f3b809a96fae6bbefd5601f5a4bade0",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/app-insights-retention-collapse.md",
+      "kind": "file",
+      "size": 1581,
+      "sha256": "a1a3f321fe7c5e1095a2e2bfd4db279d23b6bd34b807fd907ae3469372224c0c",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/arch-simplification-series-state.md",
+      "kind": "file",
+      "size": 1952,
+      "sha256": "8a376db4560aeebfc63674b3ce4e6e3df6769cbcae2ddcbefd0a628e3190afb2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/azure-deploy-toolchain-gotchas.md",
+      "kind": "file",
+      "size": 3895,
+      "sha256": "c4c7743bd0a4699de27a98fc29fa15533e36ffbe23dbf77af7ebf30adb06e894",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/governance-ledgers-stage-then-regenerate.md",
+      "kind": "file",
+      "size": 1702,
+      "sha256": "4bd9b3edcb5857c43f208bed4989a5a6a80a6d9f33f74aef97ab1b1fdb5d0095",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/live-postgres-connect-path.md",
+      "kind": "file",
+      "size": 1790,
+      "sha256": "964e05cd43e0969b7155b7f0582e7e392d8fc65d2dc377a255aa1bc77b20117e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/plan-001-vision-family-built-dark.md",
+      "kind": "file",
+      "size": 2514,
+      "sha256": "6f12208b771237b46216410f3ee45c9adadd117e52997341452b03324d32b900",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr100-plan006-reset-review.md",
+      "kind": "file",
+      "size": 2490,
+      "sha256": "a2509f43330dcb9a5a08d88b0616c8135eb0873da7f622a4aa29cd35890729c3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr73-tkt154-rebased-remediated.md",
+      "kind": "file",
+      "size": 2184,
+      "sha256": "f31ccf5434753f34b22212f15ca66eb55f1ce1ae545f9fee0eca56e9eda8ab81",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/pr89-tkt034-landed-dark.md",
+      "kind": "file",
+      "size": 3703,
+      "sha256": "d2c864498af8e46a3dca8337d9690cb444f87deade87a9cc4844c8cf2a0155cd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/reciprocal-ai-review-retired.md",
+      "kind": "file",
+      "size": 1477,
+      "sha256": "f92c2d8cc00ec715ea42ee582b9df6a991c281914a2ff427c1292d40c22f1b1f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/retro-drain-sequential-only.md",
+      "kind": "file",
+      "size": 1679,
+      "sha256": "fbb1d900c7559d013f61fd5fbe0c05de9645d024f006150c96aa98d62ebcb2d8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/sibling-repo-fetch-before-recut.md",
+      "kind": "file",
+      "size": 1375,
+      "sha256": "69eea76b167b075ffc95f767e4f3016def7a1c850f51318e62e3281020ab2227",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/ticket-orchestration-layer.md",
+      "kind": "file",
+      "size": 2739,
+      "sha256": "e31cbcdea5211b7dac34150d20f166541e533ddd7a406793e556f14c1f0fa20e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/windows-parser-test-preexisting-failures.md",
+      "kind": "file",
+      "size": 1623,
+      "sha256": "7ebf76b4fc5993f61f57b5bfd027da4d9a37877ed1d5fe06d381623bca881d89",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionspike/windows-worktree-esbuild-lock-cleanup.md",
+      "kind": "file",
+      "size": 1471,
+      "sha256": "ef9ee83b8c95e7c0389d1377a7efafacf7a5987cd197cd91c087f7d4a91df293",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/MEMORY.md",
+      "kind": "file",
+      "size": 5223,
+      "sha256": "8717634533afcd92033c84e2b7d34727a2efaf001291974422df3d41fd20c3dd",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/base44-website-push-guard.md",
+      "kind": "file",
+      "size": 1043,
+      "sha256": "055a200910259a467447204c7df1613944ac3021c1aa88d99adaa79240a29c8d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/base44-website-push-guard.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/capture-hardening-2026-07-16.md",
+      "kind": "file",
+      "size": 2481,
+      "sha256": "cffb1e598447f80a22a34130c41d8ed88075cf6855901df2135a26722dc39de5",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/capture-server-exists-tkt200.md",
+      "kind": "file",
+      "size": 1444,
+      "sha256": "123decf929a27484b51d142b40bac90cb1c0f17558d467dcf09c6e286e8bf6d6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/mcpb-unset-userconfig-literal-token.md",
+      "kind": "file",
+      "size": 2533,
+      "sha256": "2fafc4e1c8df29a25573805c62257f02e2dadf65455abe3c715cac8658cb7982",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/org-directory-distribution.md",
+      "kind": "file",
+      "size": 2950,
+      "sha256": "6620b41c56feba8f8150727f78372fd5047e0a9938290fa3e9811faffe393c9f",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-claude-desktop-debug-skill.md",
+      "kind": "file",
+      "size": 1910,
+      "sha256": "f7d8fd56c1f007da38107319b74b4ac17cdfd0bdc818b219ff92c2b9748dd7ff",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-collisionsuite-structure.md",
+      "kind": "file",
+      "size": 5670,
+      "sha256": "e822c96ac56058076d807c40c39eba68c253280aef3477949a2a89193bb821ad",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-grand-architecture-overview.md",
+      "kind": "file",
+      "size": 2265,
+      "sha256": "d856ef281e596e01a128575714f052c40c258271d694b0fee500c687727d14a8",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/project-grand-architecture-overview.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/project-renderer-convergence.md",
+      "kind": "file",
+      "size": 5746,
+      "sha256": "e49de43c1734e383c41b2a8a5f759113bc10c99f9cc12b83a1f7c03cb2d8ecd3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-agents-policy.md",
+      "kind": "file",
+      "size": 3274,
+      "sha256": "68c9c564addf906390d4271b945d5a0a3a75df769e04d5e517429e8b141b1e77",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-manifest-tooling.md",
+      "kind": "file",
+      "size": 2513,
+      "sha256": "844462b113cf471760b14b3c8f44373434d6e488f61a24ef74534245a6cfce4e",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/suite-plans-plan-set.md",
+      "kind": "file",
+      "size": 1754,
+      "sha256": "a3b72c5f9d3235cbbfe0eeeaf53bb24f4e71ae336c11439da49c928560c627f2",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-capture-quirks.md",
+      "kind": "file",
+      "size": 9628,
+      "sha256": "04859b90fedc415b2aefc744b041489e0fc55e46c1083372a656b71fce296ee3",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-evidence-file-handoff.md",
+      "kind": "file",
+      "size": 2489,
+      "sha256": "9ba74c2c9545c6d7f32bee00ec7d8a637f2ba064318d5427dfbeef78818073ea",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuation-suite-integration-map.md",
+      "kind": "file",
+      "size": 4063,
+      "sha256": "3fef079d2261fb16101c05da92c5da13cccf5b67e2e67ef2bdc91022aa54db91",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuationbot-chromium-autoinstall-electron-fix.md",
+      "kind": "file",
+      "size": 4395,
+      "sha256": "aa5650d8bf8ba086c812c5c785ed3ee339c96301afe171dbccac50337abad24b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/collisionsuite-root/valuationbot-detached-launch-this-loss.md",
+      "kind": "file",
+      "size": 2173,
+      "sha256": "1db666eadff5bfd94070d6c445ead743ed6f22e6e1af2ceee4abdcca99aef4d4",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/MEMORY.md",
+      "kind": "file",
+      "size": 336,
+      "sha256": "98d7a8df01bd6e946e7e08411a41f347e3b62443b49df8636e831f87abd5a27d",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/MEMORY (4).md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/feedback-approach.md",
+      "kind": "file",
+      "size": 2008,
+      "sha256": "6ab8bf7058ea6c1414c4ad8f66d4df1750854142d2562a90f1b38d2448e4155b",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/feedback-approach.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/project-reglookup.md",
+      "kind": "file",
+      "size": 3053,
+      "sha256": "239d14029806b05b1c25047099179c22dcad5bced27e514faa8058d3675be0a6",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/project-reglookup.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/mileagetool/user-profile.md",
+      "kind": "file",
+      "size": 1157,
+      "sha256": "aec5aba9d222b4cdc190682a719bbc7e91acabe09acd168e4a0820d5133f3995",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/user-profile.md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev/MEMORY.md",
+      "kind": "file",
+      "size": 155,
+      "sha256": "98a7af1eb616bd03c87ae4555cdc9ac26b79b2f1cae1bba7c1d323d845f02dec",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/MEMORY (3).md"
+      ],
+      "state": "moved",
+      "ticket": "TKT-208"
+    },
+    {
+      "path": "workingspace/claude-memory/web-dev/project_repo_structure.md",
+      "kind": "file",
+      "size": 1031,
+      "sha256": "f0fe5d86f7040606380f3e7822a7c651d9d6dae735721ac9898e5c40dd04dbd0",
+      "category": "working-document",
+      "owner": "user-workspace",
+      "lifecycle": "working",
+      "origin": [
+        "test-cases-and-data/e-mail-examinations/mems/mems/project_repo_structure.md"
       ],
       "state": "moved",
       "ticket": "TKT-208"
