@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1035,
-    "files": 3407,
-    "entries": 4442
+    "directories": 1045,
+    "files": 3437,
+    "entries": 4482
   },
-  "totalFileBytes": 702597169,
+  "totalFileBytes": 702694459,
   "entries": [
     {
       "path": ".",
@@ -1172,6 +1172,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/reviews/160726",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/reviews/190626",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2082,6 +2091,87 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-237-qdos26007-abstain-eval-fixture/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -11470,8 +11560,8 @@
     {
       "path": "CONTEXT.md",
       "mediaType": "text/markdown",
-      "size": 3956,
-      "sha256": "9bc59125af585ecbcc97b8ff59053625e9bf1503b12c2e96c1c2f56fdf08ef35",
+      "size": 5047,
+      "sha256": "309f29df8879adab10ac3d722038a48bdc9bfae047c1e96d5530ab70a8ac2ab2",
       "category": "documentation",
       "owner": "repository",
       "lifecycle": "active"
@@ -14368,8 +14458,8 @@
     {
       "path": "docs/adr/0002-vrm-open-case-correlation.md",
       "mediaType": "text/markdown",
-      "size": 838,
-      "sha256": "20ab161477029f4986df43cc0fe4a8ca563fcc8ff78c0960cd133f0b5aab8686",
+      "size": 2021,
+      "sha256": "5f54144f68c373206c54d4929ecc6c9b9ac7d39d048f8ec9f1d7e6e95bd4a1d1",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14377,8 +14467,8 @@
     {
       "path": "docs/adr/0003-channel-aware-chasers-whatsapp-constraint.md",
       "mediaType": "text/markdown",
-      "size": 823,
-      "sha256": "601de287d4305058b10d7cdcb9538658402df4ffaf44b7db38bab3f0eb38ad8c",
+      "size": 925,
+      "sha256": "657e0ff93e2abf876b865fd31d8454a5faa22caf58afac7438c4e4d5f684bc90",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14386,8 +14476,8 @@
     {
       "path": "docs/adr/0004-parser-as-azure-function-inline.md",
       "mediaType": "text/markdown",
-      "size": 921,
-      "sha256": "d019ea3c05d4893a9a3404bb076744114106b0aced1c17eeb00846897a6bb24a",
+      "size": 1125,
+      "sha256": "5cb74f6e4d8824a9961407ed61bae53a60860561fa328754706e70a2a22fba53",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14404,17 +14494,17 @@
     {
       "path": "docs/adr/0006-vehicle-enrichment-service-boundary.md",
       "mediaType": "text/markdown",
-      "size": 1029,
-      "sha256": "62f6a970b44b15f8191dd3e303b0bc3b226966d242442dd67a89beeddd105844",
+      "size": 1730,
+      "sha256": "f8fd6391cd45b228d8eae40d939065714531929d5826a05b4b61b91b4feeb683",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
     },
     {
-      "path": "docs/adr/0007-whatsapp-intake-manual-bulk-ocr-match.md",
+      "path": "docs/adr/0007-receipt-of-images.md",
       "mediaType": "text/markdown",
-      "size": 812,
-      "sha256": "13f016edfa9185822ace2729274cf702934964bddb9ad67c6bf1b0d83df7838d",
+      "size": 2574,
+      "sha256": "c78dea81a656ea526d38ed716b24e2c02bfeca1919667dd87bfa3fea515b7997",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14422,8 +14512,8 @@
     {
       "path": "docs/adr/0008-tool-boundary-ends-at-eva-handoff.md",
       "mediaType": "text/markdown",
-      "size": 682,
-      "sha256": "a3f54aaa5660a1b40ab93c4e2774206b82d690ef129ddc736ed4061d539e417e",
+      "size": 1931,
+      "sha256": "06f2cc67954001e1e6f4777ccca63a35ef1c801df2d93e73a77f44fd68858b6c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14431,8 +14521,8 @@
     {
       "path": "docs/adr/0009-image-processing-suggestion-first.md",
       "mediaType": "text/markdown",
-      "size": 953,
-      "sha256": "3a4953ab7397b0b1014661d344636ffd7e2ec6a1681d7589d69925c01d668a49",
+      "size": 1911,
+      "sha256": "6cc61feee8d8e5e9c6c6bae01fdbcf3815841762f342f44b1a88df7f4441760b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14440,8 +14530,8 @@
     {
       "path": "docs/adr/0010-dedup-reference-disambiguated-no-time-window.md",
       "mediaType": "text/markdown",
-      "size": 1096,
-      "sha256": "33c9cc4733c9c1dcc382ebe985ec0a1581f01156a70ccfb607055c69b1f383a9",
+      "size": 1887,
+      "sha256": "0d96b29f98c47f11e7d4b0bdd0c2e3d4772c097aca41ffb8ffdb3feb8ae62703",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14449,8 +14539,8 @@
     {
       "path": "docs/adr/0011-work-provider-intermediary-garage-roles.md",
       "mediaType": "text/markdown",
-      "size": 1038,
-      "sha256": "145fde2672aa88f6ac1f735b0c9549ae5d2ad398b81d20de8d94942663be9816",
+      "size": 1844,
+      "sha256": "dcbbf19706d23edb617471253e1e6775309ef45150643fbaa815f8e0d521cebb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14458,8 +14548,8 @@
     {
       "path": "docs/adr/0012-box-centric-intake-additive-hybrid.md",
       "mediaType": "text/markdown",
-      "size": 1442,
-      "sha256": "5b299d76195320056f0a30b6ac01738823cc0648ed3786e835d803930204039a",
+      "size": 1801,
+      "sha256": "871a6a4f01a0b51d5425122bae06a7201c7b37ccf85da256147ca9f6c2f0fcf6",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14467,8 +14557,8 @@
     {
       "path": "docs/adr/0013-loc-export-artifact-no-runtime-address-matching.md",
       "mediaType": "text/markdown",
-      "size": 2340,
-      "sha256": "e16b50809f53f0e81d783062086fc4207f34099baae61c062a9159ead9932cb3",
+      "size": 3048,
+      "sha256": "0446416a99860266905ee93c3dfb8fbfec552fa8229735e8cbbc12964f6cbe8e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14476,8 +14566,8 @@
     {
       "path": "docs/adr/0014-audit-case-type-second-inspection.md",
       "mediaType": "text/markdown",
-      "size": 896,
-      "sha256": "9a6089a503d909ccf38255cfe09ac1433611be5114312566849e6a774801d1a4",
+      "size": 2017,
+      "sha256": "3983879049c9f75358dd1b9c014e0d2958d2cb052520f601dfad73c66e357dd4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14485,8 +14575,8 @@
     {
       "path": "docs/adr/0015-email-triage-inbox-management.md",
       "mediaType": "text/markdown",
-      "size": 1201,
-      "sha256": "aaf3fae5359a87386cf64463bb606d9ba1b6fa6da9c6c523c358122162bd9ecb",
+      "size": 2312,
+      "sha256": "a82448254a77636b54b00599f693f4756cbfa2c3943909fa8fd05d4670fe3576",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14494,17 +14584,8 @@
     {
       "path": "docs/adr/0016-inspection-address-corpus-eva-export.md",
       "mediaType": "text/markdown",
-      "size": 1133,
-      "sha256": "b89995ef72bda82ddeb02455f80827d9e1a279a53a302fbb39cd61c5725d640d",
-      "category": "documentation",
-      "owner": "documentation",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/adr/0017-data-retention-erasure-pii-lifecycle.md",
-      "mediaType": "text/markdown",
-      "size": 1095,
-      "sha256": "90802ce88dfd1459f342ed3c26851e2648551605530abef26af4ee856f745417",
+      "size": 1879,
+      "sha256": "80b28db2c75ad4070291145e248727f251d194dd0c238a6728ee49bcf3d2b7f8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14530,8 +14611,8 @@
     {
       "path": "docs/adr/0020-provider-api-intake-channel.md",
       "mediaType": "text/markdown",
-      "size": 1240,
-      "sha256": "ee0b555c77b27b27a8325695e18f81806ec7f78bdf1237e421434209152dbc87",
+      "size": 1567,
+      "sha256": "44847cd29af81e18ca8b90e470726a9c2e1350ded6a05f8e3452f269bd7cff36",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14539,8 +14620,8 @@
     {
       "path": "docs/adr/0021-case-po-marker-taxonomy.md",
       "mediaType": "text/markdown",
-      "size": 1127,
-      "sha256": "ecf9b96a09b8a5c794d010308104f9aa684b07134630c337cbbdb5bfc51335e9",
+      "size": 1494,
+      "sha256": "702179ae83f7b501faddf91e49fb216bce0d13a92671309b2b18ade41dcaa268",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14557,8 +14638,8 @@
     {
       "path": "docs/adr/0023-mcp-server-hosting-and-auth.md",
       "mediaType": "text/markdown",
-      "size": 1251,
-      "sha256": "499811bf1d59526965adbeb393d95ca7652b78749936881f623b93ac46534b59",
+      "size": 2648,
+      "sha256": "fa19f5733cf1d558205eb49633dfe239c224dba2b1b48b8632aa45ef5bd13a45",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14566,8 +14647,8 @@
     {
       "path": "docs/adr/0024-assistant-write-tier-confirmation-protocol.md",
       "mediaType": "text/markdown",
-      "size": 1099,
-      "sha256": "19f4f154580a8190386e4a58d75b9a48b6111cec7ccc799039beb9724b5ac140",
+      "size": 1663,
+      "sha256": "ed43abbe28eb2e65af7eee3bb26a8049acc55c4420d0c5f72a6804ea7e2c5a0f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14575,8 +14656,8 @@
     {
       "path": "docs/adr/0025-shared-capability-registry.md",
       "mediaType": "text/markdown",
-      "size": 1181,
-      "sha256": "7fb3fddb1f21ed2f9bb4b6b252087a39c9c38cb46f483c59db920984be1387ca",
+      "size": 1505,
+      "sha256": "4930d8061e81d3eaf345eb7c2e96312b14c5ea3e9b3218c2cd4894e9def4565b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14584,8 +14665,8 @@
     {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 3183,
-      "sha256": "0c2e6c6a017ee77cd2915fe4f462750603c0d2e2091d1317759a221b0c5f31f3",
+      "size": 4093,
+      "sha256": "e32c0e57f150781bdd39c9b49f0c95cdb6c1ee90aeb973e595c062f7c882502f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14629,8 +14710,8 @@
     {
       "path": "docs/architecture/eva-sentry-api.md",
       "mediaType": "text/markdown",
-      "size": 1983,
-      "sha256": "4b3773277069e054cb7962ee2db6e1ae92b0013773429e5a5743e82fbd03b229",
+      "size": 2082,
+      "sha256": "0c765d926e45700ce1853bca5b1862558fb62ed8c0f557ed7da9bd53cff579df",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14647,8 +14728,8 @@
     {
       "path": "docs/architecture/integrations.md",
       "mediaType": "text/markdown",
-      "size": 2245,
-      "sha256": "270f5dbc968060e5a7e14a91f580822d70c8abf0e38299b65d822d72e00aacb0",
+      "size": 3349,
+      "sha256": "f601eea033d6b34fcca4b4a0bb28f1a9b7bb289b0f1652707603bd7f635b1e5e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14665,8 +14746,8 @@
     {
       "path": "docs/architecture/system-overview.md",
       "mediaType": "text/markdown",
-      "size": 2497,
-      "sha256": "483591c530177c6cde3f96d80c56d5f2b740b1699c59600997f034470dbc699a",
+      "size": 2644,
+      "sha256": "17175ee2a4b98422cab28e222fa3594af5a943b32b7ce929f5f21eb0d0934375",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -14764,7 +14845,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1389431,
+      "size": 1401904,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -14782,8 +14863,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4111966,
-      "sha256": "5b3958ce2726269bb775d19f77df82a20b4595e7d4763948413aa16169a83a2b",
+      "size": 4127881,
+      "sha256": "085002a5bb2d0b993ec72a7c97987ba22abd597acec1075df0a833490630ff02",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15131,6 +15212,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/reviews/160726/checklist.md",
+      "mediaType": "text/markdown",
+      "size": 6384,
+      "sha256": "ec6fd0b12e8eec21ff2aa456736f53c7faa9b4547a257b79308d4c6e05bc3a71",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/decisions.md",
+      "mediaType": "text/markdown",
+      "size": 13056,
+      "sha256": "601d6482d3221e78b570ad32b7dc48e573fb9fd39fd4312f01716523dac6eb20",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/overview.md",
+      "mediaType": "text/markdown",
+      "size": 1990,
+      "sha256": "d2dd0d6ec8e166dd3e9c3ece2924a485fc000819e762d5bf352d718c95835a19",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/160726/review.md",
+      "mediaType": "text/markdown",
+      "size": 5245,
+      "sha256": "a519850b4d6e9052886fa4df3ffee3109e654da47d9e1021db7c321ccce47427",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/reviews/190626/broad-review/review.md",
       "mediaType": "text/markdown",
       "size": 429,
@@ -15232,8 +15349,8 @@
     {
       "path": "docs/reviews/README.md",
       "mediaType": "text/markdown",
-      "size": 1958,
-      "sha256": "cf5575e2bda87093e7c8d20db954c7a4da019b8fdd221678961b1786b2ddf60c",
+      "size": 2173,
+      "sha256": "9b0460bed2d99da432b627d95566c6b1f0921475d93679d4aa2743025f2b6d5d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15241,8 +15358,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 41960,
-      "sha256": "7b93e2a72386b85408007b003ee629c3d7319e0bc3bbfab16800a4ee64b9c1fe",
+      "size": 43554,
+      "sha256": "08f36ee8f5d3f21690970fcb97e861cbf48f0e92c9452c32ddc2c1b56db78739",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15250,8 +15367,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 44106,
-      "sha256": "dc4a7f5baf513c9892917cd94b265b654540eab19c2d3edf68af1c991fbb7c06",
+      "size": 45745,
+      "sha256": "336ea3eb43e96fc9d10a292864f10d712023d8ff24b463903c41e1b41911a078",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16917,6 +17034,249 @@
       "mediaType": "text/markdown",
       "size": 277,
       "sha256": "eef797c2a6fb795771e6b281d1708ad341663765bb0aa6dd0b01a12616d1f0de",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/TKT-238-corpus-subset-address-merge.md",
+      "mediaType": "text/markdown",
+      "size": 1965,
+      "sha256": "ac9300f0c4b48cfc945158744225f71a93282fa6c32ec62ba9d84fd2959159e5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/changes.md",
+      "mediaType": "text/markdown",
+      "size": 125,
+      "sha256": "17474eabd9aa3c6567d3441009980b460b54b1fa22cf502d758f79ec6e4da6ef",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-238-corpus-subset-address-merge/verification.md",
+      "mediaType": "text/markdown",
+      "size": 269,
+      "sha256": "dd955e16b15245dd30b43e9b17bd2c9cbc4a924a93dc06579660b121e602176b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/TKT-239-image-first-registration-suffix.md",
+      "mediaType": "text/markdown",
+      "size": 1777,
+      "sha256": "4aa458c474df9ffd40989909df39d22deea7b1c7d3aa708334c56dc3f7bff6ff",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/changes.md",
+      "mediaType": "text/markdown",
+      "size": 119,
+      "sha256": "8d2855950ff0e4957bceb2aa32e29678698d455f7618e7945b1023c99c57fbbc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-239-image-first-registration-suffix/verification.md",
+      "mediaType": "text/markdown",
+      "size": 263,
+      "sha256": "615552e4e4969a6d364d56361efa256f7d02073cf9f26c2505378c48c68a4e92",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/TKT-240-incident-date-principal-eliminators.md",
+      "mediaType": "text/markdown",
+      "size": 1800,
+      "sha256": "c85aa9ccf3ff3abb0f4110db02496fdf054b27e12c88c55f3ad234822cbfa0ee",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/changes.md",
+      "mediaType": "text/markdown",
+      "size": 106,
+      "sha256": "e9ffa1d124b345e5cc1dca82be49ab2d5a6e94f3d65b68af455d6b5e1510d310",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-240-incident-date-principal-eliminators/verification.md",
+      "mediaType": "text/markdown",
+      "size": 250,
+      "sha256": "fe7df0fc0438353ca12f770e8854e9a646676e36ff7b190a18718ebd00660cf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/TKT-241-odometer-vision-dvsa-crosscheck.md",
+      "mediaType": "text/markdown",
+      "size": 1738,
+      "sha256": "0ae6849b2bce2ff819bbc75096b6cec5a74682790048be2c5033794cfc28e4f4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/changes.md",
+      "mediaType": "text/markdown",
+      "size": 102,
+      "sha256": "673d4bb35bcb2a2e932a8f98f245cdc6fccf5a2572e008ca8152cf8325dd606e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-241-odometer-vision-dvsa-crosscheck/verification.md",
+      "mediaType": "text/markdown",
+      "size": 246,
+      "sha256": "962ff44dc509822e3cc18ca624e55342415ee1a719a2ebc68811aafa1332716c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md",
+      "mediaType": "text/markdown",
+      "size": 1504,
+      "sha256": "66b5de414369a588e7b8a20366be0e24fd654cb4a485f6a9a553ed4522d2545a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/changes.md",
+      "mediaType": "text/markdown",
+      "size": 95,
+      "sha256": "120586af6bb79e4f9fc8d704776804ec822a0e71c4eb57e1fe6845aade4c55d3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-242-network-drive-vrm-scan/verification.md",
+      "mediaType": "text/markdown",
+      "size": 239,
+      "sha256": "530a04ab6e994d9dd191c1fb84ccccce261c4ecb04dc913c055639a7bf7a06ec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md",
+      "mediaType": "text/markdown",
+      "size": 2372,
+      "sha256": "b1d0a013063744f6031602984d3fa244b22401d29dd293d678a37580c0de057d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/changes.md",
+      "mediaType": "text/markdown",
+      "size": 101,
+      "sha256": "5907d222f5ea7318be114fae5d15d65ae505d91940acb30d005ac2d3ef0cc839",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-243-code-docs-hygiene-sweep/verification.md",
+      "mediaType": "text/markdown",
+      "size": 245,
+      "sha256": "00d6a69c72291e7309baada199883e848d0b5365c741d7e9660dcf96307db645",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md",
+      "mediaType": "text/markdown",
+      "size": 1804,
+      "sha256": "adc41ff8e7651f46da74a883d5036928902ef446c5a104337d5ebf8042410143",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/changes.md",
+      "mediaType": "text/markdown",
+      "size": 105,
+      "sha256": "8cf52ba60feed42c382e134ea761e2a43f002a15e9af893fa064444eb448ea62",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-244-triage-vocabulary-code-additions/verification.md",
+      "mediaType": "text/markdown",
+      "size": 249,
+      "sha256": "53041c3ff46d15e75ed5ed18b24617c65a4c9720f01d7084c22b3d928da3b9db",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md",
+      "mediaType": "text/markdown",
+      "size": 2109,
+      "sha256": "b843ab470b4fa135147e4cbc65609ad8be55cc21b665823fae448380df5e4ebb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/changes.md",
+      "mediaType": "text/markdown",
+      "size": 114,
+      "sha256": "9208ca8946cdf03ddbc550e96f2808e875276fb52453531bc424a57cf8e8288d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-245-service-trust-seam/verification.md",
+      "mediaType": "text/markdown",
+      "size": 258,
+      "sha256": "ca045a65eff1aa76d4a2f93a21e3956ed93800367b734ad283a296436cf4ac69",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
+      "mediaType": "text/markdown",
+      "size": 2241,
+      "sha256": "f8f1aa114654e04f90b1b3ab000dd94129aac3e2c4b246365fefe631f04829b6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/changes.md",
+      "mediaType": "text/markdown",
+      "size": 87,
+      "sha256": "4c8b093d83a382018f3b52ae71881a2c68725bc6df58b32b1d9173a8168591dc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/verification.md",
+      "mediaType": "text/markdown",
+      "size": 231,
+      "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -39865,8 +40225,8 @@
     {
       "path": "workingspace/adr-rewrite.txt",
       "mediaType": "text/plain",
-      "size": 20771,
-      "sha256": "fda280f026448ecdb2e7181e65b6caf5b640f740e60a3bae81bbaffcd9038441",
+      "size": 22000,
+      "sha256": "f8be6430bf3f9e47bd6e669db60f619f7792b6086bb1a71b31fc735568679e3d",
       "category": "working-document",
       "owner": "user-workspace",
       "lifecycle": "working"

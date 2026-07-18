@@ -39,6 +39,9 @@ operation identities so retries replay the first committed result rather than du
 - External HTTP routes, DTOs, Azure resource names, database columns, and persisted numeric codes are
   compatibility contracts.
 
+Decisions of record: [ADR-0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md),
+[ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md).
+
 ## Reliability posture
 
 Inbound messages and external effects are idempotent. Exact duplicates are dropped; ambiguous case

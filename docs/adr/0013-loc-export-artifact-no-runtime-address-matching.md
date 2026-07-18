@@ -1,33 +1,40 @@
-# ADR-0013 — `Loc` is an export artifact, not an intake address
+# ADR-0013 — The inspection address is a staff decision from the full-address corpus
 
-**Status:** Accepted (2026-06-23).
-
-This decision supersedes the earlier runtime address-matching proposal and the corresponding
-“address match is live” statement in Review 190626. The supersession applies only to automatic
-address resolution; it does not remove the staff-facing address corpus or suggestion assistance.
+**Status:** Accepted; rewritten 2026-07-16 per [Review 160726](../reviews/160726/decisions.md). Supersedes the earlier runtime address-matching proposal and the corresponding "address match is live" statement in Review 190626 (automatic resolution only; the staff-facing corpus and suggestion assistance stand).
 
 ## Decision
 
-Do not treat the EVA `Loc` value as an intake field and do not derive an inspection address from it at
-runtime. Staff select or edit a full address from the curated corpus or deliberately choose
-`Image Based Assessment` with a reason.
+Staff select or edit the inspection address from the curated full-address corpus, or deliberately choose
+`Image Based Assessment` with a reason. Nothing auto-applies a physical address.
 
 A reviewer-invoked location assistant may rank or suggest candidates using current case evidence, but it
-never auto-applies an address. A suggestion miss leaves the decision unresolved.
+never auto-applies an address. A suggestion miss leaves the decision unresolved. Suggestion ordering by
+provider history, frequency, recency, or proximity is permitted because it changes only what staff see
+first. Neither path may select or persist an address without staff confirmation.
+
+The provider-policy amendment below is consistent with this rule: a policy-driven `Image Based
+Assessment` fill is a recorded **non-address outcome**, not an address selection — so it does not breach
+"never auto-apply an address".
 
 ## Rationale
 
-`Loc` is frequently an outward postcode or other incomplete export value. Converting it to a full address
-creates false precision and can select the wrong location.
+Collision Engineers work desktop-only — no one is dispatched to a site — so the inspection address is a
+field in the report, not a destination. Deriving it from partial or export-quality values creates false
+precision that corrupts report correctness. Only validated full addresses are worth suggesting, and only
+a person should commit one.
 
 ## Consequences
 
-Only validated full addresses enter the suggestion corpus. Partial postcodes may assist search but are
-not promoted. The product retains a live staff-facing address aid without a hidden auto-resolver.
+Only validated full addresses enter the suggestion corpus ([ADR-0016](./0016-inspection-address-corpus-eva-export.md)).
+Partial postcodes may assist search but are not promoted. The product retains a live staff-facing
+address aid without a hidden auto-resolver. The filename keeps its historical slug by design: number
+citations and ticket records bind to it.
 
-Suggestion ordering by provider history, frequency, recency, or proximity is permitted because it changes
-only what staff see first. A reviewer-invoked location assistant may also propose candidates from case
-evidence. Neither path may select or persist an address without staff confirmation.
+## Retired: `Loc`
+
+The EVA `Loc` export value was never an intake field, and the mechanism around it is now inert: no
+writer emits `loc=` and the stored value has no consumers. `Loc` plays no part in the address decision;
+residual code is removed under TKT-243.
 
 ## Amendment — provider-policy image-based pre-fill (2026-07-08)
 

@@ -1,6 +1,6 @@
 # ADR-0020 — Providers may lodge cases through a machine-to-machine API
 
-**Status:** Accepted (decision proposed 2026-07-03; implementation tracked by TKT-055).
+**Status:** Accepted (decision proposed 2026-07-03); clarified 2026-07-16 per [Review 160726](../reviews/160726/decisions.md).
 
 ## Decision
 
@@ -21,4 +21,8 @@ systems without creating a second case model.
 
 The public contract is versioned under `docs/reference`. Duplicate identical requests replay the first
 committed response; reuse with different content fails. Provider-origin evidence retains its channel and
-original filenames, and all resulting writes remain auditable.
+original filenames, and all resulting writes remain auditable. Implementation is tracked by TKT-055.
+
+The provider API and the MCP surface are deliberately **separate surfaces** with separate
+authentication; provider credentials never reach an AI capability and MCP tokens never reach this
+channel ([ADR-0023](./0023-mcp-server-hosting-and-auth.md)).

@@ -1,6 +1,6 @@
 # ADR-0021 — Case/PO markers have independent sequences
 
-**Status:** Accepted (2026-07-03), extending [ADR-0014](./0014-audit-case-type-second-inspection.md).
+**Status:** Accepted (2026-07-03); clarified 2026-07-16 per [Review 160726](../reviews/160726/decisions.md); extending [ADR-0014](./0014-audit-case-type-second-inspection.md).
 
 ## Decision
 
@@ -21,8 +21,14 @@ audit deliverable identifier from the same number during review. Do not consume 
 number.
 
 Markers are supported only for providers whose real corpus and reviewed business rules establish them.
-Parser detection may suggest a type; staff can refine it when the source cannot distinguish, especially
-audit total loss.
+Parser detection may suggest a type and staff confirm it. The `A.`/`AP.` split reflects the **original
+engineer's verdict** — repairable versus total loss — which the engineer's report always states; it is
+never our audit's outcome.
+
+## Rationale
+
+Independent per-marker sequences keep each deliverable family's numbering dense and collision-free
+per provider and year, which shared numbering cannot guarantee.
 
 ## Consequences
 
