@@ -146,8 +146,20 @@ async function main() {
   const options = parseOptions(process.argv.slice(2));
   const matches = [];
   const errors = [];
+  // workingspace/ is user-owned operator material (AGENTS.md); exempt from the
+  // forbidden-reference scan by repository-owner decision, alongside the evidence store.
+  // The two generated repository indexes are also exempt: they merely re-list every
+  // tracked path, so an owner-exempt workingspace/ filename can surface in them. Every
+  // NON-exempt real file path is still scanned directly by the path scan below, so
+  // exempting these derived ledgers removes no coverage.
+  const EXEMPT_PREFIXES = [
+    "tests/fixtures/evidence/sha256/",
+    "workingspace/",
+    "docs/governance/repository-inventory.json",
+    "docs/governance/repository-reconciliation.json",
+  ];
   const files = listRepositoryFiles().filter(
-    (repositoryPath) => !repositoryPath.startsWith("tests/fixtures/evidence/sha256/"),
+    (repositoryPath) => !EXEMPT_PREFIXES.some((prefix) => repositoryPath.startsWith(prefix)),
   );
 
   for (const repositoryPath of files) {
