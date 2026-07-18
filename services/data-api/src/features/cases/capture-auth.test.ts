@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { SignJWT } from 'jose';
 import type { HttpRequest } from '@azure/functions';
 import {
   CAPTURE_RESUME_COOKIE_NAME,
@@ -81,6 +82,22 @@ describe('capture auth', () => {
     process.env.CAPTURE_ACCESS_TOKEN_SECRET = 'a-different-test-secret-that-is-also-long-enough';
     const request = {
       headers: new Headers({ authorization: `Bearer ${access.token}` }),
+    } as unknown as HttpRequest;
+    await expect(verifyCaptureAccessToken(request)).rejects.toThrow('invalid');
+  });
+
+  it('pins HS256: a token signed with another HMAC algorithm is refused', async () => {
+    const secret = process.env.CAPTURE_ACCESS_TOKEN_SECRET ?? '';
+    const token = await new SignJWT({ generation: 1, kind: 'capture' })
+      .setProtectedHeader({ alg: 'HS384', typ: 'JWT' })
+      .setIssuer('collisionspike')
+      .setAudience('collisioncapture')
+      .setSubject('11111111-1111-4111-8111-111111111111')
+      .setIssuedAt()
+      .setExpirationTime('10m')
+      .sign(new TextEncoder().encode(secret));
+    const request = {
+      headers: new Headers({ authorization: `Bearer ${token}` }),
     } as unknown as HttpRequest;
     await expect(verifyCaptureAccessToken(request)).rejects.toThrow('invalid');
   });

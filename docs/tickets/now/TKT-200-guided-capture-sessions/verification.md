@@ -22,7 +22,16 @@ upload, physical camera behaviour or canonical evidence materialisation.
 - Database/storage/Evidence/audit/readiness/Archive reconciliation and negative tamper/replay/old-link
   probes before independent ticket verification.
 
-## Offline hardening follow-ups (from the 2026-07-15 review — non-blocking, ship dark)
+## Offline hardening follow-ups — IMPLEMENTED 2026-07-16 on branch `capture-server` (see changes.md)
+
+All items below now have code + offline tests on the `capture-server` branch: in-app per-IP/per-session
+rate limiting with a contract 429, decode-concurrency cap, animated-image rejection, HS256 pinning,
+central gate registration, the capture-evidence `source_message_id` CHECK, and the `humanActorName`
+regression. Live schema diff, physical-device acceptance and end-to-end LIVE proof remain outstanding;
+an OFFLINE full-boundary round trip (local Postgres 16 + Azurite + `func start`) is recorded in the
+collisioncapture programme evidence.
+
+## Original follow-up list (from the 2026-07-15 review — non-blocking, ship dark)
 
 - **Public-ingress abuse control (primary go-live gap):** the six anonymous public routes have NO in-app
   rate-limit / origin allowlist / CORS — abuse control is only the per-session DB reservation ceilings,

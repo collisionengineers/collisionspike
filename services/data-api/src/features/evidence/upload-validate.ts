@@ -248,6 +248,38 @@ function completePdf(bytes: Uint8Array): boolean {
     && pointsToCrossReference;
 }
 
+/**
+ * Explicit single-frame assertion (TKT-200 follow-up). Multi-frame content multiplies
+ * decode allocation per frame, so animation is refused before any decoder runs:
+ * APNG declares an `acTL` chunk, animated WebP declares the VP8X animation flag and
+ * ANIM/ANMF chunks. GIF is not an accepted type. Vehicle evidence is always a still.
+ */
+export function animatedImage(bytes: Uint8Array, contentType: CanonicalUploadType): boolean {
+  if (contentType === 'image/png') {
+    let offset = 8;
+    while (offset + 12 <= bytes.length) {
+      const length = uint32Be(bytes, offset);
+      const type = ascii(bytes, offset + 4, 4);
+      if (type === 'acTL') return true;
+      if (type === 'IEND') return false;
+      offset = offset + 12 + length;
+    }
+    return false;
+  }
+  if (contentType === 'image/webp') {
+    let offset = 12;
+    while (offset + 8 <= bytes.length) {
+      const type = ascii(bytes, offset, 4);
+      const size = uint32Le(bytes, offset + 4);
+      if (type === 'ANIM' || type === 'ANMF') return true;
+      if (type === 'VP8X' && ((bytes[offset + 8] ?? 0) & 0x02) !== 0) return true;
+      offset = offset + 8 + size + (size % 2);
+    }
+    return false;
+  }
+  return false;
+}
+
 function detectedType(bytes: Uint8Array): CanonicalUploadType | undefined {
   // Reject header-only/truncated payloads. These are inexpensive structural
   // checks, not a decoder, but they prove each file has its required container
@@ -294,6 +326,9 @@ export async function validateUploadContent(
   const detected = detectedType(bytes);
   if (!detected || detected !== expected.contentType) {
     return { ok: false, reason: 'That file does not match a supported photo or PDF format.' };
+  }
+  if (expected.kind === 'image' && animatedImage(bytes, detected)) {
+    return { ok: false, reason: 'That file is an animated image. Use a still photo.' };
   }
   if (expected.kind === 'image' && !(await fullyDecodeImage(bytes))) {
     return { ok: false, reason: 'That photo is damaged or cannot be read safely.' };

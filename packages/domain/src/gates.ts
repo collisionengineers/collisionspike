@@ -90,6 +90,18 @@ export const gates = {
   mcpImageIngest: (): boolean => process.env.MCP_IMAGE_INGEST_ENABLED === 'true',
   mcpImageIngestBoxRootId: (): string => process.env.MCP_IMAGE_INGEST_BOX_ROOT_ID ?? '',
 
+  // Guided-capture gates (TKT-200) — all default OFF, ship DARK. Four independent
+  // kill-switches for the public photo-capture surface; one config change restores
+  // the pre-capture behaviour. Read by services/data-api features/cases/capture*.ts.
+  // TKT-200 — staff capture-session lifecycle routes (create/list/rotate/revoke).
+  captureSessions: (): boolean => process.env.CAPTURE_SESSIONS_ENABLED === 'true',
+  // TKT-200 — the six anonymous /api/public/capture/* routes. OFF => honest 404 capture_missing.
+  publicCapture: (): boolean => process.env.PUBLIC_CAPTURE_ENABLED === 'true',
+  // TKT-200 — SAS minting for direct browser Blob uploads. OFF => 503 capture_retryable.
+  captureDirectUpload: (): boolean => process.env.CAPTURE_DIRECT_UPLOAD_ENABLED === 'true',
+  // TKT-200 — the capture retention/cleanup timer. OFF => timer is an honest no-op.
+  captureCleanup: (): boolean => process.env.CAPTURE_CLEANUP_ENABLED === 'true',
+
   // Box gates (Phase 7, ADR-0012) — all default off
   boxApi: (): boolean => process.env.BOX_API_ENABLED === 'true',               // #22
   boxFolderAtIntake: (): boolean => process.env.BOX_FOLDER_AT_INTAKE_ENABLED === 'true',// #23

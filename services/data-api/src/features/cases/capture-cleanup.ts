@@ -6,6 +6,8 @@ import {
   isCaptureManagedBlobPath,
 } from '../evidence/blob-store.js';
 import { query } from '../../platform/db/client.js';
+import { gates } from '../settings/gates.js';
+import { purgeStaleCaptureRateLimitWindows } from './capture-rate-limit.js';
 import { withResolvedCaseMutationTarget } from './case-mutation-target.js';
 
 const CLEANUP_BATCH_SIZE = 100;
@@ -34,10 +36,6 @@ interface LockedCaptureCleanupCandidate extends CaptureCleanupCandidate {
   state: string;
   materialised_at: Date | string | null;
   staging_deleted_at: Date | string | null;
-}
-
-function enabled(name: string): boolean {
-  return (process.env[name] ?? '').trim().toLowerCase() === 'true';
 }
 
 export function configuredCaptureRetentionDays(
@@ -139,7 +137,7 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
     deleted: 0,
     failed: 0,
   };
-  if (!enabled('CAPTURE_CLEANUP_ENABLED')) return disabled;
+  if (!gates.captureCleanup()) return disabled;
 
   const retentionDays = configuredCaptureRetentionDays();
   if (!retentionDays) {
@@ -253,6 +251,21 @@ export async function runCaptureCleanup(ctx: InvocationContext): Promise<Capture
   return result;
 }
 
+/**
+ * Purge stale rate-limit windows. Kept OUT of runCaptureCleanup's retention gate: the
+ * `capture_rate_limit` table is populated by public capture (PUBLIC_CAPTURE_ENABLED),
+ * which is independent of CAPTURE_CLEANUP_ENABLED, so its garbage collection must run
+ * whenever the timer fires or the table would grow unbounded while retention is off.
+ */
+export async function purgeCaptureRateLimit(ctx: InvocationContext): Promise<number> {
+  try {
+    return await purgeStaleCaptureRateLimitWindows();
+  } catch {
+    ctx.warn('[capture-cleanup] rate-limit window purge failed');
+    return 0;
+  }
+}
+
 app.timer('capture-retention-cleanup', {
   schedule: '0 17 3 * * *',
   handler: async (_timer, ctx) => {
@@ -261,5 +274,7 @@ app.timer('capture-retention-cleanup', {
     } catch {
       ctx.error('[capture-cleanup] timer failed');
     }
+    // Independent of the retention gate — see purgeCaptureRateLimit.
+    await purgeCaptureRateLimit(ctx);
   },
 });

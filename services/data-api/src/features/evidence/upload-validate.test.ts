@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  animatedImage,
   classifyUpload,
   MAX_UPLOAD_BYTES,
   MAX_UPLOAD_DECODED_BYTES,
@@ -36,6 +37,26 @@ const SHALLOW_WEBP = bytes(
   0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x4c,
   6, 0, 0, 0, 0x2f, 0, 0, 0, 0, 0,
 );
+/** Insert one chunk straight after IHDR (sig 8 + len/type/crc 12 + payload 13). */
+function withPngChunkAfterIhdr(png: Uint8Array, type: string, data: number[]): Uint8Array {
+  const ihdrEnd = 8 + 12 + 13;
+  const chunk = [
+    0, 0, 0, data.length,
+    ...[...type].map((character) => character.charCodeAt(0)),
+    ...data,
+    0, 0, 0, 0,
+  ];
+  return new Uint8Array([...png.slice(0, ihdrEnd), ...chunk, ...png.slice(ihdrEnd)]);
+}
+const APNG = withPngChunkAfterIhdr(PNG, 'acTL', [0, 0, 0, 2, 0, 0, 0, 0]);
+// Minimal RIFF/WEBP with a VP8X animation flag plus an ANIM chunk (no still payload).
+const ANIMATED_WEBP = bytes(
+  0x52, 0x49, 0x46, 0x46, 36, 0, 0, 0,
+  0x57, 0x45, 0x42, 0x50,
+  0x56, 0x50, 0x38, 0x58, 10, 0, 0, 0, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0x41, 0x4e, 0x49, 0x4d, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+);
+
 function pdfFixture(objectBody = '<<>>', startXrefOverride?: number): Uint8Array {
   const prefix = `%PDF-1.7\n1 0 obj\n${objectBody}\nendobj\n`;
   const xrefOffset = new TextEncoder().encode(prefix).length;
@@ -245,6 +266,35 @@ describe('staff upload validation', () => {
     ].flatMap((result) => result.ok ? [] : [result.reason]);
     for (const reason of reasons) {
       expect(reason).not.toMatch(/\b(blob|mime|content-type|bytes|multipart|500|null|api)\b/i);
+    }
+  });
+
+  it('flags animation markers and keeps still images clean (single-frame assertion)', () => {
+    expect(animatedImage(APNG, 'image/png')).toBe(true);
+    expect(animatedImage(PNG, 'image/png')).toBe(false);
+    expect(animatedImage(ANIMATED_WEBP, 'image/webp')).toBe(true);
+    expect(animatedImage(WEBP, 'image/webp')).toBe(false);
+    expect(animatedImage(JPEG, 'image/jpeg')).toBe(false);
+  });
+
+  it('rejects an APNG before any decoder runs, with a plain animated reason', async () => {
+    const metadata = classifyUpload('image/png', APNG.length, 'a.png');
+    expect(metadata.ok).toBe(true);
+    if (!metadata.ok) return;
+    const result = await validateUploadContent(metadata, APNG);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('animated');
+  });
+
+  it('still accepts the genuine single-frame fixtures end to end', async () => {
+    for (const [contentType, name, fixture] of [
+      ['image/jpeg', 'a.jpg', JPEG],
+      ['image/png', 'a.png', PNG],
+      ['image/webp', 'a.webp', WEBP],
+    ] as const) {
+      const metadata = classifyUpload(contentType, fixture.length, name);
+      expect(metadata.ok).toBe(true);
+      if (metadata.ok) expect((await validateUploadContent(metadata, fixture)).ok).toBe(true);
     }
   });
 });

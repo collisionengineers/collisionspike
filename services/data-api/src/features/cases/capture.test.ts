@@ -66,6 +66,17 @@ vi.mock('../evidence/upload-validate.js', () => ({
   validatedImageDimensions: uploadValidation.dimensions,
 }));
 
+const rateLimit = vi.hoisted(() => ({
+  caller: vi.fn(async (_req: unknown, _scope?: unknown): Promise<HttpResponseInit | undefined> => undefined),
+  session: vi.fn(async (_scope: unknown, _sessionId: unknown): Promise<HttpResponseInit | undefined> => undefined),
+}));
+vi.mock('./capture-rate-limit.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./capture-rate-limit.js')>()),
+  callerRateLimitResponse: rateLimit.caller,
+  sessionRateLimitResponse: rateLimit.session,
+}));
+import { captureRateLimitResponse } from './capture-rate-limit.js';
+
 const locks = vi.hoisted(() => ({ lockCaseForMutation: vi.fn() }));
 vi.mock('./mutation-locks.js', () => locks);
 const targets = vi.hoisted(() => ({ resolve: vi.fn() }));
@@ -146,8 +157,13 @@ beforeEach(() => {
   process.env.CAPTURE_PUBLIC_BASE_URL = 'https://capture.example.test';
   delete process.env.CAPTURE_GUIDANCE_MODE;
   delete process.env.CAPTURE_DIRECT_UPLOAD_ENABLED;
+  delete process.env.CAPTURE_DECODE_CONCURRENCY;
   db.query.mockReset();
   db.tx.mockReset();
+  rateLimit.caller.mockReset();
+  rateLimit.caller.mockResolvedValue(undefined);
+  rateLimit.session.mockReset();
+  rateLimit.session.mockResolvedValue(undefined);
   locks.lockCaseForMutation.mockReset();
   locks.lockCaseForMutation.mockImplementation(async (_q: unknown, caseId: string) => ({
     kind: 'active',
@@ -1110,7 +1126,7 @@ describe('capture route foundation', () => {
     expect(response).toMatchObject({ status: 201 });
     expect(inserts[0]?.[1]).toBe('essential-v1');
     expect(inserts[0]?.[3]).toBe('shadow');
-    expect(inserts[0]?.[7]).toBe(72);
+    expect(inserts[0]?.[7]).toBe(168);
     expect((response.jsonBody as { session: { guidanceMode: string } }).session.guidanceMode).toBe('shadow');
   });
 
@@ -1543,6 +1559,46 @@ describe('capture route foundation', () => {
     expect(response.jsonBody).toMatchObject({ caseReference, vehicleLabel });
   });
 
+  it('emits shaped per-shot guidance on the manifest and drops profile keys outside the contract', async () => {
+    db.query
+      .mockResolvedValueOnce([sessionRow()])
+      .mockResolvedValueOnce([{ case_ref: 'CASE-1', case_po: null, vrm: null, eva_vehicle_model: null }])
+      .mockResolvedValueOnce([
+        {
+          shot_id: 'overview', role: 'overview', evidence_role: 'overview', label: 'Vehicle overview',
+          prompt: 'Take the whole vehicle.', required: true, sequence: 10,
+          guidance_profile: { framing: 'whole_vehicle', registrationExpected: true, internalHint: 'drop-me' },
+        },
+        {
+          shot_id: 'damage', role: 'damage_closeup', evidence_role: 'damage_closeup', label: 'Damage',
+          prompt: 'Take the damage.', required: true, sequence: 20,
+          guidance_profile: { framing: 'damage_closeup' },
+        },
+        {
+          shot_id: 'mystery', role: 'additional', evidence_role: 'additional', label: 'Extra',
+          prompt: 'Take another photo.', required: false, sequence: 30,
+          guidance_profile: { registrationExpected: true },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await registrations.get('captureManifest')!.handler(
+      request({ params: { id: '11111111-1111-4111-8111-111111111111' } }),
+      ctx,
+    );
+
+    const shotsSql = String(db.query.mock.calls[2]?.[0]);
+    expect(shotsSql).toContain('guidance_profile');
+    const shots = (response.jsonBody as { shots: Array<Record<string, unknown>> }).shots;
+    // A known shot carries its framing; unknown profile keys are dropped for additionalProperties:false.
+    expect(shots[0]).toMatchObject({ id: 'overview' });
+    expect(shots[0]!.guidanceProfile).toEqual({ framing: 'whole_vehicle', registrationExpected: true });
+    // registrationExpected is optional and omitted when the profile does not set it.
+    expect(shots[1]!.guidanceProfile).toEqual({ framing: 'damage_closeup' });
+    // A profile without a valid framing is omitted so no guidance leaks to the client.
+    expect(shots[2]).not.toHaveProperty('guidanceProfile');
+  });
+
   it('prefers a selected asset, otherwise exposes the latest rejected or validating attempt safely', async () => {
     db.query
       .mockResolvedValueOnce([sessionRow()])
@@ -1960,5 +2016,119 @@ describe('capture route foundation', () => {
       'Set-Cookie': expect.stringContaining('Max-Age=0'),
     });
     expect(archive.requestArchiveMirror).toHaveBeenCalledOnce();
+  });
+
+  it('refuses an exchange burst with 429 capture_retryable before any database work', async () => {
+    rateLimit.caller.mockResolvedValueOnce(captureRateLimitResponse());
+    const response = await registrations.get('exchangeCaptureSecret')!.handler(
+      request({
+        body: { bootstrapSecret: 'a'.repeat(43) },
+        headers: { 'x-forwarded-for': '203.0.113.9' },
+      }),
+      ctx,
+    );
+    expect(response).toMatchObject({ status: 429, jsonBody: { error: 'capture_retryable' } });
+    expect(response.headers).toMatchObject({ 'Retry-After': '60', 'Cache-Control': 'no-store' });
+    expect(rateLimit.caller.mock.calls[0]?.[1]).toBe('exchange');
+    expect(db.query).not.toHaveBeenCalled();
+    expect(db.tx).not.toHaveBeenCalled();
+  });
+
+  it('consumes the session budget only after bearer verification on the manifest route', async () => {
+    rateLimit.session.mockResolvedValueOnce(captureRateLimitResponse());
+    db.query.mockResolvedValueOnce([sessionRow()]);
+    const response = await registrations.get('captureManifest')!.handler(
+      request({ params: { id: '11111111-1111-4111-8111-111111111111' } }),
+      ctx,
+    );
+    expect(response).toMatchObject({ status: 429, jsonBody: { error: 'capture_retryable' } });
+    expect(rateLimit.session).toHaveBeenCalledWith(
+      'manifest',
+      '11111111-1111-4111-8111-111111111111',
+    );
+  });
+
+  it('never consumes a session budget for an unauthenticated manifest probe', async () => {
+    captureAuth.verifyCaptureAccessToken.mockRejectedValueOnce(new Error('missing'));
+    const response = await registrations.get('captureManifest')!.handler(
+      request({ params: { id: '11111111-1111-4111-8111-111111111111' } }),
+      ctx,
+    );
+    expect(response).toMatchObject({ status: 401, jsonBody: { error: 'capture_unauthorized' } });
+    expect(rateLimit.caller).toHaveBeenCalledTimes(1);
+    expect(rateLimit.session).not.toHaveBeenCalled();
+  });
+
+  it('rate limits renew, uploads, complete and submit through the same caller budget', async () => {
+    for (const [name, expectedScope] of [
+      ['renewCaptureAccess', 'renew'],
+      ['createCaptureUpload', undefined],
+      ['completeCaptureUpload', undefined],
+      ['submitCaptureSession', undefined],
+    ] as const) {
+      rateLimit.caller.mockReset();
+      rateLimit.caller.mockResolvedValueOnce(captureRateLimitResponse());
+      const response = await registrations.get(name)!.handler(
+        request({
+          params: { id: '11111111-1111-4111-8111-111111111111', assetId: 'asset-1' },
+          headers: { 'idempotency-key': 'key-1234567890123456' },
+        }),
+        ctx,
+      );
+      expect(response).toMatchObject({ status: 429, jsonBody: { error: 'capture_retryable' } });
+      expect(rateLimit.caller.mock.calls[0]?.[1]).toBe(expectedScope);
+    }
+  });
+
+  it('refuses a saturated decode path retryably and releases the validation lease', async () => {
+    process.env.CAPTURE_DECODE_CONCURRENCY = '1';
+    const releasedCodes: string[] = [];
+    db.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+      if (sql.includes('FROM capture_session WHERE id = $1')) return [sessionRow()];
+      if (sql.includes("SET state = 'upload_pending', validation_code = $3")) {
+        releasedCodes.push(String(params?.[2]));
+      }
+      return [];
+    });
+    db.tx.mockImplementation(async (fn: (q: (sql: string) => Promise<Record<string, unknown>[]>) => Promise<unknown>) =>
+      fn(async (sql: string) => {
+        if (sql.includes('FROM capture_asset a')) {
+          return [{
+            id: 'asset-1', shot_id: 'overview', state: 'upload_pending',
+            blob_path: 'capture/session/asset', file_name: 'photo.jpg',
+            declared_content_type: 'image/jpeg', declared_size_bytes: 5,
+            declared_sha256: 'a'.repeat(64), session_status: 'open',
+            session_expires_at: new Date(Date.now() + 60_000), session_token_generation: 1,
+            validation_lease_expires_at: null,
+          }];
+        }
+        return [];
+      }));
+    blobs.getCaptureBlobProperties.mockResolvedValue({ contentLength: 5, contentType: 'image/jpeg' });
+    let releaseDownload!: (bytes: Buffer) => void;
+    const downloadStarted = new Promise<void>((resolveStarted) => {
+      blobs.downloadCaptureBlobBytes.mockImplementationOnce(() => {
+        resolveStarted();
+        return new Promise<Buffer>((resolve) => { releaseDownload = resolve; });
+      });
+    });
+
+    const completeRequest = () => registrations.get('completeCaptureUpload')!.handler(
+      request({
+        params: { id: '11111111-1111-4111-8111-111111111111', assetId: 'asset-1' },
+        body: { sizeBytes: 5, sha256: 'a'.repeat(64) },
+      }),
+      ctx,
+    );
+    const first = completeRequest();
+    await downloadStarted;
+    const second = await completeRequest();
+    expect(second).toMatchObject({ status: 503, jsonBody: { error: 'capture_retryable' } });
+    expect(releasedCodes).toContain('decode_capacity_retryable');
+
+    // The saturated caller retried; the in-flight decode finishes normally afterwards.
+    releaseDownload(Buffer.from('xxxxx'));
+    const firstResponse = await first;
+    expect(firstResponse.status).toBe(422);
   });
 });

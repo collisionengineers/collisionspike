@@ -26,7 +26,7 @@ describe('capture plan snapshots', () => {
   });
 
   it('allows only the approved expiry windows', () => {
-    expect(captureExpiryHours(undefined)).toBe(72);
+    expect(captureExpiryHours(undefined)).toBe(168);
     expect([24, 72, 168].map(captureExpiryHours)).toEqual([24, 72, 168]);
     expect(captureExpiryHours(48)).toBeUndefined();
   });

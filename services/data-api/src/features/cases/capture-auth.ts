@@ -101,6 +101,7 @@ export async function verifyCaptureAccessToken(
   if (!token) throw new Error('missing');
   try {
     const { payload } = await jwtVerify(token, signingKey(), {
+      algorithms: ['HS256'],
       issuer: ISSUER,
       audience: AUDIENCE,
       currentDate: now,

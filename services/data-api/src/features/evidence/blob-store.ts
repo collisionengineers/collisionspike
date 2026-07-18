@@ -16,6 +16,7 @@ import {
   BlobSASPermissions,
   BlobServiceClient,
   SASProtocol,
+  StorageSharedKeyCredential,
   generateBlobSASQueryParameters,
 } from '@azure/storage-blob';
 import type { AccessToken, TokenCredential } from '@azure/core-auth';
@@ -74,6 +75,51 @@ function managedIdentityClient(): { account: string; service: BlobServiceClient 
     account,
     service: new BlobServiceClient(`https://${account}.blob.core.windows.net`, miCredential),
   };
+}
+
+type CaptureBlobBackend =
+  | { kind: 'managed-identity'; account: string; service: BlobServiceClient }
+  | { kind: 'local-dev'; service: BlobServiceClient; credential: StorageSharedKeyCredential };
+
+const LOCAL_BLOB_HOSTS = ['127.0.0.1', 'localhost', '::1', '[::1]'];
+
+/**
+ * Local-development-only capture storage (offline verification against Azurite).
+ * DOUBLE opt-in and endpoint-restricted so it can never weaken production:
+ * `CAPTURE_LOCAL_DEV_BLOB=true` must be set AND the `EVIDENCE_BLOB_CONNECTION`
+ * blob endpoint must resolve to a loopback host. In Azure the managed identity
+ * (IDENTITY_ENDPOINT/HEADER) is always present and always wins, and a non-local
+ * endpoint here is refused outright rather than silently accepted.
+ */
+function localDevCaptureBackend(): CaptureBlobBackend | undefined {
+  if ((process.env.CAPTURE_LOCAL_DEV_BLOB ?? '') !== 'true') return undefined;
+  const conn = process.env.EVIDENCE_BLOB_CONNECTION;
+  if (!conn) return undefined;
+  const service = BlobServiceClient.fromConnectionString(conn);
+  const host = new URL(service.url).hostname.toLowerCase();
+  if (!LOCAL_BLOB_HOSTS.includes(host)) {
+    throw new Error('CAPTURE_LOCAL_DEV_BLOB only accepts a loopback blob endpoint');
+  }
+  const credential = service.credential;
+  if (!(credential instanceof StorageSharedKeyCredential)) {
+    throw new Error('CAPTURE_LOCAL_DEV_BLOB requires an account-key connection string');
+  }
+  return { kind: 'local-dev', service, credential };
+}
+
+/** Managed identity first, always; the loopback-only local-dev backend otherwise. */
+function captureBlobBackend(): CaptureBlobBackend {
+  const account = process.env.EVIDENCE_BLOB_ACCOUNT;
+  if (account && process.env.IDENTITY_ENDPOINT && process.env.IDENTITY_HEADER) {
+    return {
+      kind: 'managed-identity',
+      account,
+      service: new BlobServiceClient(`https://${account}.blob.core.windows.net`, miCredential),
+    };
+  }
+  const local = localDevCaptureBackend();
+  if (local) return local;
+  return { kind: 'managed-identity', ...managedIdentityClient() };
 }
 
 function containerName(): string {
@@ -143,24 +189,34 @@ export async function createCaptureUploadSas(
   contentType: string,
   now = new Date(),
 ): Promise<CaptureUploadSas> {
-  const { account, service } = managedIdentityClient();
+  const backend = captureBlobBackend();
   const startsOn = new Date(now.getTime() - 60_000);
   const expiresOn = new Date(now.getTime() + (5 * 60_000));
-  const key = await service.getUserDelegationKey(startsOn, expiresOn);
-  const sas = generateBlobSASQueryParameters(
-    {
-      containerName: containerName(),
-      blobName: blobPath,
-      permissions: BlobSASPermissions.parse('cw'),
-      protocol: SASProtocol.Https,
-      startsOn,
-      expiresOn,
-      contentType,
-    },
-    key,
-    account,
-  ).toString();
-  const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
+  const values = {
+    containerName: containerName(),
+    blobName: blobPath,
+    permissions: BlobSASPermissions.parse('cw'),
+    startsOn,
+    expiresOn,
+    contentType,
+  };
+  let sas: string;
+  if (backend.kind === 'managed-identity') {
+    const key = await backend.service.getUserDelegationKey(startsOn, expiresOn);
+    sas = generateBlobSASQueryParameters(
+      { ...values, protocol: SASProtocol.Https },
+      key,
+      backend.account,
+    ).toString();
+  } else {
+    // Loopback Azurite serves plain http; the shared-key signature is still exact-object cw.
+    await backend.service.getContainerClient(containerName()).createIfNotExists();
+    sas = generateBlobSASQueryParameters(
+      { ...values, protocol: SASProtocol.HttpsAndHttp },
+      backend.credential,
+    ).toString();
+  }
+  const block = backend.service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
   return {
     uploadUrl: `${block.url}?${sas}`,
     headers: {
@@ -173,7 +229,7 @@ export async function createCaptureUploadSas(
 
 /** HEAD-only preflight for an untrusted staging object. */
 export async function getCaptureBlobProperties(blobPath: string): Promise<CaptureBlobProperties | undefined> {
-  const { service } = managedIdentityClient();
+  const { service } = captureBlobBackend();
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
   try {
     const properties = await block.getProperties();
@@ -188,14 +244,22 @@ export async function getCaptureBlobProperties(blobPath: string): Promise<Captur
 }
 
 /**
- * Bounded staging download. Even if a client races the preceding HEAD with an
- * overwrite, the range is capped at maxBytes + 1 so untrusted content can never
- * allocate an unbounded buffer. The caller rejects the sentinel extra byte.
+ * Bounded staging download. HEAD first, then download exactly
+ * min(contentLength, maxBytes + 1) so the ranged read never requests past the
+ * blob's end. `downloadToBuffer` splits an explicit count into several block
+ * ranges, and real Azure answers 416 InvalidRange on any chunk that begins at or
+ * beyond EOF — only a single overshooting range is tolerated, not the split — so
+ * an over-large count fails deterministically for any normal-sized photo. The
+ * maxBytes + 1 cap keeps untrusted content allocation-bounded; the caller rejects
+ * the sentinel extra byte.
  */
 export async function downloadCaptureBlobBytes(blobPath: string, maxBytes: number): Promise<Buffer> {
-  const { service } = managedIdentityClient();
+  const { service } = captureBlobBackend();
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
-  return block.downloadToBuffer(0, maxBytes + 1);
+  const properties = await block.getProperties();
+  const bounded = Math.min(properties.contentLength ?? 0, maxBytes + 1);
+  if (bounded <= 0) throw new Error('capture staging blob is empty or unavailable');
+  return await block.downloadToBuffer(0, bounded);
 }
 
 /**
@@ -210,7 +274,7 @@ export async function promoteCaptureBlob(
   bytes: Buffer,
   contentType: string,
 ): Promise<string> {
-  const { service } = managedIdentityClient();
+  const { service } = captureBlobBackend();
   const blobPath = captureValidatedBlobPath(sessionId, assetId, sha256);
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
   try {
@@ -264,7 +328,7 @@ export async function deleteCaptureManagedBlob(blobPath: string): Promise<void> 
   if (!isCaptureManagedBlobPath(blobPath)) {
     throw new Error('refusing to delete a non-capture blob path');
   }
-  const { service } = managedIdentityClient();
+  const { service } = captureBlobBackend();
   const block = service.getContainerClient(containerName()).getBlockBlobClient(blobPath);
   await block.deleteIfExists({ deleteSnapshots: 'include' });
 }

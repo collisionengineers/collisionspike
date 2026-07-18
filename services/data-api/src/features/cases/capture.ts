@@ -29,6 +29,12 @@ import {
 import { lockCaseForMutation } from './mutation-locks.js';
 import { withResolvedCaseMutationTarget } from './case-mutation-target.js';
 import { query, tx, type TxQuery } from '../../platform/db/client.js';
+import { gates } from '../settings/gates.js';
+import {
+  callerRateLimitResponse,
+  sessionRateLimitResponse,
+  tryAcquireDecodeSlot,
+} from './capture-rate-limit.js';
 import { requestArchiveMirror, type ArchiveMirrorCandidate } from '../archive/mirror-outbox.js';
 import { requestStatusRecompute } from './status-recompute.js';
 import {
@@ -48,6 +54,18 @@ const MAX_UPLOAD_RESERVATIONS_PER_SHOT = 8;
 const MAX_UPLOAD_RESERVATIONS_PER_SESSION = 60;
 const MAX_CLIENT_OBSERVATION_BYTES = 1024;
 const MAX_STABLE_FRAMES = 120;
+const CAPTURE_SHOT_FRAMINGS = new Set([
+  'whole_vehicle',
+  'damage_closeup',
+  'damage_context',
+  'front_left',
+  'front_right',
+  'rear_left',
+  'rear_right',
+  'vin',
+  'odometer',
+  'additional',
+]);
 const CLIENT_CAPTURE_ROUTES = ['guided', 'os_fallback'] as const;
 const CLIENT_CAPTURE_DISPOSITIONS = ['ready', 'take_anyway', 'unassessed'] as const;
 const CLIENT_CAPTURE_ISSUES = [
@@ -136,6 +154,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[]): boolean {
   return Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function clientGuidanceProfile(
+  raw: unknown,
+): { guidanceProfile: { framing: string; registrationExpected?: boolean } } | Record<string, never> {
+  let value: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      value = JSON.parse(raw) as unknown;
+    } catch {
+      return {};
+    }
+  }
+  if (!isRecord(value)) return {};
+  const framing = value.framing;
+  if (typeof framing !== 'string' || !CAPTURE_SHOT_FRAMINGS.has(framing)) return {};
+  return {
+    guidanceProfile: {
+      framing,
+      ...(typeof value.registrationExpected === 'boolean'
+        ? { registrationExpected: value.registrationExpected }
+        : {}),
+    },
+  };
 }
 
 function normalizedClientCaptureObservation(
@@ -262,10 +304,6 @@ function serverStructuralObservation(input: {
   });
 }
 
-function enabled(name: string): boolean {
-  return (process.env[name] ?? '').trim().toLowerCase() === 'true';
-}
-
 function iso(value: Date | string): string {
   return (value instanceof Date ? value : new Date(value)).toISOString();
 }
@@ -307,7 +345,7 @@ function logStorageFailure(
 }
 
 function staffCaptureFeature(): HttpResponseInit | undefined {
-  return enabled('CAPTURE_SESSIONS_ENABLED')
+  return gates.captureSessions()
     ? undefined
     : problem(404, 'capture_missing', 'Capture is not available.');
 }
@@ -353,7 +391,7 @@ async function storeCaptureResumeToken(
 }
 
 function publicCaptureFeature(): HttpResponseInit | undefined {
-  return enabled('PUBLIC_CAPTURE_ENABLED')
+  return gates.publicCapture()
     ? undefined
     : problem(404, 'capture_missing', 'Capture is not available.');
 }
@@ -776,6 +814,8 @@ app.http('exchangeCaptureSecret', {
   authLevel: 'anonymous',
   route: 'public/capture/exchange',
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const limited = await callerRateLimitResponse(req, 'exchange');
+    if (limited) return limited;
     const body = (await req.json().catch(() => ({}))) as { bootstrapSecret?: unknown };
     if (typeof body.bootstrapSecret !== 'string' || !BOOTSTRAP_SECRET_RE.test(body.bootstrapSecret)) {
       throw new CaptureProblem(401, 'capture_unauthorized', 'This capture link is not authorized.');
@@ -830,6 +870,8 @@ app.http('renewCaptureAccess', {
   authLevel: 'anonymous',
   route: 'public/capture/renew',
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
+    const limited = await callerRateLimitResponse(req, 'renew');
+    if (limited) return limited;
     const resumeSecret = captureResumeSecretFromRequest(req);
     if (!resumeSecret) {
       throw new CaptureProblem(401, 'capture_unauthorized', 'This capture session cannot be resumed.');
@@ -905,7 +947,11 @@ app.http('captureManifest', {
   route: 'public/capture/sessions/{id}',
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
     const sessionId = req.params.id ?? '';
+    const limited = await callerRateLimitResponse(req);
+    if (limited) return limited;
     const session = await activePublicSession(req, sessionId);
+    const sessionLimited = await sessionRateLimitResponse('manifest', session.id);
+    if (sessionLimited) return sessionLimited;
     const cases = await query<{ case_ref: string | null; case_po: string | null; vrm: string | null; eva_vehicle_model: string | null }>(
       'SELECT case_ref, case_po, vrm, eva_vehicle_model FROM case_ WHERE id = $1',
       [session.case_id],
@@ -913,9 +959,9 @@ app.http('captureManifest', {
     if (!cases[0]) throw new CaptureProblem(410, 'capture_missing', 'This capture session is no longer available.');
     const shots = await query<{
       shot_id: string; role: string; evidence_role: string; label: string; prompt: string;
-      required: boolean; sequence: number;
+      required: boolean; sequence: number; guidance_profile: unknown;
     }>(
-      `SELECT shot_id, role, evidence_role, label, prompt, required, sequence
+      `SELECT shot_id, role, evidence_role, label, prompt, required, sequence, guidance_profile
          FROM capture_session_shot WHERE session_id = $1 ORDER BY sequence`,
       [sessionId],
     );
@@ -968,6 +1014,7 @@ app.http('captureManifest', {
           prompt: shot.prompt,
           required: shot.required,
           sequence: shot.sequence,
+          ...clientGuidanceProfile(shot.guidance_profile),
         })),
         progress,
       },
@@ -981,7 +1028,11 @@ app.http('createCaptureUpload', {
   route: 'public/capture/sessions/{id}/uploads',
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
     const sessionId = req.params.id ?? '';
+    const limited = await callerRateLimitResponse(req);
+    if (limited) return limited;
     const session = await activePublicSession(req, sessionId);
+    const sessionLimited = await sessionRateLimitResponse('uploads', session.id);
+    if (sessionLimited) return sessionLimited;
     if (session.status !== 'open') throw new CaptureProblem(409, 'capture_conflict', 'This capture is already complete.');
     const idempotencyKey = (req.headers.get('idempotency-key') ?? '').trim();
     if (!IDEMPOTENCY_RE.test(idempotencyKey)) {
@@ -1010,7 +1061,7 @@ app.http('createCaptureUpload', {
     if (!check.ok || check.kind !== 'image' || !PUBLIC_MIME_TYPES.includes(check.contentType)) {
       throw new CaptureProblem(415, 'capture_unsupported', 'Use a JPG, PNG or WebP photo.');
     }
-    if (!enabled('CAPTURE_DIRECT_UPLOAD_ENABLED')) {
+    if (!gates.captureDirectUpload()) {
       throw new CaptureProblem(503, 'capture_retryable', 'Photo uploads are not available yet.');
     }
 
@@ -1204,7 +1255,11 @@ app.http('completeCaptureUpload', {
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
     const sessionId = req.params.id ?? '';
     const assetId = req.params.assetId ?? '';
+    const limited = await callerRateLimitResponse(req);
+    if (limited) return limited;
     const session = await activePublicSession(req, sessionId);
+    const sessionLimited = await sessionRateLimitResponse('complete', session.id);
+    if (sessionLimited) return sessionLimited;
     if (session.status !== 'open') throw new CaptureProblem(409, 'capture_conflict', 'This capture is already complete.');
     const body = (await req.json().catch(() => ({}))) as { sizeBytes?: unknown; sha256?: unknown };
     if (
@@ -1300,6 +1355,11 @@ app.http('completeCaptureUpload', {
       );
       throw new CaptureProblem(422, 'capture_validation', 'This photo does not match the upload request. Take it again.');
     }
+    const releaseDecodeSlot = tryAcquireDecodeSlot();
+    if (!releaseDecodeSlot) {
+      await releaseValidationAttempt(assetId, validationAttempt, 'decode_capacity_retryable');
+      throw new CaptureProblem(503, 'capture_retryable', 'This photo could not be checked yet. Try again.');
+    }
     let inspected;
     try {
       const bytes = await downloadCaptureBlobBytes(claimed.blob_path, MAX_UPLOAD_BYTES);
@@ -1318,6 +1378,8 @@ app.http('completeCaptureUpload', {
       await releaseValidationAttempt(assetId, validationAttempt, 'blob_read_retryable');
       logStorageFailure(ctx, '[capture-complete] staging_read_failed', error);
       throw new CaptureProblem(503, 'capture_retryable', 'This photo could not be checked yet. Try again.');
+    } finally {
+      releaseDecodeSlot();
     }
     const { bytes, serverHash, content, dimensions } = inspected;
     if (
@@ -1481,7 +1543,11 @@ app.http('submitCaptureSession', {
   route: 'public/capture/sessions/{id}/submit',
   handler: async (req, ctx) => publicHandler(req, ctx, async () => {
     const sessionId = req.params.id ?? '';
+    const limited = await callerRateLimitResponse(req);
+    if (limited) return limited;
     const session = await submitPublicSession(req, sessionId);
+    const sessionLimited = await sessionRateLimitResponse('submit', session.id);
+    if (sessionLimited) return sessionLimited;
     const idempotencyKey = (req.headers.get('idempotency-key') ?? '').trim();
     if (!IDEMPOTENCY_RE.test(idempotencyKey)) {
       throw new CaptureProblem(400, 'capture_validation', 'This submission cannot be safely retried.');

@@ -253,7 +253,12 @@ export interface components {
             prompt: string;
             required: boolean;
             sequence: number;
-            guidanceProfile?: string;
+            /** @description Optional per-shot capture guidance for the client. Describes how the shot should be framed and whether the vehicle registration is expected to be visible. Omitted when the shot carries no usable guidance profile. */
+            guidanceProfile?: {
+                /** @enum {string} */
+                framing: "whole_vehicle" | "damage_closeup" | "damage_context" | "front_left" | "front_right" | "rear_left" | "rear_right" | "vin" | "odometer" | "additional";
+                registrationExpected?: boolean;
+            };
         };
         /** @enum {string} */
         CaptureShotProgressStatus: "empty" | "draft" | "queued" | "uploading" | "validating" | "accepted" | "pending_review" | "retryable" | "rejected";
@@ -361,6 +366,17 @@ export interface components {
         };
     };
     responses: {
+        /** @description Too many requests for this caller or capture session in the current one-minute window. Wait for the Retry-After hint, then retry the same request unchanged. */
+        PublicRateLimited: {
+            headers: {
+                "Cache-Control": components["headers"]["NoStore"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CaptureApiProblem"];
+            };
+        };
         /** @description Request refused. */
         Problem: {
             headers: {
@@ -406,6 +422,8 @@ export interface components {
         CaptureResumeCookie: string;
         /** @description Clears __Host-collisioncapture-resume after successful capture submission. */
         ClearCaptureResumeCookie: string;
+        /** @description Whole seconds to wait before retrying a rate-limited request. */
+        RetryAfter: string;
     };
     pathItems: never;
 }
@@ -556,6 +574,7 @@ export interface operations {
             409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
             423: components["responses"]["PublicProblem"];
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
         };
     };
@@ -583,6 +602,7 @@ export interface operations {
             409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
             423: components["responses"]["PublicProblem"];
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
         };
     };
@@ -611,6 +631,7 @@ export interface operations {
             404: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
             423: components["responses"]["PublicProblem"];
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
         };
     };
@@ -659,6 +680,7 @@ export interface operations {
                     "application/json": components["schemas"]["CaptureApiProblem"];
                 };
             };
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };
@@ -696,6 +718,7 @@ export interface operations {
             410: components["responses"]["PublicProblem"];
             422: components["responses"]["PublicProblem"];
             423: components["responses"]["PublicProblem"];
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };
@@ -731,6 +754,7 @@ export interface operations {
             409: components["responses"]["PublicProblem"];
             410: components["responses"]["PublicProblem"];
             423: components["responses"]["PublicProblem"];
+            429: components["responses"]["PublicRateLimited"];
             500: components["responses"]["PublicProblem"];
             503: components["responses"]["PublicProblem"];
         };

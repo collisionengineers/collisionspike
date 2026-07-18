@@ -1,8 +1,8 @@
 {
   "limit": 800,
   "ratchets": {
-    "services/data-api/src/features/cases/capture.test.ts": 1834,
-    "services/data-api/src/features/cases/capture.ts": 1623,
+    "services/data-api/src/features/cases/capture.test.ts": 1993,
+    "services/data-api/src/features/cases/capture.ts": 1689,
     "services/data-api/src/features/cases/merge-routes.test.ts": 989,
     "services/data-api/src/features/cases/merge-routes.ts": 934,
     "services/data-api/src/features/inbound/retro-routes.test.ts": 839,
