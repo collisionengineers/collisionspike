@@ -7,9 +7,9 @@
  * longer mirror-eligible. An aggregate upload count is never sufficient evidence.
  */
 
-import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
-import { authenticate, toErrorResponse } from '../../platform/auth/staff-auth.js';
+import { app } from '@azure/functions';
 import { query, tx } from '../../platform/db/client.js';
+import { withServiceAuth } from '../inbound/internal/service-support.js';
 import { lockCaseForMutation } from '../cases/mutation-locks.js';
 import { requestStatusRecompute } from '../cases/status-recompute.js';
 
@@ -38,19 +38,6 @@ interface LockedEvidenceMirrorRow extends Record<string, unknown> {
 }
 
 export const ARCHIVE_MIRROR_MAX_ATTEMPTS = 8;
-
-async function withServiceAuth(
-  req: HttpRequest,
-  ctx: InvocationContext,
-  fn: () => Promise<HttpResponseInit>,
-): Promise<HttpResponseInit> {
-  try {
-    await authenticate(req);
-    return await fn();
-  } catch (e) {
-    return toErrorResponse(e, ctx);
-  }
-}
 
 function isMirrorEligible(row: LockedArchiveMirrorRow): boolean {
   const boxFileId = typeof row.box_file_id === 'string' ? row.box_file_id.trim() : '';

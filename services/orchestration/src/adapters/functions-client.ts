@@ -5,8 +5,7 @@
  * orchestrations call its HTTP routes; they never re-mint Box tokens (plan 22 §C).
  *
  * App-settings: PARSER_FN_URL/PARSER_FN_KEY,
- *   BOXWEBHOOK_FN_URL/BOXWEBHOOK_FN_KEY, EVASENTRY_FN_URL/EVASENTRY_FN_KEY,
- *   LOCATION_FN_URL/LOCATION_FN_KEY.
+ *   BOXWEBHOOK_FN_URL/BOXWEBHOOK_FN_KEY, EVASENTRY_FN_URL/EVASENTRY_FN_KEY.
  * Vehicle enrichment is intentionally not exposed here: the dedicated enrich
  * activity is the sole caller of the vehicle-data.v1 service and owns its
  * advisory retry/error semantics.
@@ -20,7 +19,6 @@ interface FnTarget {
 const PARSER: FnTarget = { urlEnv: 'PARSER_FN_URL', keyEnv: 'PARSER_FN_KEY' };
 const BOX: FnTarget = { urlEnv: 'BOXWEBHOOK_FN_URL', keyEnv: 'BOXWEBHOOK_FN_KEY' };
 const EVA: FnTarget = { urlEnv: 'EVASENTRY_FN_URL', keyEnv: 'EVASENTRY_FN_KEY' };
-const LOCATION: FnTarget = { urlEnv: 'LOCATION_FN_URL', keyEnv: 'LOCATION_FN_KEY' };
 const OCR: FnTarget = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' };
 
 async function callFunction<T = unknown>(
@@ -50,10 +48,6 @@ async function callFunction<T = unknown>(
 }
 
 /* ---------- parser ---------- */
-
-export function callParser(caseId: string): Promise<unknown> {
-  return callFunction(PARSER, 'POST', 'parse', { caseId });
-}
 
 /** Result of the parser's deterministic /classify-email route (ADR-0015). */
 export interface ClassifyEmailResult {
@@ -267,12 +261,6 @@ export function callEvaSubmit(payload: {
   payloadHash: string;
 }): Promise<unknown> {
   return callFunction(EVA, 'POST', 'eva/instruction-inspection', payload);
-}
-
-/* ---------- location-suggest ---------- */
-
-export function callLocationSuggest(caseId: string): Promise<unknown> {
-  return callFunction(LOCATION, 'POST', 'suggest', { caseId });
 }
 
 /* ---------- Box facade (box-webhook Function) ---------- */

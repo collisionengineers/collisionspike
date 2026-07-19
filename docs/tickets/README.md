@@ -26,7 +26,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | done | 10/10 (100%) |
 | [PLAN-007](./plans/PLAN-007-server-runtime-foundation.md) — Shared server-runtime foundation | active | 5/5 (100%) |
-| [PLAN-008](./plans/PLAN-008-canonical-service-routes.md) — Canonical service routes | active | 0/6 (0%) |
+| [PLAN-008](./plans/PLAN-008-canonical-service-routes.md) — Canonical service routes | active | 3/6 (50%) |
 | [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 3/6 (50%) |
 | [PLAN-010](./plans/PLAN-010-scripts-and-tooling-dedup.md) — Scripts and tooling dedup | active | 4/4 (100%) |
 | [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 0/3 (0%) |
@@ -109,7 +109,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (131)
+## Done (134)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -232,6 +232,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-214](./done/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 | platform | PLAN-006 |
 | [TKT-215](./done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 | integration | PLAN-006 |
 | [TKT-221](./done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates | P2 | docs | PLAN-004 |
+| [TKT-245](./done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | PLAN-008 |
 | [TKT-247](./done/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 | platform | PLAN-007 |
 | [TKT-248](./done/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 | platform | PLAN-007 |
 | [TKT-249](./done/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 | platform | PLAN-007 |
@@ -244,13 +245,15 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-259](./done/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 | platform | PLAN-010 |
 | [TKT-260](./done/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 | platform | PLAN-010 |
 | [TKT-261](./done/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 | platform | PLAN-010 |
+| [TKT-263](./done/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 | platform | PLAN-008 |
+| [TKT-265](./done/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Retire dead orchestration parser and location client exports | P3 | platform | PLAN-008 |
 
 ## Next (0)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (63)
+## Backlog (60)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -300,14 +303,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-242](./backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md) | Network-drive VRM scan channel for image receipt | P3 | intake | — |
 | [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 | platform | — |
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 | email | — |
-| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | PLAN-008 |
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 | platform | PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 | platform | PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
 | [TKT-262](./backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Consolidate the active focused-Function clients onto one | P1 | platform | PLAN-008 |
-| [TKT-263](./backlog/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 | platform | PLAN-008 |
 | [TKT-264](./backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Share the outbox monitor lifecycle without flattening lane protocols | P2 | platform | PLAN-008 |
-| [TKT-265](./backlog/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Retire dead orchestration parser and location client exports | P3 | platform | PLAN-008 |
 | [TKT-266](./backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | Add the route and authority inventory guard | P2 | platform | PLAN-008 |
 | [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 | platform | PLAN-011 |
 | [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 | platform | PLAN-011 |
