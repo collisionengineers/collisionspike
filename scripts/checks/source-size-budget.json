@@ -2,7 +2,6 @@
   "limit": 800,
   "ratchets": {
     "services/data-api/src/features/cases/capture.test.ts": 1993,
-    "services/data-api/src/features/cases/capture.ts": 1689,
-    "services/functions/box-webhook/box_operations.py": 862
+    "services/data-api/src/features/cases/capture.ts": 1689
   }
 }

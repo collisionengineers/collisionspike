@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3657,
-    "entries": 4767
+    "files": 3659,
+    "entries": 4769
   },
-  "totalFileBytes": 703460497,
+  "totalFileBytes": 703463619,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1494947,
+      "size": 1495583,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4246233,
-      "sha256": "05c5c8dde381f165ed99c2061adff333eae221ea521930a23d31ad8f878fd26b",
+      "size": 4247039,
+      "sha256": "50627aca5ee599f3044d956d54dd021fe348cecce9ace87df0bbfde1ea38e28e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 227,
-      "sha256": "f70c35c59cfcb619d9949a5b1b1c7c0fc2cdec375b326bd251c93b1c047affd5",
+      "size": 166,
+      "sha256": "4f2f640ca0c7a2a7cbec89fd175dde89f366b5218a3eab219c810d92725ca60e",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -33232,8 +33232,26 @@
     {
       "path": "services/functions/box-webhook/box_operations.py",
       "mediaType": "text/x-python",
-      "size": 43398,
-      "sha256": "0f0cc450f56dba82540d2a3493ef5c231be208257b52abd59aea3d06388ddb86",
+      "size": 23536,
+      "sha256": "325825d30df39fe65b0a0dff1feece94d13e601a5f1ab1a9eebf9441ae3c96cc",
+      "category": "source",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/box-webhook/box_rest_helpers.py",
+      "mediaType": "text/x-python",
+      "size": 2515,
+      "sha256": "327dc2ae0f51b3806454054c1d702c4a9d2081a57f951490c5af70b496fc7f9f",
+      "category": "source",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/box-webhook/box_upload_operations.py",
+      "mediaType": "text/x-python",
+      "size": 19088,
+      "sha256": "3744c69e98ac8ee3adc054aa0f250ff299f31d5519a17e2ebade460e21b8b8de",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
