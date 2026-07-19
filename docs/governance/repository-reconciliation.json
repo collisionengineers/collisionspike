@@ -7,13 +7,13 @@
   },
   "final": {
     "inventory": "docs/governance/repository-inventory.json",
-    "entries": 4571
+    "entries": 4602
   },
   "summary": {
     "baselineFiles": 3268,
     "baselineDirectories": 776,
-    "finalFiles": 3517,
-    "finalDirectories": 1054,
+    "finalFiles": 3538,
+    "finalDirectories": 1064,
     "dispositions": {
       "delete": 1277,
       "keep": 1107,
@@ -55959,6 +55959,146 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/evidence",
+      "kind": "directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/blocked",
       "kind": "directory",
       "size": 0,
@@ -75837,8 +75977,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "kind": "file",
-      "size": 4097,
-      "sha256": "de6bfd66d1ddaa4fee683c09f9266ee42613a88ac01b996821eb75437b724072",
+      "size": 6480,
+      "sha256": "30f3e262f575ebcf66d59482f44721f5b8fe990918e58d42d1c83b19f6cf6ea4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active",
@@ -76607,8 +76747,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "kind": "file",
-      "size": 43554,
-      "sha256": "08f36ee8f5d3f21690970fcb97e861cbf48f0e92c9452c32ddc2c1b56db78739",
+      "size": 44641,
+      "sha256": "b4ad0f9c88b49b6e7865f0c1e4c0162126b98f1b0d7948fe8dfd241042ee6c64",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -76621,8 +76761,8 @@
     {
       "path": "docs/tickets/README.md",
       "kind": "file",
-      "size": 45745,
-      "sha256": "336ea3eb43e96fc9d10a292864f10d712023d8ff24b463903c41e1b41911a078",
+      "size": 46941,
+      "sha256": "db6f1815fa1b185736fe95a17033f9fa7c90b792e304445c29d9cf18961228c9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -79591,6 +79731,286 @@
       "kind": "file",
       "size": 231,
       "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md",
+      "kind": "file",
+      "size": 3321,
+      "sha256": "ded8a5aeca274d0aa0d6d8269d2dafda3366713fa7bec8e05db657c11911d5e5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/changes.md",
+      "kind": "file",
+      "size": 106,
+      "sha256": "0c84df2494470600dea602d276cdcc98e9161f764868ab427755291440da55a9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/evidence/distillation-note.md",
+      "kind": "file",
+      "size": 1320,
+      "sha256": "23e7a01aa11dd93e579320bc452e4a71d7289f82476d100e627dd70a46acd442",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/verification.md",
+      "kind": "file",
+      "size": 250,
+      "sha256": "51212d88e0bdd3fa4e7bddc083a02f80cde6a6ee74ddd9f222679bbe12657274",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md",
+      "kind": "file",
+      "size": 5057,
+      "sha256": "d467c0ac093b854bdcfaa875778effa22da0c0442ec6f3bb930f0530a9f4f5e6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/changes.md",
+      "kind": "file",
+      "size": 124,
+      "sha256": "8377f9d8402535e8ea99f41ad2a606f15ee1bde7b6a229f4b79f4324a4c8af9c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/evidence/distillation-note.md",
+      "kind": "file",
+      "size": 2697,
+      "sha256": "3c8113fe05c36f337d9d4c65b5239c8b45e4755f71850f4955900ea71f6a5d40",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/verification.md",
+      "kind": "file",
+      "size": 268,
+      "sha256": "bf18e186f5fb6238a47d114e805091a2ad6d48f529f311132df04ca1085d64d5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md",
+      "kind": "file",
+      "size": 4907,
+      "sha256": "cbd6cfa3e650a7b5eae7534d11384357a2c3620f8e92fbee013230abee6be817",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/changes.md",
+      "kind": "file",
+      "size": 117,
+      "sha256": "19c93830ddd7ed4a39bb97737a21e589b018cd184021e32b6db20c6060bb855c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/evidence/distillation-note.md",
+      "kind": "file",
+      "size": 2637,
+      "sha256": "9c92d5cbb2305c6d3a03b05c75a8b552b34821b7000a4db75bc56c68da03552d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/verification.md",
+      "kind": "file",
+      "size": 261,
+      "sha256": "27e697524ec86afc2b57d863ad3324086fd8149d5652d3083fbda0d53894a23a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md",
+      "kind": "file",
+      "size": 4740,
+      "sha256": "08d5ffc17b7818e5165948c0e0406764d53d688301176e13d5521fbb4b3518ae",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/changes.md",
+      "kind": "file",
+      "size": 100,
+      "sha256": "35b167886ba8dfd3fe59c139d4d9a889779dbbba459f2938f2cf6dd0faa7f20f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/evidence/distillation-note.md",
+      "kind": "file",
+      "size": 2323,
+      "sha256": "54e5a02a576fb4a0a9a1d7331295d91c7b323c0acce2011828f3ad57369054b0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/verification.md",
+      "kind": "file",
+      "size": 244,
+      "sha256": "5a0879aec2937b0f443d6313b68cef560d0801506be5062b3ec9282f73697011",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md",
+      "kind": "file",
+      "size": 3789,
+      "sha256": "1a3c911a56feb4127a1fe72edfeb0f1060ff05648900f0ae9f668d1a3494ed47",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/changes.md",
+      "kind": "file",
+      "size": 99,
+      "sha256": "b46efcd2784c6bb8c4bf59518f52dc9ed4f94d5c0ca37d128e5899baeb50fe2a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/evidence/distillation-note.md",
+      "kind": "file",
+      "size": 1913,
+      "sha256": "34e4841d3b13bebbd0126a0c048c6cd7fa93735c5769edaa7052c785421458ed",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/verification.md",
+      "kind": "file",
+      "size": 243,
+      "sha256": "dd6bb6e548aaa811488066b448eb1eed111a6ee75c1d83f6a205417160d9b44e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active",
@@ -89947,6 +90367,20 @@
       "ticket": "TKT-213"
     },
     {
+      "path": "docs/tickets/plans/PLAN-007-server-runtime-foundation.md",
+      "kind": "file",
+      "size": 7743,
+      "sha256": "1feb7c200f5981b86c5269ce41f6757cd2282d467e8226d3eac3bb9d5edb7478",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active",
+      "origin": [
+        "PLAN-006"
+      ],
+      "state": "created",
+      "ticket": "TKT-213"
+    },
+    {
       "path": "docs/tickets/verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md",
       "kind": "file",
       "size": 1843,
@@ -96701,8 +97135,8 @@
     {
       "path": "package.json",
       "kind": "file",
-      "size": 3768,
-      "sha256": "10047d879d60e047639c745969ab63e58ee31ed432e13e1db9562282ec885221",
+      "size": 4320,
+      "sha256": "f52c3ed93edf16d1bd3b631d858866aab1c0e081c0721c2e9d70e558ee9b3c83",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active",
@@ -98787,8 +99221,8 @@
     {
       "path": "scripts/hooks/pre-commit",
       "kind": "file",
-      "size": 3213,
-      "sha256": "4d155ba0318f3b10d85cab495542ea701183966ef2b5a765e5f7760b274f7f61",
+      "size": 5192,
+      "sha256": "3fba824b9b496e7a82f5fc9dd0346a7b5affb9e78360991b9309f5abe500db37",
       "category": "automation",
       "owner": "engineering-automation",
       "lifecycle": "active",

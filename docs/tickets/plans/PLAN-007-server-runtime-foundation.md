@@ -12,10 +12,12 @@ depends-on: [TKT-210]
 
 One server-only workspace package `@cs/server-runtime` (`packages/server-runtime`) becomes the single home
 for the four runtime mechanisms currently hand-rolled across both TypeScript services: the managed-identity
-token mint (nine copies today), the Data-API HTTP request core (four copies), one bounded-retry primitive
-(none today), and the storage managed-identity token helper (three copies). Every prior call site imports the
-shared implementation, a new ADR records why the server-only package is deliberately separate from
-browser-safe `@cs/domain`, and a forbidden-pattern guard keeps the consolidation from regressing.
+token mint (nine hand-rolled copies — six bearer-token sites and three storage-audience sites), the Data-API
+HTTP request core (four copies), one bounded-retry primitive (none today), and the storage managed-identity
+token helper (the three storage-audience sites above, wrapped for the storage-SDK `TokenCredential` shape).
+Every prior call site imports the shared implementation, a new ADR records why the server-only package is
+deliberately separate from browser-safe `@cs/domain`, and a forbidden-pattern guard keeps the consolidation
+from regressing.
 
 ## Locked decisions
 
@@ -23,19 +25,25 @@ browser-safe `@cs/domain`, and a forbidden-pattern guard keeps the consolidation
   `@cs/domain`, whose README forbids runtime-adapter, database-client and cloud-SDK imports so the SPA can
   consume it. The two packages must never be merged; ADR-0031 records the boundary and the bundle-poisoning
   risk of collapsing it.
-- Scope is **Node/TypeScript only**. The Python "independently packaged" doctrine is out of scope and owned
-  by PLAN-011; no cross-language sharing is attempted here.
+- Scope is **Node/TypeScript only**. The Python "independently packaged" doctrine is out of scope and
+  deferred to a later plan in this architecture-simplification series (reserved as PLAN-011, not yet
+  authored); no cross-language sharing is attempted here.
 - Consolidation is **behaviour-preserving**. The nine token-mint copies are near-identical but not byte
   identical; the real differences become explicit parameters, not silent changes: one site threads an
   `AbortSignal` (box-maintenance adapter), two carry an `az`-CLI dev-token fallback (the two cognitive-audience
-  mints), and the token-absent fallback cache TTL differs (fifty-five versus fifty minutes). The sixty-second
-  expiry skew is uniform across all nine and stays fixed.
+  mints), the four Data-API adapters honour a `DATA_API_TOKEN` local-token override for off-Azure runs
+  (`func start`), the storage mint attaches `statusCode`/`code: 'ManagedIdentityTokenError'` retry metadata
+  that evidence backfill consumes, and the token-absent fallback cache TTL differs (fifty-five versus fifty
+  minutes). The sixty-second expiry skew is uniform across all nine and stays fixed. Each of these is a named
+  acceptance criterion in its owning ticket, not a silent normalisation.
 - **No** route, request/response shape, authentication behaviour, resource name, or numeric-code change (the
-  PLAN-006 locked invariant; PLAN-008 owns route and trust changes).
+  PLAN-006 locked invariant; route and trust changes are deferred to a later plan in this series, reserved as
+  PLAN-008).
 - `graph.ts` is **excluded**: its token is client-credentials against Entra (`login.microsoftonline.com`),
   not an `IDENTITY_ENDPOINT` managed-identity mint, and its loops are pagination guards, not retry. The single
-  storage SAS builder (`blob-store.ts`) is co-located with the storage helper but is **not** a
-  de-duplication target — it exists exactly once.
+  capture SAS builder (`createCaptureUploadSas` in `evidence/blob-store.ts`) is **not** a de-duplication
+  target — it exists exactly once and stays **feature-owned** (a security policy, per the reconciled review);
+  only credential/client construction is shared.
 - Every migration reports a net file/LOC delta per PR and the plan must be **net-negative** overall (nine
   mint copies to one, minus the new package's fixed cost).
 
@@ -44,15 +52,23 @@ browser-safe `@cs/domain`, and a forbidden-pattern guard keeps the consolidation
 1. TKT-247 scaffolds `packages/server-runtime` (workspace wiring, build, test harness, ownership README) and
    authors ADR-0031; no runtime behaviour changes.
 2. TKT-248 consolidates the managed-identity token mint into one `getManagedIdentityToken(audience, options)`
-   with a shared `{value, expiresAt}` cache and migrates all nine sites, preserving the AbortSignal,
-   dev-fallback and cache-TTL differences as explicit options.
+   with a shared `{value, expiresAt}` cache and migrates the **six bearer-token sites**, preserving the
+   `AbortSignal`, `az`-CLI dev-fallback, `DATA_API_TOKEN` local override and cache-TTL differences as explicit
+   options. The three storage-audience sites migrate onto the same primitive in TKT-250 — no site is migrated
+   twice.
 3. TKT-249 consolidates the Data-API HTTP request core and adds one bounded-retry primitive (honours
-   `Retry-After`, exponential backoff with jitter, finite count, explicit retryable status set), routing the
-   four wrappers and the inline chat-client retry through it.
-4. TKT-250 consolidates the storage managed-identity token helper across its three sites; the single SAS
-   builder moves with it unchanged.
-5. TKT-251 adds the AST/import-aware forbidden-pattern guard asserting `IDENTITY_ENDPOINT` and the
-   storage-audience mint appear only inside `packages/server-runtime`, wired into `verify-all.mjs`.
+   `Retry-After`, exponential backoff with jitter, finite count, explicit retryable status set, and a
+   caller-supplied retry predicate for non-HTTP callers), routing the four wrappers and the inline chat-client
+   tool retry through it while preserving each wrapper's existing observable error contract.
+4. TKT-250 migrates the **three storage-audience sites** onto the shared primitive through a thin
+   storage-shape wrapper, preserving the `ManagedIdentityTokenError` retry metadata that evidence backfill
+   consumes. The single capture SAS builder stays feature-owned in `features/evidence/blob-store.ts` (the
+   reconciled review classifies it as a security policy, not a shared mechanism); only credential/client
+   construction is shared.
+5. TKT-251 adds the AST/import-aware forbidden-pattern guard asserting that the managed-identity mint surface —
+   both the raw `IDENTITY_ENDPOINT` / storage-audience mint and the `@azure/identity` SDK mint
+   (`ManagedIdentityCredential` / `DefaultAzureCredential`) — appears only inside `packages/server-runtime`,
+   wired into `verify-all.mjs`.
 
 ## Gates
 
@@ -71,7 +87,8 @@ The plan closes only when all members are `done`: the four mechanisms live once 
 every prior call site imports them, `check:runtime-contract` shows routes and shapes unchanged, both
 TypeScript services build and their bundles smoke-load, `check:production-dependencies` proves the package
 never reaches the SPA path, the aggregate net file/LOC delta is negative, and the drift guard fails a
-synthetic re-introduction of `IDENTITY_ENDPOINT` outside the package. No member performs a live write.
+synthetic re-introduction of a managed-identity mint (raw `IDENTITY_ENDPOINT` or `@azure/identity` SDK)
+outside the package. No member performs a live write.
 
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
@@ -90,7 +107,7 @@ synthetic re-introduction of `IDENTITY_ENDPOINT` outside the package. No member 
 | Ticket | Status | Title |
 |---|---|---|
 | [TKT-247](../backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | backlog | Scaffold the server-runtime package and record its boundary |
-| [TKT-248](../backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | backlog | Consolidate the managed-identity token mint across all nine sites |
+| [TKT-248](../backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | backlog | Consolidate the managed-identity token mint across the six bearer-token sites |
 | [TKT-249](../backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | backlog | Consolidate the Data-API HTTP core and add one bounded-retry primitive |
 | [TKT-250](../backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | backlog | Consolidate the storage managed-identity token helper |
 | [TKT-251](../backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | backlog | Add the server-runtime forbidden-pattern drift guard |

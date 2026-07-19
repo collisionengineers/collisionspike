@@ -1,7 +1,7 @@
 # Distillation note — TKT-248
 
 **Source:** `workingspace/architecture-simplification/01-server-runtime-foundation.md` finding A. **Plan:**
-PLAN-007. Re-verified read-only 2026-07-19 (`PLAN-007.dossier.json`).
+PLAN-007. Re-verified read-only 2026-07-19; this note is the committed verification record.
 
 **Nine confirmed managed-identity mint sites** (each reads `IDENTITY_ENDPOINT`, calls the MSI endpoint with
 `api-version=2019-08-01`, caches `{value, expiresAt}`):
@@ -23,8 +23,17 @@ Data-API (3):
 9. `services/data-api/src/features/evidence/blob-store.ts` `storageMiToken()` — storage audience
    (see TKT-250).
 
-**Variations to preserve as options, not erase:** `signal?` (#4); `devTokenFallback` (#5, #7); token-absent
-fallback TTL 55 min (x7) vs 50 min (x2 dev-fallback copies). Uniform 60 s expiry skew across all nine.
+**Variations to preserve as options, not erase:** `signal?` (#4); `devTokenFallback` (#5, #7);
+`DATA_API_TOKEN` local override returned before any MI call (#1–#4, the four Data-API adapters —
+`data-api-http.ts:8-9`, `provider-archive-api.ts:19`, `archive-mirror-api.ts:19`, `box-maintenance-api.ts:11`);
+`statusCode` + `code: 'ManagedIdentityTokenError'` retry metadata on the storage mint (#6, `blob.ts:37-42`,
+consumed by `evidence-backfill.ts` `isRetryableStorageInfrastructureError` — preserved by TKT-250);
+token-absent fallback TTL 55 min (x7) vs 50 min (x2 dev-fallback copies). Uniform 60 s expiry skew across all
+nine.
+
+**Migration split (no site migrated twice):** TKT-248 migrates the six bearer-token sites (#1–#5, #7);
+TKT-250 migrates the three storage-audience sites (#6, #8, #9) onto the same primitive via a storage-shape
+wrapper.
 
 **Excluded:** `graph.ts` `getGraphToken` is client-credentials against `login.microsoftonline.com` (not an MI
 mint) and stays put.

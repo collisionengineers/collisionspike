@@ -51,7 +51,9 @@ them. Add no runtime behaviour in this ticket — the mechanisms migrate in TKT-
 ## Research
 Distilled from `workingspace/architecture-simplification/01-server-runtime-foundation.md` and the reconciled
 review's finding A/B/F/G, with claims re-verified read-only against current source and Microsoft Learn on
-2026-07-19 (`PLAN-007.dossier`).
+2026-07-19; the grounding is recorded in the [distillation note](./evidence/distillation-note.md).
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)
