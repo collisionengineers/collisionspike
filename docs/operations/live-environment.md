@@ -56,9 +56,20 @@ West Europe.
   capture cleanup and MCP image ingestion remained off. No Outlook write, EVA submission, Archive write or
   live cutover was used as deployment proof.
 
+## Estate re-verification — 2026-07-19
+
+- A read-only ARM resource inventory of `rg-collisionspike-dev` reconciled this registry (TKT-257,
+  PLAN-009). Every deployable resource is present; the estate is unchanged in shape.
+- The subscription offer is pay-as-you-go (the earlier Free Trial upgrade is complete); `LIVE_FACTS.json`
+  is corrected accordingly.
+- The orchestration host now registers 105 functions — up from the 2026-07-16 reading of 101 after the
+  2026-07-17 `d6ee70de` deploy; the API remains 144. The current counts live in `LIVE_FACTS.json`.
+- The EVA-validation resources (`cespkeval-fn-6c6fxd` and its plan/storage) remain deployed. Their live
+  retirement is operator-gated (TKT-252) and has not been performed; the app stays as the rollback guard.
+
 ## Operating constraints
 
-- The subscription remains on the Azure Free Trial tier and requires an operator-owned upgrade.
+- The subscription is on the pay-as-you-go tier (the earlier Free Trial upgrade is complete).
 - Keep proof of unattended mail-subscription renewal.
 - New staff accounts need an explicit application-role assignment before they can use the app.
 - Legal and data-protection records remain open ticketed work; do not infer completion from enabled code.

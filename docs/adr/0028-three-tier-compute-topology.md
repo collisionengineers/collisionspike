@@ -66,3 +66,19 @@ Resource names, function counts, and gates are not architecture; they live in
   ([outlook-link-resolver.ts](../../services/data-api/src/features/inbound/outlook-link-resolver.ts)),
   reading no case state and performing no write. A future change must not invert the write direction,
   let orchestration write PostgreSQL directly, or turn that read-only bridge into a write path.
+
+## Amendment — one bicep layout convention (2026-07-19)
+
+Driven by [TKT-255](../tickets/done/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md)
+(PLAN-009). The estate previously carried **two** bicep layout conventions: the central
+`infrastructure/config-capture/{api,orch,spa}.bicep` settings-capture templates, and per-service function
+host templates scattered under `services/functions/<service>/infra/`. That split is resolved to the single
+convention named in PLAN-006's locked structure — **all infrastructure-as-code lives under
+`infrastructure/`** — by relocating the six per-service function host templates to
+`infrastructure/functions/<service>/` (byte-identical; no resource name, deployment parameter, or runtime
+behaviour change — a layout-only move). `infrastructure/config-capture/` is unchanged.
+
+Consequence: infrastructure-as-code is discovered under one root; a new service's host template is authored
+under `infrastructure/functions/<service>/`, not beside the service code. The `services/functions/<service>/`
+trees are now code-only. Any future rider edit to those templates (e.g. TKT-206's ADR-0017 retention-parameter
+sweep) targets the new `infrastructure/functions/<service>/main.bicep` paths.

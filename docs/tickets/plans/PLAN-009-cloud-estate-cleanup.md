@@ -93,15 +93,15 @@ is flagged once for a separate effort.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/6 done (0%).**
+**3/6 done (50%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 0 |
+| Done | 3 |
 | Next | 0 |
-| Backlog | 6 |
+| Backlog | 3 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
@@ -109,7 +109,7 @@ is flagged once for a separate effort.
 | [TKT-252](../backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | backlog | Retire the EVA-validation app and its storage |
 | [TKT-253](../backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | backlog | Confirm-then-dispose the ambiguous image and app registration |
 | [TKT-254](../backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | backlog | Close credential hygiene on the EVA vault and helper-app SCM basic auth |
-| [TKT-255](../backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | backlog | Rationalise the bicep layout to one convention |
-| [TKT-256](../backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | backlog | Assess helper-app consolidation (read-only) |
-| [TKT-257](../backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | backlog | Refresh LIVE_FACTS and the live-environment doc |
+| [TKT-255](../done/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | done | Rationalise the bicep layout to one convention |
+| [TKT-256](../done/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | done | Assess helper-app consolidation (read-only) |
+| [TKT-257](../done/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | done | Refresh LIVE_FACTS and the live-environment doc |
 <!-- /GENERATED:PROGRESS -->

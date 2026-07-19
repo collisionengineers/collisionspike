@@ -1,11 +1,11 @@
 {
-  "lastVerified": "2026-07-16T00:25:00Z",
-  "verificationMode": "authorized deployment validation plus read-only registry and database verification",
+  "lastVerified": "2026-07-19T22:40:05Z",
+  "verificationMode": "read-only ARM resource inventory of rg-collisionspike-dev (2026-07-19, TKT-257) directly confirming resource presence and states; the offer correction and the app-tier function counts are carried forward from the banked PLAN-009 read-only dossier (not re-minted from source)",
   "environment": {
     "resourceGroup": "rg-collisionspike-dev",
     "primaryRegion": "uksouth",
     "webRegion": "westeurope",
-    "subscriptionTier": "Azure Free Trial"
+    "subscriptionTier": "Pay-As-You-Go"
   },
   "deployables": {
     "web": {
@@ -20,7 +20,7 @@
     "orchestration": {
       "resource": "cespk-orch-dev",
       "source": "services/orchestration",
-      "functionCount": 101
+      "functionCount": 105
     },
     "database": {
       "resource": "cespk-pg-dev",
@@ -54,8 +54,9 @@
       "repositoryState": "removed after a read-only no-use audit",
       "functionCount": 1,
       "observedRequests90Days": 0,
-      "liveRetirement": "separate production task",
-      "lastVerified": "2026-07-15"
+      "observedRequestsAsOf": "2026-07-15",
+      "liveRetirement": "operator-gated (TKT-252); not performed — the app, plan, and storage remain deployed as the rollback guard",
+      "lastVerified": "2026-07-19 (resource presence re-confirmed by read-only ARM inventory)"
     },
     "ocr": {
       "resource": "cespkocr-fn-dev-glju3v",
@@ -163,7 +164,6 @@
     "liveCutoverPerformed": false
   },
   "operatorWatchItems": [
-    "upgrade the subscription before the Free Trial expires",
     "retain evidence of an unattended mail-subscription renewal",
     "assign application roles before adding further staff accounts",
     "complete the outstanding legal and data-protection records tracked by tickets"
