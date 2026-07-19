@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1116 directories, 3709 files.
+Grand total: 1116 directories, 3710 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1215,7 +1215,6 @@ docs/  (1 file)
       TKT-242-network-drive-vrm-scan/  (3 files)
       TKT-243-code-docs-hygiene-sweep/  (3 files)
       TKT-244-triage-vocabulary-code-additions/  (3 files)
-      TKT-245-service-trust-seam/  (3 files)
       TKT-252-retire-eva-validation-app-and-storage/  (3 files)
         evidence/  (1 file)
       TKT-253-dispose-ambiguous-image-and-app-registration/  (3 files)
@@ -1224,11 +1223,7 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-262-one-python-function-client/  (3 files)
         evidence/  (1 file)
-      TKT-263-internal-msi-route-consolidation/  (3 files)
-        evidence/  (1 file)
       TKT-264-outbox-drain-generalisation/  (3 files)
-        evidence/  (1 file)
-      TKT-265-bff-proxy-canonicalisation/  (3 files)
         evidence/  (1 file)
       TKT-266-route-authority-inventory-guard/  (3 files)
         evidence/  (1 file)
@@ -1488,6 +1483,7 @@ docs/  (1 file)
       TKT-215-eva-validation-live-use-audit/  (3 files)
         evidence/  (2 files)
       TKT-221-retro-docs-cutover-po/  (3 files)
+      TKT-245-service-trust-seam/  (3 files)
       TKT-247-server-runtime-scaffold-and-boundary/  (3 files)
         evidence/  (1 file)
       TKT-248-managed-identity-token-mint-consolidation/  (3 files)
@@ -1511,6 +1507,10 @@ docs/  (1 file)
       TKT-260-shared-forbidden-signatures-data-file/  (3 files)
         evidence/  (1 file)
       TKT-261-scripts-dedup-drift-guard/  (3 files)
+        evidence/  (1 file)
+      TKT-263-internal-msi-route-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-265-bff-proxy-canonicalisation/  (3 files)
         evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
@@ -1781,7 +1781,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 64 directories, 586 files
+### services — 64 directories, 587 files
 
 ```text
 services/  (0 files)
@@ -1839,7 +1839,7 @@ services/  (0 files)
       vehicle_data/  (7 files)
   orchestration/  (6 files)
     src/  (1 file)
-      adapters/  (17 files)
+      adapters/  (18 files)
       platform/  (21 files)
         fixtures/  (1 file)
       workflows/  (0 files)
@@ -2148,9 +2148,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3709 | 3709 | PASS |
+| Proposed tree files == ledger final files | 3710 | 3710 | PASS |
 | Proposed tree directories == ledger final directories | 1116 | 1116 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3711 | 3711 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3712 | 3712 | PASS |
 | Proposed directories == inventory directories | 1116 | 1116 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the

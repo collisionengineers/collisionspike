@@ -61,3 +61,21 @@ calls the same `authenticate()` JWT verifier and currently admits any valid Entr
 audience without checking its subject or app role — the unresolved P1 trust seam recorded in TKT-245.
 Hardening it (a principal allowlist or a dedicated app role admitting the known managed-identity callers)
 is pending TKT-245; until then that internal boundary is audience-only managed-identity bearer.
+
+## Amendment — internal service-trust seam affirmed audience-only (2026-07-20)
+
+Per [TKT-245](../tickets/done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) (PLAN-008), the
+internal `withServiceAuth` trust model is **decided: audience-only admission is affirmed**, and the two
+divergent `withServiceAuth` implementations are consolidated to the single shared seam
+(`services/data-api/src/features/inbound/internal/service-support.ts`; the `mirror-outbox-routes.ts` copy is
+removed), with every authentication / unexpected-authentication / handler-failure status/body/logging
+semantic preserved (`check:runtime-contract` stays clean).
+
+The seam admits any token valid for the API's Entra audience with no subject/scp/app-role check. This is
+**affirmed** (not a defect silently kept) because the API's audience is not a public-client audience — only
+principals with an app-role assignment to the API can mint a token for it — and its two legitimate
+managed-identity callers, the **orchestration** app and the **Archive (box-webhook) Function**, both hold
+that assignment. Hardening to a principal (oid/appid) allowlist or a dedicated app-role admitting BOTH those
+MSIs remains **operator-gated**: it changes live admission, and hardening for only one principal would break
+the other. PLAN-006/PLAN-008's behaviour-preserving invariant forbids changing live admission here; the
+hardening is future operator-authorised work tracked against this decision.

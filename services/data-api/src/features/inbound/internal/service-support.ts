@@ -21,6 +21,15 @@ export async function withServiceAuth(
   // rethrows anything UNEXPECTED (e.g. a transient JWKS fetch failure). toErrorResponse
   // maps the former to 401 and the latter to 500 — same discrimination as withRole, so a
   // transient server-side fault is reported as 500 (server fault), not a misleading 401.
+  //
+  // TRUST MODEL (TKT-245 / PLAN-008): admission is AUDIENCE-ONLY by design. Any token valid for the
+  // API's Entra audience is admitted, with NO subject / scp / app-role check. This is the single
+  // internal service-to-service seam; its two legitimate managed-identity callers are the
+  // orchestration app and the Archive (box-webhook) Function. The API's audience is not a
+  // public-client audience, so only principals with an app-role assignment to the API can mint a
+  // token for it. A future hardening (an oid/appid allowlist, or a dedicated app-role admitting BOTH
+  // those MSIs) is operator-gated: it changes live admission, and hardening for only one principal
+  // would break the other. See ADR-0029 and the TKT-245 decision record.
   try {
     await authenticate(req);
   } catch (e) {
