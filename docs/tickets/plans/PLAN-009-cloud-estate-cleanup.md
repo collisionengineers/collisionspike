@@ -57,10 +57,11 @@ counts, retirements). This runs as a parallel track to the code plans — its fi
    (populate or remove the references, then dispose the vault only once confirmed truly empty — keys and
    certificates need an elevated read the current identity lacks), disable SCM/Kudu basic-publishing auth on
    the five helper apps that still allow it **and persist that disabled policy in the retained bicep** (no
-   `basicPublishingCredentialsPolicies` resource exists in IaC today — coordinated with TKT-255), and give the
-   expired `CarClaims Website` app-registration secret an operator-gated disposition. This ticket is **ungated**
-   (only TKT-215 gates 252; TKT-246 gates 255/256) and, as a P1 passwordless-posture regression, may proceed
-   first — its step-3 position reflects reversibility ordering, not a dependency.
+   `basicPublishingCredentialsPolicies` resource exists in IaC today — coordinated with TKT-255). This ticket
+   is **ungated** (only TKT-215 gates 252; TKT-246 gates 255/256) and, as a P1 passwordless-posture
+   regression, may proceed first — its step-3 position reflects reversibility ordering, not a dependency.
+   **CarClaims is explicitly out of scope: a hard repository rule (AGENTS.md → Live-system safety) forbids
+   touching it, so its inventory "[Security — act]" flag is recorded as off-limits, never remediated here.**
 4. TKT-255 rationalises the bicep layout to one convention (centralise, matching PLAN-006's locked structure)
    and records it as an amendment to the platform-topology ADR minted by TKT-246; it coordinates with
    TKT-206's ADR-0017 rider sweep, which edits the same per-service `infra/main.bicep` files.
