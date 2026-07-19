@@ -12,25 +12,24 @@ plan: PLAN-011
 # Decide and record the Python packaging doctrine
 
 ## Problem
-Every Python function service hand-rolls its own token acquisition and retry/backoff, yet
-`services/functions/README.md` declares each service "independently packaged". Whether that duplication is a
-deliberate doctrine or an accident is unrecorded — so it keeps getting re-litigated, and the duplication keeps
-drifting silently.
+Several production clients across the independently packaged Python services own distinct bearer-token,
+401-refresh, or transient-retry policies. Some service roots contain several implementations, while parser
+and OCR do not implement the variants that prompted this plan. Whether runtime duplication is a deliberate
+consequence of `services/functions/README.md`'s packaging doctrine or should be reversed is unrecorded.
 
 ## Evidence
-Verified read-only 2026-07-19: the token/backoff reimplementations are **non-uniform** — across the six
-services they diverge by auth mechanism (JWT assertion, client-credentials, MSI, API-key), with some carrying
-the full `_CachedToken` + `get_token` + bounded-backoff triad, some missing the cache, and some missing the
-bounded backoff; `location-assist/ai_reasoning.py` mints with neither. `services/functions/README.md` states
-each service is "independently packaged with its own contract, tests, requirements, and deployment inputs".
+Direct inspection of the committed clients shows deliberately different mechanisms: Box JWT assertion,
+Entra client credentials, managed identity, EVA's credential form, and API-key callers. Cache, refresh, and
+429/5xx handling also differ per client. The exact reproducible inventory is recorded in the
+[distillation note](./evidence/distillation-note.md). `services/functions/README.md` states that each service
+is independently packaged with its own contract, tests, requirements, and deployment inputs.
 
 ## Proposed change
-Decide — affirm or reverse — the "independently packaged" doctrine, and record the reasoning in a new ADR (its
-number allocated at authoring, expected 0032). **Recommended default: affirm independence** and convert the
-duplication into a checked behavioural invariant (TKT-268), because the six focused services do not justify a
-shared package feed's coupling and the auth-divergent flows make a single shared helper a poor fit. Consume
-PLAN-009's TKT-256 helper-app consolidation assessment as an input — if it recommends collapsing the apps, the
-sharing calculus changes and a shared module may become worthwhile.
+After PLAN-009's TKT-256 files its helper-app consolidation assessment, decide whether to affirm or reverse
+the "independently packaged" doctrine and record the reasoning in a new ADR whose number is allocated at
+authoring. **Recommended default: affirm independence** and convert the duplication into a checked,
+test-only behavioural contract (TKT-268). If TKT-256 recommends collapsing the apps, the sharing calculus
+changes and a shared runtime module may become worthwhile.
 
 ## Acceptance
 - **A1.** A new ADR records the packaging doctrine (affirm independence, or reverse to a shared module) with
@@ -48,9 +47,11 @@ sharing calculus changes and a shared module may become worthwhile.
   passes.
 
 ## Research
-Distilled from `05-python-doctrine-and-parity.md` ticket 1; the non-uniformity of finding E and the
-"independently packaged" doctrine line were re-verified read-only on 2026-07-19 (`PLAN-011.dossier`).
-Deliberately last — consumes PLAN-009's TKT-256.
+Distilled from `workingspace/architecture-simplification/05-python-doctrine-and-parity.md` ticket 1.
+The packaging line and client inventory were re-verified directly against the committed paths named in the
+distillation note. Deliberately last — consumes PLAN-009's TKT-256.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

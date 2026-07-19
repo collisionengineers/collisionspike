@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (51)
+## Backlog (66)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -257,9 +257,24 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
 | [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
+| [TKT-247](./backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 · platform · PLAN-007 |
+| [TKT-248](./backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 · platform · PLAN-007 |
+| [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |
+| [TKT-250](./backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 · platform · PLAN-007 |
+| [TKT-251](./backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 · platform · PLAN-007 |
+| [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 · platform · PLAN-009 |
+| [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 · platform · PLAN-009 |
+| [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 · platform · PLAN-009 |
+| [TKT-255](./backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | Rationalise the bicep layout to one convention | P2 · platform · PLAN-009 |
+| [TKT-256](./backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | Assess helper-app consolidation (read-only) | P3 · platform · PLAN-009 |
+| [TKT-257](./backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | Refresh LIVE_FACTS and the live-environment doc | P1 · platform · PLAN-009 |
+| [TKT-258](./backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | Consolidate the hash and path-normalize inventory core | P2 · platform · PLAN-010 |
+| [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
+| [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
+| [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
 | [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 · platform · PLAN-011 |
-| [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python token/backoff conformance suite | P2 · platform · PLAN-011 |
-| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Widen the vendored parser to cross-language behavioural parity | P2 · platform · PLAN-011 |
+| [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 · platform · PLAN-011 |
+| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 · platform · PLAN-011 |
 
 ## Blocked (8)
 

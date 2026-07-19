@@ -1,17 +1,25 @@
 # Distillation note — TKT-268
 
-**Source:** `05-python-doctrine-and-parity.md` ticket 2. **Plan:** PLAN-011. Re-verified read-only 2026-07-19
-(`PLAN-011.dossier.json`).
+**Source:** `workingspace/architecture-simplification/05-python-doctrine-and-parity.md` ticket 2. **Plan:**
+PLAN-011. Re-verified by direct inspection of the committed paths on 2026-07-19.
 
-**Why behavioural, not "copies-in-sync":** finding E is non-uniform (four backoff variants, three cache
-shapes; two services with no cache, two with no bounded backoff). Pinning identical *implementation* would be
-wrong — the clients legitimately differ by auth mechanism. So the suite pins **observable behaviour** each
-client claims:
-- token minted → cached → refreshed near expiry (for the clients that cache);
-- bounded retry honours 429/5xx + `Retry-After` where the client claims it (for the clients that back off);
-- a client that does neither (`location-assist/ai_reasoning.py`) declares that, so the suite does not demand
-  behaviour it never promised.
+**Why behavioural and per-client:** the implementations legitimately differ by authentication mechanism and
+policy. Service-level coverage would miss multiple Box and vehicle-enrichment clients. The starting inventory
+is:
 
-**Guard property:** a synthetic divergence (cache ignoring expiry; retrying a non-transient 4xx) must fail.
-Runs under `verify-all.mjs`. Reverse path (if TKT-267 chooses it): a minimal shared module mirroring
-`@cs/server-runtime`'s shape.
+- `box-webhook/box_client.py`
+- `box-webhook/blob_source.py`
+- `box-webhook/data_api_client.py`
+- `eva-sentry/eva_client.py`
+- `vehicle-enrichment/dvsa_client.py`
+- `vehicle-enrichment/dvla_client.py`
+- `location-assist/ai_reasoning.py`
+
+Implementation must rescan production Python and disposition any additional token acquisition/reuse,
+401-refresh, or bounded-retry site. On the affirm path, the harness pins only claimed observable behaviour:
+expiry-aware reuse where present, one-time refresh where present, and bounded transient retry plus
+`Retry-After` where present. On the reverse path, the shared module must migrate every applicable inventory
+entry while preserving those accepted policies.
+
+**Guard property:** an omitted inventoried client, an expiry-blind cache where expiry is claimed, or a retry of
+a non-transient 4xx must fail. The selected guard runs under `verify-all.mjs`.

@@ -1,6 +1,6 @@
 ---
 id: TKT-268
-title: Implement the Python token/backoff conformance suite
+title: Implement the Python authentication and retry doctrine outcome
 status: backlog
 priority: P2
 area: platform
@@ -9,46 +9,55 @@ research-link: docs/tickets/backlog/TKT-268-python-token-backoff-conformance-sui
 plan: PLAN-011
 ---
 
-# Implement the Python token/backoff conformance suite
+# Implement the Python authentication and retry doctrine outcome
 
 ## Problem
-The divergent per-service token/backoff reimplementations drift silently: a fix to one service's cache-expiry
-or retry logic is not reflected in the others, and there is no check that each service's client actually
-honours the behaviours it should. Whichever way TKT-267 decides, the duplication must stop being a silent
-drift risk.
+The divergent per-client authentication and retry implementations can drift silently. A fix to one
+expiry, refresh, or transient-response policy is not reflected in another, and current verification has no
+explicit inventory proving that every applicable client is covered. Whichever way TKT-267 decides, that gap
+must close.
 
 ## Evidence
-Verified read-only 2026-07-19: at least four backoff variants and three token-cache shapes across the six
-services, with two services lacking a bounded 429/5xx backoff and two lacking a token cache entirely
-(`PLAN-011.dossier`). No shared behavioural contract pins these today.
+Direct inspection found distinct policies within Box, EVA, vehicle enrichment, and location assistance;
+some services contain multiple clients, and parser/OCR are not part of this duplication. The current minimum
+client inventory and exact source paths are recorded in the [distillation note](./evidence/distillation-note.md).
+No shared behavioural contract or shared runtime module owns these policies today.
 
 ## Proposed change
-On TKT-267's affirm path, add a shared **behavioural conformance suite** each service's token/backoff code is
-exercised against: a client that mints a bearer token caches it and refreshes near expiry; a client that
-claims bounded retry honours 429/5xx with backoff and `Retry-After` where applicable; a client that
-deliberately does neither (e.g. `location-assist/ai_reasoning.py`) declares that explicitly so the suite does
-not demand behaviour it never promised. On the reverse path, replace the duplication with a minimal shared
-Python module mirroring the `@cs/server-runtime` shape. Pin observable behaviour, never internals.
+Implement exactly one outcome selected by TKT-267. On the affirm path, add a shared **test-only behavioural
+conformance harness** and a checked per-client inventory; the harness asserts only the expiry, refresh, and
+transient-retry behaviours each client claims. On the reverse path, replace the applicable duplication with a
+minimal shared runtime module mirroring the accepted `@cs/server-runtime` boundary shape, migrate every
+applicable inventory entry, and keep each service's deployment inputs complete. Pin observable behaviour,
+never identical implementation.
 
 ## Acceptance
-- **A1.** A shared behavioural conformance suite exists under the Python test tree, parameterised per service,
-  asserting the token-cache-expiry and bounded-backoff behaviours each client claims.
-- **A2.** Each of the six services is either covered by the suite or explicitly declares (and the suite
-  records) that it does not implement a given behaviour — no silent gaps; the `ai_reasoning.py` no-cache,
-  no-backoff variant is captured explicitly.
-- **A3.** A synthetic divergence (a token cache that ignores expiry, or a backoff that retries a non-transient
-  4xx) is caught by the suite.
-- **A4.** The suite runs under `verify-all.mjs`; existing per-service pytest suites still pass.
-- **A5.** No live write; behaviour is unchanged (the suite pins existing behaviour, it does not alter it).
+- **A1. Decision gate.** TKT-267's accepted ADR names the selected path; this ticket implements that path only.
+- **A2. Affirm path.** A test-only conformance harness and explicit production-client inventory exist. The
+  implementation rescans for token acquisition/reuse, 401 refresh, and bounded retry sites; every discovered
+  client is either exercised for every claimed behaviour or marked not applicable with a concrete rationale.
+- **A3. Affirm path.** Synthetic fixtures prove that ignoring token expiry, retrying a non-transient 4xx, or
+  silently omitting an inventoried client fails the harness. The location reasoner's retained-but-not
+  expiry-aware bearer is represented accurately.
+- **A4. Reverse path.** A shared runtime module owns the behaviours selected by the ADR, every applicable
+  inventoried client consumes it, service requirements/deployment manifests remain complete, and a guard
+  rejects reintroduced local copies.
+- **A5. Both paths.** `verify-all.mjs` invokes the new guard or harness and every existing per-service pytest
+  suite passes. Observable runtime policies are preserved unless a separately accepted criterion explicitly
+  corrects one; internal wiring may change on the reverse path.
+- **A6.** No live write or deployment.
 
 ## Validation
-- Run the conformance suite (expect pass on current behaviour) and a synthetic-divergence fixture (expect
-  fail); full `node verify-all.mjs` including the Python suites.
+- Affirm path: run the inventory-completeness check, conformance harness, and negative fixtures.
+- Reverse path: run shared-module tests, migration/duplicate guards, and service deployment-package checks.
+- Both paths: run full `node verify-all.mjs`, including every Python suite.
 
 ## Research
-Distilled from `05-python-doctrine-and-parity.md` ticket 2, reframed after read-only verification on
-2026-07-19 (`PLAN-011.dossier`) from "copies-in-sync" to a **behavioural** conformance suite, because the
-reimplementations are non-uniform. Follows TKT-267's decision.
+Distilled from `workingspace/architecture-simplification/05-python-doctrine-and-parity.md` ticket 2 and
+reframed after direct source inspection from "copies-in-sync" to a conditional, per-client outcome. Follows
+TKT-267's decision.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

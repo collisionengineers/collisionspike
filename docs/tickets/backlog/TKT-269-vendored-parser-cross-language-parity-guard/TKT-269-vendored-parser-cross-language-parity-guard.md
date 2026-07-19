@@ -1,6 +1,6 @@
 ---
 id: TKT-269
-title: Widen the vendored parser to cross-language behavioural parity
+title: Guard independently duplicated parser and domain rules
 status: backlog
 priority: P2
 area: platform
@@ -9,50 +9,49 @@ research-link: docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parit
 plan: PLAN-011
 ---
 
-# Widen the vendored parser to cross-language behavioural parity
+# Guard independently duplicated parser and domain rules
 
 ## Problem
-The vendored parser engine re-expresses VRM, case-type, and EVA-field rules that `@cs/domain` owns in
-TypeScript, and the two are **not** identical (the Python VRM canonicaliser carries a special-case regex the
-TypeScript one lacks). The existing in-sync guards pin the engine against its *authoring repository* and the
-EVA schema against `contracts/`, but nothing pins the parser's rule *behaviour* against `@cs/domain` — so the
-two sources of truth can drift silently.
+The vendored parser independently implements VRM canonicalisation and Case/PO-marker recognition that also
+exist in `@cs/domain`, and the implementations are not identical. The existing in-sync guards pin the engine
+against its authoring repository and the EVA schema against `contracts/`, but no behavioural guard compares
+the genuinely duplicated Python and TypeScript rules.
 
 ## Evidence
-Verified read-only 2026-07-19: `services/functions/parser/cedocumentmapper_v2` re-implements VRM
-canonicalisation (`normalization/normalizers.py::normalize_vrm`, with an extra-digit special case), case-type
-markers (`detection/case_type.py`, the same `AP.`/`A.`/`D.` taxonomy as `@cs/domain`'s `case-type.ts`), and the
-EVA field rules. The guards `test_engine_vendored_in_sync.py` (SHA-256/AST engine pin vs the authoring repo)
-and `test_schema_vendored_in_sync.py` (EVA schema vs `contracts/`) exist but check implementation identity and
-schema shape — not cross-language behavioural parity against `@cs/domain`. ADR-0018 keeps the parser vendored.
+Direct inspection confirms two independent seams: Python `normalize_vrm` versus TypeScript
+`canonicalizeVrm`, and Python `marker_for_reference` / `case_type_for_reference` versus TypeScript
+`parseCasePoMarker` / `markerToCaseType`. By contrast, TypeScript `decideCaseType` consumes the parser result
+and `buildEvaPayload` projects already-normalized values, so neither is an independent Python-normalizer
+counterpart. The existing engine and EVA-schema in-sync guards remain authoritative for their own boundaries.
 
 ## Proposed change
-Add a cross-language **behavioural** parity guard that runs the same fixture corpus through the vendored
-parser's VRM / case-type / EVA-field rules and through `@cs/domain`'s equivalents, asserting the normalized
-outputs match. Pin outputs, not internals, so legitimate refactors on either side are allowed but a rule
-divergence (such as the known VRM special case) is caught. Keep the existing engine-in-sync and schema-in-sync
-guards; this widens coverage, it does not replace them or touch the vendor-lock mechanism.
+Add a cross-language **behavioural** parity guard that runs shared fixtures through the independent VRM and
+Case/PO-marker implementations and compares normalized outputs. Reconcile each current difference or record
+an explicitly approved fixture-level allowance. Keep the existing engine-in-sync and EVA-schema-in-sync
+guards; do not invent an EVA-normalization comparison where TypeScript has no independent implementation.
 
 ## Acceptance
-- **A1.** A cross-language parity guard exists that compares the vendored parser's normalized VRM, case-type,
-  and EVA-field outputs against `@cs/domain`'s on a shared fixture corpus.
+- **A1.** A cross-language parity guard compares Python and TypeScript VRM canonicalisation and Case/PO-marker
+  recognition on a shared fixture corpus, naming the exact callable on each side.
 - **A2.** The guard pins observable outputs (normalized results), not implementation, and documents the known
   VRM special-case divergence as either reconciled or an explicitly-approved allowed difference.
-- **A3.** A synthetic divergence (change a VRM or case-type rule on one side only) is caught by the guard.
+- **A3.** Synthetic one-sided VRM and marker-rule divergences are each caught by separate negative fixtures.
 - **A4.** The existing `*_vendored_in_sync` guards and the vendor-lock mechanism (ADR-0018) are unchanged; the
   new guard runs under `verify-all.mjs`.
-- **A5.** No live write.
+- **A5.** EVA coverage remains the existing schema/export contract guard; no tautological comparison against
+  `buildEvaPayload` or `decideCaseType` is accepted as cross-language normalization proof.
+- **A6.** No live write.
 
 ## Validation
-- Run the parity guard over the fixture corpus (expect pass or an approved-difference record) and over a
-  synthetic one-sided rule change (expect fail); confirm `verify-all.mjs` invokes it; existing in-sync guards
-  still pass.
+- Run the parity guard over the shared fixtures and the separate VRM/marker negative fixtures; confirm
+  `verify-all.mjs` invokes it and the existing engine/schema in-sync guards still pass.
 
 ## Research
-Distilled from `05-python-doctrine-and-parity.md` ticket 3 (finding H); the rule overlaps, the non-identical
-VRM canonicalisers, the two existing in-sync guards, and ADR-0018 were re-verified read-only on 2026-07-19
-(`PLAN-011.dossier`). This is PLAN-011's terminal anti-drift guard; PLAN-012 generalises the parity-guard
-doctrine.
+Distilled from `workingspace/architecture-simplification/05-python-doctrine-and-parity.md` ticket 3
+(finding H). The independent callables, current differences, existing in-sync guards, and ADR-0018 were
+re-verified directly against the committed paths named in the distillation note.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)
