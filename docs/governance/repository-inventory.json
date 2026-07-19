@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3651,
-    "entries": 4761
+    "files": 3652,
+    "entries": 4762
   },
-  "totalFileBytes": 703445485,
+  "totalFileBytes": 703448687,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1492980,
+      "size": 1493305,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4243768,
-      "sha256": "ae23e2ce39fd0e2e88516481e1d8e20c5d3821ba906540d74b27383816664af0",
+      "size": 4244176,
+      "sha256": "b2e128ce99d70f5600dc18d9369d00c37bb06d7f3010c5c27905b056c9fc7b4d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 450,
-      "sha256": "88266e0f51efe64cc83e8844af132b1146aae6d0dcbb2cc2e8fd7ebcda18b4e8",
+      "size": 372,
+      "sha256": "cfa1e90602ae008e8f0d0884b39fb504656dd84053dd0ce362872d0e00171cc1",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -35788,8 +35788,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 44418,
-      "sha256": "57c46a414ef44fc9e56cc2667b513af886c63d7b79fc88780380ce0501318eb9",
+      "size": 42327,
+      "sha256": "bcd71960d277da1ec9705a64a09378c252ae9f686e54be4e44153ad99e7d2b63",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35826,6 +35826,15 @@
       "mediaType": "text/typescript",
       "size": 19606,
       "sha256": "687935358a2b386a894b6d64945b92c27e3ad527db6cd99094217e09a1d4da7b",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/parser-eva-fields.ts",
+      "mediaType": "text/typescript",
+      "size": 4638,
+      "sha256": "5e54152ac1678bbc3b5be8f67a7fa0cb40caaaa40407761b7b2aa5599f4d4c13",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
