@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (63)
+## Backlog (66)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -272,6 +272,9 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
 | [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
 | [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
+| [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 · platform · PLAN-011 |
+| [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 · platform · PLAN-011 |
+| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 · platform · PLAN-011 |
 
 ## Blocked (8)
 

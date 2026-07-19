@@ -28,6 +28,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-007](./plans/PLAN-007-server-runtime-foundation.md) — Shared server-runtime foundation | active | 0/5 (0%) |
 | [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 0/6 (0%) |
 | [PLAN-010](./plans/PLAN-010-scripts-and-tooling-dedup.md) — Scripts and tooling dedup | active | 0/4 (0%) |
+| [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 0/3 (0%) |
 
 [Open the generated board](./BOARD.md).
 
@@ -234,7 +235,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (63)
+## Backlog (66)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -301,6 +302,9 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 | platform | PLAN-010 |
 | [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 | platform | PLAN-010 |
 | [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 | platform | PLAN-010 |
+| [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 | platform | PLAN-011 |
+| [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 | platform | PLAN-011 |
+| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 | platform | PLAN-011 |
 
 ## Blocked (8)
 

@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1084,
-    "files": 3575,
-    "entries": 4659
+    "directories": 1090,
+    "files": 3588,
+    "entries": 4678
   },
-  "totalFileBytes": 703253683,
+  "totalFileBytes": 703290092,
   "entries": [
     {
       "path": ".",
@@ -2442,6 +2442,60 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15214,7 +15268,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1460121,
+      "size": 1466317,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15232,8 +15286,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4202185,
-      "sha256": "082e4df6110bf59a3479465c862ed83678cb3d6869c064989b1302cb5ae5336b",
+      "size": 4210014,
+      "sha256": "b20fa9174582a807ed50fada4dcf104766a9fff96429a6750d02e17298ca96fd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15727,8 +15781,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 46659,
-      "sha256": "f3d117d36c6d6d019408421ae1a5d9ae74cef0125cf3cbde9aab9439c113c00d",
+      "size": 47286,
+      "sha256": "d6ff9a725464968d4af49b2a0a7510a12138950b5104dcd75137e1e2ae9c5ad5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15736,8 +15790,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 49153,
-      "sha256": "0813efb69e0e0de7a26fb01de0cc5a6dd07837d1cb82046347adfe4eefe57c36",
+      "size": 49911,
+      "sha256": "c21c1fb5f4bad5961799e6178dbc6b7a8086e6ae3a624d75c127f22c568210eb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18114,6 +18168,114 @@
       "mediaType": "text/markdown",
       "size": 1002,
       "sha256": "b42a52e7b9f98bcc026ee9fc746392140bf447518fcf6a440eac34ed86f5de46",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md",
+      "mediaType": "text/markdown",
+      "size": 3129,
+      "sha256": "b6c2a5080aaf6fdb7fc8b43b932350820827ae77ef797469d224386f433e827b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision/changes.md",
+      "mediaType": "text/markdown",
+      "size": 96,
+      "sha256": "fd86130af900ae9a22fdbeb056483d628f42e62f35ffb51c24c15495be6e21da",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 2214,
+      "sha256": "3105d44a674cbb157855753866089a1a78411d8a693667ac877ce2f68021e639",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-267-python-packaging-doctrine-decision/verification.md",
+      "mediaType": "text/markdown",
+      "size": 181,
+      "sha256": "436194ef9bf20f11f7c9ae3d9a8e21c8942315a765c3ee48d750f92557dfe2e2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md",
+      "mediaType": "text/markdown",
+      "size": 3677,
+      "sha256": "4dcefeb05313449f0bee06ffc69d6d3c080c12769a944e1aa6d6329266850885",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/changes.md",
+      "mediaType": "text/markdown",
+      "size": 111,
+      "sha256": "1f8d2a140170c8005f966c57a1ca1a3e7f2a67fd0517c50d594e718ae0d30eee",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1340,
+      "sha256": "75071de45ec888690f1ec5826f4e576a650839589c42ab228b25847ca086a867",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/verification.md",
+      "mediaType": "text/markdown",
+      "size": 196,
+      "sha256": "bc684b11e851473c1e17a91958250abba66350a1d64e08f16f8f932d453819be",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md",
+      "mediaType": "text/markdown",
+      "size": 3264,
+      "sha256": "f0c6bf43573b091f995b502e94308d0ba55e914a99a6f760f972b5f9d33e161f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard/changes.md",
+      "mediaType": "text/markdown",
+      "size": 103,
+      "sha256": "2fab10db6d8b05f1387b6a5133c38c1ee4b67a2a0a05067da20a66f448c816f7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1628,
+      "sha256": "b137dc9e700990bdd54dfe2efa371e34c2be3afd0c3f861e1f1ded12ead98047",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-269-vendored-parser-cross-language-parity-guard/verification.md",
+      "mediaType": "text/markdown",
+      "size": 188,
+      "sha256": "5a1c2b8ac85e9d96f399dbc2e7092dc1da31e724907f595ed1033983a1e1488e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24801,6 +24963,15 @@
       "mediaType": "text/markdown",
       "size": 6104,
       "sha256": "f8d2fff61abc1e410734d03aff8a09eba48330380c5e75fa1f6655038f0cab0b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-011-python-doctrine-and-parity.md",
+      "mediaType": "text/markdown",
+      "size": 4872,
+      "sha256": "b3f0b55378ac099568a4358a7f7256666e3ec5e619bc2e177d46ef45efff48f5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
