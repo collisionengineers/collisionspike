@@ -52,4 +52,6 @@ and the series README's drift-avoidance rule: each deduplication needs a scoped 
 copy from returning. This ticket owns PLAN-010's two guards directly. Gated on full PLAN-006 close-out.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

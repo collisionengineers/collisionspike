@@ -57,4 +57,6 @@ by direct inspection of the four named checks on 2026-07-19 to the layout ↔ tr
 data-authority and hygiene are different concerns. Gated on full PLAN-006 close-out.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

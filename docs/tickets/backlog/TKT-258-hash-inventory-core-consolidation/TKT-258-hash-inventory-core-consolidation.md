@@ -59,4 +59,6 @@ by direct inspection of `readGitBlobMetadata`, both `sha256File` implementations
 and the three classification-policy groups on 2026-07-19. Gated on full PLAN-006 close-out.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)
