@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3671,
-    "entries": 4781
+    "files": 3680,
+    "entries": 4790
   },
-  "totalFileBytes": 703506120,
+  "totalFileBytes": 703667138,
   "entries": [
     {
       "path": ".",
@@ -2171,15 +2171,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary",
       "mediaType": "inode/directory",
       "size": 0,
@@ -3000,6 +2991,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-019-ticket-system",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4655,6 +4664,168 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5303,6 +5474,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/plans",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5331,24 +5511,6 @@
     },
     {
       "path": "docs/tickets/verify/TKT-016-ai-image-analysis/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5871,168 +6033,6 @@
     },
     {
       "path": "docs/tickets/verify/TKT-170-website-enquiry-classification",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -10010,6 +10010,15 @@
       "lifecycle": "working"
     },
     {
+      "path": ".agents/adapter-manifest.json",
+      "mediaType": "application/json",
+      "size": 3019,
+      "sha256": "f343a6d60711cd0358e6db07ae5e8fc5b129d0bdeeaa9b80995b2fe8b524097f",
+      "category": "source",
+      "owner": "agent-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": ".agents/agents/roles.json",
       "mediaType": "application/json",
       "size": 6790,
@@ -12082,8 +12091,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 10050,
-      "sha256": "f399c8c5e3e905cb1e3aa6904fb600db7a859f2d91fd2e4aac1971efc0b5dad3",
+      "size": 10079,
+      "sha256": "87d47f15bf931c74134217d5f6388cc284351d8faa0ba6289fe2ac55169e27f6",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -15266,10 +15275,55 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0026-rls-as-final-authorization.md",
+      "mediaType": "text/markdown",
+      "size": 5212,
+      "sha256": "1fd632248be9f4c99a833273fac18032058a6ce558bcf0b2c3b4d56bc5f042d7",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0027-ship-dark-gate-model.md",
+      "mediaType": "text/markdown",
+      "size": 4983,
+      "sha256": "9068fa8123a551b084df95e93fca1e19dc792962731e1f7e94039730daedd66c",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0028-three-tier-compute-topology.md",
+      "mediaType": "text/markdown",
+      "size": 5108,
+      "sha256": "6df6f253db02eb2ba5d615a6b7867bb3a45e600d0a7886768826ee6d919b5270",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0029-staff-identity-jose-msal-pkce.md",
+      "mediaType": "text/markdown",
+      "size": 5041,
+      "sha256": "3bdd815600115cc8d3b4cda3dc8cf89a3af5c0e22895c46f019cd29fb6047c0c",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0030-outbox-generation-counter-reliability.md",
+      "mediaType": "text/markdown",
+      "size": 5567,
+      "sha256": "661e9bf0cb38229ac19984504e5c93131a24037065ab21ce923b843149735a75",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 4093,
-      "sha256": "e32c0e57f150781bdd39c9b49f0c95cdb6c1ee90aeb973e595c062f7c882502f",
+      "size": 4744,
+      "sha256": "20698c9fc71899d7b597087bf2df13cdb602a26e2e32fe9c68c051b644654e86",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15412,8 +15466,8 @@
     {
       "path": "docs/governance/README.md",
       "mediaType": "text/markdown",
-      "size": 735,
-      "sha256": "4edff5461c0466a427960dc391399364d5dba54a7c85e13ef9fe65e4e033e449",
+      "size": 903,
+      "sha256": "ddee6cd9299572cb51cee558904699caaea7cd31399687755950d3d2740729e1",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15448,7 +15502,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1499359,
+      "size": 1502019,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15457,8 +15511,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 6480,
-      "sha256": "30f3e262f575ebcf66d59482f44721f5b8fe990918e58d42d1c83b19f6cf6ea4",
+      "size": 7545,
+      "sha256": "34a867952163b04ff221ae73f629e1da50cfd32f6625935e8898ba6b3aa65c97",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15466,8 +15520,17 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4251811,
-      "sha256": "f850427453bba882057557c743c54ba24fc029c7ad883d8220d700ccfd3a3061",
+      "size": 4255225,
+      "sha256": "1948046f5d0f0bf2a1e3d496d18611ac3b9cdfdb1ca503fd995d7e0b01bb0597",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/governance/repository-tree.md",
+      "mediaType": "text/markdown",
+      "size": 67522,
+      "sha256": "e58988fcf83b89f5e331788652c5dbec0875965d0c0859f40291224a1d9a1d4c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15961,8 +16024,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49359,
-      "sha256": "839ec0a6052a9e01a8085145a953aee8732ea76e74f8990fa0172e65b448b202",
+      "size": 49335,
+      "sha256": "2d7565642d6351a7909949b36dbb9be760080ed6ec499638609ee3ce061eb275",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15970,8 +16033,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52195,
-      "sha256": "0dce74abcabc8824acf55caceff13561dc10f722a26eb8829a33f96fd2a30520",
+      "size": 52172,
+      "sha256": "bc4d233cdd749f6f8fd5b0f65ce22decac2385efe3050edc0a6a00e2a5d9e144",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17858,33 +17921,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
-      "mediaType": "text/markdown",
-      "size": 2241,
-      "sha256": "f8f1aa114654e04f90b1b3ab000dd94129aac3e2c4b246365fefe631f04829b6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/changes.md",
-      "mediaType": "text/markdown",
-      "size": 87,
-      "sha256": "4c8b093d83a382018f3b52ae71881a2c68725bc6df58b32b1d9173a8168591dc",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/verification.md",
-      "mediaType": "text/markdown",
-      "size": 231,
-      "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md",
       "mediaType": "text/markdown",
       "size": 3321,
@@ -19698,6 +19734,60 @@
       "mediaType": "text/markdown",
       "size": 534,
       "sha256": "dddf99b43d49af60723f37c272f8693f598ddfbf5b092989eb6af8c9bdbd3678",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md",
+      "mediaType": "text/markdown",
+      "size": 3672,
+      "sha256": "18f732c3231a3ecf9595c6c7eb83c9e70fd912cc2f26ffa1fc39097e69c0fe75",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/changes-regression-12-07-26.md",
+      "mediaType": "text/markdown",
+      "size": 373,
+      "sha256": "a7d07f5548208e368b25b2653f67e4f8be9ae9c59a1eda1bb762b60e44280424",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1045,
+      "sha256": "d8fed08c4332e5205931e706badb6850497cad482c05d88c258a83edb3367068",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/evidence/operator-followup-12-07-26.md",
+      "mediaType": "text/markdown",
+      "size": 204,
+      "sha256": "28acfe0609dfa851acf285f8c8c993df8c2114f24174df03a277804d8c579ca0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/evidence/operator-note-2026-07-15.md",
+      "mediaType": "text/markdown",
+      "size": 548,
+      "sha256": "8ba18b437a8ce3a264f60f24f471b7a5c847f708923e2296ea91e817e4e1a9df",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-020-docs-cleanup/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4168,
+      "sha256": "ad8a1fc780d8da40738f3501f85dfd0b20bb7d0b33217d93a9f21f73506a4811",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23861,6 +23951,339 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md",
+      "mediaType": "text/markdown",
+      "size": 3852,
+      "sha256": "72781130a8b1e41827f2f7e33308d2e9375391fdb7adce7639485e73047b9b82",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2273,
+      "sha256": "3d350cc28abb1eec4c7984cce5ead7fc8365fa2d020bcf3cd34b4712449f1e30",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 216,
+      "sha256": "c99d955ce4f1a42d742119e36e9412965163ce6da0b7a708226115212873495b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-207-repository-inventory-disposition-ledger/verification.md",
+      "mediaType": "text/markdown",
+      "size": 7303,
+      "sha256": "c523e726909ba8a5622f23c331284f02828d975f04272268954dc599d6f359ab",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md",
+      "mediaType": "text/markdown",
+      "size": 4453,
+      "sha256": "4b91f723fd1d20fa670afaf5a6cf8b00fecd5a4c48f9d8be56aa68c420e1dc2f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1950,
+      "sha256": "f036d1e14711a973f9611b1c2680c56d6be2dbd9d70555808337643e60455e68",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 311,
+      "sha256": "65dcbaad227d3c6e9658cd863831cbda0bf4c919cf281e76307d871b29a7ccdc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-208-evidence-catalog-workingspace-relocation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 5557,
+      "sha256": "f83ed918ad163cbd4e25b094d1c9322642d1c4bde03645b9ce96d5a79377e4be",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md",
+      "mediaType": "text/markdown",
+      "size": 3567,
+      "sha256": "374cd4da80a199cf34c68a4b45cb7153b081f170c6fee534493b83688d91a75f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal/changes.md",
+      "mediaType": "text/markdown",
+      "size": 861,
+      "sha256": "71ea69153ba75fb76ff1b159f3b78d3fd9b9e681df282915eac405c2d6843a53",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 183,
+      "sha256": "133887ee0afbaca00735cb09e70789e088d47b6f81247cc21d83918ea53f8535",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-209-monorepo-path-migration-generated-output-removal/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1891,
+      "sha256": "99e748a91bdc956c320e531f2ff376b53af52475efa063af8a2c9b17db5de91a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
+      "mediaType": "text/markdown",
+      "size": 3396,
+      "sha256": "728b514ac09663150e03501a514a781318802f118090782b254e9e4e66a792d2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3350,
+      "sha256": "e6c134a6b36f405254005126ffc6ed0d2093a01829f86e1c3ff679df4457b6e4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 256,
+      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-210-source-decomposition-no-mock-invariant/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3369,
+      "sha256": "f3441c547537ba0fd40c740ea5bfa258145527508e4fa097de0617f270a646d8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md",
+      "mediaType": "text/markdown",
+      "size": 3845,
+      "sha256": "0d1b94badd5c6b26fdc533c3e2b9862aaac000694d3192e9f08f76d5cd64add9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2126,
+      "sha256": "1024356e229dc267cff35bc1a0f6ac16ab573bf484a8889dcb79b20b6c67b999",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 277,
+      "sha256": "8318a0f64d74d8c436887e109b94431ee34863473f7b40eff10febade1af9522",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-211-forbidden-reference-gate/verification.md",
+      "mediaType": "text/markdown",
+      "size": 8667,
+      "sha256": "de8904cde1875b170b2a44555bde586d10c0bb149ea9df64d9ff0bf81b7ddf6c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md",
+      "mediaType": "text/markdown",
+      "size": 3088,
+      "sha256": "5ba4648d54f0167d092cbeb0f52d949fd8d5d38113978cce6e47da64ba316424",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2159,
+      "sha256": "8b6d1f6282c6f1e4d0276bf7473496e5b3a75c48003f0a24498807d3716e06ba",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 201,
+      "sha256": "afdaf68c0c7ce73ec76fabd85b1bdb9fe62802a0b753bf936d43e4b0e06f2232",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-212-canonical-agent-skill-generation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 5299,
+      "sha256": "242bdc61cdd033a124aaf7c4342ae221f44656573fadb0876b6c3c63eb33e833",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md",
+      "mediaType": "text/markdown",
+      "size": 3618,
+      "sha256": "1530a3e2359710be763d0e1144d86ce3ca157bc3ab9d0a1ce37fc29b3d49b882",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1359,
+      "sha256": "90f06dcfd26f0f22541d35881dd38e5fa9637f29c6f42b0c535dd6038beb90c6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 199,
+      "sha256": "b1a65ef80b1fbc507164e9ea66486bde403e0ebe8892e3625895b70d621bdf94",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-213-ticket-index-research-link-reconciliation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4473,
+      "sha256": "3dd3c668dc9083eaf51bbb3b4017880b73148fa5900f4772d878c9f775af4557",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md",
+      "mediaType": "text/markdown",
+      "size": 3645,
+      "sha256": "ac465bddba2cd7000452cd7c167ec921ac82e913bcc48ff037242bee86efe089",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2174,
+      "sha256": "9ec23defafcce891ccecb002aeefc323ad6e02dcd0440bbd8c887470899fbdd4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 248,
+      "sha256": "e784ab4bd1e66e1caa045b0be56aedeecb4bcf26648fa29ab89d65f50484d6b3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-214-repository-gates-ci-closeout/verification.md",
+      "mediaType": "text/markdown",
+      "size": 4748,
+      "sha256": "f96cbd4a7d14e1342ece79d4d7115a359c845fc9f5180eab99aae1af62915ab1",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md",
+      "mediaType": "text/markdown",
+      "size": 3739,
+      "sha256": "5487237c16179a74e64c21624854d24b612efa9164ef481bfa3c9e65069690be",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/changes.md",
+      "mediaType": "text/markdown",
+      "size": 877,
+      "sha256": "0692a522ae58e60d0e1205532a6930b30d11417bfe20c1377a7fdd9321eff335",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/evidence/live-use-audit-2026-07-15.md",
+      "mediaType": "text/markdown",
+      "size": 3450,
+      "sha256": "e7a40f222911480701f2a3f4c86344dc927e8dbc2b99cbe6ff30af677e24f908",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 223,
+      "sha256": "2d838ea5a31c33eb4952118125b905763587032ee06e5c31c3696fde6488f071",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-215-eva-validation-live-use-audit/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3717,
+      "sha256": "c32130610ff98cdc5317783f9a086781e0e9725b010519d7cd5159f42b4cf029",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md",
       "mediaType": "text/markdown",
       "size": 3411,
@@ -25454,6 +25877,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
+      "mediaType": "text/markdown",
+      "size": 2237,
+      "sha256": "0d5a8b6dcc6657c764fede6a577d27da8528aa1d76662606f57fe9ab2f70bb35",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2347,
+      "sha256": "0be94d691bc82b5660c9a4aeb111495d6ae5e867d5ea77516fdaff2ce856aca4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1477,
+      "sha256": "c447f7969680583972a38079723b514ca9bed05df4ed3f2aa0f0f083017b6628",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4510,
@@ -25501,8 +25951,8 @@
     {
       "path": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
       "mediaType": "text/markdown",
-      "size": 5128,
-      "sha256": "b9dae40cc61d5f1d29ac61271bfe0962cc64aa37942d38888835062f66ac6c51",
+      "size": 5089,
+      "sha256": "4d36003fcf6a1bfe55735c4717c1bbe7f8b797a0226edaaf13ecbf932743c6ec",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25629,60 +26079,6 @@
       "mediaType": "text/markdown",
       "size": 8500,
       "sha256": "9f16156da63f5bd35830b6bc904cba63dd294d79545ec5f3a100f07f2a0b764a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md",
-      "mediaType": "text/markdown",
-      "size": 3676,
-      "sha256": "cfc9ab02a7c2f865a1f3185666a0a0b95b1acd572e1e49d10152150a089ff1d6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/changes-regression-12-07-26.md",
-      "mediaType": "text/markdown",
-      "size": 373,
-      "sha256": "a7d07f5548208e368b25b2653f67e4f8be9ae9c59a1eda1bb762b60e44280424",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1045,
-      "sha256": "d8fed08c4332e5205931e706badb6850497cad482c05d88c258a83edb3367068",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/evidence/operator-followup-12-07-26.md",
-      "mediaType": "text/markdown",
-      "size": 204,
-      "sha256": "28acfe0609dfa851acf285f8c8c993df8c2114f24174df03a277804d8c579ca0",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/evidence/operator-note-2026-07-15.md",
-      "mediaType": "text/markdown",
-      "size": 548,
-      "sha256": "8ba18b437a8ce3a264f60f24f471b7a5c847f708923e2296ea91e817e4e1a9df",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-020-docs-cleanup/verification.md",
-      "mediaType": "text/markdown",
-      "size": 2309,
-      "sha256": "154daa7a047dcfdc684b636cf003193500d745e602753f272dc41ef1abfb85f3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27159,339 +27555,6 @@
       "mediaType": "text/markdown",
       "size": 7678,
       "sha256": "816148457dc7ced3b6493b88f3456d562f68c20e0049827b2ea02601f9d2c2a0",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md",
-      "mediaType": "text/markdown",
-      "size": 3856,
-      "sha256": "32a84485aa04792ad7e6b6949b4fca9d816272214436b81f4505fbc1a0a166d8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/changes.md",
-      "mediaType": "text/markdown",
-      "size": 927,
-      "sha256": "10da831292ba3e247541f6b54caa348f4fe4397856142bd562406391fcf25381",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 216,
-      "sha256": "c99d955ce4f1a42d742119e36e9412965163ce6da0b7a708226115212873495b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-207-repository-inventory-disposition-ledger/verification.md",
-      "mediaType": "text/markdown",
-      "size": 2266,
-      "sha256": "7855550cc2c8d20922d91669eaa760c6add9c81e7c7d7d72455026bb49f41b79",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md",
-      "mediaType": "text/markdown",
-      "size": 3631,
-      "sha256": "ccc273c70d0221694377ebe72cf71e66c15a1add211392dd6136012aeca9a063",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1058,
-      "sha256": "b19da30d741531c465885621fc93b7991b36482b1e90de6b73627c2f04511a2f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 311,
-      "sha256": "65dcbaad227d3c6e9658cd863831cbda0bf4c919cf281e76307d871b29a7ccdc",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-208-evidence-catalog-workingspace-relocation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1608,
-      "sha256": "d8f8c2cb6170e9fff02a54727c633e77653b2afa2f30a7bf06de2e9538790bd0",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md",
-      "mediaType": "text/markdown",
-      "size": 3571,
-      "sha256": "1e19f8590ac460b7b0e348570649c44bc7fe06fe5d84f9551e7668407d7b2739",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/changes.md",
-      "mediaType": "text/markdown",
-      "size": 861,
-      "sha256": "71ea69153ba75fb76ff1b159f3b78d3fd9b9e681df282915eac405c2d6843a53",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 183,
-      "sha256": "133887ee0afbaca00735cb09e70789e088d47b6f81247cc21d83918ea53f8535",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1891,
-      "sha256": "99e748a91bdc956c320e531f2ff376b53af52475efa063af8a2c9b17db5de91a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
-      "mediaType": "text/markdown",
-      "size": 3400,
-      "sha256": "3a5d158dff7015eb10a432ebadbd9d96caeb4b7ead6123a206a558a2aaa75c77",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/changes.md",
-      "mediaType": "text/markdown",
-      "size": 3350,
-      "sha256": "e6c134a6b36f405254005126ffc6ed0d2093a01829f86e1c3ff679df4457b6e4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 256,
-      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3369,
-      "sha256": "f3441c547537ba0fd40c740ea5bfa258145527508e4fa097de0617f270a646d8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md",
-      "mediaType": "text/markdown",
-      "size": 3849,
-      "sha256": "c4c51242d642450c993a7d196ea5d0e5b3f90e2823a38495915581b8ae8acaf2",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1114,
-      "sha256": "817d1973f91db16232b273a96f8c93b75785f5ebb5653467c9516090f15414e0",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 277,
-      "sha256": "8318a0f64d74d8c436887e109b94431ee34863473f7b40eff10febade1af9522",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-211-forbidden-reference-gate/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1639,
-      "sha256": "593ba29f2b142c8ded6c6fd1282d37a453d7b52bc1b9b4b14c36bb4c63fa8f76",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md",
-      "mediaType": "text/markdown",
-      "size": 3092,
-      "sha256": "04d37bb2f209d4e7234b3f4cd6c088f78455a3c5315fad1b9e93dac6ece735a9",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 753,
-      "sha256": "7e1b98a2b3158c5a3c0e91247c23639b03dd09aa31a2e2a4cded65f49ec6f95a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 201,
-      "sha256": "afdaf68c0c7ce73ec76fabd85b1bdb9fe62802a0b753bf936d43e4b0e06f2232",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-212-canonical-agent-skill-generation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1098,
-      "sha256": "8805d72a33e65857ad167876154b0a787038da0e140dd88be8fc3163361e9a64",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md",
-      "mediaType": "text/markdown",
-      "size": 3622,
-      "sha256": "4a2e55f0d96eb93999790464bb26353d0771de761fde493084d8501a58ceee12",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 971,
-      "sha256": "01c4595a5e88ad6cf62cfba4e09cab5a34af101a3c9d6a038f93bee3c8de9080",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 199,
-      "sha256": "b1a65ef80b1fbc507164e9ea66486bde403e0ebe8892e3625895b70d621bdf94",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-213-ticket-index-research-link-reconciliation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1277,
-      "sha256": "e53cf8c281f6b2d5753b54ca5c7339b39318a4ebdf329222d97cc13294344118",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md",
-      "mediaType": "text/markdown",
-      "size": 3649,
-      "sha256": "69c2112f9e33b0bc7b02a7dc5b31e665c26ee6cc2052a428d0be8f664f41741f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2174,
-      "sha256": "9ec23defafcce891ccecb002aeefc323ad6e02dcd0440bbd8c887470899fbdd4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 248,
-      "sha256": "e784ab4bd1e66e1caa045b0be56aedeecb4bcf26648fa29ab89d65f50484d6b3",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-214-repository-gates-ci-closeout/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3257,
-      "sha256": "c1382b6ab8e34e4bb0a5e79549f5ab27b1c08e5d202753ac24c6f0e8de5cb1ce",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md",
-      "mediaType": "text/markdown",
-      "size": 3743,
-      "sha256": "0dbbb89ed93b18b4e91235526c56553c59c9ffd40655870949e6f854fc2c1f92",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/changes.md",
-      "mediaType": "text/markdown",
-      "size": 877,
-      "sha256": "0692a522ae58e60d0e1205532a6930b30d11417bfe20c1377a7fdd9321eff335",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence/live-use-audit-2026-07-15.md",
-      "mediaType": "text/markdown",
-      "size": 3450,
-      "sha256": "e7a40f222911480701f2a3f4c86344dc927e8dbc2b99cbe6ff30af677e24f908",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 223,
-      "sha256": "2d838ea5a31c33eb4952118125b905763587032ee06e5c31c3696fde6488f071",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-215-eva-validation-live-use-audit/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1625,
-      "sha256": "f3ae43baec14df169af65ec3c1a3369f822215cac5bb73f996773d10dc768ba5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29434,8 +29497,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 4320,
-      "sha256": "f52c3ed93edf16d1bd3b631d858866aab1c0e081c0721c2e9d70e558ee9b3c83",
+      "size": 4881,
+      "sha256": "0f10e6c2afda6c6e9521aae6bfd8d552bc9342c15119198b7d339404a3743ef5",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30865,8 +30928,17 @@
     {
       "path": "scripts/maintenance/generate-agent-adapters.mjs",
       "mediaType": "text/javascript",
-      "size": 6756,
-      "sha256": "eb4b6f3946d858c7d96b8520ca383b9406e40feeb2e3ce77af9e5a6ccff974f6",
+      "size": 9127,
+      "sha256": "30076d8de7537a543191baeb5087c48b43309cfbfc7d1aa805630b25dd09f9f8",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/generate-agent-adapters.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 5280,
+      "sha256": "84d530974d83634a7d8786a4448fd327a670b2c33cfd530c3c42fe043e180307",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30894,6 +30966,15 @@
       "mediaType": "text/javascript",
       "size": 4352,
       "sha256": "469f62cf43c0c5063c86a50c9995f3f997c6d9967f99f416732729954386f4cb",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/maintenance/generate-repository-tree.mjs",
+      "mediaType": "text/javascript",
+      "size": 10180,
+      "sha256": "4865f1d7ea13ad7380ddf0219d148ee9abcc3593bedf806e5604e477f53b4a2e",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -42196,8 +42277,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 5618,
-      "sha256": "b0182105c40549a96bdec6fffb410ed482564b3268ba3a6cd39b62650946c036",
+      "size": 5706,
+      "sha256": "d3ef771f2aa5282b545b1341eb8fb58160825ac811c549d5b9f0f4f39530d27e",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

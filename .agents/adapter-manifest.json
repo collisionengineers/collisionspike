@@ -1,0 +1,74 @@
+{
+  "manifestVersion": 1,
+  "generator": "scripts/maintenance/generate-agent-adapters.mjs",
+  "generatorVersion": "1.0.0",
+  "description": "Versioned map from each canonical .agents source to every generated tool-specific adapter path. Only the canonical sources and this manifest are hand-authored; every listed adapter path is reproduced byte-for-byte by the generator and verified by `npm run check:adapters`. Editing an adapter directly is a hand-edit and fails parity.",
+  "sources": [
+    {
+      "id": "agent-roles",
+      "kind": "roles",
+      "canonical": ".agents/agents/roles.json",
+      "schemaVersion": 1,
+      "adapters": [
+        {
+          "tool": "claude",
+          "directory": ".claude/agents",
+          "extension": ".md",
+          "transformation": "role-markdown",
+          "wrapper": "YAML frontmatter plus a canonical-source pointer, scope line, and the verbatim role instructions.",
+          "toolSpecificMetadata": {
+            "frontmatterKeys": ["name", "description", "model"],
+            "model": "inherit"
+          }
+        },
+        {
+          "tool": "cursor",
+          "directory": ".cursor/agents",
+          "extension": ".md",
+          "transformation": "role-markdown",
+          "wrapper": "YAML frontmatter plus a canonical-source pointer, scope line, and the verbatim role instructions.",
+          "toolSpecificMetadata": {
+            "frontmatterKeys": ["name", "description", "model"],
+            "model": "inherit"
+          }
+        },
+        {
+          "tool": "codex",
+          "directory": ".codex/agents",
+          "extension": ".toml",
+          "transformation": "role-toml",
+          "wrapper": "TOML key/value pairs; the canonical-source pointer and scope are folded into developer_instructions.",
+          "toolSpecificMetadata": {
+            "keys": ["name", "description", "developer_instructions"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "skills",
+      "kind": "skills",
+      "canonical": ".agents/skills",
+      "sourceFile": "SKILL.md",
+      "adapters": [
+        {
+          "tool": "claude",
+          "directory": ".claude/skills",
+          "transformation": "skill-pointer",
+          "wrapper": "Canonical SKILL.md frontmatter followed by a generated-adapter pointer that links back to the canonical skill; carries no independently authored guidance."
+        },
+        {
+          "tool": "cursor",
+          "directory": ".cursor/skills",
+          "transformation": "skill-pointer",
+          "wrapper": "Canonical SKILL.md frontmatter followed by a generated-adapter pointer that links back to the canonical skill; carries no independently authored guidance."
+        },
+        {
+          "tool": "codex",
+          "directory": ".codex/skills",
+          "transformation": "skill-pointer",
+          "wrapper": "Canonical SKILL.md frontmatter followed by a generated-adapter pointer that links back to the canonical skill; carries no independently authored guidance."
+        }
+      ]
+    }
+  ]
+}

@@ -57,6 +57,10 @@ summary. A historical string that matches the retired-vocabulary policy is repre
 ledger by an irreversible SHA-256 reference; validation still uses the exact Git-tree value before that
 policy-safe serialization. The inventory and reconciliation files are omitted from the reconciliation content map to avoid a
 mutual hash cycle; the independent layout and inventory gates still require and record both artifacts.
+[`repository-tree.md`](./repository-tree.md) renders the same `baselineEntries` (current) and `finalEntries` (proposed) as
+human-readable per-area directory trees, and asserts at generation time that its per-area subtotals reconcile to the ledger
+`summary` and to the inventory `counts` (the proposed file count trails the inventory by the two ledger-omitted governance
+artifacts); `check:tree` fails on any drift.
 `npm run inventory:checkout` separately enumerates every physical checkout
 item, including ignored dependencies, generated output, empty directories, symlinks, and repository
 metadata. The checkout inventory is ephemeral and uploaded by CI under `repository-audit-ledgers`; it is
@@ -82,14 +86,20 @@ Each generator and the gate it satisfies:
 | `docs/tickets/BOARD.md`, `docs/tickets/README.md`, plan progress blocks | `npm run generate:tickets` | `check:tickets` |
 | `docs/governance/repository-inventory.json` | `npm run generate:inventory` | `check:inventory` |
 | `docs/governance/repository-reconciliation.json` | `npm run generate:reconciliation` | `check:reconciliation` |
+| `docs/governance/repository-tree.md` | `npm run generate:tree` | `check:tree` |
 
 Order matters, and the inventory reads **staged** blobs — so the artifacts must be staged as they are
 produced. Reconciliation reads the inventory (inventory first); the inventory hashes the ticket views (ticket
 views before that); and the inventory also records the reconciliation ledger's *own* hash, so the inventory is
-regenerated once more after reconciliation to reach a stable fixed point. `generate:governance` runs the whole
-sequence — ticket views → stage → inventory → reconciliation → stage → inventory → stage — staging only its own
-generated paths under `docs/tickets` and `docs/governance` (never `-A`). Run it whole rather than the
-individual generators, which would otherwise leave the inventory recording a stale reconciliation hash. The
+regenerated once more after reconciliation to reach a stable fixed point. The repository tree is generated from
+reconciliation and is itself an inventory row and a reconciliation `finalEntries` row, so `generate:governance`
+folds it into the fixed point: after the first reconciliation it runs `generate:tree`, re-runs inventory and
+reconciliation so the tree is counted and its bytes recorded, then settles inventory once more. Because the tree
+renders only path structure (never sizes or hashes) the loop converges. `generate:governance` runs the whole
+sequence — ticket views → stage → inventory → reconciliation → stage → tree → stage → inventory → reconciliation
+→ stage → tree → stage → inventory → reconciliation → stage → inventory → stage — staging only its own generated
+paths under `docs/tickets` and `docs/governance` (never `-A`). Run it whole rather than the individual
+generators, which would otherwise leave the inventory recording a stale reconciliation hash. The
 generated agent adapters and the runtime contract regenerate separately
 (`node scripts/maintenance/generate-agent-adapters.mjs`, `npm run generate:runtime-contract`).
 
