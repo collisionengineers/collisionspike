@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1076,
-    "files": 3566,
-    "entries": 4642
+    "directories": 1084,
+    "files": 3575,
+    "entries": 4659
   },
-  "totalFileBytes": 703214500,
+  "totalFileBytes": 703253683,
   "entries": [
     {
       "path": ".",
@@ -2370,6 +2370,78 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15142,7 +15214,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1454817,
+      "size": 1460121,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15160,8 +15232,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4195412,
-      "sha256": "5e3ad0c51b8ecc0885b94b0199766bd288d8a622b427b0ae6baa970c8143ecfc",
+      "size": 4202185,
+      "sha256": "082e4df6110bf59a3479465c862ed83678cb3d6869c064989b1302cb5ae5336b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15655,8 +15727,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 45872,
-      "sha256": "c4a11228f5a79fc4993d5f63cdbcbc4e0d8121932c90a800289db51ca3f742f8",
+      "size": 46659,
+      "sha256": "f3d117d36c6d6d019408421ae1a5d9ae74cef0125cf3cbde9aab9439c113c00d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15664,8 +15736,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 48262,
-      "sha256": "9ec026cd3f8d5cfeaaa4675733ea1d03bb22f16e8d7091edb32e9106c7222158",
+      "size": 49153,
+      "sha256": "0813efb69e0e0de7a26fb01de0cc5a6dd07837d1cb82046347adfe4eefe57c36",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17970,6 +18042,78 @@
       "mediaType": "text/markdown",
       "size": 238,
       "sha256": "ec4a502a7c625b5608be3d3f8c8027d4298ca0a42727c0f96d8c253528d976d2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3740,
+      "sha256": "6f4919e7442ac342c17973222d7d62c953632b5a0ae408c1378ba61a72bea960",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1461,
+      "sha256": "24871c7a2fb7f8d51e8fad1818fd980dd03a921682b9ed78d21988606dba5e64",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3397,
+      "sha256": "08488b0b4c7d275ca5d638dc2dc84b2de397efd56df55e1616ad2737464bfa9f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1507,
+      "sha256": "c9f1d210822f990b131a0a717501a3eba1ae9c8ca2d63eab57c8659dc305f5a6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md",
+      "mediaType": "text/markdown",
+      "size": 3783,
+      "sha256": "9ad4ec0317793b340e10be599e499d2185c809929cbae4d6fbb08899c5c79e2f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1418,
+      "sha256": "ec7c7cb5d05c1a7ec53e07eaef19e1f4f095e24d1406d24fe50e75c2d7ab2b5e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md",
+      "mediaType": "text/markdown",
+      "size": 3016,
+      "sha256": "b358462549171e0a86033276c4f6e5f43c5b8109f678ecf819c9123968864135",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1002,
+      "sha256": "b42a52e7b9f98bcc026ee9fc746392140bf447518fcf6a440eac34ed86f5de46",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24648,6 +24792,15 @@
       "mediaType": "text/markdown",
       "size": 6478,
       "sha256": "dc70c3f5bd6272d293434fdc1503e18a02b1c2942a5f533b1a8564d0f38f1f23",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-010-scripts-and-tooling-dedup.md",
+      "mediaType": "text/markdown",
+      "size": 6104,
+      "sha256": "f8d2fff61abc1e410734d03aff8a09eba48330380c5e75fa1f6655038f0cab0b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

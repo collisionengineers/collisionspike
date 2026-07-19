@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (59)
+## Backlog (63)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -268,6 +268,10 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-255](./backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | Rationalise the bicep layout to one convention | P2 · platform · PLAN-009 |
 | [TKT-256](./backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | Assess helper-app consolidation (read-only) | P3 · platform · PLAN-009 |
 | [TKT-257](./backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | Refresh LIVE_FACTS and the live-environment doc | P1 · platform · PLAN-009 |
+| [TKT-258](./backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | Consolidate the hash and path-normalize inventory core | P2 · platform · PLAN-010 |
+| [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
+| [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
+| [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
 
 ## Blocked (8)
 
