@@ -1,7 +1,7 @@
 # Distillation note — TKT-256
 
-**Source:** `03-cloud-estate-cleanup.md` scope item 5. **Plan:** PLAN-009. Verified read-only 2026-07-19
-(`PLAN-009.dossier.json`).
+**Source:** `03-cloud-estate-cleanup.md` scope item 5. **Plan:** PLAN-009. Verified read-only 2026-07-19 —
+banked in the [PLAN-009 live-verification dossier](../../../plans/PLAN-009.dossier.md).
 
 **Topology (live):** App Service plans are one-per-app, all Flex/FC1; storage accounts are one-per-app (the
 evidence blob store is separate). Application Insights, however, is **not** one-per-app — a small number of

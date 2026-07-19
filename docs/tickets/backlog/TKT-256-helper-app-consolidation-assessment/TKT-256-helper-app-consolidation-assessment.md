@@ -32,17 +32,24 @@ Execute no change. The output feeds PLAN-011's Python sharing calculus.
   simplified by plan/storage consolidation.
 - **A2.** The assessment makes a keep-or-consolidate recommendation with the risk rationale and executes no
   change (read-only).
-- **A3.** The output is referenced by PLAN-011 as an input to its Python sharing decision.
+- **A3.** The assessment is filed as a self-contained deliverable, structured so PLAN-011 (when it is
+  authored) can consume it as an input to its Python sharing decision. TKT-256 closes on its own filed
+  assessment — its closure does not wait on PLAN-011 landing (PLAN-011 does not yet exist and is not a
+  declared dependency).
 - **A4.** Evidence is banked with timestamps; no live mutation occurs.
 
 ## Validation
-- The assessment document exists, is dated, and is linked from PLAN-011's decision ticket; no resource is
-  modified.
+- The assessment document exists and is dated; it is self-contained so a future PLAN-011 may link it as an
+  input; no resource is modified.
 
 ## Research
 Distilled from `03-cloud-estate-cleanup.md` scope item 5; the plan/storage one-per-app topology and the
-already-shared App Insights fan-in were re-verified read-only on 2026-07-19 (`PLAN-009.dossier`), which
-corrects the draft's "each carry their own App Insights". Gated on TKT-246's topology framing.
+already-shared App Insights fan-in (six focused apps routing to one shared component) were re-verified
+read-only on 2026-07-19 — see the banked
+[PLAN-009 live-verification dossier](../../plans/PLAN-009.dossier.md) — which corrects the draft's "each carry
+their own App Insights". Gated on TKT-246's topology framing.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

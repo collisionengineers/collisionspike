@@ -4,7 +4,7 @@ title: Retire the EVA-validation app and its storage
 status: backlog
 priority: P2
 area: platform
-tickets-it-relates-to: [TKT-215, TKT-253, TKT-257]
+tickets-it-relates-to: [TKT-215, TKT-253, TKT-254, TKT-257]
 research-link: docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/evidence/distillation-note.md
 plan: PLAN-009
 ---
@@ -25,11 +25,20 @@ Running: the app `cespkeval-fn-6c6fxd`, its Flex (FC1) plan `cespkeval-plan-6c6f
 
 ## Proposed change
 On explicit per-ticket operator authorisation, delete the EVA-validation function app, its Flex plan, and its
-storage account — the full triple — consuming TKT-215's verdict without re-auditing. Re-run the read-only
-cloud-inventory runbook before and after and bank the evidence.
+storage account — the full triple — consuming TKT-215's verdict as the disposition authority without
+re-auditing. TKT-215's audit distinguishes *no observed use* from *proof of no dependency* (its A3/A5) and its
+telemetry window is dated 2026-07-15, so immediately before the destructive mutation re-run a fresh bounded
+Application Insights request/trace query plus a caller-configuration check to confirm no caller has appeared
+since the audit; the cloud-inventory runbook inventories ARM metadata only and does not itself query
+invocations. Re-run the read-only cloud-inventory runbook before and after and bank the evidence.
 
 ## Acceptance
-- **A1.** TKT-215 is `done` and its verdict is cited as the sole authority; no fresh audit is substituted.
+- **A1.** TKT-215 is `done` and its verdict is cited as the disposition authority; no fresh *audit* is
+  substituted for its verdict.
+- **A2a.** Immediately before deletion, a fresh bounded Application Insights request/trace query and a
+  caller-configuration check confirm no caller has appeared since TKT-215's 2026-07-15 window; the result is
+  banked into `evidence/` with a timestamp. If a caller is found, deletion does not proceed and the ticket
+  returns to disposition review.
 - **A2.** Under explicit per-ticket operator authorisation, the EVA-validation function app, its Flex plan,
   and its storage account are deleted; before/after cloud-inventory runbook runs are banked into `evidence/`
   with timestamps.
@@ -45,7 +54,10 @@ cloud-inventory runbook before and after and bank the evidence.
 
 ## Research
 Distilled from `03-cloud-estate-cleanup.md` scope item 1; the triple's live presence and the repository
-retirement state were re-verified read-only on 2026-07-19 (`PLAN-009.dossier`). Gated on TKT-215 → `done`.
+retirement state were re-verified read-only on 2026-07-19 — see the banked
+[PLAN-009 live-verification dossier](../../plans/PLAN-009.dossier.md). Gated on TKT-215 → `done`.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

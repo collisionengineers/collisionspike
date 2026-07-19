@@ -18,10 +18,13 @@ reality, not intent.
 
 ## Evidence
 Read-only live pass 2026-07-19: the subscription offer is pay-as-you-go, not a free trial
-(`subscriptionPolicies.quotaId` is the PAYG offer, spending limit off); the app-tier function counts differ
-from the recorded figures (the in-repo `cloud-inventory-2026-07-17.md` over-counts the API app); and the
-resources retired by tickets 1–3 need reflecting. `LIVE_FACTS.json`'s own rule requires updates only from
-dated read-only evidence, never inferred from source.
+(`subscriptionPolicies.quotaId` is the PAYG offer, spending limit off). On the app-tier function counts, two
+distinct facts: (i) the in-repo `cloud-inventory-2026-07-17.md` **over-counts the API app** — but
+`LIVE_FACTS.json`'s API figure already matches live, so no LIVE_FACTS change is needed there; (ii)
+`LIVE_FACTS.json`'s **orchestration** count is the figure that has genuinely drifted, having risen since its
+last dated snapshot after the 2026-07-17 orchestration deploy — that is the app-tier count TKT-257 corrects in
+the registry. The resources retired by tickets 1–3 also need reflecting. `LIVE_FACTS.json`'s own rule requires
+updates only from dated read-only evidence, never inferred from source.
 
 ## Proposed change
 As the **last** ticket in the plan, refresh `LIVE_FACTS.json` and `live-environment.md` from a dated read-only
@@ -33,7 +36,9 @@ counts, and record the retirements and dispositions from tickets 1–4. The exac
 - **A1.** The `LIVE_FACTS.json` offer/tier is corrected to pay-as-you-go and `live-environment.md`'s stale
   free-trial line is corrected.
 - **A2.** The app-tier function counts and retired-resource states are updated from a dated read-only
-  inventory captured in the same change set — no value inferred from source.
+  inventory captured in the same change set — no value inferred from source. Specifically the drifted
+  orchestration count is corrected in `LIVE_FACTS.json`; the API figure is confirmed already-correct (it is
+  `cloud-inventory-2026-07-17.md`, not the registry, that over-counts the API).
 - **A3.** This change lands last, after tickets 1–4's dispositions, so the registry records reality.
 - **A4.** `check:docs` passes: volatile numbers appear only in `LIVE_FACTS.json` / `live-environment.md`, not
   leaked into other prose.
@@ -46,8 +51,11 @@ counts, and record the retirements and dispositions from tickets 1–4. The exac
 
 ## Research
 Distilled from `03-cloud-estate-cleanup.md` scope item 6; the PAYG offer, the API function-count over-count in
-`cloud-inventory-2026-07-17.md`, and the stale free-trial line in `live-environment.md` were re-verified
-read-only on 2026-07-19 (`PLAN-009.dossier`).
+`cloud-inventory-2026-07-17.md` (registry API figure already correct), the drifted orchestration count, and
+the stale free-trial line in `live-environment.md` were re-verified read-only on 2026-07-19 — see the banked
+[PLAN-009 live-verification dossier](../../plans/PLAN-009.dossier.md).
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

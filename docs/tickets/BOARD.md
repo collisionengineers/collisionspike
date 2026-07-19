@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (54)
+## Backlog (59)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -257,6 +257,11 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
 | [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
+| [TKT-247](./backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 · platform · PLAN-007 |
+| [TKT-248](./backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 · platform · PLAN-007 |
+| [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |
+| [TKT-250](./backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 · platform · PLAN-007 |
+| [TKT-251](./backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 · platform · PLAN-007 |
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 · platform · PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 · platform · PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 · platform · PLAN-009 |

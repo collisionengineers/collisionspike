@@ -34,18 +34,33 @@ counts, retirements). This runs as a parallel track to the code plans — its fi
   inventory (TKT-257 + the runbook). PLAN-012 generalises that into a standing `LIVE_FACTS`-integrity check.
 - The earlier draft's "untracked root working-copy directories" decision is **removed** — those directories
   no longer exist in the working tree (PLAN-006's path migration already resolved them; verified 2026-07-19).
+- **Provenance is banked, not implied.** The 2026-07-19 read-only re-verification behind every estate claim in
+  these tickets is recorded, redacted, in [`PLAN-009.dossier.md`](./PLAN-009.dossier.md) (command families,
+  per-claim verdicts, and confidence limits). Volatile numbers stay out of it and the tickets and live only in
+  `LIVE_FACTS.json` / `live-environment.md`.
 
 ## Sequence
 
 1. TKT-252 retires the EVA-validation app and its storage account, consuming TKT-215's read-only no-use audit
-   verdict (it does not re-audit). Live write — operator-authorised; gated on TKT-215 reaching `done`.
-2. TKT-253 confirms-then-disposes the ambiguously-owned `valuationbot-mcp` container image and the
-   `P2P Server` app registration: phase (a) read-only provenance and an operator ruling; phase (b) deletion
-   only after the operator authorises. Irreversible — the gate is non-negotiable.
+   verdict as the disposition authority (it does not re-audit) — but runs a fresh bounded request/trace +
+   caller-configuration check immediately before the destructive delete, because that audit distinguishes
+   *no observed use* from *proof of no dependency* and its telemetry window is dated 2026-07-15. Live write —
+   operator-authorised; gated on TKT-215 reaching `done`.
+2. TKT-253 confirms-then-disposes two resources the repo does not account for. The `valuationbot-mcp`
+   container image's ownership is now **resolved by operator ruling** (2026-07-19): it is an operator-owned
+   MCP server, deliberately added but non-functional on Azure, and is to be **decommissioned** — it is not a
+   collisionspike component. The `P2P Server` app registration remains unowned and still needs phase (a)
+   read-only provenance and an operator ruling before any disposal. Phase (b) deletion of either occurs only
+   after the operator authorises; the two are disposed independently. Irreversible — the gate is
+   non-negotiable.
 3. TKT-254 closes credential hygiene: resolve the dangling EVA references against the empty EVA Key Vault
    (populate or remove the references, then dispose the vault only once confirmed truly empty — keys and
-   certificates need an elevated read the current identity lacks), and disable SCM/Kudu basic-publishing
-   auth on the helper apps that still allow it.
+   certificates need an elevated read the current identity lacks), disable SCM/Kudu basic-publishing auth on
+   the five helper apps that still allow it **and persist that disabled policy in the retained bicep** (no
+   `basicPublishingCredentialsPolicies` resource exists in IaC today — coordinated with TKT-255), and give the
+   expired `CarClaims Website` app-registration secret an operator-gated disposition. This ticket is **ungated**
+   (only TKT-215 gates 252; TKT-246 gates 255/256) and, as a P1 passwordless-posture regression, may proceed
+   first — its step-3 position reflects reversibility ordering, not a dependency.
 4. TKT-255 rationalises the bicep layout to one convention (centralise, matching PLAN-006's locked structure)
    and records it as an amendment to the platform-topology ADR minted by TKT-246; it coordinates with
    TKT-206's ADR-0017 rider sweep, which edits the same per-service `infra/main.bicep` files.

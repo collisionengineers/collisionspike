@@ -25,6 +25,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/63 (4%) |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
+| [PLAN-007](./plans/PLAN-007-server-runtime-foundation.md) — Shared server-runtime foundation | active | 0/5 (0%) |
 | [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 0/6 (0%) |
 
 [Open the generated board](./BOARD.md).
@@ -232,7 +233,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (54)
+## Backlog (59)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -284,6 +285,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 | email | — |
 | [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | — |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 | docs | — |
+| [TKT-247](./backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 | platform | PLAN-007 |
+| [TKT-248](./backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 | platform | PLAN-007 |
+| [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 | platform | PLAN-007 |
+| [TKT-250](./backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 | platform | PLAN-007 |
+| [TKT-251](./backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 | platform | PLAN-007 |
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 | platform | PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 | platform | PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
