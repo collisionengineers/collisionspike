@@ -1,7 +1,4 @@
 {
   "limit": 800,
-  "ratchets": {
-    "services/data-api/src/features/cases/capture.test.ts": 1993,
-    "services/data-api/src/features/cases/capture.ts": 1689
-  }
+  "ratchets": {}
 }

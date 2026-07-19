@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3659,
-    "entries": 4769
+    "files": 3671,
+    "entries": 4781
   },
-  "totalFileBytes": 703463619,
+  "totalFileBytes": 703504475,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1495583,
+      "size": 1499341,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4247039,
-      "sha256": "50627aca5ee599f3044d956d54dd021fe348cecce9ace87df0bbfde1ea38e28e",
+      "size": 4251793,
+      "sha256": "ff362363610a38519e911a3da7baaf71b3dca1d4a347c2e48286cd907d188161",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 166,
-      "sha256": "4f2f640ca0c7a2a7cbec89fd175dde89f366b5218a3eab219c810d92725ca60e",
+      "size": 37,
+      "sha256": "710ca532b1441da078095eb49f7cd493c6f5f947e683b26d7318b4de15d6ddbd",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31466,6 +31466,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/capture-access.test.ts",
+      "mediaType": "text/typescript",
+      "size": 26443,
+      "sha256": "ffe33ff1d9479827b3212893be9ffee52caa3d77dada8811f9b158b5d07a4e3b",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-access.ts",
+      "mediaType": "text/typescript",
+      "size": 9953,
+      "sha256": "3b9bbfae748c5a35e570bea6511527e01a86914f0f96d4c47a6bb61665ec2445",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/capture-auth.test.ts",
       "mediaType": "text/typescript",
       "size": 4418,
@@ -31486,8 +31504,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-blob-security.test.ts",
       "mediaType": "text/typescript",
-      "size": 3406,
-      "sha256": "473fc2a4cd1660ca88cb257ad20c7898461040b789166cd00665f690bdb79093",
+      "size": 3413,
+      "sha256": "dd666910a4fc044a0ff9618aa362d78d245fa7352cfc8400b17de05b753b23d0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31506,6 +31524,33 @@
       "mediaType": "text/typescript",
       "size": 10279,
       "sha256": "73cf62d81366e1b1899c03f5106c235a429df17b3d41bde95fa189ad19a52938",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-complete.test.ts",
+      "mediaType": "text/typescript",
+      "size": 22660,
+      "sha256": "0f68ba32cae84a9cdf517fbd90a5eab6973137cd47e8d2a37af610cd69480a8a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-http.ts",
+      "mediaType": "text/typescript",
+      "size": 3622,
+      "sha256": "305e2546e0b1eed97dbedde29d3069aecaa57e81716a831d289a961231398986",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-observations.ts",
+      "mediaType": "text/typescript",
+      "size": 7887,
+      "sha256": "0b8a755b5f650830f663dc4bc867eb6d4c38cd55a3780a1e3f20de19daaac653",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31556,10 +31601,73 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/capture-session-store.ts",
+      "mediaType": "text/typescript",
+      "size": 12009,
+      "sha256": "0f743782fc5c5555ff917cd7c1045a3e0114e9bc5d310407d6d8e1f1681423df",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-staff.ts",
+      "mediaType": "text/typescript",
+      "size": 8705,
+      "sha256": "1216fa06d5a86af46e7e489c856b603f8b350982ba6faa2c9c856480050f7f04",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-submit.test.ts",
+      "mediaType": "text/typescript",
+      "size": 22977,
+      "sha256": "3f8159e51a81eb1e98f831a6fdddaebf00bbdff540877a4bc0edca653fbcbd9a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-submit.ts",
+      "mediaType": "text/typescript",
+      "size": 10447,
+      "sha256": "0b15107bea92b2e886d59f4257ad3be6a39a82cf2d65d565592ab7917a330715",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-upload.test.ts",
+      "mediaType": "text/typescript",
+      "size": 31453,
+      "sha256": "310409dddd9a69a2bf0f17cf7dc7fe3d4f2a6c6bd03cfb29e18148f7f33f00f4",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-upload.ts",
+      "mediaType": "text/typescript",
+      "size": 25522,
+      "sha256": "f356bd51ddac46a7c1023968de2c2742ada4d97d53d70db927ab3d332229b3e6",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture.harness.ts",
+      "mediaType": "text/typescript",
+      "size": 1717,
+      "sha256": "5c9e9aae4219e68c62aa8ae5a1c7ca8e5dd2acc3a86a1b5325814e73e19657a8",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/capture.test.ts",
       "mediaType": "text/typescript",
-      "size": 93106,
-      "sha256": "8a29601de4c4052612a9aace75b60ee81e39d24bbe96eb0c55f439caf02de169",
+      "size": 13033,
+      "sha256": "c4c5bf98a594bab47706e4cc525e6c91d8256239e8e751f27f885ed273f314e5",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31567,8 +31675,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.ts",
       "mediaType": "text/typescript",
-      "size": 74011,
-      "sha256": "849e909f84c3f317b83769bfb38cd8cb6053cd96c598a1bcc52dfced4e9e3702",
+      "size": 3155,
+      "sha256": "19c4e84d2b084a7f93089ce15273993fee536c5f66c3b96a45da39154c0c4363",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
