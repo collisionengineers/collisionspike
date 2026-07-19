@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3639,
-    "entries": 4749
+    "files": 3642,
+    "entries": 4752
   },
-  "totalFileBytes": 703426374,
+  "totalFileBytes": 703430900,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1489198,
+      "size": 1490153,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4238990,
-      "sha256": "c679fa6e1d0952c92dd3ace8df1c35dfa3b2288b7c63f7e6d592502e9855e09c",
+      "size": 4240194,
+      "sha256": "a84b597a28361963b1195036b48e76c69dcf4c9eb68cb2828fe06b5030d62594",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 784,
-      "sha256": "03599c914df5be550a47b9f5e4163d0c0d542694137983523b22229f3f7df972",
+      "size": 724,
+      "sha256": "fec333c6151c31d13990ab7ac90ec842a290d246ea52b2e3f4294e90bed16e62",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -35003,6 +35003,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/adapters/data-api-archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 5450,
+      "sha256": "8576f78fac95f3ea614cee4f03c68dec65ddadc72b134356dd155b061b3968cf",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/adapters/data-api-contracts.ts",
       "mediaType": "text/typescript",
       "size": 7420,
@@ -35012,10 +35021,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/adapters/data-api-evidence.ts",
+      "mediaType": "text/typescript",
+      "size": 7132,
+      "sha256": "ad75575e140501f206f133197aafc2ac5b6fdf2a46c440916abff53cf49fea2f",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/adapters/data-api-http.ts",
       "mediaType": "text/typescript",
       "size": 3860,
       "sha256": "8349b6fb75a07c548593e4d7a791a23479d91f0285d799f000eb8774f6a1603d",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/adapters/data-api-retro.ts",
+      "mediaType": "text/typescript",
+      "size": 4938,
+      "sha256": "510a35f404269bb8f642c2f44ecb35898ce42722b6dc3d4f00699bb205ef7d83",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35032,8 +35059,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "mediaType": "text/typescript",
-      "size": 41045,
-      "sha256": "c7e5f1b6927929527135584f77d1de81b335451d2d08983f392bb615639f3735",
+      "size": 25952,
+      "sha256": "f23b9fa9dfba096497728be757ed8f3e361a2a905634a086130ea1c94bf9d4fd",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
