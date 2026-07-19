@@ -62,6 +62,7 @@ const checks = [
   ['Generated tool adapters', 'node scripts/maintenance/generate-agent-adapters.mjs --check'],
   ['Locked repository layout', 'node scripts/checks/check-repository-layout.mjs'],
   ['Production dependency boundary', 'node scripts/checks/check-production-dependencies.mjs'],
+  ['Managed-identity mint boundary', 'node scripts/checks/check-managed-identity-mint.mjs'],
   ['Owned source size', 'node scripts/checks/check-source-size.mjs'],
   ['Repository inventory', 'node scripts/maintenance/generate-repository-inventory.mjs --check'],
   ['Repository reset reconciliation', 'node scripts/maintenance/reconcile-repository-reset.mjs'],

@@ -74,7 +74,8 @@ from regressing.
 
 - Hard dependency: PLAN-006 **TKT-210** (source decomposition) must reach `verify` before TKT-248's migration
   lands. TKT-210 decomposes the same `services/*/src` trees this plan refactors; refactoring underneath an
-  in-flight decomposition is the series' top collision risk. TKT-210 is currently in `now`.
+  in-flight decomposition is the series' top collision risk. TKT-210 is now `done` (landed via PR #117),
+  so this hard dependency is satisfied.
 - ADR numbering: this series starts new ADRs at **0031** (authored by TKT-247). The 0026–0030 range is
   reserved by TKT-246 (platform ADR backfill, currently `backlog`). ADR-0031 does **not** cite 0026–0030 and
   does **not** depend on them existing; if TKT-247 lands first, the temporary 0026–0030 numbering gap is
@@ -93,22 +94,22 @@ outside the package. No member performs a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/5 done (0%).**
+**5/5 done (100%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 0 |
+| Done | 5 |
 | Next | 0 |
-| Backlog | 5 |
+| Backlog | 0 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
-| [TKT-247](../backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | backlog | Scaffold the server-runtime package and record its boundary |
-| [TKT-248](../backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | backlog | Consolidate the managed-identity token mint across the six bearer-token sites |
-| [TKT-249](../backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | backlog | Consolidate the Data-API HTTP core and add one bounded-retry primitive |
-| [TKT-250](../backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | backlog | Consolidate the storage managed-identity token helper |
-| [TKT-251](../backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | backlog | Add the server-runtime forbidden-pattern drift guard |
+| [TKT-247](../done/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | done | Scaffold the server-runtime package and record its boundary |
+| [TKT-248](../done/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | done | Consolidate the managed-identity token mint across the six bearer-token sites |
+| [TKT-249](../done/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | done | Consolidate the Data-API HTTP core and add one bounded-retry primitive |
+| [TKT-250](../done/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | done | Consolidate the storage managed-identity token helper |
+| [TKT-251](../done/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | done | Add the server-runtime forbidden-pattern drift guard |
 <!-- /GENERATED:PROGRESS -->

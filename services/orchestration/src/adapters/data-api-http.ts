@@ -1,48 +1,21 @@
 /** Authentication and HTTP error handling for the REST data service. */
 
-/* ---------- service token ---------- */
-
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
-async function getDataApiToken(): Promise<string> {
-  const local = process.env.DATA_API_TOKEN;
-  if (local) return local; // local dev / func start
-
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
-
-  const audience = process.env.DATA_API_AUDIENCE;
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!audience || !idEndpoint || !idHeader) {
-    throw new Error('missing DATA_API_AUDIENCE / managed-identity endpoint for Data API auth');
-  }
-  const url = `${idEndpoint}?resource=${encodeURIComponent(audience)}&api-version=2019-08-01`;
-  const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
-  if (!res.ok) throw new Error(`MSI token ${res.status}`);
-  const json = (await res.json()) as { access_token: string; expires_on?: string };
-  cachedToken = {
-    value: json.access_token,
-    expiresAt: json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000,
-  };
-  return cachedToken.value;
-}
+import { request as coreRequest, type DataApiErrorMapper } from '@cs/server-runtime';
 
 /* ---------- request core ---------- */
 
+/**
+ * Data-API request through the shared transport core (@cs/server-runtime), KEEPING this
+ * adapter's typed error contract: 409 → ConflictError / evidence-backfill variants, any other
+ * non-2xx → DataApiHttpError (carrying status + detail), and a 204 → undefined. The auth header,
+ * routes, and request/response shapes are unchanged — only the shared plumbing moved.
+ */
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const baseUrl = (process.env.DATA_API_URL ?? '').replace(/\/$/, '');
-  if (!baseUrl) throw new Error('missing DATA_API_URL');
-  const token = await getDataApiToken();
-  const res = await fetch(`${baseUrl}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  return coreRequest<T>({ method, path, body, mapError, emptyOn204: true });
+}
+
+/** This adapter's non-2xx → typed error mapping (the richest of the four wrappers). */
+const mapError: DataApiErrorMapper = async (res, { method, path }) => {
   if (res.status === 409) {
     // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
     // to `already_ingested` (idempotent intake).
@@ -58,27 +31,23 @@ export async function request<T>(method: string, path: string, body?: unknown): 
         // The typed code is enough to force a safe retry; targetCaseId is an
         // optional convenience for the terminal report path.
       }
-      throw new EvidenceBackfillReclassificationRequiredError(
+      return new EvidenceBackfillReclassificationRequiredError(
         `${method} ${path} → 409: ${detail}`,
         targetCaseId,
       );
     }
     if (detail.includes('evidence_backfill_target_changed')) {
-      throw new EvidenceBackfillTargetChangedError(`${method} ${path} → 409: ${detail}`);
+      return new EvidenceBackfillTargetChangedError(`${method} ${path} → 409: ${detail}`);
     }
-    throw new ConflictError(`${method} ${path} → 409: ${detail}`);
+    return new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
-  if (!res.ok) {
-    const detail = await safeText(res);
-    throw new DataApiHttpError(
-      `data-api ${method} ${path} → ${res.status}: ${detail}`,
-      res.status,
-      detail,
-    );
-  }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
-}
+  const detail = await safeText(res);
+  return new DataApiHttpError(
+    `data-api ${method} ${path} → ${res.status}: ${detail}`,
+    res.status,
+    detail,
+  );
+};
 
 export class ConflictError extends Error {}
 export class DataApiHttpError extends Error {

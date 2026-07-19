@@ -1,11 +1,11 @@
 ---
 id: TKT-250
 title: Consolidate the storage managed-identity token helper
-status: backlog
+status: done
 priority: P2
 area: platform
 tickets-it-relates-to: [TKT-210, TKT-247, TKT-248, TKT-251]
-research-link: docs/tickets/backlog/TKT-250-storage-managed-identity-token-helper/evidence/distillation-note.md
+research-link: docs/tickets/done/TKT-250-storage-managed-identity-token-helper/evidence/distillation-note.md
 plan: PLAN-007
 ---
 

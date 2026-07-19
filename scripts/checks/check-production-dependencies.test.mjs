@@ -114,6 +114,43 @@ test("permits artificial data that is unreachable from production", (t) => {
   assert.deepEqual(result.violations, []);
 });
 
+test("rejects a server-only package reached from a browser production graph (ADR-0031)", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("apps/web/src/main.ts", "import '@cs/server-runtime';\n");
+  write("packages/server-runtime/package.json", JSON.stringify({ name: "@cs/server-runtime", exports: { ".": { types: "./src/index.ts" } } }));
+  write("packages/server-runtime/src/index.ts", "export const SERVER_RUNTIME_PACKAGE = '@cs/server-runtime';\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [{ name: "web", root: "apps/web", entries: ["apps/web/src/main.ts"], browser: true }],
+    pythonTargets: [],
+    serverOnlyPackages: ["packages/server-runtime"],
+  });
+
+  assert.ok(result.violations.some((finding) =>
+    finding.owner === "web"
+    && finding.kind === "server-only-boundary"
+    && finding.dependency.startsWith("packages/server-runtime/")));
+});
+
+test("permits a server-only package that the browser production graph does not reach (ADR-0031)", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("apps/web/src/main.ts", "import '@cs/domain';\n");
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", exports: { ".": { types: "./src/index.ts" } } }));
+  write("packages/domain/src/index.ts", "export const ready = true;\n");
+  write("packages/server-runtime/package.json", JSON.stringify({ name: "@cs/server-runtime", exports: { ".": { types: "./src/index.ts" } } }));
+  write("packages/server-runtime/src/index.ts", "export const SERVER_RUNTIME_PACKAGE = '@cs/server-runtime';\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [{ name: "web", root: "apps/web", entries: ["apps/web/src/main.ts"], browser: true }],
+    pythonTargets: [],
+    serverOnlyPackages: ["packages/server-runtime"],
+  });
+
+  assert.equal(result.violations.filter((finding) => finding.kind === "server-only-boundary").length, 0);
+});
+
 test("rejects a dynamic module expression that cannot be resolved statically", (t) => {
   const { root, write } = temporaryRepository(t);
   write("apps/web/src/main.ts", "const moduleName = window.location.hash;\nvoid import(moduleName);\n");

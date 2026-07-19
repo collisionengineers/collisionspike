@@ -205,7 +205,29 @@ function mappedPath(repositoryPath) {
   return null;
 }
 
+// PLAN-007 (post-PLAN-006-reset) additions. Resolved before the PLAN-006 heuristics so the
+// server-runtime package and its managed-identity drift guard are attributed to the tickets that
+// actually created them (TKT-247–251), not folded into PLAN-006's TKT-210 / TKT-214.
+function plan007Ticket(repositoryPath) {
+  if (repositoryPath.startsWith("packages/server-runtime/")) {
+    if (repositoryPath.includes("managed-identity")) return "TKT-248";
+    if (repositoryPath.includes("data-api-http-core") || repositoryPath.includes("retry")) return "TKT-249";
+    if (repositoryPath.includes("storage-credential")) return "TKT-250";
+    return "TKT-247";
+  }
+  if (repositoryPath.startsWith("scripts/checks/check-managed-identity-mint")
+    || repositoryPath.startsWith("scripts/checks/fixtures/managed-identity-mint/")) return "TKT-251";
+  return null;
+}
+
+/** The plan that created a post-reset file: PLAN-007 for its own additions, else the PLAN-006 reset. */
+function ownerPlan(repositoryPath) {
+  return plan007Ticket(repositoryPath) ? "PLAN-007" : "PLAN-006";
+}
+
 function ownerTicket(repositoryPath) {
+  const plan007 = plan007Ticket(repositoryPath);
+  if (plan007) return plan007;
   if (repositoryPath.startsWith("workingspace/") || repositoryPath.startsWith("tests/fixtures/")) return "TKT-208";
   if (repositoryPath.startsWith(".agents/") || repositoryPath.startsWith(".claude/")
     || repositoryPath.startsWith(".codex/") || repositoryPath.startsWith(".cursor/")) return "TKT-212";
@@ -307,7 +329,7 @@ function finalOrigin(entry, baselineByPath, baselineByHash) {
   }
 
   return {
-    origin: ["PLAN-006"],
+    origin: [ownerPlan(entry.path)],
     state: entry.lifecycle === "generated" ? "regenerated" : "created",
   };
 }

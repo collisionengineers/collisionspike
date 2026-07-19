@@ -50,6 +50,20 @@ describe('archiveMirrorApi', () => {
     );
   });
 
+  it('surfaces a 409 as a PLAIN Error, never a typed conflict (bare contract preserved)', async () => {
+    // internalArchiveMirrorOutboxComplete really can 409; it must stay a plain Error so the
+    // richest wrapper's typed ConflictError semantics are not silently applied here.
+    vi.mocked(fetch).mockResolvedValue(new Response('conflict', { status: 409 }));
+
+    const error = await archiveMirrorApi.complete('evidence/a', 7).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).constructor).toBe(Error); // exactly Error, not a subclass
+    expect((error as Error).message).toBe(
+      'data-api POST /api/internal/archive-mirror-outbox/evidence%2Fa/complete -> 409: conflict',
+    );
+  });
+
   it('defers the exact observed generation with its retry reason', async () => {
     vi.mocked(fetch).mockResolvedValue(new Response(
       JSON.stringify({ deferred: true, pending: true }),

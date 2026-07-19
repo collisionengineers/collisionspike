@@ -1,7 +1,9 @@
 # Architecture
 
 CollisionSpike is a cohesive monorepo with one staff web app, two TypeScript service applications,
-focused Python services, a shared domain package, and PostgreSQL as the system of record.
+focused Python services, a browser-safe shared domain package (`@cs/domain`), a server-only shared
+runtime package (`@cs/server-runtime`, [ADR-0031](../adr/0031-server-runtime-boundary.md)), and
+PostgreSQL as the system of record.
 
 ## Read by concern
 

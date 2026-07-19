@@ -1,11 +1,11 @@
 ---
 id: TKT-247
 title: Scaffold the server-runtime package and record its boundary
-status: backlog
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-210, TKT-248, TKT-249, TKT-250, TKT-251, TKT-246]
-research-link: docs/tickets/backlog/TKT-247-server-runtime-scaffold-and-boundary/evidence/distillation-note.md
+research-link: docs/tickets/done/TKT-247-server-runtime-scaffold-and-boundary/evidence/distillation-note.md
 plan: PLAN-007
 ---
 

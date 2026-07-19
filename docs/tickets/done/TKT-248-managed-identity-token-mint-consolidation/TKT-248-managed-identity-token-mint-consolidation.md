@@ -1,11 +1,11 @@
 ---
 id: TKT-248
 title: Consolidate the managed-identity token mint across the six bearer-token sites
-status: backlog
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-210, TKT-247, TKT-249, TKT-250, TKT-251]
-research-link: docs/tickets/backlog/TKT-248-managed-identity-token-mint-consolidation/evidence/distillation-note.md
+research-link: docs/tickets/done/TKT-248-managed-identity-token-mint-consolidation/evidence/distillation-note.md
 plan: PLAN-007
 ---
 

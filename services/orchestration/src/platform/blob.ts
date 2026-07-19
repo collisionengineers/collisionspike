@@ -11,43 +11,13 @@
 
 import { createHash } from 'node:crypto';
 import { BlobServiceClient } from '@azure/storage-blob';
-import type { AccessToken, TokenCredential } from '@azure/core-auth';
+import { STORAGE_RESOURCE_TRAILING_SLASH, storageManagedIdentityCredential } from '@cs/server-runtime';
 
 let cachedClient: BlobServiceClient | null = null;
-let cachedStorageToken: { token: string; expiresAt: number } | null = null;
 
-/**
- * Dependency-free App Service managed-identity token for the storage data plane — same
- * IDENTITY_ENDPOINT mechanism the Data API client uses (avoids bundling @azure/identity).
- */
-async function storageMiToken(): Promise<AccessToken> {
-  const now = Date.now();
-  if (cachedStorageToken && cachedStorageToken.expiresAt > now + 60_000) {
-    return { token: cachedStorageToken.token, expiresOnTimestamp: cachedStorageToken.expiresAt };
-  }
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (!idEndpoint || !idHeader) {
-    throw new Error('missing managed-identity endpoint (IDENTITY_ENDPOINT/HEADER) for evidence blob auth');
-  }
-  const resource = 'https://storage.azure.com/';
-  const url = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
-  const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
-  if (!res.ok) {
-    // Preserve the HTTP status so queue consumers can distinguish a retryable
-    // managed-identity/metadata-service outage from a terminal configuration fault.
-    throw Object.assign(new Error(`MSI storage token ${res.status}`), {
-      statusCode: res.status,
-      code: 'ManagedIdentityTokenError',
-    });
-  }
-  const json = (await res.json()) as { access_token: string; expires_on?: string };
-  const expiresAt = json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000;
-  cachedStorageToken = { token: json.access_token, expiresAt };
-  return { token: json.access_token, expiresOnTimestamp: expiresAt };
-}
-
-const miCredential: TokenCredential = { getToken: async () => storageMiToken() };
+/** Storage data-plane MI credential — the shared `@cs/server-runtime` wrapper (TKT-250) preserving the
+ *  retry contract `isRetryableStorageInfrastructureError` matches. Trailing-slash audience as before. */
+const miCredential = storageManagedIdentityCredential({ audience: STORAGE_RESOURCE_TRAILING_SLASH });
 
 function client(): BlobServiceClient {
   if (cachedClient) return cachedClient;
