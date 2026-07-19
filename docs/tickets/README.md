@@ -26,6 +26,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
 | [PLAN-007](./plans/PLAN-007-server-runtime-foundation.md) — Shared server-runtime foundation | active | 0/5 (0%) |
+| [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 0/6 (0%) |
 
 [Open the generated board](./BOARD.md).
 
@@ -232,7 +233,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (53)
+## Backlog (59)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -289,6 +290,12 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 | platform | PLAN-007 |
 | [TKT-250](./backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 | platform | PLAN-007 |
 | [TKT-251](./backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 | platform | PLAN-007 |
+| [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 | platform | PLAN-009 |
+| [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 | platform | PLAN-009 |
+| [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
+| [TKT-255](./backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | Rationalise the bicep layout to one convention | P2 | platform | PLAN-009 |
+| [TKT-256](./backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | Assess helper-app consolidation (read-only) | P3 | platform | PLAN-009 |
+| [TKT-257](./backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | Refresh LIVE_FACTS and the live-environment doc | P1 | platform | PLAN-009 |
 
 ## Blocked (8)
 

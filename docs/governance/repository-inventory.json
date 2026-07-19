@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1064,
-    "files": 3540,
-    "entries": 4604
+    "directories": 1076,
+    "files": 3566,
+    "entries": 4642
   },
-  "totalFileBytes": 703133261,
+  "totalFileBytes": 703212785,
   "entries": [
     {
       "path": ".",
@@ -2262,6 +2262,114 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15034,7 +15142,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1442487,
+      "size": 1454817,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15052,8 +15160,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4179816,
-      "sha256": "7fe0e8cb9044325a0388eba461f2673678d1e1d43dabfa0530a13454bf1803ad",
+      "size": 4195412,
+      "sha256": "d809097901b5daa969a6012ee5fdf36351085793badb1875bc0296c480d68c4e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15547,8 +15655,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 44641,
-      "sha256": "b4ad0f9c88b49b6e7865f0c1e4c0162126b98f1b0d7948fe8dfd241042ee6c64",
+      "size": 45872,
+      "sha256": "c4a11228f5a79fc4993d5f63cdbcbc4e0d8121932c90a800289db51ca3f742f8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15556,8 +15664,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 46941,
-      "sha256": "db6f1815fa1b185736fe95a17033f9fa7c90b792e304445c29d9cf18961228c9",
+      "size": 48262,
+      "sha256": "9ec026cd3f8d5cfeaaa4675733ea1d03bb22f16e8d7091edb32e9106c7222158",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17646,6 +17754,222 @@
       "mediaType": "text/markdown",
       "size": 243,
       "sha256": "dd6bb6e548aaa811488066b448eb1eed111a6ee75c1d83f6a205417160d9b44e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md",
+      "mediaType": "text/markdown",
+      "size": 3569,
+      "sha256": "7679715f9ef29d55eae079ed3f2d1cb84f583af6630295a6c8f8339459d6fb76",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/changes.md",
+      "mediaType": "text/markdown",
+      "size": 92,
+      "sha256": "301b7967d3b9bcb421dd12b7cd62ec806de96aaf8dfc7eea1125ab595ab1dec0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1181,
+      "sha256": "22c32f9a0062c9e6465920cf2598b174252d95e819ed44881015abd50cfec814",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-252-retire-eva-validation-app-and-storage/verification.md",
+      "mediaType": "text/markdown",
+      "size": 236,
+      "sha256": "9debe866fb707fedffa305499a725c6c7a0ae8c3c7f57769d3740a94ed7b7888",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md",
+      "mediaType": "text/markdown",
+      "size": 4424,
+      "sha256": "3b2b0792aad597afadc050b09bf0cb73bbecb8c63bd16bb65cb9edf36974edad",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration/changes.md",
+      "mediaType": "text/markdown",
+      "size": 108,
+      "sha256": "8e3ccefaf2ac6a9fe525ed82ad4d596506a9407acd4b3c5140afcab574aad1b6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1055,
+      "sha256": "1d03c6081ca0988e980356c1cc67a0e88f8ae81bbba08abcf66ebc9de165ed06",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-253-dispose-ambiguous-image-and-app-registration/verification.md",
+      "mediaType": "text/markdown",
+      "size": 252,
+      "sha256": "6d3f33d58faa50ebe05cec138f216832da24473198fc72123f554ca53003e6f6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md",
+      "mediaType": "text/markdown",
+      "size": 5472,
+      "sha256": "d15ae22eb277272a4e3ef98cc49890d056e8198e19a9a1ae38e37ce7ce752740",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/changes.md",
+      "mediaType": "text/markdown",
+      "size": 118,
+      "sha256": "d208a12ac0b53b8291b66936553c353a0956abf60d5083ed586bf02d1dd600d9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 2064,
+      "sha256": "39e22c03c379661ecada0bc2add87d8af2aa31be75c124df0f9cdf237dd9f1df",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/verification.md",
+      "mediaType": "text/markdown",
+      "size": 262,
+      "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md",
+      "mediaType": "text/markdown",
+      "size": 3951,
+      "sha256": "25976b169b35df6a757b3b9fa9d83778dae428f566ca61b8a55e5a03b4cadf49",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 93,
+      "sha256": "ec76f05c962e4220ec8066ceccd2d6666082f34606fcf9a7499112e1133bd74f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1579,
+      "sha256": "136bfaef2e1076f2fbfd358066ae47c2e09cc073e253ee91d9fe65ece84e701a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 237,
+      "sha256": "9064a517d4c7e9718213c8cbcf90db03a183ab8bb5362c4075e191f5e4423756",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md",
+      "mediaType": "text/markdown",
+      "size": 2778,
+      "sha256": "a9907fbcc3706965afe9c3b947cbc26d82f87a0e11e8b968cbd4614ed5526b09",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/changes.md",
+      "mediaType": "text/markdown",
+      "size": 90,
+      "sha256": "795b2cbc071cb0e13ec2cb9e1f7d4af9faebf9b4f0dc31bcba9917930cffe4e8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1203,
+      "sha256": "8ca87789a209a125a0c2149a61e9c3b9c2d9f9d8a4caa6f81bbd4e71b9ad6879",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/verification.md",
+      "mediaType": "text/markdown",
+      "size": 234,
+      "sha256": "0436bbe524efb200b075f48430c2cc66f98414beb6f4e8e08c16d6324b862dcc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md",
+      "mediaType": "text/markdown",
+      "size": 3562,
+      "sha256": "f2d305af3e2e058fa88af289807f969a7b58f126d27e62b701704d910535f090",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/changes.md",
+      "mediaType": "text/markdown",
+      "size": 94,
+      "sha256": "e3660da4e60ba461bfdcf8c865b57a09e2bf2f25413591d267e36675db8f1e9f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1649,
+      "sha256": "f8453af5cc08e29ec018b91d89ee82817920b2b5758a9cd8badcae09e8f99cbe",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/verification.md",
+      "mediaType": "text/markdown",
+      "size": 238,
+      "sha256": "ec4a502a7c625b5608be3d3f8c8027d4298ca0a42727c0f96d8c253528d976d2",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24306,6 +24630,24 @@
       "mediaType": "text/markdown",
       "size": 7743,
       "sha256": "1feb7c200f5981b86c5269ce41f6757cd2282d467e8226d3eac3bb9d5edb7478",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-009-cloud-estate-cleanup.md",
+      "mediaType": "text/markdown",
+      "size": 8116,
+      "sha256": "cebf6542ccb42e0ba94bb44f8f1d549f6bf8b5c3af75316b55cbebc596594b81",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-009.dossier.md",
+      "mediaType": "text/markdown",
+      "size": 6389,
+      "sha256": "dea66998a600683bfa933c6c52d7ba1d1de860a54f388ea53c53729a8b611268",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
