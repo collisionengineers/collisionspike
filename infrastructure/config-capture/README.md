@@ -10,7 +10,8 @@ this repository:
 | `orch.bicep` | Orchestration settings, mail intake dependencies, managed identity, storage access, and feature gates |
 | `spa.bicep` | Staff web application resource identity and SKU |
 
-Service-specific host templates live beside their services under `services/functions/*/infra/`.
+Service-specific host templates are centralised under `infrastructure/functions/<service>/` (one
+convention across the estate, per TKT-255 / [ADR-0028](../../docs/adr/0028-three-tier-compute-topology.md)).
 Secret values never belong in source; templates accept secure values or secret references only.
 
 `az bicep build` is the offline syntax gate. A build or pull request does not authorize a live

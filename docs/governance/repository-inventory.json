@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1115,
-    "files": 3710,
-    "entries": 4825
+    "directories": 1116,
+    "files": 3711,
+    "entries": 4827
   },
-  "totalFileBytes": 703866279,
+  "totalFileBytes": 703887716,
   "entries": [
     {
       "path": ".",
@@ -2217,60 +2217,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4763,6 +4709,60 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6716,6 +6716,69 @@
       "lifecycle": "structural"
     },
     {
+      "path": "infrastructure/functions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/box-webhook",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/eva-sentry",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/location-assist",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/ocr",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/parser",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "infrastructure/functions/vehicle-enrichment",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
       "path": "packages",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7202,15 +7265,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "services/functions/box-webhook/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "archive-integration",
-      "lifecycle": "structural"
-    },
-    {
       "path": "services/functions/box-webhook/tests",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7235,15 +7289,6 @@
       "sha256": null,
       "category": "directory",
       "owner": "repository",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "services/functions/eva-sentry/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "eva-integration",
       "lifecycle": "structural"
     },
     {
@@ -7274,15 +7319,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "services/functions/location-assist/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "location-suggestions",
-      "lifecycle": "structural"
-    },
-    {
       "path": "services/functions/location-assist/tests",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7298,15 +7334,6 @@
       "sha256": null,
       "category": "directory",
       "owner": "repository",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "services/functions/ocr/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "image-analysis",
       "lifecycle": "structural"
     },
     {
@@ -7436,15 +7463,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "services/functions/parser/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "document-parsing",
-      "lifecycle": "structural"
-    },
-    {
       "path": "services/functions/parser/scripts",
       "mediaType": "inode/directory",
       "size": 0,
@@ -7487,15 +7505,6 @@
       "sha256": null,
       "category": "directory",
       "owner": "repository",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "services/functions/vehicle-enrichment/infra",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "vehicle-enrichment",
       "lifecycle": "structural"
     },
     {
@@ -12208,8 +12217,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 8052,
-      "sha256": "8c7e5705ab2f106ff989c46a64497da507b0000f5970ce21e9a063b19da40e5c",
+      "size": 8367,
+      "sha256": "374f5cd3c8b1e80a0f80891d0f0729582c041ee74dcd914bfead4133dd416ddb",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -15340,8 +15349,8 @@
     {
       "path": "docs/adr/0028-three-tier-compute-topology.md",
       "mediaType": "text/markdown",
-      "size": 5108,
-      "sha256": "6df6f253db02eb2ba5d615a6b7867bb3a45e600d0a7886768826ee6d919b5270",
+      "size": 6364,
+      "sha256": "e7552ac38c53a0951c39fed0b49fc287f9235da2912f0381d39661a856229ddc",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15556,7 +15565,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1512519,
+      "size": 1512912,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15574,8 +15583,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4268732,
-      "sha256": "ca0b90edb930700bdc44c19c72d1a2594bedd020f79b3077ed96932c317fea0d",
+      "size": 4269757,
+      "sha256": "404fd84836051886025000ba048430f93c392e272babc7de23c697f26a396d6b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15583,8 +15592,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67669,
-      "sha256": "b84ffa4f5f4352d1f86935c113d4f5726a8eb478e7877c0c79d4e179178c8d45",
+      "size": 67715,
+      "sha256": "5f18487c54e5c4d4770187fe46a0ad7b8b44354b7920503a14ef0654bab54b71",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15592,8 +15601,8 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 985,
-      "sha256": "667e124a2fda6e4da69a86c8dd2846eb7c79434f8ee3ebbbbc5edd66a800e018",
+      "size": 1142,
+      "sha256": "21a370770c68503e6511d75384e2916293f554d8f5b3c4765bf9e1f67a470450",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15662,6 +15671,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/operations/helper-app-consolidation-assessment.md",
+      "mediaType": "text/markdown",
+      "size": 4886,
+      "sha256": "33c6269101bd2fd734f96f9b50ca381b30c6f5e9dd839c80dab3becec6e8c526",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/operations/identity-and-access.md",
       "mediaType": "text/markdown",
       "size": 1368,
@@ -15673,8 +15691,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 4146,
-      "sha256": "20b51c6a95fff8a4854cb59dff21f4e0f2a4050192d2eb32b711ed74ba781552",
+      "size": 4919,
+      "sha256": "cf48a33bafbab8f99ae65e86c8583b97b93b5007430e48a4b6196831760e7e85",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16078,8 +16096,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49308,
-      "sha256": "ae32e9a389830f84f411113880f16b094e03efa9bed70fddbc558f768b9648ec",
+      "size": 49299,
+      "sha256": "cc62398e0bd768889fc5328ce5d5602acf0d5d32ab2328b0789430a1fda097fa",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16087,8 +16105,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52149,
-      "sha256": "1bc4ce5f9ddd27d531bd5d0179fbf8203833bf4e4750c76bd593572f52d6dfd4",
+      "size": 52141,
+      "sha256": "e52bce86ee5c341ef168836e7a616656e3002a5c3a845ff67d10af37f39c0e64",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18078,114 +18096,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md",
-      "mediaType": "text/markdown",
-      "size": 3951,
-      "sha256": "25976b169b35df6a757b3b9fa9d83778dae428f566ca61b8a55e5a03b4cadf49",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 93,
-      "sha256": "ec76f05c962e4220ec8066ceccd2d6666082f34606fcf9a7499112e1133bd74f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1579,
-      "sha256": "136bfaef2e1076f2fbfd358066ae47c2e09cc073e253ee91d9fe65ece84e701a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-255-bicep-layout-rationalisation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 237,
-      "sha256": "9064a517d4c7e9718213c8cbcf90db03a183ab8bb5362c4075e191f5e4423756",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md",
-      "mediaType": "text/markdown",
-      "size": 2778,
-      "sha256": "a9907fbcc3706965afe9c3b947cbc26d82f87a0e11e8b968cbd4614ed5526b09",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/changes.md",
-      "mediaType": "text/markdown",
-      "size": 90,
-      "sha256": "795b2cbc071cb0e13ec2cb9e1f7d4af9faebf9b4f0dc31bcba9917930cffe4e8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1203,
-      "sha256": "8ca87789a209a125a0c2149a61e9c3b9c2d9f9d8a4caa6f81bbd4e71b9ad6879",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-256-helper-app-consolidation-assessment/verification.md",
-      "mediaType": "text/markdown",
-      "size": 234,
-      "sha256": "0436bbe524efb200b075f48430c2cc66f98414beb6f4e8e08c16d6324b862dcc",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md",
-      "mediaType": "text/markdown",
-      "size": 3562,
-      "sha256": "f2d305af3e2e058fa88af289807f969a7b58f126d27e62b701704d910535f090",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/changes.md",
-      "mediaType": "text/markdown",
-      "size": 94,
-      "sha256": "e3660da4e60ba461bfdcf8c865b57a09e2bf2f25413591d267e36675db8f1e9f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1649,
-      "sha256": "f8453af5cc08e29ec018b91d89ee82817920b2b5758a9cd8badcae09e8f99cbe",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/verification.md",
-      "mediaType": "text/markdown",
-      "size": 238,
-      "sha256": "ec4a502a7c625b5608be3d3f8c8027d4298ca0a42727c0f96d8c253528d976d2",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24221,6 +24131,114 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md",
+      "mediaType": "text/markdown",
+      "size": 3945,
+      "sha256": "775e00a66e7a4400d9fbdc686aab8af54ced41e61b64cd0bbe1466d816e57a80",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2826,
+      "sha256": "36fc398135071f93c717214261009a5012d988cd1538a568817853efb80fd0b9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1579,
+      "sha256": "136bfaef2e1076f2fbfd358066ae47c2e09cc073e253ee91d9fe65ece84e701a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-255-bicep-layout-rationalisation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2309,
+      "sha256": "633cf7d9721b0f65afd20e0a1c6ca96ff6b28a9ab423d3bb04a66cd1929d658a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md",
+      "mediaType": "text/markdown",
+      "size": 2772,
+      "sha256": "5f273996540af73bdd820b300f871edc85cf87d3776813f960e43f425fded55c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1292,
+      "sha256": "bf411ccb23955b8346cd1436f2bf29fef8d05755681eb0b993bc4860d413e349",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1203,
+      "sha256": "8ca87789a209a125a0c2149a61e9c3b9c2d9f9d8a4caa6f81bbd4e71b9ad6879",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-256-helper-app-consolidation-assessment/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1894,
+      "sha256": "91c213c2948edc258a933281401f8507af5218f520fc71904e558c5779cee842",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md",
+      "mediaType": "text/markdown",
+      "size": 3556,
+      "sha256": "b6721ddb227e9485145047066044a185e625197372ac27a5e981b7275f7b656b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2401,
+      "sha256": "edcd3eeabb3c11cef4901a950a476c279870a4244f6d43bb553fabb8d78ba65b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1649,
+      "sha256": "f8453af5cc08e29ec018b91d89ee82817920b2b5758a9cd8badcae09e8f99cbe",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-257-refresh-live-facts-and-environment/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2528,
+      "sha256": "a6d35162b03bce4df71d33846f482153f0153f12ee0abfc2bc14d465e15a33e2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md",
       "mediaType": "text/markdown",
       "size": 3801,
@@ -26032,8 +26050,8 @@
     {
       "path": "docs/tickets/plans/PLAN-009-cloud-estate-cleanup.md",
       "mediaType": "text/markdown",
-      "size": 8237,
-      "sha256": "e6aaaa66605ff6c117e7282fa4f1906c6f2c28c3b25ce26f2f38af4859ddbfe2",
+      "size": 8220,
+      "sha256": "51c6f58527be6bdffb150a989df96d45b874b7a9400a77184fddc1ba75863680",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29506,8 +29524,8 @@
     {
       "path": "infrastructure/config-capture/README.md",
       "mediaType": "text/markdown",
-      "size": 1214,
-      "sha256": "a5a7d0bce9d133f54c9abfb1fd45a1b17809f15e0e6289781cd2c0ad853fdadb",
+      "size": 1324,
+      "sha256": "587306e0b48049ce92d9642a87050b19aa2a8abba51e95f9deb25f12c52ba7ef",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -29535,6 +29553,96 @@
       "mediaType": "application/octet-stream",
       "size": 1800,
       "sha256": "c94d5838f0327a977d96d4a02862192ff15c90db8dbb9a115ce0390a8fefef8d",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/box-webhook/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 11659,
+      "sha256": "4a77547cd5717cb5865d8505c237fc9996878af7c0644ae22b3ef92fbd788578",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/box-webhook/wire-box-secrets.ps1",
+      "mediaType": "text/x-powershell",
+      "size": 3798,
+      "sha256": "ae6b234f40e0d9511d5be3d8576bcbe3ca7002d49101a4c4e6c05a4863ad6a55",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/eva-sentry/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 9588,
+      "sha256": "8e06c18117ace54e19ace40e5f64214bdd84d3e95093d247754fbf8d70a59c61",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/location-assist/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 10667,
+      "sha256": "951ef255c36856f8863c2da62d06ea3b8fc6ee5e80236f430f65a16f626fc582",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/ocr/acrpull-role.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 2659,
+      "sha256": "0b88754a06a07a3411fc347295e8235ed4a407371cd0322aa821cc5a1a8974a8",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/ocr/docintel.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 4627,
+      "sha256": "e778e2ea2633d755789ce4c15967e0afb137a1b7ee4e370b06023c20930ff2b8",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/ocr/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 24542,
+      "sha256": "876ab93d60be939c13e9ee37d634feb68d04b8c4a931118b9e1df8a483ec1a93",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/parser/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 10103,
+      "sha256": "cd0194f9c526935d43d8d3790249ba9c03a5194d5ca73c9c7b2cf309de6bfdf7",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/parser/main.json",
+      "mediaType": "application/json",
+      "size": 10958,
+      "sha256": "8a30befd87a0e2135b8c023ab7ec371bb95a2561b14c6dd6de9be7d9a7734c58",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/functions/vehicle-enrichment/main.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 10689,
+      "sha256": "21248172948adced2c14502958edc48d15db39f84a0b2f3973c09c7e68e79e01",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -31297,8 +31405,8 @@
     {
       "path": "scripts/maintenance/reconcile-repository-reset.mjs",
       "mediaType": "text/javascript",
-      "size": 23264,
-      "sha256": "6a45b51ab3f7dbb0ab33c5b517eef0a5a54bac8ddb58b21fa4c2ec3d044b9f50",
+      "size": 23528,
+      "sha256": "2b8c99c2fa59716d0c0e1702b59f5215aef906a25fd1bea3993e8702c630172c",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -33788,24 +33896,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/box-webhook/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 11659,
-      "sha256": "4a77547cd5717cb5865d8505c237fc9996878af7c0644ae22b3ef92fbd788578",
-      "category": "infrastructure",
-      "owner": "archive-integration",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/box-webhook/infra/wire-box-secrets.ps1",
-      "mediaType": "text/x-powershell",
-      "size": 3798,
-      "sha256": "ae6b234f40e0d9511d5be3d8576bcbe3ca7002d49101a4c4e6c05a4863ad6a55",
-      "category": "infrastructure",
-      "owner": "archive-integration",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/box-webhook/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
       "size": 1492,
@@ -34022,15 +34112,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/eva-sentry/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 9588,
-      "sha256": "8e06c18117ace54e19ace40e5f64214bdd84d3e95093d247754fbf8d70a59c61",
-      "category": "infrastructure",
-      "owner": "eva-integration",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/eva-sentry/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
       "size": 925,
@@ -34171,15 +34252,6 @@
       "size": 422,
       "sha256": "8f21a1f34012d6dc7ecd1b66c8e09422ae6edb9d95dd1fbd7415fe20e34b20d9",
       "category": "source",
-      "owner": "location-suggestions",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/location-assist/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 10667,
-      "sha256": "951ef255c36856f8863c2da62d06ea3b8fc6ee5e80236f430f65a16f626fc582",
-      "category": "infrastructure",
       "owner": "location-suggestions",
       "lifecycle": "active"
     },
@@ -34369,33 +34441,6 @@
       "size": 409,
       "sha256": "f3783e20838157ed9a8e1ebc66945e53a2f82f59810fcebed2418aa1725ea5f2",
       "category": "source",
-      "owner": "image-analysis",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/ocr/infra/acrpull-role.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 2659,
-      "sha256": "0b88754a06a07a3411fc347295e8235ed4a407371cd0322aa821cc5a1a8974a8",
-      "category": "infrastructure",
-      "owner": "image-analysis",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/ocr/infra/docintel.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 4627,
-      "sha256": "e778e2ea2633d755789ce4c15967e0afb137a1b7ee4e370b06023c20930ff2b8",
-      "category": "infrastructure",
-      "owner": "image-analysis",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/ocr/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 24542,
-      "sha256": "876ab93d60be939c13e9ee37d634feb68d04b8c4a931118b9e1df8a483ec1a93",
-      "category": "infrastructure",
       "owner": "image-analysis",
       "lifecycle": "active"
     },
@@ -34886,24 +34931,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/parser/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 10103,
-      "sha256": "cd0194f9c526935d43d8d3790249ba9c03a5194d5ca73c9c7b2cf309de6bfdf7",
-      "category": "infrastructure",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/parser/infra/main.json",
-      "mediaType": "application/json",
-      "size": 10958,
-      "sha256": "8a30befd87a0e2135b8c023ab7ec371bb95a2561b14c6dd6de9be7d9a7734c58",
-      "category": "infrastructure",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/parser/local.settings.json.TEMPLATE",
       "mediaType": "application/octet-stream",
       "size": 1299,
@@ -35341,15 +35368,6 @@
       "size": 380,
       "sha256": "b6283f1a21352d71126c7c6cf4801f558d347ec5ea7a67bb3f1747878c99db76",
       "category": "source",
-      "owner": "vehicle-enrichment",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/vehicle-enrichment/infra/main.bicep",
-      "mediaType": "application/octet-stream",
-      "size": 10689,
-      "sha256": "21248172948adced2c14502958edc48d15db39f84a0b2f3973c09c7e68e79e01",
-      "category": "infrastructure",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
     },

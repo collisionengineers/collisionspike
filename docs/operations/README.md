@@ -5,6 +5,7 @@ Every live write requires explicit task scope, the relevant checks, and a record
 
 - [Live environment](./live-environment.md)
 - [Cloud inventory (2026-07-17)](./cloud-inventory-2026-07-17.md) — full read-only tenant/subscription inventory
+- [Helper-app consolidation assessment](./helper-app-consolidation-assessment.md) — read-only TKT-256 assessment (keep per-service plan/storage isolation)
 - [Operator actions](./operator-actions.md)
 - [Deployment](./deployment.md)
 - [Diagnostics](./diagnostics.md)

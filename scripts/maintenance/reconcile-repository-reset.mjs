@@ -228,6 +228,9 @@ function ownerPlan(repositoryPath) {
 function ownerTicket(repositoryPath) {
   const plan007 = plan007Ticket(repositoryPath);
   if (plan007) return plan007;
+  // PLAN-009 (post-reset): TKT-255 centralised the per-service function bicep from
+  // services/functions/*/infra/ into infrastructure/functions/*, so that tree is attributed to it.
+  if (repositoryPath.startsWith("infrastructure/functions/")) return "TKT-255";
   if (repositoryPath.startsWith("workingspace/") || repositoryPath.startsWith("tests/fixtures/")) return "TKT-208";
   if (repositoryPath.startsWith(".agents/") || repositoryPath.startsWith(".claude/")
     || repositoryPath.startsWith(".codex/") || repositoryPath.startsWith(".cursor/")) return "TKT-212";
