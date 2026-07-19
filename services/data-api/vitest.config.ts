@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const domainSrc = (relative: string): string => resolve(here, '..', '..', 'packages/domain/src', relative);
+const serverRuntimeSrc = (relative: string): string =>
+  resolve(here, '..', '..', 'packages/server-runtime/src', relative);
 
 // `tsc -b` emits compiled copies of the *.test.ts files into dist/ (declaration:true,
 // project convention). Exclude dist so vitest runs each suite ONCE from src/ — not also
@@ -18,6 +20,7 @@ export default defineConfig({
       { find: '@cs/domain/codecs', replacement: domainSrc('codecs/index.ts') },
       { find: '@cs/domain/gates', replacement: domainSrc('gates.ts') },
       { find: '@cs/domain', replacement: domainSrc('index.ts') },
+      { find: '@cs/server-runtime', replacement: serverRuntimeSrc('index.ts') },
     ],
   },
 });

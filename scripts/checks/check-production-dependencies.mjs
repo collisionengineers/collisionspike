@@ -31,10 +31,16 @@ const ARTIFICIAL_TOKENS = new Map([
 ]);
 
 const DEFAULT_TYPESCRIPT_TARGETS = [
-  { name: "web", root: "apps/web", entries: ["apps/web/src/main.tsx"] },
+  { name: "web", root: "apps/web", entries: ["apps/web/src/main.tsx"], browser: true },
   { name: "data-api", root: "services/data-api", entries: ["services/data-api/src/index.ts"] },
   { name: "orchestration", root: "services/orchestration", entries: ["services/orchestration/src/index.ts"] },
 ];
+
+// Workspace packages that are server-only by contract (ADR-0031): they may import cloud
+// SDKs and depend on the Node runtime, so they must never enter a browser (SPA) production
+// graph — doing so would poison the bundle. Enforced as a negative assertion for every
+// target flagged `browser`; `@cs/domain` stays SDK-free and is deliberately NOT listed here.
+const DEFAULT_SERVER_ONLY_PACKAGES = ["packages/server-runtime"];
 
 function posixPath(value) {
   return value.split(path.sep).join("/");
@@ -351,7 +357,7 @@ function resolveTypeScriptDependency({ source, specifier, packageAliases, pathAl
   return { external: true };
 }
 
-export function scanTypeScriptTargets({ root, targets, explicitWorkspaceDirectories }) {
+export function scanTypeScriptTargets({ root, targets, explicitWorkspaceDirectories, serverOnlyPackages = [] }) {
   const packageAliases = workspaceAliases(root, explicitWorkspaceDirectories);
   const results = [];
   for (const target of targets) {
@@ -418,6 +424,20 @@ export function scanTypeScriptTargets({ root, targets, explicitWorkspaceDirector
         }
       }
     }
+    // Negative boundary assertion (ADR-0031): a browser production graph must never reach a
+    // server-only package. If it does, the SDK-poisoning boundary has been breached — fail.
+    if (target.browser) {
+      for (const visitedSource of visited) {
+        const relative = repositoryPath(root, visitedSource);
+        const owner = serverOnlyPackages.find((prefix) => relative === prefix || relative.startsWith(`${prefix}/`));
+        if (owner) addViolation(visitedSource, {
+          kind: "server-only-boundary",
+          line: 1,
+          dependency: relative,
+          detail: `Server-only package '${owner}' (ADR-0031) is reachable from the '${target.name}' browser production graph`,
+        });
+      }
+    }
     results.push({ name: target.name, visited: visited.size, edges, violations });
   }
   return results;
@@ -463,6 +483,7 @@ export function scanProductionDependencies(options = {}) {
     root,
     targets: typescriptTargets,
     explicitWorkspaceDirectories: options.explicitWorkspaceDirectories,
+    serverOnlyPackages: options.serverOnlyPackages ?? DEFAULT_SERVER_ONLY_PACKAGES,
   });
   const python = scanPythonTargets({ root, targets: pythonTargets });
   const targets = [...typescript, ...python];

@@ -1,11 +1,11 @@
 ---
 id: TKT-251
 title: Add the server-runtime forbidden-pattern drift guard
-status: backlog
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-247, TKT-248, TKT-249, TKT-250]
-research-link: docs/tickets/backlog/TKT-251-server-runtime-forbidden-pattern-guard/evidence/distillation-note.md
+research-link: docs/tickets/done/TKT-251-server-runtime-forbidden-pattern-guard/evidence/distillation-note.md
 plan: PLAN-007
 ---
 

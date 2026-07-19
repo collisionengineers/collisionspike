@@ -14,46 +14,20 @@
  * owns tool execution and MUST keep every tool READ-ONLY.
  */
 
+import { getManagedIdentityToken, withRetry } from '@cs/server-runtime';
+
 const COGNITIVE_SERVICES_RESOURCE = 'https://cognitiveservices.azure.com';
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_COMPLETION_TOKENS = 1500;
 
-let cachedToken: { value: string; expiresAt: number } | null = null;
-
 /** Mint (or return the cached) Entra bearer for the Cognitive Services audience. THROWS on
- *  failure — the route wraps this and returns an honest error, never a 500 stack. */
+ *  failure — the route wraps this and returns an honest error, never a 500 stack. The MSI
+ *  mechanism, per-audience cache and explicit-opt-in az-CLI dev fallback are the shared
+ *  `getManagedIdentityToken` primitive's (@cs/server-runtime). */
 export async function mintCognitiveToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
-
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-  if (idEndpoint && idHeader) {
-    const url = `${idEndpoint}?resource=${encodeURIComponent(COGNITIVE_SERVICES_RESOURCE)}&api-version=2019-08-01`;
-    const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
-    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
-    const json = (await res.json()) as { access_token: string; expires_on?: string };
-    cachedToken = {
-      value: json.access_token,
-      expiresAt: json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000,
-    };
-    return cachedToken.value;
-  }
-  // Local dev only, explicit opt-in — the operator's own az session (mirrors aoai.ts).
-  if (process.env.AOAI_DEV_TOKEN === '1') {
-    const { execFile } = await import('node:child_process');
-    const token = await new Promise<string>((resolve, reject) => {
-      execFile(
-        'az',
-        ['account', 'get-access-token', '--resource', COGNITIVE_SERVICES_RESOURCE, '--query', 'accessToken', '-o', 'tsv'],
-        (err, stdout) => (err ? reject(err) : resolve(stdout.trim())),
-      );
-    });
-    if (!token) throw new Error('az account get-access-token returned no token');
-    cachedToken = { value: token, expiresAt: now + 3_000_000 };
-    return token;
-  }
-  throw new Error('missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth');
+  return getManagedIdentityToken(COGNITIVE_SERVICES_RESOURCE, {
+    devTokenFallback: { enabledEnv: 'AOAI_DEV_TOKEN', resource: COGNITIVE_SERVICES_RESOURCE },
+  });
 }
 
 /* ---------- chat completion (tool-calling) ---------- */
@@ -205,19 +179,22 @@ export async function runChat(
       }
       let result: unknown;
       try {
-        result = await executeTool(name, args);
-      } catch {
-        // One retry — a transient first-attempt failure (e.g. a Postgres cold-connect
-        // inside the 5s pool timeout) usually clears on an immediate second try.
-        try {
-          result = await executeTool(name, args);
-        } catch (e2) {
-          toolErrors += 1;
-          const emsg = e2 instanceof Error ? e2.message : 'tool failed';
-          // Visible in App Insights (TKT-066) — the failure was previously swallowed unlogged.
-          logger?.warn(`[assistant] tool ${name} failed: ${emsg}`);
-          result = { error: emsg };
-        }
+        // One retry through the shared bounded-retry primitive (@cs/server-runtime) with a
+        // tool-specific "retry any tool error once" predicate: a transient first-attempt failure
+        // (e.g. a Postgres cold-connect inside the pool timeout, which carries NO HTTP status)
+        // usually clears on an immediate second try. `sleep` is a no-op to keep that retry
+        // immediate. This is the ONLY retry layer over the tool executor — no double-retry.
+        result = await withRetry(() => executeTool(name, args), {
+          maxAttempts: 2,
+          shouldRetry: () => true,
+          sleep: async () => {},
+        });
+      } catch (e2) {
+        toolErrors += 1;
+        const emsg = e2 instanceof Error ? e2.message : 'tool failed';
+        // Visible in App Insights (TKT-066) — the failure was previously swallowed unlogged.
+        logger?.warn(`[assistant] tool ${name} failed: ${emsg}`);
+        result = { error: emsg };
       }
       convo.push({
         role: 'tool',

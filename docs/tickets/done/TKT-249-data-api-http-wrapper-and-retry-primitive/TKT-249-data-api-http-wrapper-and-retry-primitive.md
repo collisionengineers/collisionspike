@@ -1,11 +1,11 @@
 ---
 id: TKT-249
 title: Consolidate the Data-API HTTP core and add one bounded-retry primitive
-status: backlog
+status: done
 priority: P1
 area: platform
 tickets-it-relates-to: [TKT-210, TKT-247, TKT-248, TKT-251]
-research-link: docs/tickets/backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/evidence/distillation-note.md
+research-link: docs/tickets/done/TKT-249-data-api-http-wrapper-and-retry-primitive/evidence/distillation-note.md
 plan: PLAN-007
 ---
 

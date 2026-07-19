@@ -14,6 +14,7 @@
     "@azure/functions": "^4.5.0",
     "@azure/storage-blob": "^12.25.0",
     "@cs/domain": "*",
+    "@cs/server-runtime": "*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "jose": "^5.9.6",
     "pg": "^8.13.1",

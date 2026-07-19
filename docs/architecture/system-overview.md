@@ -7,7 +7,8 @@
 | Staff web app | `apps/web` | Authentication, case handling, review, evidence, and explicit staff actions |
 | Data API | `services/data-api` | REST contracts, role checks, database transactions, synchronous capabilities, and audit writes |
 | Orchestration | `services/orchestration` | Mail notifications, durable intake, classification, asynchronous work, and retries |
-| Domain package | `packages/domain` | Environment-free contracts, schemas, code tables, and pure business rules |
+| Domain package | `packages/domain` | Browser-safe, SDK-free contracts, schemas, code tables, and pure business rules (bundled into the SPA) |
+| Server-runtime package | `packages/server-runtime` | Server-only shared runtime plumbing — managed-identity token mint, Data-API HTTP core, bounded retry, storage token — bundled into the two TypeScript services and never into the SPA (ADR-0031) |
 | Python services | `services/functions/*` | Parsing, OCR, vehicle facts, EVA operations, Archive events, and location assistance |
 | PostgreSQL | `database` | Authoritative relational state, source lineage, audit, and append-only evidence metadata |
 | Azure resources | `infrastructure` | Hosting, identity, storage, secrets, monitoring, mapping, document extraction, and AI services |

@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1110 directories, 3678 files.
+Grand total: 1114 directories, 3697 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1080,11 +1080,11 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 568 directories, 1402 files
+### docs — 568 directories, 1403 files
 
 ```text
 docs/  (1 file)
-  adr/  (30 files)
+  adr/  (31 files)
   architecture/  (10 files)
   design/  (3 files)
     product-demo/  (2 files)
@@ -1216,16 +1216,6 @@ docs/  (1 file)
       TKT-243-code-docs-hygiene-sweep/  (3 files)
       TKT-244-triage-vocabulary-code-additions/  (3 files)
       TKT-245-service-trust-seam/  (3 files)
-      TKT-247-server-runtime-scaffold-and-boundary/  (3 files)
-        evidence/  (1 file)
-      TKT-248-managed-identity-token-mint-consolidation/  (3 files)
-        evidence/  (1 file)
-      TKT-249-data-api-http-wrapper-and-retry-primitive/  (3 files)
-        evidence/  (1 file)
-      TKT-250-storage-managed-identity-token-helper/  (3 files)
-        evidence/  (1 file)
-      TKT-251-server-runtime-forbidden-pattern-guard/  (3 files)
-        evidence/  (1 file)
       TKT-252-retire-eva-validation-app-and-storage/  (3 files)
         evidence/  (1 file)
       TKT-253-dispose-ambiguous-image-and-app-registration/  (3 files)
@@ -1512,6 +1502,16 @@ docs/  (1 file)
       TKT-215-eva-validation-live-use-audit/  (3 files)
         evidence/  (2 files)
       TKT-221-retro-docs-cutover-po/  (3 files)
+      TKT-247-server-runtime-scaffold-and-boundary/  (3 files)
+        evidence/  (1 file)
+      TKT-248-managed-identity-token-mint-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-249-data-api-http-wrapper-and-retry-primitive/  (3 files)
+        evidence/  (1 file)
+      TKT-250-storage-managed-identity-token-helper/  (3 files)
+        evidence/  (1 file)
+      TKT-251-server-runtime-forbidden-pattern-guard/  (3 files)
+        evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1733,7 +1733,7 @@ infrastructure/  (1 file)
   config-capture/  (4 files)
 ```
 
-### packages — 12 directories, 94 files
+### packages — 14 directories, 107 files
 
 ```text
 packages/  (0 files)
@@ -1748,14 +1748,18 @@ packages/  (0 files)
       domain/  (36 files)
       dto/  (4 files)
       model/  (9 files)
+  server-runtime/  (4 files)
+    src/  (9 files)
 ```
 
-### scripts — 14 directories, 81 files
+### scripts — 16 directories, 85 files
 
 ```text
 scripts/  (6 files)
   build/  (3 files)
-  checks/  (27 files)
+  checks/  (29 files)
+    fixtures/  (0 files)
+      managed-identity-mint/  (2 files)
   database/  (1 file)
     cutover/  (2 files)
     vehicle-enrichment/  (3 files)
@@ -1769,7 +1773,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 70 directories, 595 files
+### services — 70 directories, 596 files
 
 ```text
 services/  (0 files)
@@ -1838,7 +1842,7 @@ services/  (0 files)
         fixtures/  (1 file)
       workflows/  (0 files)
         archive/  (17 files)
-        evidence/  (13 files)
+        evidence/  (14 files)
         intake/  (29 files)
         mailbox/  (16 files)
         retro/  (16 files)
@@ -2142,10 +2146,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3678 | 3678 | PASS |
-| Proposed tree directories == ledger final directories | 1110 | 1110 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3680 | 3680 | PASS |
-| Proposed directories == inventory directories | 1110 | 1110 | PASS |
+| Proposed tree files == ledger final files | 3697 | 3697 | PASS |
+| Proposed tree directories == ledger final directories | 1114 | 1114 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3699 | 3699 | PASS |
+| Proposed directories == inventory directories | 1114 | 1114 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

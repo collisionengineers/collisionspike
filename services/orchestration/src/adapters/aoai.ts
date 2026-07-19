@@ -19,9 +19,11 @@
  * is picked up automatically (a name with no curated one-liner below still gets a safe
  * generic description, never dropped from the prompt).
  *
- * Auth: Entra token via the orchestration app's managed identity — mirrors
- * `lib/data-api.ts`'s `getDataApiToken()` (same `IDENTITY_ENDPOINT`/`IDENTITY_HEADER`
- * REST contract), scoped to the Cognitive Services audience instead of the Data API one.
+ * Auth: Entra token via the orchestration app's managed identity — minted through the
+ * shared `getManagedIdentityToken` primitive (`@cs/server-runtime`; same
+ * `IDENTITY_ENDPOINT`/`IDENTITY_HEADER` REST contract the Data-API mint in
+ * `adapters/data-api-http.ts` uses), scoped to the Cognitive Services audience instead of
+ * the Data API one.
  * The `IDENTITY_ENDPOINT` token endpoint's `resource` query parameter takes the bare Entra
  * resource URI (e.g. `https://cognitiveservices.azure.com`) — NOT an MSAL-style
  * `<resource>/.default` scope string (that suffix is what `DefaultAzureCredential`-based
@@ -33,9 +35,10 @@
  * running under `func start` on a workstation. Opt-in ONLY (`AOAI_DEV_TOKEN=1`, never
  * silently attempted) fallback shells out to `az account get-access-token` — the
  * OPERATOR's own `az login` session (G5 pre-authorises AI testing on repo data; ADR-0015
- * §"AI-test authority"). This mirrors `data-api.ts`'s local-dev short-circuit in SPIRIT
- * (an explicit, narrow escape hatch for off-Azure runs) though not mechanism — data-api.ts
- * reads a static `DATA_API_TOKEN` app-setting; there is no equivalent static setting here
+ * §"AI-test authority"). This mirrors the Data-API mint's local-dev short-circuit in SPIRIT
+ * (an explicit, narrow escape hatch for off-Azure runs) though not mechanism —
+ * `adapters/data-api-http.ts` reads a static `DATA_API_TOKEN` app-setting; there is no
+ * equivalent static setting here
  * because a Cognitive Services token is short-lived and this lib has no "local fake" to
  * fall back to, so it fetches a REAL token via the CLI instead.
  *
@@ -46,17 +49,19 @@
 
 import { INBOUND_CATEGORIES, INBOUND_SUBTYPES, type InboundCategory, type InboundSubtype } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
+import { getManagedIdentityToken } from '@cs/server-runtime';
 
 /* ============================================================
-   Token mint — MSI (App Service/Functions IDENTITY_ENDPOINT REST contract), cached,
-   dev fallback. Mirrors lib/data-api.ts's getDataApiToken() shape.
+   Token mint — delegated to the shared managed-identity primitive
+   (`getManagedIdentityToken` in `@cs/server-runtime`), scoped to the Cognitive Services
+   audience with the explicit-opt-in az-CLI dev fallback. The raw `IDENTITY_ENDPOINT`
+   mechanism (formerly the `getDataApiToken()` shape in `adapters/data-api-http.ts`) now
+   lives once in that primitive.
    ============================================================ */
 
 /** Conventional MSAL-style scope string (readability / future `DefaultAzureCredential`
- *  swap) — see the module doc for why the raw HTTP path below strips the `/.default`. */
+ *  swap) — see the module doc for why the raw HTTP path strips the `/.default`. */
 export const COGNITIVE_SERVICES_SCOPE = 'https://cognitiveservices.azure.com/.default';
-
-let cachedToken: { value: string; expiresAt: number } | null = null;
 
 /** `<scope>/.default` -> the bare Entra resource URI that IDENTITY_ENDPOINT
  *  `resource=` query parameter expects. Exported for the unit test; pure. */
@@ -64,55 +69,19 @@ export function resourceFromScope(scope: string): string {
   return scope.endsWith('/.default') ? scope.slice(0, -'/.default'.length) : scope;
 }
 
+/** The bare Cognitive Services resource — MSI audience AND az-CLI dev-fallback `--resource`. */
+const COGNITIVE_SERVICES_RESOURCE = resourceFromScope(COGNITIVE_SERVICES_SCOPE);
+
 /**
  * Mint (or return the cached) Entra bearer token for the Cognitive Services audience.
  * THROWS on failure — callers in this module always wrap it so a mint failure degrades to
- * `{ abstain: true }`, never an unhandled rejection.
+ * `{ abstain: true }`, never an unhandled rejection. The MSI mechanism, per-audience cache
+ * and az-CLI dev fallback are the shared `getManagedIdentityToken` primitive's.
  */
 export async function mintCognitiveToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
-
-  const idEndpoint = process.env.IDENTITY_ENDPOINT;
-  const idHeader = process.env.IDENTITY_HEADER;
-
-  if (idEndpoint && idHeader) {
-    const resource = resourceFromScope(COGNITIVE_SERVICES_SCOPE);
-    const url = `${idEndpoint}?resource=${encodeURIComponent(resource)}&api-version=2019-08-01`;
-    const res = await fetch(url, { headers: { 'X-IDENTITY-HEADER': idHeader } });
-    if (!res.ok) throw new Error(`MSI token (cognitiveservices) ${res.status}`);
-    const json = (await res.json()) as { access_token: string; expires_on?: string };
-    cachedToken = {
-      value: json.access_token,
-      expiresAt: json.expires_on ? Number(json.expires_on) * 1000 : now + 3_300_000,
-    };
-    return cachedToken.value;
-  }
-
-  // Dev/local fallback ONLY — explicit opt-in so a stray local run never silently shells
-  // out to the CLI. No IDENTITY_ENDPOINT means this process isn't running on Azure
-  // Functions/App Service (the platform always sets it), so MSI is not available at all.
-  if (process.env.AOAI_DEV_TOKEN === '1') {
-    const { execFile } = await import('node:child_process');
-    const token = await new Promise<string>((resolve, reject) => {
-      execFile(
-        'az',
-        ['account', 'get-access-token', '--resource', 'https://cognitiveservices.azure.com', '--query', 'accessToken', '-o', 'tsv'],
-        (err, stdout) => {
-          if (err) reject(err);
-          else resolve(stdout.trim());
-        },
-      );
-    });
-    if (!token) throw new Error('az account get-access-token returned no token');
-    // az does not report an expiry here; cache conservatively (most Entra tokens run ~60min).
-    cachedToken = { value: token, expiresAt: now + 3_000_000 };
-    return token;
-  }
-
-  throw new Error(
-    'missing IDENTITY_ENDPOINT/IDENTITY_HEADER for Cognitive Services auth (set AOAI_DEV_TOKEN=1 to use the operator az-cli session for local dev)',
-  );
+  return getManagedIdentityToken(COGNITIVE_SERVICES_RESOURCE, {
+    devTokenFallback: { enabledEnv: 'AOAI_DEV_TOKEN', resource: COGNITIVE_SERVICES_RESOURCE },
+  });
 }
 
 /* ============================================================
