@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3642,
-    "entries": 4752
+    "files": 3648,
+    "entries": 4758
   },
-  "totalFileBytes": 703430900,
+  "totalFileBytes": 703437055,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1490153,
+      "size": 1492038,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4240194,
-      "sha256": "a84b597a28361963b1195036b48e76c69dcf4c9eb68cb2828fe06b5030d62594",
+      "size": 4242577,
+      "sha256": "0a765f171c50e9a3548270d40b5a9399b9f99a3e1e7820042bec498fdf313751",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 724,
-      "sha256": "fec333c6151c31d13990ab7ac90ec842a290d246ea52b2e3f4294e90bed16e62",
+      "size": 589,
+      "sha256": "01726e9baf09a00e9fa70ef78442b23ea717b016a2718f575cf07ce2cc62fbed",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31925,10 +31925,64 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/merge-archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 4960,
+      "sha256": "5c89eebbd4391aa956f6cc9764aa825d0d5bd49fa677fb6bfdd7db2696257a14",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-capture.ts",
+      "mediaType": "text/typescript",
+      "size": 2760,
+      "sha256": "2a777ff33636b7db05ba60da109f46470ed5d44ceb322fc56b890e4016018805",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-evidence.ts",
+      "mediaType": "text/typescript",
+      "size": 9331,
+      "sha256": "cee72b22946d09d71ded1580c264b4b4bcd352002525e61f01fe8f2127baac67",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-file-request.ts",
+      "mediaType": "text/typescript",
+      "size": 3716,
+      "sha256": "fbb50d1dc75663eebb8afa099c930b81ab083338c0082ae3e17eefae5123d852",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-intake-ownership.ts",
+      "mediaType": "text/typescript",
+      "size": 2021,
+      "sha256": "534100e3c7514855f4fa15500798392ec6b9f065f8d51c95549a72406ec0a9ab",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-routes.harness.ts",
+      "mediaType": "text/typescript",
+      "size": 15191,
+      "sha256": "bb243c7ca4414187acbfb4f5db6c14093e59ecec0f04a5d7d330cb92330bbf75",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/merge-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 49111,
-      "sha256": "5a1c9280d7c347ef43f2f6b87d76a3baa1a88ceaa48fb9118c716e855b5379ab",
+      "size": 34689,
+      "sha256": "495f66574c60d5c5ce0381ab362950f69ea620bca9a4b035d1a89597540269e1",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31936,8 +31990,8 @@
     {
       "path": "services/data-api/src/features/cases/merge-routes.ts",
       "mediaType": "text/typescript",
-      "size": 39665,
-      "sha256": "0005c749454219dd71bbe52c15a97a123211aeaa0d85143de17c47c967a3c1aa",
+      "size": 18130,
+      "sha256": "53c4188a21989ee7a305af344b7ca5ebcb09b21bfe37d23431c01d2014ab7e8a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
