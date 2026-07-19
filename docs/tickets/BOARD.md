@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (71)
+## Backlog (76)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -280,6 +280,11 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 · platform · PLAN-011 |
 | [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 · platform · PLAN-011 |
 | [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 · platform · PLAN-011 |
+| [TKT-270](./backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | Run the hardcore repository duplication and drift audit | P1 · platform · PLAN-012 |
+| [TKT-271](./backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 · platform · PLAN-012 |
+| [TKT-272](./backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | Record and enforce the repository-structure and package-boundary rules | P2 · platform · PLAN-012 |
+| [TKT-273](./backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md) | Add the LIVE_FACTS and ledger integrity standing check | P2 · platform · PLAN-012 |
+| [TKT-274](./backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md) | Restore distillation-boundary reviewability and record the rule-of-three | P3 · platform · PLAN-012 |
 
 ## Blocked (8)
 
