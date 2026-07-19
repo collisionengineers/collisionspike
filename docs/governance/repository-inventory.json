@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3671,
-    "entries": 4781
+    "files": 3676,
+    "entries": 4786
   },
-  "totalFileBytes": 703506120,
+  "totalFileBytes": 703539683,
   "entries": [
     {
       "path": ".",
@@ -2163,15 +2163,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-245-service-trust-seam",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5295,6 +5286,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15266,10 +15266,55 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0026-rls-as-final-authorization.md",
+      "mediaType": "text/markdown",
+      "size": 5212,
+      "sha256": "1fd632248be9f4c99a833273fac18032058a6ce558bcf0b2c3b4d56bc5f042d7",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0027-ship-dark-gate-model.md",
+      "mediaType": "text/markdown",
+      "size": 4983,
+      "sha256": "9068fa8123a551b084df95e93fca1e19dc792962731e1f7e94039730daedd66c",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0028-three-tier-compute-topology.md",
+      "mediaType": "text/markdown",
+      "size": 5108,
+      "sha256": "6df6f253db02eb2ba5d615a6b7867bb3a45e600d0a7886768826ee6d919b5270",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0029-staff-identity-jose-msal-pkce.md",
+      "mediaType": "text/markdown",
+      "size": 5041,
+      "sha256": "3bdd815600115cc8d3b4cda3dc8cf89a3af5c0e22895c46f019cd29fb6047c0c",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/adr/0030-outbox-generation-counter-reliability.md",
+      "mediaType": "text/markdown",
+      "size": 5567,
+      "sha256": "661e9bf0cb38229ac19984504e5c93131a24037065ab21ce923b843149735a75",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 4093,
-      "sha256": "e32c0e57f150781bdd39c9b49f0c95cdb6c1ee90aeb973e595c062f7c882502f",
+      "size": 4744,
+      "sha256": "20698c9fc71899d7b597087bf2df13cdb602a26e2e32fe9c68c051b644654e86",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15448,7 +15493,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1499359,
+      "size": 1500900,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15511,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4251811,
-      "sha256": "f850427453bba882057557c743c54ba24fc029c7ad883d8220d700ccfd3a3061",
+      "size": 4253777,
+      "sha256": "a1c905bbf9ff8931817b40fbc8a2a68d6677cd24acdd6e08da8be401543e132b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15961,8 +16006,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49359,
-      "sha256": "839ec0a6052a9e01a8085145a953aee8732ea76e74f8990fa0172e65b448b202",
+      "size": 49355,
+      "sha256": "2ad6a449115fe9289d9a0a3507b04be8152ff723b74c9fbf650e05ddb95263c3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15970,8 +16015,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52195,
-      "sha256": "0dce74abcabc8824acf55caceff13561dc10f722a26eb8829a33f96fd2a30520",
+      "size": 52191,
+      "sha256": "5cf1ed9484f24d97a7659582295932ad393eef80edc561acf5c302507d51c885",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17853,33 +17898,6 @@
       "mediaType": "text/markdown",
       "size": 258,
       "sha256": "ca045a65eff1aa76d4a2f93a21e3956ed93800367b734ad283a296436cf4ac69",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
-      "mediaType": "text/markdown",
-      "size": 2241,
-      "sha256": "f8f1aa114654e04f90b1b3ab000dd94129aac3e2c4b246365fefe631f04829b6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/changes.md",
-      "mediaType": "text/markdown",
-      "size": 87,
-      "sha256": "4c8b093d83a382018f3b52ae71881a2c68725bc6df58b32b1d9173a8168591dc",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill/verification.md",
-      "mediaType": "text/markdown",
-      "size": 231,
-      "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25449,6 +25467,33 @@
       "mediaType": "text/markdown",
       "size": 2380,
       "sha256": "745f30d877ad7562e55fe0c4e91e3df52db73894db54d9aa2a5ec11333213c30",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md",
+      "mediaType": "text/markdown",
+      "size": 2237,
+      "sha256": "0d5a8b6dcc6657c764fede6a577d27da8528aa1d76662606f57fe9ab2f70bb35",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2347,
+      "sha256": "0be94d691bc82b5660c9a4aeb111495d6ae5e867d5ea77516fdaff2ce856aca4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-246-platform-adr-backfill/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1477,
+      "sha256": "c447f7969680583972a38079723b514ca9bed05df4ed3f2aa0f0f083017b6628",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

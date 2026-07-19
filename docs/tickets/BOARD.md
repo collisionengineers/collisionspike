@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (31)
+## Now (32)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -37,6 +37,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 · email |
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
+| [TKT-246](./now/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
 
 ## Verify (43)
 
@@ -205,7 +206,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (76)
+## Backlog (75)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -256,7 +257,6 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 · platform |
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
 | [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform · PLAN-008 |
-| [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
 | [TKT-247](./backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 · platform · PLAN-007 |
 | [TKT-248](./backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 · platform · PLAN-007 |
 | [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |
