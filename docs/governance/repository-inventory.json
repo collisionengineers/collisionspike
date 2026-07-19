@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3652,
-    "entries": 4762
+    "files": 3655,
+    "entries": 4765
   },
-  "totalFileBytes": 703448687,
+  "totalFileBytes": 703453339,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1493305,
+      "size": 1494300,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4244176,
-      "sha256": "b2e128ce99d70f5600dc18d9369d00c37bb06d7f3010c5c27905b056c9fc7b4d",
+      "size": 4245420,
+      "sha256": "ea0d4daf23cdb452434a8356c46b968d65f8ee002fd4450bc68bddb64bf7268c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 372,
-      "sha256": "cfa1e90602ae008e8f0d0884b39fb504656dd84053dd0ce362872d0e00171cc1",
+      "size": 297,
+      "sha256": "e27c14237720be8eed77af4397d434cad828888737c010706b661685113b1084",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -36076,8 +36076,17 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-activities.ts",
       "mediaType": "text/typescript",
-      "size": 44239,
-      "sha256": "786a506ab89a58f7c021efecf443c6d9c23f8e4bab931045cbd968ed5d611ede",
+      "size": 18113,
+      "sha256": "1bc9d73b8f0c3cb76505baaa459ed5da077c506c18290f8e004d9edbf2cb49a9",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-box-activities.ts",
+      "mediaType": "text/typescript",
+      "size": 13446,
+      "sha256": "bd7c74d035a7844045fc5a215445b0b3e1eebee0dd6d34048de8e58432943c00",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -36141,6 +36150,24 @@
       "mediaType": "text/typescript",
       "size": 16425,
       "sha256": "8688f123feab9ff15f17018be33df71949ec4e6c78bed3a7031af15c33e54b7a",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-provider-corroboration.ts",
+      "mediaType": "text/typescript",
+      "size": 2106,
+      "sha256": "eebfea6c9883fe1a060b7c8d11629109d5a8a7d6754b2298349832c1dba75e33",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-activities.ts",
+      "mediaType": "text/typescript",
+      "size": 13062,
+      "sha256": "c973e4a61e0abaffcb507c0f1a0a5adfcc1ccf71e17d17bfc7c147749b94308e",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
