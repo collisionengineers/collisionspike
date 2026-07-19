@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1054,
-    "files": 3519,
-    "entries": 4573
+    "directories": 1064,
+    "files": 3530,
+    "entries": 4594
   },
-  "totalFileBytes": 703060890,
+  "totalFileBytes": 703095055,
   "entries": [
     {
       "path": ".",
@@ -2172,6 +2172,96 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-246-platform-adr-backfill",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -14944,7 +15034,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1432362,
+      "size": 1439121,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15457,8 +15547,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 43554,
-      "sha256": "08f36ee8f5d3f21690970fcb97e861cbf48f0e92c9452c32ddc2c1b56db78739",
+      "size": 44647,
+      "sha256": "176bf000bd9afb41e9e87e1fa76e65a005f1a0a95d401ef6d20fd088d175d722",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15466,8 +15556,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 45745,
-      "sha256": "336ea3eb43e96fc9d10a292864f10d712023d8ff24b463903c41e1b41911a078",
+      "size": 46956,
+      "sha256": "9a060fba9178bdb31f2e5782e89a3c2878d8274ddc2ade8ae53eff6fcddb55b6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17376,6 +17466,96 @@
       "mediaType": "text/markdown",
       "size": 231,
       "sha256": "bb7fca9811fbd0affe55312e8dde4e1c2dbb6105387167caf42a194ce64087f8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md",
+      "mediaType": "text/markdown",
+      "size": 2641,
+      "sha256": "6b2d9238c68da9f128f764eb8357c6c154b264c4580f9b496dde5eb806be6345",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1150,
+      "sha256": "274868bc058cb318067735a2c7f847c079b7ec5917c50d53dc0092d9f6034763",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md",
+      "mediaType": "text/markdown",
+      "size": 2535,
+      "sha256": "0bef3ff9fb64266b4d7308b0cae5c17aedc4b830aefdc985782d75c40c75ff78",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1104,
+      "sha256": "46b464fdc4a15552775dbf23fd28bbc410d1a3d29aaa499defc1d6b52b337c56",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md",
+      "mediaType": "text/markdown",
+      "size": 2718,
+      "sha256": "a9e5628c662185d54005e94d409fab7294da394ac7b898f1ea59c9c218b7efe5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 998,
+      "sha256": "cd16eea3a5c08d530c2a7ba866f2d5255a2a03f8f1b6048d0cd86a3ba105ce0e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md",
+      "mediaType": "text/markdown",
+      "size": 2635,
+      "sha256": "dc1dc9491f79394cdea43067206523cce2d3ece729d02d54d2023097c2bf9c91",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1046,
+      "sha256": "4a885011c0a1f76f84bd207a606714837c46ad10944231caf4247ef4be2a8f11",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md",
+      "mediaType": "text/markdown",
+      "size": 2866,
+      "sha256": "c9bb1a6703e1897914aa574fb65f0911b60318225ba6b721b290ab2979b9bf94",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1058,
+      "sha256": "b6578f8e3ee5e0904a61257c818c31869b9fa37d8dc9c37ae6bfc9766bcde181",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24027,6 +24207,15 @@
       "mediaType": "text/markdown",
       "size": 5121,
       "sha256": "7f17f5c2f8dc7a5355b5d8e7dbbfbad27e1d506f5db6e02d8bb2cbe6bd0744db",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
+      "mediaType": "text/markdown",
+      "size": 6351,
+      "sha256": "dc9d4f0f30204244d098c002f1c33c13c49e514cb393797ac19f8f69dc173a75",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

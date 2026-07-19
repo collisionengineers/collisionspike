@@ -25,6 +25,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/63 (4%) |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
 | [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
+| [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 0/5 (0%) |
 
 [Open the generated board](./BOARD.md).
 
@@ -231,7 +232,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (48)
+## Backlog (53)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -283,6 +284,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 | email | — |
 | [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | — |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 | docs | — |
+| [TKT-270](./backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | Run the hardcore repository duplication and drift audit | P1 | platform | PLAN-012 |
+| [TKT-271](./backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 | platform | PLAN-012 |
+| [TKT-272](./backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | Record and enforce the repository-structure and package-boundary rules | P2 | platform | PLAN-012 |
+| [TKT-273](./backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md) | Add the LIVE_FACTS and ledger integrity standing check | P2 | platform | PLAN-012 |
+| [TKT-274](./backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md) | Restore distillation-boundary reviewability and record the rule-of-three | P3 | platform | PLAN-012 |
 
 ## Blocked (8)
 
