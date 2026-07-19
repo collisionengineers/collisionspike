@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (48)
+## Backlog (53)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -255,8 +255,13 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-242](./backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md) | Network-drive VRM scan channel for image receipt | P3 · intake |
 | [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 · platform |
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
-| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform |
+| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform · PLAN-008 |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
+| [TKT-262](./backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Collapse the two Python-function clients onto one | P1 · platform · PLAN-008 |
+| [TKT-263](./backlog/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 · platform · PLAN-008 |
+| [TKT-264](./backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Generalise the outbox drain to one drain plus a target registry | P2 · platform · PLAN-008 |
+| [TKT-265](./backlog/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Canonicalise the BFF proxy lane | P3 · platform · PLAN-008 |
+| [TKT-266](./backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | Add the route and authority inventory guard | P2 · platform · PLAN-008 |
 
 ## Blocked (8)
 
