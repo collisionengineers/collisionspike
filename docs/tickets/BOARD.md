@@ -205,7 +205,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (53)
+## Backlog (76)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -255,8 +255,31 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-242](./backlog/TKT-242-network-drive-vrm-scan/TKT-242-network-drive-vrm-scan.md) | Network-drive VRM scan channel for image receipt | P3 · intake |
 | [TKT-243](./backlog/TKT-243-code-docs-hygiene-sweep/TKT-243-code-docs-hygiene-sweep.md) | Code and docs hygiene sweep from the 160726 ADR review | P2 · platform |
 | [TKT-244](./backlog/TKT-244-triage-vocabulary-code-additions/TKT-244-triage-vocabulary-code-additions.md) | Add the adopted triage vocabulary labels to the classifier | P2 · email |
-| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform |
+| [TKT-245](./backlog/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform · PLAN-008 |
 | [TKT-246](./backlog/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
+| [TKT-247](./backlog/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 · platform · PLAN-007 |
+| [TKT-248](./backlog/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 · platform · PLAN-007 |
+| [TKT-249](./backlog/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |
+| [TKT-250](./backlog/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 · platform · PLAN-007 |
+| [TKT-251](./backlog/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 · platform · PLAN-007 |
+| [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 · platform · PLAN-009 |
+| [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 · platform · PLAN-009 |
+| [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 · platform · PLAN-009 |
+| [TKT-255](./backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | Rationalise the bicep layout to one convention | P2 · platform · PLAN-009 |
+| [TKT-256](./backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | Assess helper-app consolidation (read-only) | P3 · platform · PLAN-009 |
+| [TKT-257](./backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | Refresh LIVE_FACTS and the live-environment doc | P1 · platform · PLAN-009 |
+| [TKT-258](./backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | Consolidate the hash and path-normalize inventory core | P2 · platform · PLAN-010 |
+| [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
+| [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
+| [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
+| [TKT-262](./backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Consolidate the active focused-Function clients onto one | P1 · platform · PLAN-008 |
+| [TKT-263](./backlog/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 · platform · PLAN-008 |
+| [TKT-264](./backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Share the outbox monitor lifecycle without flattening lane protocols | P2 · platform · PLAN-008 |
+| [TKT-265](./backlog/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Retire dead orchestration parser and location client exports | P3 · platform · PLAN-008 |
+| [TKT-266](./backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | Add the route and authority inventory guard | P2 · platform · PLAN-008 |
+| [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 · platform · PLAN-011 |
+| [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 · platform · PLAN-011 |
+| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 · platform · PLAN-011 |
 | [TKT-270](./backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | Run the hardcore repository duplication and drift audit | P1 · platform · PLAN-012 |
 | [TKT-271](./backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 · platform · PLAN-012 |
 | [TKT-272](./backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | Record and enforce the repository-structure and package-boundary rules | P2 · platform · PLAN-012 |

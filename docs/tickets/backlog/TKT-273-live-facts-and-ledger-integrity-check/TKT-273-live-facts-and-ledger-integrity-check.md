@@ -12,40 +12,60 @@ plan: PLAN-012
 # Add the LIVE_FACTS and ledger integrity standing check
 
 ## Problem
-The series was triggered partly by stale live-state (`LIVE_FACTS.json` recorded a free trial and out-of-date
-function counts) and depends on byte-preserving governance ledgers. Nothing standing keeps `LIVE_FACTS.json`
-honest against reality or guarantees the ledgers do not silently drift.
+The series was triggered partly by stale governed fields in `LIVE_FACTS.json`. Timestamp freshness and
+agreement between prose and the registry do not prove that registry values match live evidence. The workflow
+job currently named “Verify live registry drift” invokes
+`VERIFY_LIVE=1 node verify-all.mjs`, but that verifier explicitly never contacts the live environment and does
+not consume `VERIFY_LIVE`; the job can therefore report a false green.
 
 ## Evidence
 `LIVE_FACTS.json` is the sole exact live-state registry, with a rule that it is replaced only from dated
 read-only evidence and never inferred from source; PLAN-009 refreshes it (offer, function counts, retirements).
 The inventory ledgers (`docs/governance/repository-inventory.json` + the reconciliation ledger) are already
-integrity-checked by `check:inventory` / `check:reconciliation`, and PLAN-010 keeps their generation
-byte-preserving.
+integrity-checked by `check:inventory` / `check:reconciliation`. A current read-only comparison confirmed that
+some governed subscription and function-registration fields in the tracked registry differ from Azure. Exact
+state and the verification timestamp remain in `LIVE_FACTS.json`. The existing ledger checks must remain
+canonical rather than being reimplemented inside another guard.
 
 ## Proposed change
-Add a standing check that (a) flags when `LIVE_FACTS.json` has not been reconciled against a fresh read-only
-inventory within a defined window, or when a tracked doc asserts a live value that disagrees with it, and (b)
-asserts the governance ledgers regenerate byte-identical. This generalises PLAN-009's estate reconciliation
-and PLAN-010's byte-preserving-ledger rule into one gating integrity check.
+After TKT-257 and TKT-258 are `done`, define a secret-free machine-readable evidence snapshot and field map:
+each governed `LIVE_FACTS.json` JSON path maps to a snapshot path, evidence source/probe, capture time, and
+comparison rule. `LIVE_FACTS.json` references the snapshot path and digest. Add an offline command that checks
+schema, freshness, digest, registry-to-snapshot parity, and doc authority. Add a separate credential-gated
+read-only Azure command that captures an ephemeral snapshot, compares every governed Azure field, and emits a
+sanitised artifact. Keep `verify-all.mjs` offline and reuse the existing inventory/reconciliation commands.
 
 ## Acceptance
-- **A1.** A check flags a stale `LIVE_FACTS.json` (not reconciled within the defined window) and any tracked
-  doc whose live-value claim disagrees with the registry (reusing the existing doc-links leakage authority).
-- **A2.** The check asserts the governance ledgers regenerate byte-identical; a synthetic ledger edit fails it.
-- **A3.** The check honours the `LIVE_FACTS` rule — reconciliation evidence is dated and read-only; the check
-  never mutates live state.
-- **A4.** The check runs in CI and is documented on the operations/governance pages.
-- **A5.** No live write.
+- **A1.** A committed, secret-free JSON snapshot and field map cover every machine-governed live fact. The
+  registry records the snapshot path and digest; each mapping names its evidence source/probe, capture time,
+  and exact or explicitly-tolerated comparison.
+- **A2.** An offline command fails on a stale snapshot, digest mismatch, missing mapping, registry/snapshot
+  field mismatch, or tracked-doc/registry disagreement. Separate negative fixtures cover each case.
+- **A3.** A distinct credential-gated command performs read-only Azure queries, creates an ephemeral
+  sanitised snapshot, and compares each governed Azure field with both the committed evidence and registry.
+  With credentials present, any query or comparison failure fails closed. Without credentials, CI reports an
+  explicit skip that cannot be cited as live verification.
+- **A4.** The workflow invokes the real live command rather than passing an unused variable to
+  `verify-all.mjs`; the offline aggregate verifier remains network-free.
+- **A5.** `check:inventory` and `check:reconciliation` remain the canonical deterministic ledger checks. The
+  new integrity wiring invokes or registers them by reference and does not duplicate their algorithms; a
+  synthetic ledger edit still fails the existing check.
+- **A6.** The commands and evidence schema are documented on the operations/governance pages and expose no
+  secret values, tokens, private identifiers, or connection strings.
+- **A7.** No live write.
 
 ## Validation
-- Run the check against the current registry + ledgers (pass); against a synthetic stale registry and a
-  synthetic ledger edit (fail); confirm it invokes no live mutation.
+- Run the offline command against the registry, committed snapshot, docs, and ledgers; run each negative
+  fixture; run the credential-gated command read-only and retain its sanitised comparison result. Confirm the
+  live command performs no mutation and that the workflow does not label an offline-only run as live proof.
 
 ## Research
-Distilled from PLAN-009's `LIVE_FACTS` refresh (TKT-257), PLAN-010's byte-preserving-ledger rule (TKT-258),
-and the `LIVE_FACTS.json` authority doctrine. The estate/registry anti-drift generalisation. Consumes
+Distilled from PLAN-009's `LIVE_FACTS` refresh (TKT-257), PLAN-010's output-preserving inventory refactor
+(TKT-258), and the `LIVE_FACTS.json` authority doctrine, then corrected against the live Azure estate and the
+current false-green workflow. Implementation is gated on TKT-257 and TKT-258 being `done` and consumes
 TKT-270's audit.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

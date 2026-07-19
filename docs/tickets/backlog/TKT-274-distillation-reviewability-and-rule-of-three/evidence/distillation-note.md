@@ -3,14 +3,19 @@
 **Source:** reconciled review Gate 0 item 11 (reviewability) + the "Simplicity" perspective (rule-of-three).
 **Plan:** PLAN-012.
 
-**Reviewability gap (verified 2026-07-19):** `.gitattributes:24` — `workingspace/** text eol=crlf -diff` — so
-the architecture-simplification drafts render as binary in PR diffs. The plan/ticket distillation boundary (the
-exact place this series' quality is checked) is therefore not diff-visible. Fix without weakening the
-`workingspace` content-immutability rule (drafts are user-owned, must not be edited/renamed): render for review
-or require a per-PR derivation summary a check can confirm.
+**Reviewability gap:** `.gitattributes` keeps `workingspace/**` byte-stable and suppresses text diffs. Even
+without `-diff`, a draft committed before its distillation PR is unchanged and therefore absent from the PR
+diff. Rendering is not a sufficient fix. Every new plan must carry a linked derivation summary with immutable
+source references and an adopted/changed/dropped decision map. PLAN-012's own summary is the first fixture.
+The user-owned drafts and their attributes remain untouched.
 
-**Rule-of-three discipline to record:** a mechanism duplicated 3+ times earns a shared home; single-caller
-wrappers are inlined; every consolidation PR reports a net file/LOC delta (net-negative overall). Record on the
-governance pages as a standing expectation; add a presence/delta check where mechanical.
+**Qualified rule-of-three discipline:** three structurally equivalent implementations trigger a consolidation
+review. Sharing is accepted only when contract, owner, lifecycle, security, and failure semantics match;
+otherwise the exception and parity/authority proof are recorded. Single-caller wrappers are candidates for
+inlining unless they express a real boundary.
 
-**Constraint:** `workingspace/` files are neither edited nor renamed by this ticket.
+**Structural delta:** report before/after owned files and nonblank lines for the completed lane and aggregate
+plan. A scaffold PR may be locally positive. A non-negative completed plan needs an explicit operator decision
+because file count cannot overrule semantic boundaries.
+
+**Constraint:** `.gitattributes` and `workingspace/` files are neither edited nor renamed by this ticket.
