@@ -34,7 +34,7 @@ import * as df from 'durable-functions';
 import type { Task } from 'durable-functions';
 import type { RetroKeys } from '@cs/domain';
 import type { InboundEnvelope } from '../intake/fetchMessage.js';
-import { mapRetroParse } from './retro-case.js';
+import { mapRetroParse } from './retro-parse-map.js';
 import { relatedParseContradictsKeys } from './retro-envelope.js';
 
 /** The parse activity's envelope shape as this chain consumes it (retro-case.ts twin). */

@@ -37,7 +37,8 @@ vi.mock('../../platform/subscriptions.js', () => ({ intakeMailboxes: vi.fn(() =>
 vi.mock('../../adapters/functions-client.js', () => ({ box: {}, callExplodeEml: vi.fn() }));
 vi.mock('../../platform/blob.js', () => ({ uploadEvidenceBytes: vi.fn() }));
 
-import { mapRetroParse } from './retro-case.js';
+import './retro-case.js';
+import { mapRetroParse } from './retro-parse-map.js';
 
 function makeCtx(input: unknown): {
   ctx: unknown;
