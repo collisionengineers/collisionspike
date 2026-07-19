@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3639,
-    "entries": 4749
+    "files": 3671,
+    "entries": 4781
   },
-  "totalFileBytes": 703426374,
+  "totalFileBytes": 703506120,
   "entries": [
     {
       "path": ".",
@@ -5132,24 +5132,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5943,6 +5925,24 @@
     },
     {
       "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1489198,
+      "size": 1499359,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4238990,
-      "sha256": "c679fa6e1d0952c92dd3ace8df1c35dfa3b2288b7c63f7e6d592502e9855e09c",
+      "size": 4251811,
+      "sha256": "f850427453bba882057557c743c54ba24fc029c7ad883d8220d700ccfd3a3061",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15961,8 +15961,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49356,
-      "sha256": "21c0a31f858e6f2af2ca0570c28a5c89baa40ba141816626fab0d088a2b5b271",
+      "size": 49359,
+      "sha256": "839ec0a6052a9e01a8085145a953aee8732ea76e74f8990fa0172e65b448b202",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15970,8 +15970,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52192,
-      "sha256": "7ec0f1451e7069f19873bf121624f7be3014352dad6a3644a70636350200ef7b",
+      "size": 52195,
+      "sha256": "0dce74abcabc8824acf55caceff13561dc10f722a26eb8829a33f96fd2a30520",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24995,42 +24995,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
-      "mediaType": "text/markdown",
-      "size": 3394,
-      "sha256": "18d2fdab69da464ed58f00b74245016720be68c994d7d2ca785a862ed6721aa6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1905,
-      "sha256": "0036e2b5e87ab6fefb8ed2b001803ffd0d659cee6ed474b6f069324f322ecb2e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 256,
-      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3224,
-      "sha256": "38939ff64a91db0cd306a4d79877dae3bf9430d25fff216ba6a2cb9dafadd81d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md",
       "mediaType": "text/markdown",
       "size": 3311,
@@ -25537,8 +25501,8 @@
     {
       "path": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
       "mediaType": "text/markdown",
-      "size": 5121,
-      "sha256": "7f17f5c2f8dc7a5355b5d8e7dbbfbad27e1d506f5db6e02d8bb2cbe6bd0744db",
+      "size": 5128,
+      "sha256": "b9dae40cc61d5f1d29ac61271bfe0962cc64aa37942d38888835062f66ac6c51",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27303,6 +27267,42 @@
       "mediaType": "text/markdown",
       "size": 1891,
       "sha256": "99e748a91bdc956c320e531f2ff376b53af52475efa063af8a2c9b17db5de91a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
+      "mediaType": "text/markdown",
+      "size": 3400,
+      "sha256": "3a5d158dff7015eb10a432ebadbd9d96caeb4b7ead6123a206a558a2aaa75c77",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3350,
+      "sha256": "e6c134a6b36f405254005126ffc6ed0d2093a01829f86e1c3ff679df4457b6e4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 256,
+      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3369,
+      "sha256": "f3441c547537ba0fd40c740ea5bfa258145527508e4fa097de0617f270a646d8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 784,
-      "sha256": "03599c914df5be550a47b9f5e4163d0c0d542694137983523b22229f3f7df972",
+      "size": 37,
+      "sha256": "710ca532b1441da078095eb49f7cd493c6f5f947e683b26d7318b4de15d6ddbd",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31466,6 +31466,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/capture-access.test.ts",
+      "mediaType": "text/typescript",
+      "size": 26443,
+      "sha256": "ffe33ff1d9479827b3212893be9ffee52caa3d77dada8811f9b158b5d07a4e3b",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-access.ts",
+      "mediaType": "text/typescript",
+      "size": 9953,
+      "sha256": "3b9bbfae748c5a35e570bea6511527e01a86914f0f96d4c47a6bb61665ec2445",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/capture-auth.test.ts",
       "mediaType": "text/typescript",
       "size": 4418,
@@ -31486,8 +31504,8 @@
     {
       "path": "services/data-api/src/features/cases/capture-blob-security.test.ts",
       "mediaType": "text/typescript",
-      "size": 3406,
-      "sha256": "473fc2a4cd1660ca88cb257ad20c7898461040b789166cd00665f690bdb79093",
+      "size": 3413,
+      "sha256": "dd666910a4fc044a0ff9618aa362d78d245fa7352cfc8400b17de05b753b23d0",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31506,6 +31524,33 @@
       "mediaType": "text/typescript",
       "size": 10279,
       "sha256": "73cf62d81366e1b1899c03f5106c235a429df17b3d41bde95fa189ad19a52938",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-complete.test.ts",
+      "mediaType": "text/typescript",
+      "size": 22660,
+      "sha256": "0f68ba32cae84a9cdf517fbd90a5eab6973137cd47e8d2a37af610cd69480a8a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-http.ts",
+      "mediaType": "text/typescript",
+      "size": 3622,
+      "sha256": "305e2546e0b1eed97dbedde29d3069aecaa57e81716a831d289a961231398986",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-observations.ts",
+      "mediaType": "text/typescript",
+      "size": 7887,
+      "sha256": "0b8a755b5f650830f663dc4bc867eb6d4c38cd55a3780a1e3f20de19daaac653",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31556,10 +31601,73 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/capture-session-store.ts",
+      "mediaType": "text/typescript",
+      "size": 12009,
+      "sha256": "0f743782fc5c5555ff917cd7c1045a3e0114e9bc5d310407d6d8e1f1681423df",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-staff.ts",
+      "mediaType": "text/typescript",
+      "size": 8705,
+      "sha256": "1216fa06d5a86af46e7e489c856b603f8b350982ba6faa2c9c856480050f7f04",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-submit.test.ts",
+      "mediaType": "text/typescript",
+      "size": 22977,
+      "sha256": "3f8159e51a81eb1e98f831a6fdddaebf00bbdff540877a4bc0edca653fbcbd9a",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-submit.ts",
+      "mediaType": "text/typescript",
+      "size": 10447,
+      "sha256": "0b15107bea92b2e886d59f4257ad3be6a39a82cf2d65d565592ab7917a330715",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-upload.test.ts",
+      "mediaType": "text/typescript",
+      "size": 31453,
+      "sha256": "310409dddd9a69a2bf0f17cf7dc7fe3d4f2a6c6bd03cfb29e18148f7f33f00f4",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture-upload.ts",
+      "mediaType": "text/typescript",
+      "size": 25522,
+      "sha256": "f356bd51ddac46a7c1023968de2c2742ada4d97d53d70db927ab3d332229b3e6",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/capture.harness.ts",
+      "mediaType": "text/typescript",
+      "size": 1717,
+      "sha256": "5c9e9aae4219e68c62aa8ae5a1c7ca8e5dd2acc3a86a1b5325814e73e19657a8",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/capture.test.ts",
       "mediaType": "text/typescript",
-      "size": 93106,
-      "sha256": "8a29601de4c4052612a9aace75b60ee81e39d24bbe96eb0c55f439caf02de169",
+      "size": 13033,
+      "sha256": "c4c5bf98a594bab47706e4cc525e6c91d8256239e8e751f27f885ed273f314e5",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31567,8 +31675,8 @@
     {
       "path": "services/data-api/src/features/cases/capture.ts",
       "mediaType": "text/typescript",
-      "size": 74011,
-      "sha256": "849e909f84c3f317b83769bfb38cd8cb6053cd96c598a1bcc52dfced4e9e3702",
+      "size": 3155,
+      "sha256": "19c4e84d2b084a7f93089ce15273993fee536c5f66c3b96a45da39154c0c4363",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31925,10 +32033,64 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/merge-archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 4960,
+      "sha256": "5c89eebbd4391aa956f6cc9764aa825d0d5bd49fa677fb6bfdd7db2696257a14",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-capture.ts",
+      "mediaType": "text/typescript",
+      "size": 2760,
+      "sha256": "2a777ff33636b7db05ba60da109f46470ed5d44ceb322fc56b890e4016018805",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-evidence.ts",
+      "mediaType": "text/typescript",
+      "size": 9331,
+      "sha256": "cee72b22946d09d71ded1580c264b4b4bcd352002525e61f01fe8f2127baac67",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-file-request.ts",
+      "mediaType": "text/typescript",
+      "size": 3716,
+      "sha256": "fbb50d1dc75663eebb8afa099c930b81ab083338c0082ae3e17eefae5123d852",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-intake-ownership.ts",
+      "mediaType": "text/typescript",
+      "size": 2021,
+      "sha256": "534100e3c7514855f4fa15500798392ec6b9f065f8d51c95549a72406ec0a9ab",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/merge-routes.harness.ts",
+      "mediaType": "text/typescript",
+      "size": 15191,
+      "sha256": "bb243c7ca4414187acbfb4f5db6c14093e59ecec0f04a5d7d330cb92330bbf75",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/merge-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 49111,
-      "sha256": "5a1c9280d7c347ef43f2f6b87d76a3baa1a88ceaa48fb9118c716e855b5379ab",
+      "size": 34689,
+      "sha256": "495f66574c60d5c5ce0381ab362950f69ea620bca9a4b035d1a89597540269e1",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -31936,8 +32098,8 @@
     {
       "path": "services/data-api/src/features/cases/merge-routes.ts",
       "mediaType": "text/typescript",
-      "size": 39665,
-      "sha256": "0005c749454219dd71bbe52c15a97a123211aeaa0d85143de17c47c967a3c1aa",
+      "size": 18130,
+      "sha256": "53c4188a21989ee7a305af344b7ca5ebcb09b21bfe37d23431c01d2014ab7e8a",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -32510,10 +32672,37 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/inbound/retro-case-lookup.ts",
+      "mediaType": "text/typescript",
+      "size": 4138,
+      "sha256": "1251b52fa52288a3674ff4ff428489fc998e93a3d8d8dbb5d467e003934efe57",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/retro-create.test.ts",
+      "mediaType": "text/typescript",
+      "size": 14585,
+      "sha256": "58c2d2b73a22af5ba692edcb36f523f047f98faea3078bd62e3ac9bfad434742",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/retro-create.ts",
+      "mediaType": "text/typescript",
+      "size": 22422,
+      "sha256": "2f011a4fe373957cb0b80392ca0e38c6df1b7e780d66414be769455a164306d7",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/inbound/retro-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 37674,
-      "sha256": "512e1e34ea38949d0783f5a0d39122f1a85a6ed58fba61d728c5bc3a9361830c",
+      "size": 27571,
+      "sha256": "73a5a53591d064a9d0613e8af9f6179e128850c8786ae84a762366b0d55aaa22",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -32521,8 +32710,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.ts",
       "mediaType": "text/typescript",
-      "size": 45504,
-      "sha256": "c4b58fe42e10d21a346c8666ef2eab25c2689b7b9039268cf9632bb84ac38d3c",
+      "size": 20898,
+      "sha256": "b33e6ed5705053aedbbebb7abba6e3f284d95971ac7714c425de75d4a52e62cc",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -33151,8 +33340,26 @@
     {
       "path": "services/functions/box-webhook/box_operations.py",
       "mediaType": "text/x-python",
-      "size": 43398,
-      "sha256": "0f0cc450f56dba82540d2a3493ef5c231be208257b52abd59aea3d06388ddb86",
+      "size": 23536,
+      "sha256": "325825d30df39fe65b0a0dff1feece94d13e601a5f1ab1a9eebf9441ae3c96cc",
+      "category": "source",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/box-webhook/box_rest_helpers.py",
+      "mediaType": "text/x-python",
+      "size": 2515,
+      "sha256": "327dc2ae0f51b3806454054c1d702c4a9d2081a57f951490c5af70b496fc7f9f",
+      "category": "source",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/box-webhook/box_upload_operations.py",
+      "mediaType": "text/x-python",
+      "size": 19088,
+      "sha256": "3744c69e98ac8ee3adc054aa0f250ff299f31d5519a17e2ebade460e21b8b8de",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -35003,6 +35210,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/adapters/data-api-archive-holding.ts",
+      "mediaType": "text/typescript",
+      "size": 5450,
+      "sha256": "8576f78fac95f3ea614cee4f03c68dec65ddadc72b134356dd155b061b3968cf",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/adapters/data-api-contracts.ts",
       "mediaType": "text/typescript",
       "size": 7420,
@@ -35012,10 +35228,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/adapters/data-api-evidence.ts",
+      "mediaType": "text/typescript",
+      "size": 7132,
+      "sha256": "ad75575e140501f206f133197aafc2ac5b6fdf2a46c440916abff53cf49fea2f",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/adapters/data-api-http.ts",
       "mediaType": "text/typescript",
       "size": 3860,
       "sha256": "8349b6fb75a07c548593e4d7a791a23479d91f0285d799f000eb8774f6a1603d",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/adapters/data-api-retro.ts",
+      "mediaType": "text/typescript",
+      "size": 4938,
+      "sha256": "510a35f404269bb8f642c2f44ecb35898ce42722b6dc3d4f00699bb205ef7d83",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35032,8 +35266,8 @@
     {
       "path": "services/orchestration/src/adapters/data-api.ts",
       "mediaType": "text/typescript",
-      "size": 41045,
-      "sha256": "c7e5f1b6927929527135584f77d1de81b335451d2d08983f392bb615639f3735",
+      "size": 25952,
+      "sha256": "f23b9fa9dfba096497728be757ed8f3e361a2a905634a086130ea1c94bf9d4fd",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35680,8 +35914,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 44418,
-      "sha256": "57c46a414ef44fc9e56cc2667b513af886c63d7b79fc88780380ce0501318eb9",
+      "size": 42327,
+      "sha256": "bcd71960d277da1ec9705a64a09378c252ae9f686e54be4e44153ad99e7d2b63",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35718,6 +35952,15 @@
       "mediaType": "text/typescript",
       "size": 19606,
       "sha256": "687935358a2b386a894b6d64945b92c27e3ad527db6cd99094217e09a1d4da7b",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/parser-eva-fields.ts",
+      "mediaType": "text/typescript",
+      "size": 4638,
+      "sha256": "5e54152ac1678bbc3b5be8f67a7fa0cb40caaaa40407761b7b2aa5599f4d4c13",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35959,8 +36202,17 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-activities.ts",
       "mediaType": "text/typescript",
-      "size": 44239,
-      "sha256": "786a506ab89a58f7c021efecf443c6d9c23f8e4bab931045cbd968ed5d611ede",
+      "size": 18113,
+      "sha256": "1bc9d73b8f0c3cb76505baaa459ed5da077c506c18290f8e004d9edbf2cb49a9",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-box-activities.ts",
+      "mediaType": "text/typescript",
+      "size": 13446,
+      "sha256": "bd7c74d035a7844045fc5a215445b0b3e1eebee0dd6d34048de8e58432943c00",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35986,8 +36238,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case-provider-recovery.test.ts",
       "mediaType": "text/typescript",
-      "size": 21561,
-      "sha256": "d803c95cb0305ac9668cc9c398e7491a615b9d91b226127a953231f4929db36f",
+      "size": 21592,
+      "sha256": "0da3544102dcacb49bbcdd2f7dab412d296762fbc28145db27e49f50c097cffa",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -35995,8 +36247,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-case.ts",
       "mediaType": "text/typescript",
-      "size": 61018,
-      "sha256": "45c5184e3c7e5c40e8e3b8ce6e4b43360607d2cdc5d9e787f306256653559993",
+      "size": 28386,
+      "sha256": "891165af9043a5c0a44c1419265465558a980d71d91c3512745dc17024b8d2ed",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -36029,6 +36281,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/retro/retro-parse-map.ts",
+      "mediaType": "text/typescript",
+      "size": 3532,
+      "sha256": "fd304ac7e4cb380b5a8b08a0ef1fdb0479c6ee180598f73bc12a9b90b79ffe35",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-provider-corroboration.ts",
+      "mediaType": "text/typescript",
+      "size": 2106,
+      "sha256": "eebfea6c9883fe1a060b7c8d11629109d5a8a7d6754b2298349832c1dba75e33",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-reconstruct.ts",
+      "mediaType": "text/typescript",
+      "size": 34832,
+      "sha256": "edc2caa763af565db770f3f9170ee25afa2c3dec07585a29408fd7777cd07282",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/retro/retro-related-activities.ts",
+      "mediaType": "text/typescript",
+      "size": 13062,
+      "sha256": "c973e4a61e0abaffcb507c0f1a0a5adfcc1ccf71e17d17bfc7c147749b94308e",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/retro/retro-related-ingest.test.ts",
       "mediaType": "text/typescript",
       "size": 12589,
@@ -36040,8 +36328,8 @@
     {
       "path": "services/orchestration/src/workflows/retro/retro-related-ingest.ts",
       "mediaType": "text/typescript",
-      "size": 9407,
-      "sha256": "0d092df8230a9f19080442f403608453d357cb36557efbb652c19dd10964aba9",
+      "size": 9412,
+      "sha256": "7a6e724914802631857163ee79049516dce360e68854a86015c51053f77e90c8",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

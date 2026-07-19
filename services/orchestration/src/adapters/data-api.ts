@@ -2,7 +2,7 @@
  * Typed REST client used by orchestration. All authoritative case writes pass
  * through the data service; this application never opens a database connection.
  */
-import type { CreateCaseInput, CreateCaseResult, EvidenceDescriptor } from '@cs/domain';
+import type { CreateCaseInput, CreateCaseResult } from '@cs/domain';
 import type {
   BoxClassificationFailure,
   DedupContext,
@@ -22,43 +22,23 @@ import type {
   UnclassifiedBoxEvidenceRow,
 } from './data-api-contracts.js';
 import { request } from './data-api-http.js';
+import { archiveHoldingApi } from './data-api-archive-holding.js';
+import { evidenceApi } from './data-api-evidence.js';
+import { retroApi } from './data-api-retro.js';
 
 export * from './data-api-contracts.js';
+export type {
+  ArchiveHoldingClaim,
+  ArchiveHoldingFile,
+  ArchiveHoldingUploadClaim,
+  DeferredArchiveHoldingIntake,
+} from './data-api-archive-holding.js';
 export {
   ConflictError,
   DataApiHttpError,
   EvidenceBackfillReclassificationRequiredError,
   EvidenceBackfillTargetChangedError,
 } from './data-api-http.js';
-
-export interface ArchiveHoldingFile {
-  id: string;
-  filename: string;
-  contentType: string;
-  size: number;
-  blobPath: string;
-  sha256: string;
-  boxFileId: string | null;
-  boxFileUrl: string | null;
-  boxSha1: string | null;
-  canonicalBoxFileId: string | null;
-  state: string;
-}
-
-export interface ArchiveHoldingUploadClaim extends ArchiveHoldingFile {
-  holdingId: string;
-  boxFolderId: string;
-  claimToken: string;
-}
-
-export interface DeferredArchiveHoldingIntake {
-  id: string;
-  sourceMessageId: string;
-  vrm: string;
-  rootFolderId: string;
-  claimToken: string;
-  files: Array<{ filename: string; contentType: string; size: number; blobPath: string; sha256: string }>;
-}
 
 export interface EvaSubmissionRequest {
   evaPayload12: Record<string, string>;
@@ -75,23 +55,14 @@ export interface EvaSubmissionRequest {
   payloadHash: string;
 }
 
-export type ArchiveHoldingClaim =
-  | { kind: 'none' }
-  | { kind: 'busy' }
-  | { kind: 'complete' }
-  | { kind: 'ambiguous'; candidates?: string[]; folders?: string[]; changed?: boolean }
-  | {
-      kind: 'claimed';
-      holdingId: string;
-      claimToken: string;
-      mode: 'rename' | 'merge';
-      holdingFolderId: string;
-      canonicalFolderId: string;
-      casePo: string;
-      files: ArchiveHoldingFile[];
-    };
-
 export const dataApi = {
+  // Cohesive sub-clients extracted in TKT-210. None of these methods reference `this`
+  // (each delegates to the shared authenticated `request` core), so composing them by
+  // spread is behaviour-identical to defining them inline here.
+  ...archiveHoldingApi,
+  ...evidenceApi,
+  ...retroApi,
+
   evaSubmission(caseId: string): Promise<EvaSubmissionRequest> {
     return request('GET', `/api/internal/cases/${encodeURIComponent(caseId)}/eva-submission`);
   },
@@ -251,109 +222,6 @@ export const dataApi = {
   },
 
   /**
-   * ADR-0022 retro reconstruction — the ANY-STATUS existence check + link (internal route).
-   * Unlike linkReply this matches terminal cases too (a billing email about an
-   * eva_submitted case must link, not strand); 'gated_off' while RETRO_CASE_ENABLED is
-   * not 'true' on the API app (honest refusal — the gate lives on BOTH apps).
-   */
-  retroResolveExisting(payload: {
-    trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
-    providerId?: string;
-    triggerCategory?: string;
-  }): Promise<{
-    outcome: 'linked' | 'ambiguous' | 'none' | 'gated_off';
-    caseId?: string;
-    candidateCount: number;
-  }> {
-    return request('POST', '/api/internal/retro/resolve-existing', payload);
-  },
-
-  /**
-   * ADR-0022 retro reconstruction — get-or-create persist of a reconstructed case.
-   * `casePo` is the DISCOVERED archive folder name (verbatim — the API never mints on
-   * this path); concurrent duplicates come back as 'already_exists_linked', never 409/500.
-   */
-  retroCreate(payload: {
-    original: unknown;
-    trigger: unknown;
-    keys: { casePo?: string; externalRef?: string; vrm?: string; claimant?: string };
-    casePo?: string;
-    vrm?: string;
-    statusName: 'eva_submitted' | 'needs_review';
-    onHold: boolean;
-    actionReason?: 'needs_review';
-    reconstructionSource: 'box_eml' | 'box_doc' | 'outlook' | 'minimal';
-    providerId?: string;
-    /** TKT-219 — the trigger sender's Image-Source intermediary match (TKT-021). */
-    intermediary?: { imageSourceId: string; candidateProviderIds: string[] };
-    parserVrm?: string;
-    parserRef?: string;
-    parserMileage?: string;
-    parserMileageUnit?: string;
-    parserEva?: ParserEvaFields;
-    caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution';
-    caseTypeSignals?: string[];
-    boxFolder?: { id: string; url?: string };
-    triggerCategory?: string;
-  }): Promise<{
-    outcome: 'created' | 'already_exists_linked' | 'ambiguous' | 'gated_off' | 'refused_category';
-    caseId?: string;
-    casePo?: string | null;
-    newClient?: boolean;
-    candidateCount?: number;
-    /** TKT-219 — the provider the create actually resolved (PO principal / parser content /
-     *  recovery), so the orchestrator's evidence chain can honour the AI opt-out. */
-    resolvedProviderId?: string;
-    providerRecovery?: 'identity_ready' | 'not_needed' | 'blocked';
-  }> {
-    return request('POST', '/api/internal/retro/create', payload);
-  },
-
-  /**
-   * TKT-222 — link related mailbox emails (replies, chasers, our own sent responses) to a
-   * reconstructed retro case. Server-side: never re-points a row that already carries a
-   * case_id; rows land 'routed' with retro_related_linked provenance. TKT-225: the
-   * response additionally identifies WHICH rows linked (`linkedIds`) and which were
-   * already linked to THIS case (`alreadyLinkedIds`) — both ingest-eligible; rows linked
-   * to a different case are never returned.
-   */
-  retroLinkRelated(payload: {
-    caseId: string;
-    rows: unknown[];
-  }): Promise<{
-    linked: number;
-    skipped: number;
-    linkedIds?: string[];
-    alreadyLinkedIds?: string[];
-    /** PR-review fix — the route now applies the 25-new-links per-case cap itself
-     *  (already-linked rows don't consume it) and reports how many rows it skipped. */
-    skippedByCap?: number;
-  }> {
-    return request('POST', '/api/internal/retro/link-related', payload);
-  },
-
-  /**
-   * TKT-225 — fill-gaps parser-field application from a retro-linked RELATED email.
-   * Wraps the Data API's applyParserFields engine with NO sender-provider, NO
-   * intermediary and NO recoveryContext: strictly fill-if-empty (plus a VRM
-   * fill-if-empty with provenance), no Case/PO mint, no provider-recovery completion —
-   * a chaser is weaker provenance than an instruction. 'gated_off' while
-   * RETRO_CASE_ENABLED is off on the API app.
-   */
-  retroBackfillFields(payload: {
-    caseId: string;
-    sourceInternetMessageId: string;
-    parserVrm?: string;
-    parserRef?: string;
-    parserMileage?: string;
-    parserMileageUnit?: string;
-    parserEva?: ParserEvaFields;
-  }): Promise<{ outcome: 'applied' | 'noop' | 'gated_off'; vrmFilled?: boolean }> {
-    return request('POST', '/api/internal/retro/backfill-fields', payload);
-  },
-
-  /**
    * TKT-119c / TKT-034 — stamp a VISIBLE attention reason on an email's triage row
    * ('unable_to_locate' after a failed retro reconstruction; 'images_no_match' for an
    * image-bearing email with no case match). Keyed on the Internet-Message-Id; the API
@@ -369,268 +237,6 @@ export const dataApi = {
     return request('POST', '/api/internal/inbound/attention', payload);
   },
 
-  reserveArchiveHoldingIntake(payload: {
-    vrm: string;
-    rootFolderId: string;
-    sourceMessageId: string;
-    claimToken: string;
-    files: Array<{ filename: string; contentType: string; size: number; blobPath: string; sha256: string }>;
-  }): Promise<{ id: string; acquired: boolean; completed: boolean; busy: boolean }> {
-    return request('POST', '/api/internal/archive-holding/reserve', payload);
-  },
-
-  registerArchiveHolding(payload: {
-    vrm: string;
-    rootFolderId: string;
-    boxFolderId: string;
-    sourceMessageId: string;
-    claimToken: string;
-    files: Array<{ filename: string; contentType: string; size: number; blobPath: string; sha256: string }>;
-  }): Promise<{
-    holdingId: string;
-    boxFolderId: string;
-    files: ArchiveHoldingFile[];
-    deferred: boolean;
-    replayed: boolean;
-  }> {
-    return request('POST', '/api/internal/archive-holding/register', payload);
-  },
-
-  stampArchiveHoldingUpload(fileId: string, payload: {
-    claimToken: string;
-    boxFileId: string;
-    boxFileUrl: string;
-    boxSha1?: string;
-  }): Promise<{ updated: boolean }> {
-    return request('POST', `/api/internal/archive-holding/files/${encodeURIComponent(fileId)}/uploaded`, payload);
-  },
-
-  failArchiveHoldingUpload(fileId: string, payload: { claimToken: string; error: string }): Promise<void> {
-    return request('POST', `/api/internal/archive-holding/files/${encodeURIComponent(fileId)}/failed`, payload);
-  },
-
-  claimArchiveHoldingUploads(claimToken: string, limit = 25): Promise<{ files: ArchiveHoldingUploadClaim[] }> {
-    return request('POST', '/api/internal/archive-holding/uploads/claim', { claimToken, limit });
-  },
-
-  archiveHoldingAdoptionCandidates(limit = 50): Promise<{ caseIds: string[] }> {
-    return request('GET', `/api/internal/archive-holding/adoption-candidates?limit=${encodeURIComponent(String(limit))}`);
-  },
-
-  claimDeferredArchiveHoldingIntakes(
-    claimToken: string,
-    limit = 10,
-  ): Promise<{ intakes: DeferredArchiveHoldingIntake[] }> {
-    return request('POST', '/api/internal/archive-holding/deferred/claim', { claimToken, limit });
-  },
-
-  completeDeferredArchiveHoldingIntake(id: string, claimToken: string): Promise<{ updated: boolean }> {
-    return request('POST', `/api/internal/archive-holding/deferred/${encodeURIComponent(id)}/complete`, { claimToken });
-  },
-
-  failDeferredArchiveHoldingIntake(
-    id: string,
-    payload: { claimToken: string; error: string },
-  ): Promise<void> {
-    return request('POST', `/api/internal/archive-holding/deferred/${encodeURIComponent(id)}/failed`, payload);
-  },
-
-  claimArchiveHolding(caseId: string, claimToken: string): Promise<ArchiveHoldingClaim> {
-    return request('POST', `/api/internal/cases/${encodeURIComponent(caseId)}/archive-holding/claim`, { claimToken });
-  },
-
-  checkpointArchiveHoldingFile(
-    holdingId: string,
-    fileId: string,
-    payload: {
-      claimToken: string;
-      kind: 'moved' | 'deduplicated';
-      canonicalFileId: string;
-      canonicalFileUrl: string;
-      sourceRetired: boolean;
-    },
-  ): Promise<{ updated: boolean }> {
-    return request(
-      'POST',
-      `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/files/${encodeURIComponent(fileId)}/checkpoint`,
-      payload,
-    );
-  },
-
-  finalizeArchiveHolding(
-    holdingId: string,
-    payload: { caseId: string; claimToken: string; folderId: string; folderUrl: string },
-  ): Promise<{ adopted: number }> {
-    return request('POST', `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/finalize`, payload);
-  },
-
-  failArchiveHoldingAdoption(
-    holdingId: string,
-    payload: { claimToken: string; error: string },
-  ): Promise<void> {
-    return request('POST', `/api/internal/archive-holding/${encodeURIComponent(holdingId)}/failed`, payload);
-  },
-
-  /**
-   * ADR-0022 R2 — register archive files as BYTE-LESS Box evidence rows (id + link
-   * only; the existing internal evidence route dedups them on box_file_id, storage_path
-   * stays NULL). `acceptedForEva: false` keeps a retro backfill out of the EVA image
-   * rules until staff review.
-   */
-  registerBoxEvidence(
-    caseId: string,
-    rows: Array<{
-      filename: string;
-      boxFileId: string;
-      boxFileUrl?: string;
-      size?: number;
-      contentType?: string;
-      evidenceClass?: 'image' | 'email' | 'other';
-      acceptedForEva?: boolean;
-      sourceLabel?: string;
-    }>,
-  ): Promise<{ persisted: number }> {
-    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-
-  /** Persist classified evidence rows for a case (internal route; upsert by blob path). */
-  persistEvidence(
-    caseId: string,
-    rows: Array<
-      EvidenceDescriptor & {
-        blobPath: string;
-        size: number;
-        // Optional image metadata — the live classifier (TKT-064) attaches these to image
-        // rows; the API evidence route reads them off any row (ignored on non-image rows).
-        imageRole?: string;
-        registrationVisible?: boolean;
-        acceptedForEva?: boolean;
-        excluded?: boolean;
-        exclusionReason?: string | null;
-        decisionSource?: 'classifier';
-        /** TKT-123: the vision classifier saw a person's reflection (advisory —
-         *  drives the SPA's dismissible warning; separate from `excluded`). */
-        personReflection?: boolean;
-        /** TKT-133 — lower-case hex SHA-256 of the attachment bytes (hashed at blob
-         *  landing, fetchMessage/blob.ts). The API's dedup extension links/skips the Box
-         *  FILE.UPLOADED mirror twin on (case_id, sha256). Optional:
-         *  the route ignores it until the extension lands, and an envelope checkpointed
-         *  before the hash shipped simply omits it. */
-        sha256?: string;
-      }
-    >,
-    options?: {
-      expectedInboundEmailId?: string;
-      evidenceBackfillGeneration?: number;
-      evidenceBackfillResult?: Omit<EvidenceBackfillCommittedResult, 'persisted' | 'merged'>;
-    },
-  ): Promise<{
-    persisted: number;
-    updated: number;
-    merged: number;
-    targetCaseId?: string;
-    statusGeneration?: number;
-    backfillGeneration?: number;
-    alreadyCompleted?: boolean;
-    completedResult?: EvidenceBackfillCommittedResult;
-  }> {
-    return request('POST', `/api/internal/cases/${caseId}/evidence`, {
-      rows,
-      ...(options?.expectedInboundEmailId ? { expectedInboundEmailId: options.expectedInboundEmailId } : {}),
-      ...(options?.evidenceBackfillGeneration != null
-        ? { evidenceBackfillGeneration: options.evidenceBackfillGeneration }
-        : {}),
-      ...(options?.evidenceBackfillResult
-        ? {
-            evidenceBackfillOutcome: options.evidenceBackfillResult.outcome,
-            ...(options.evidenceBackfillResult.failedAttachments == null
-              ? {}
-              : { evidenceBackfillFailedAttachments: options.evidenceBackfillResult.failedAttachments }),
-            ...(options.evidenceBackfillResult.detail
-              ? { evidenceBackfillDetail: options.evidenceBackfillResult.detail }
-              : {}),
-          }
-        : {}),
-    });
-  },
-
-  /**
-   * Persist EXTRACTED-image evidence rows with image metadata (pdf-image-extraction
-   * ticket). Same internal evidence route (idempotent on storage_path), but carries
-   * the image fields the SEAM BACKEND-API wires: `imageRoleCode`, `registrationVisible`
-   * (tri-state — omit when OCR was not run), `sha256`, `sequenceIndex`, plus
-   * `acceptedForEva` (false for auto-extracted unknowns — staff tag role + accept).
-   * Until BACKEND-API wires the fields the route ignores the extras and still dedups
-   * idempotently on the child blob path.
-   */
-  persistImageEvidence(
-    caseId: string,
-    rows: Array<{
-      filename: string;
-      contentType?: string;
-      size?: number;
-      blobPath: string;
-      evidenceClass: 'image';
-      imageRoleCode?: string;
-      /** Role NAME (overview/damage_closeup/additional/other) — the API route maps it to
-       *  image_role_code; preferred over imageRoleCode for the live classifier. */
-      imageRole?: string;
-      registrationVisible?: boolean;
-      acceptedForEva?: boolean;
-      /** EVA exclusion (e.g. person reflection) — reason required by the schema when true. */
-      excluded?: boolean;
-      exclusionReason?: string | null;
-      decisionSource?: 'classifier';
-      /** TKT-123 advisory reflection flag (dismissible SPA warning). */
-      personReflection?: boolean;
-      sha256?: string;
-      sequenceIndex?: number;
-      sourceLabel?: string;
-    }>,
-  ): Promise<{
-    persisted: number;
-    updated: number;
-    merged: number;
-    statusGeneration?: number;
-  }> {
-    return request('POST', `/api/internal/cases/${caseId}/evidence`, { rows });
-  },
-
-  /** Persisted blob-backed evidence rows ready for archive mirroring. */
-  archiveEvidenceRows(
-    caseId: string,
-  ): Promise<{ rows: Array<{
-    id: string;
-    filename: string;
-    contentType: string | null;
-    blobPath: string;
-    claimToken: string;
-    decisionGeneration: number;
-    sourceLabel: string;
-  }> }> {
-    return request('GET', `/api/internal/cases/${caseId}/archive-evidence`);
-  },
-
-  /** Stamp one evidence row after its bytes were mirrored into the archive. */
-  stampArchivedEvidence(payload: {
-    caseId: string;
-    evidenceId: string;
-    blobPath: string;
-    boxFileId: string;
-    boxFileUrl?: string;
-    claimToken: string;
-    decisionGeneration: number;
-  }): Promise<{ updated: boolean }> {
-    return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/stamp`, {
-      evidenceId: payload.evidenceId,
-      blobPath: payload.blobPath,
-      boxFileId: payload.boxFileId,
-      claimToken: payload.claimToken,
-      decisionGeneration: payload.decisionGeneration,
-      ...(payload.boxFileUrl ? { boxFileUrl: payload.boxFileUrl } : {}),
-    });
-  },
-
   /**
    * Recompute EVA-readiness from a row-locked snapshot. Supplying the generation
    * atomically acknowledges it only after that stable evaluation succeeds.
@@ -641,17 +247,6 @@ export const dataApi = {
   ): Promise<{ value: string; completed?: boolean; pending?: boolean }> {
     return request('POST', `/api/internal/cases/${caseId}/status-evaluate`, {
       ...(generation == null ? {} : { generation }),
-    });
-  },
-
-  releaseArchiveEvidenceClaim(payload: {
-    caseId: string;
-    evidenceId: string;
-    claimToken: string;
-  }): Promise<{ released: boolean }> {
-    return request('POST', `/api/internal/cases/${payload.caseId}/archive-evidence/release`, {
-      evidenceId: payload.evidenceId,
-      claimToken: payload.claimToken,
     });
   },
 

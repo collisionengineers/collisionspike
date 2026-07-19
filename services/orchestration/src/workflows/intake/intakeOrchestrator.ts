@@ -7,11 +7,8 @@
  */
 
 import * as df from 'durable-functions';
-import {
-  resolveClaimantInputs,
-  supplementAccidentCircumstancesFromBody,
-  supplementClaimantNameFromBody,
-} from '../../platform/supplement-parse.js';
+import { supplementClaimantNameFromBody } from '../../platform/supplement-parse.js';
+import { buildParserEvaFields } from './parser-eva-fields.js';
 import type { InboundClassification } from './classifyInbound.js';
 import { shouldAttemptPdfVrmMatch } from '../evidence/imagesReceivedVrmMatch.js';
 import { shouldLinkReplyToCase } from './reply-link-eligibility.js';
@@ -559,62 +556,22 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   // fields (caseResolve → resolve-persist fills them fill-if-empty + constraint-guarded).
   // inspection_address is omitted (corpus picker — ADR-0013). work_provider is forwarded
   // when present; UNKNOWN is treated as empty and the Data API falls back to corpus display_name.
-  const ex = parseResult.extraction ?? {};
-  const exVal = (k: string): string => (ex[k]?.value ?? '').trim();
-  // Prefer the provider resolved ACROSS all parsed docs (already filtered to non-empty,
-  // non-UNKNOWN, non-engineer-report in parse.ts). On an audit email the chosen envelope is
-  // the EVA report whose extraction.work_provider is '' — the real PCH/QDOS instruction lives
-  // in another candidate, so falling back to the chosen envelope's value would blank it. For a
-  // single-doc email resolvedWorkProvider == the chosen envelope's value, so behaviour is
-  // unchanged. Fall back to the chosen envelope's value if resolvedWorkProvider is absent
-  // (older parser bundle not yet redeployed).
-  const resolvedWorkProvider = (parseResult.resolvedWorkProvider ?? '').trim();
-  const exWorkProvider = resolvedWorkProvider || exVal('work_provider');
-  const documentClaimantName = exVal('claimant_name');
-  const bodyClaimant = supplementClaimantNameFromBody(
-    String((inbound as { body?: string }).body ?? ''),
+  // Forward every parser-owned EVA field (incl. body-supplemented claimant name /
+  // accident circumstances) into the resolve-persist fill-if-empty write. Pure over
+  // the two checkpointed envelopes, so it stays replay-safe; see parser-eva-fields.ts.
+  const { parserEvaFields, claimantConflictCount } = buildParserEvaFields(
+    parseResult,
+    inbound as { body?: string; internetMessageId?: string; messageId?: string },
   );
-  const claimantInputs = resolveClaimantInputs(documentClaimantName, bodyClaimant);
-  const claimantName = claimantInputs.value;
-  if (claimantInputs.conflicts.length > 0 && !ctx.df.isReplaying) {
+  if (claimantConflictCount > 0 && !ctx.df.isReplaying) {
     ctx.log(
       JSON.stringify({
         evt: 'claimant-body-conflict',
         messageId: (inbound as { messageId?: string }).messageId,
-        candidateCount: claimantInputs.conflicts.length,
+        candidateCount: claimantConflictCount,
       }),
     );
   }
-  const parserEvaFields = {
-    source_reference:
-      String((inbound as { internetMessageId?: string }).internetMessageId ?? '').trim() ||
-      String((inbound as { messageId?: string }).messageId ?? '').trim(),
-    work_provider: exWorkProvider.toUpperCase() === 'UNKNOWN' ? '' : exWorkProvider,
-    vehicle_model: exVal('vehicle_model'),
-    claimant_name: claimantName,
-    claimant_telephone: exVal('claimant_telephone'),
-    claimant_email: exVal('claimant_email'),
-    date_of_loss: exVal('date_of_loss'),
-    date_of_instruction: exVal('date_of_instruction'),
-    accident_circumstances:
-      exVal('accident_circumstances') ||
-      supplementAccidentCircumstancesFromBody(String((inbound as { body?: string }).body ?? '')),
-    vat_status: exVal('vat_status'),
-    ...(claimantInputs.fromEmailBody
-      ? { sources: { claimant_name: 'email_text' as const } }
-      : {}),
-    ...(claimantInputs.conflicts.length > 0
-      ? {
-          claimant_conflicts: claimantInputs.conflicts.map((value) => ({
-            value,
-            source: 'email_text' as const,
-            source_reference:
-              String((inbound as { internetMessageId?: string }).internetMessageId ?? '').trim() ||
-              String((inbound as { messageId?: string }).messageId ?? '').trim(),
-          })),
-        }
-      : {}),
-  };
 
   // Case-type decision (ADR-0021) — pure + deterministic over the two CHECKPOINTED
   // activity results (parse envelope + Stage-A classification), so it is replay-safe

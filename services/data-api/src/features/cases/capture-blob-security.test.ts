@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const source = readFileSync(fileURLToPath(new URL('../evidence/blob-store.ts', import.meta.url)), 'utf8');
 const routeSource = readFileSync(
-  fileURLToPath(new URL('./capture.ts', import.meta.url)),
+  fileURLToPath(new URL('./capture-upload.ts', import.meta.url)),
   'utf8',
 );
 

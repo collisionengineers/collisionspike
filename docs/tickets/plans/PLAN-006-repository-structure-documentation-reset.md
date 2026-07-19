@@ -68,8 +68,8 @@ member performs a live write.
 
 | Status | Count |
 |---|---:|
-| Now | 1 |
-| Verify | 9 |
+| Now | 0 |
+| Verify | 10 |
 | Done | 0 |
 | Next | 0 |
 | Backlog | 0 |
@@ -81,7 +81,7 @@ member performs a live write.
 | [TKT-207](../verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | verify | Build the complete repository inventory and disposition ledger |
 | [TKT-208](../verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | verify | Catalog evidence and relocate workingspace without content changes |
 | [TKT-209](../verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | verify | Migrate repository paths and remove generated output |
-| [TKT-210](../now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | now | Decompose source by feature and enforce the production-data boundary |
+| [TKT-210](../verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | verify | Decompose source by feature and enforce the production-data boundary |
 | [TKT-211](../verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | verify | Enforce the forbidden-reference zero state |
 | [TKT-212](../verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | verify | Establish one agent and skill source with generated adapters |
 | [TKT-213](../verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | verify | Reconcile tickets, indexes, plans and research links |
