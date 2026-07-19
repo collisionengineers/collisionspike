@@ -13,12 +13,11 @@ plan: PLAN-008
 
 ## Problem
 
-The internal orchestration→Data API routes accept ANY valid Entra token for the API's audience with no
-subject or app-role check (`services/data-api/src/features/inbound/internal/service-support.ts:15-35`).
-The looseness looks deliberate — one managed-identity caller inside one resource group — but it is
-undocumented: nothing records whether it is an accepted trade-off or an oversight, and every new
-internal route inherits it silently. Kept deliberately out of the TKT-243 hygiene batch because it is
-a security decision, not hygiene.
+The internal service→Data API routes accept any valid Entra token for the API's audience with no subject or
+app-role check (`services/data-api/src/features/inbound/internal/service-support.ts:15-35`). The looseness is
+undocumented: nothing records whether it is accepted or an oversight, and every new internal route inherits it.
+There are at least two legitimate live managed-identity callers — orchestration and the Archive webhook
+Function — so hardening for only one principal would break the other. This is a security decision, not hygiene.
 
 ## Evidence
 
@@ -30,27 +29,37 @@ a security decision, not hygiene.
   `services/data-api/src/features/archive/mirror-outbox-routes.ts:42-53` (same audience-only policy, separate
   implementation). The sibling outbox routes (`provider-outbox-routes.ts`, `file-request-outbox-routes.ts`)
   already import the shared helper — so this mirror copy is the lone divergent duplicate to fold in.
+- `services/functions/box-webhook/data_api_client.py` uses the Function's system-assigned managed identity to
+  call `/api/internal/box/case-by-folder/*`, `/api/internal/cases/*/evidence`, `/api/internal/audit`,
+  status-evaluate, and mark-done. A read-only live check on 2026-07-19 confirmed both orchestration and the
+  Archive Function are Running with distinct system-assigned identities and both carry `DATA_API_URL` and
+  `DATA_API_AUDIENCE`.
 
 ## Proposed change
 
 PROPOSED (not built):
 
-- Decide the trust model: either affirm audience-only trust as accepted (record the decision and its
-  boundary conditions in the platform ADR set), or harden `withServiceAuth` with a subject/app-role
-  allowlist for the orchestration identity.
+- Inventory every repository and live caller before deciding the trust model. Either affirm audience-only
+  trust with recorded boundary conditions, or harden it with a complete principal allowlist or a dedicated
+  app role that admits both orchestration and the Archive webhook caller.
 - Apply the decided model uniformly across every internal route registration, and consolidate the two
   `withServiceAuth` implementations into one (folding in the divergent `mirror-outbox-routes.ts` copy) so a
-  single seam enforces the policy.
+  single seam enforces the policy. Preserve the local mirror helper's observable authentication and handler
+  error responses while folding it in.
 - Record the outcome as an amendment to the platform topology ADR (from the ADR backfill, TKT-246) or
   its own ADR — decided within this ticket.
 
 ## Acceptance
 
-- The trust model is decided and documented, and `withServiceAuth` enforces exactly what the decision
-  says, uniformly, with tests covering an off-model token being rejected (hardened path) or the
-  recorded rationale (affirmed path).
+- A repository call-site inventory and read-only live identity/configuration inventory names every legitimate
+  caller before the decision is recorded.
+- The trust model is decided and documented, and `withServiceAuth` enforces exactly what the decision says,
+  uniformly. The hardened path tests orchestration and Archive webhook tokens as admitted and an off-model
+  token as rejected; the affirmed path records why audience-only admission is accepted.
 - Exactly one `withServiceAuth` implementation remains after the change; the divergent
   `mirror-outbox-routes.ts` copy is removed and its routes use the single shared seam.
+- Authentication failures, unexpected authentication failures, and handler failures retain their existing
+  status/body/logging semantics across the mirror and shared route sets.
 
 ## Research
 

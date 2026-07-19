@@ -1,9 +1,9 @@
 # Distillation note — TKT-264
 
-**Source:** `02-canonical-service-routes.md` step 4. **Plan:** PLAN-008. Re-verified read-only 2026-07-19
-(`PLAN-008.dossier.json`).
+**Source:** `workingspace/architecture-simplification/02-canonical-service-routes.md` step 4. **Plan:**
+PLAN-008. Corrected against source and live Function registrations on 2026-07-19.
 
-**Three outbox-drain triples** (data-api routes + orchestration monitor + orchestration api adapter):
+**Three lane stacks** (Data API routes + orchestration monitor + adapter) exist, but their protocols differ:
 
 | Lane | outbox-routes | monitor | api adapter |
 |---|---|---|---|
@@ -11,9 +11,13 @@
 | provider-archive | `features/archive/provider-outbox-routes.ts` | `workflows/archive/provider-archive-monitor.ts` | `adapters/provider-archive-api.ts` |
 | box-file-request | `features/archive/file-request-outbox-routes.ts` | `workflows/archive/box-maintenance-monitor.ts` | `adapters/box-maintenance-api.ts` |
 
-**Naming caveat:** the third lane's monitor/adapter are named `box-maintenance-*`, not `box-file-request-*`,
-but they ARE the file-request drain (`BOX_FILE_REQUEST_MONITOR_INSTANCE_ID = 'box-file-request-outbox-monitor-singleton'`,
-`boxFileRequestOutboxMonitorOrchestrator`, `BoxFileRequestDrainSummary`). Model it as the file-request lane.
+Archive mirror and provider Archive use pending/complete/defer generation protocols. File Request exposes one
+atomic API-owned drain. The safe shared seam is Durable monitor lifecycle, not one generic data-plane drain.
 
-**Waits on TKT-246** — the outbox/generation-counter reliability ADR (expected ADR-0030) so the
-generalisation amends a decision of record. Preserve durable ids + idempotency.
+**Co-located responsibility:** `box-maintenance-monitor.ts` also owns
+`BOX_CLASSIFY_MONITOR_INSTANCE_ID`, `boxClassificationMonitorOrchestrator`,
+`boxClassificationSweepActivity`, and the shared `/maintenance/box-monitors` route. Separate and preserve that
+lane before touching File Request.
+
+**Waits on TKT-246** — the outbox/generation-counter reliability ADR (number not pre-assigned), so lifecycle
+sharing amends a decision of record. Preserve every Durable name, ID, interval, route, and idempotency rule.

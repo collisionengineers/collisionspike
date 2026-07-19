@@ -1,6 +1,6 @@
 ---
 id: TKT-265
-title: Canonicalise the BFF proxy lane
+title: Retire dead orchestration parser and location client exports
 status: backlog
 priority: P3
 area: platform
@@ -9,42 +9,48 @@ research-link: docs/tickets/backlog/TKT-265-bff-proxy-canonicalisation/evidence/
 plan: PLAN-008
 ---
 
-# Canonicalise the BFF proxy lane
+# Retire dead orchestration parser and location client exports
 
 ## Problem
-The BFF proxy re-exposes capabilities that orchestration already reaches directly, giving two paths to the
-same capability — a canonical-path violation.
+The plan originally treated orchestration's exported `callParser` and `callLocationSuggest` methods as active
+paths that duplicated the staff BFF. Production call-site inspection refutes that premise: both exports are
+unused, while the BFF routes are the working authenticated staff entrypoints. Removing or delegating the BFF
+would replace a working route with a nonexistent alternative.
 
 ## Evidence
-Verified read-only 2026-07-19: `services/data-api/src/platform/http/proxy-routes.ts` (an auxiliary BFF proxy,
-explicitly not part of the frozen DataAccess contract) re-exposes `POST /api/parser/parse` and
-`POST /api/location-assist/suggest` via data-api's `service-client.ts` — the same parser and location-suggest
-capabilities orchestration reaches through its own client. That is a third path duplicating the orchestration
-route.
+Verified read-only 2026-07-19: the SPA's parser transport calls `POST /api/parser/parse`, and its location
+assistance flow calls `POST /api/location-assist/suggest`; both are registered in
+`services/data-api/src/platform/http/proxy-routes.ts` under staff role checks. Repository-wide production
+call-site inspection finds no import or invocation of orchestration's `callParser` or
+`callLocationSuggest`. Live orchestration settings contain no `LOCATION_FN_*`, while live data-api settings
+contain `LOCATION_SUGGEST_FN_*`.
 
 ## Proposed change
-Settle one canonical path per capability for parser and location-suggest once the SPA-transport migration is
-confirmed complete: either the BFF proxy or the direct orchestration path is the canonical one, and the other
-is removed or made a thin, documented delegation. Preserve the staff-auth lane and every gated route.
+Record the BFF as the active staff entrypoint and remove only the unused orchestration `callParser`,
+`callLocationSuggest`, `LOCATION` target, and stale `LOCATION_FN_*` documentation. Preserve the BFF, SPA
+transports, downstream focused-Function routes, role checks, gates, and live configuration.
 
 ## Acceptance
-- **A1.** Parser and location-suggest each have one canonical path; the duplicate BFF re-exposure is removed
-  or reduced to a thin documented delegation, with the canonical owner recorded.
-- **A2.** The staff-facing auth lane and every gated/dark route are unchanged (`check:runtime-contract` clean;
-  gates tests pass).
-- **A3.** The change is gated on confirmation that the SPA-transport migration is complete (recorded in
-  `changes.md`); no client-visible route breaks.
-- **A4.** The net file/LOC delta is non-positive; the web app builds and smoke-loads.
-- **A5.** No live write.
+- **A1.** A production call-site inventory proves the orchestration exports are unused and records the BFF as
+  the active staff entrypoint/delegation chain for both capabilities.
+- **A2.** Only the dead orchestration exports, target constant, and stale setting documentation are removed;
+  no `LOCATION_FN_*` fallback or replacement setting is added.
+- **A3.** The SPA parser/location transports, BFF routes, staff auth, gates, downstream Function routes, and
+  live app-setting names remain unchanged (`check:runtime-contract` and gates tests pass).
+- **A4.** Negative import/call-site assertions prevent those dead exports from being reintroduced; both
+  TypeScript services and the web app build and smoke-load.
+- **A5.** The net file/LOC delta is negative; no live write.
 
 ## Validation
-- `check:runtime-contract`; confirm the SPA still reaches parser/location-suggest through the canonical path;
-  gates tests; report the file/LOC delta.
+- `check:runtime-contract`; exercise both SPA-to-BFF transports; run proxy auth/gate tests and the dead-export
+  call-site assertion; report the file/LOC delta; full `node verify-all.mjs`.
 
 ## Research
-Distilled from `02-canonical-service-routes.md` step 5; the `proxy-routes.ts` re-exposure of parser +
-location-suggest was re-verified read-only on 2026-07-19 (`PLAN-008.dossier`). Sequenced after the single
-client (TKT-262).
+Distilled from `workingspace/architecture-simplification/02-canonical-service-routes.md` step 5, then corrected
+against production call sites, SPA transports, and read-only live app-setting names on 2026-07-19. This
+dead-client cleanup precedes TKT-262 so unused methods are not migrated into the shared client.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

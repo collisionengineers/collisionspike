@@ -1,6 +1,6 @@
 ---
 id: TKT-264
-title: Generalise the outbox drain to one drain plus a target registry
+title: Share the outbox monitor lifecycle without flattening lane protocols
 status: backlog
 priority: P2
 area: platform
@@ -9,45 +9,56 @@ research-link: docs/tickets/backlog/TKT-264-outbox-drain-generalisation/evidence
 plan: PLAN-008
 ---
 
-# Generalise the outbox drain to one drain plus a target registry
+# Share the outbox monitor lifecycle without flattening lane protocols
 
 ## Problem
-The outbox-drain pattern is stamped out three times — one triple of `*-outbox-routes.ts` (data-api) +
-`*-monitor.ts` + `*-api.ts` (orchestration) per lane. A reliability or generation-counter fix must be made in
-three places, and the three drift.
+Three Archive-related lanes each have Data API routes, an orchestration monitor, and an adapter, but only their
+Durable wake/retry/reschedule/bootstrap lifecycle is structurally duplicated. Their data-plane correctness
+protocols differ, so treating all three as one generic drain would erase ownership and acknowledgement rules.
 
 ## Evidence
-Verified read-only 2026-07-19: three lanes carry the same triple — archive-mirror
-(`mirror-outbox-routes.ts` + `archive-mirror-monitor.ts` + `archive-mirror-api.ts`), provider-archive
-(`provider-outbox-routes.ts` + `provider-archive-monitor.ts` + `provider-archive-api.ts`), and box-file-request
-(`file-request-outbox-routes.ts` + `box-maintenance-monitor.ts` + `box-maintenance-api.ts`). The third lane's
-monitor and adapter are filed under the `box-maintenance-*` name but are the box-file-request drain
-(`BOX_FILE_REQUEST_MONITOR_INSTANCE_ID`, `boxFileRequestOutboxMonitorOrchestrator`).
+Verified in source and the live registered functions on 2026-07-19:
+
+- archive mirror and provider Archive each expose pending/complete/defer generation endpoints and distinct
+  row-verification/sub-orchestrator logic;
+- File Request exposes one API-owned atomic `/drain` endpoint, with orchestration acting only as a wake-safe
+  caller; and
+- `box-maintenance-monitor.ts` also owns the unrelated Box classification singleton, sweep activity, shared
+  `/maintenance/box-monitors` route, and bootstrap logic.
 
 ## Proposed change
-Collapse the three copies to one generic outbox drain plus a target registry that names each lane's route,
-monitor instance, and adapter. This **waits on** the outbox/generation-counter reliability ADR (expected
-ADR-0030) from TKT-246, so the generalisation amends a decision of record instead of racing it. Preserve each
-lane's durable/idempotency behaviour exactly.
+After TKT-246 records the outbox/generation-counter reliability decision, extract only the common Durable
+monitor lifecycle into a typed definition/helper: retry policy, durable timer, `continueAsNew`, singleton
+status/readback, and bootstrap where semantics genuinely match. Keep lane-specific workflows, API protocols,
+adapters, generation checks, and remote-write ownership explicit. Split the Box classification monitor into a
+clear independent module before changing File Request plumbing, while preserving all registered names and the
+combined management route contract.
 
 ## Acceptance
-- **A1.** One generic outbox drain plus a target registry replaces the three per-lane drains; each lane is a
-  registry entry (route + monitor instance id + adapter), not a copied triple.
-- **A2.** Durable orchestration ids, generation-counter semantics, and idempotency behaviour are unchanged
-  (`check:runtime-contract` clean; the archive gates tests pass).
-- **A3.** The generalisation amends the outbox-reliability ADR minted by TKT-246 (number not pre-assigned);
-  the box-file-request lane is correctly modelled despite its `box-maintenance-*` filenames.
-- **A4.** The net file/LOC delta is negative; both services build.
-- **A5.** No live write.
+- **A1.** A shared Durable-monitor lifecycle helper/definition removes only proven duplicate lifecycle code;
+  archive mirror and provider Archive retain pending/complete/defer protocols, and File Request retains its
+  API-owned atomic drain.
+- **A2.** The Box classification singleton, sweep activity, interval, bootstrap, and
+  `/maintenance/box-monitors` management response are separated from File Request ownership and preserved.
+- **A3.** Every existing Function registration name, singleton instance ID, interval, retry policy, route,
+  generation-counter rule, idempotency rule, and remote-write owner is unchanged
+  (`check:runtime-contract` and archive monitor/gate tests pass).
+- **A4.** The change amends the outbox-reliability ADR minted by TKT-246 (number not pre-assigned) and records
+  which lifecycle behavior is shared versus lane-owned.
+- **A5.** The net file/LOC delta is negative; both services build.
+- **A6.** No live write.
 
 ## Validation
-- `check:runtime-contract` + the archive gates tests; drive one lane's drain end-to-end; report the file/LOC
-  delta; full `node verify-all.mjs`.
+- `check:runtime-contract` plus all three lane monitor suites and the classification monitor suite; drive each
+  distinct protocol once, verify the management route still reports both File Request and classification,
+  report the file/LOC delta, and run full `node verify-all.mjs`.
 
 ## Research
-Distilled from `02-canonical-service-routes.md` step 4; the three triples and the `box-maintenance`-named
-file-request lane were re-verified read-only on 2026-07-19 (`PLAN-008.dossier`). Waits on TKT-246's
-outbox-reliability ADR.
+Distilled from `workingspace/architecture-simplification/02-canonical-service-routes.md` step 4, then corrected
+against the three route modules, monitors, adapters, and live Function registrations on 2026-07-19. Waits on
+TKT-246's outbox-reliability ADR.
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)

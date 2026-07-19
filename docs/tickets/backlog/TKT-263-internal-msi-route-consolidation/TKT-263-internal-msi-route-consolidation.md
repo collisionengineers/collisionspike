@@ -12,37 +12,44 @@ plan: PLAN-008
 # Consolidate the internal MSI route surface behind the trust seam
 
 ## Problem
-The internal managed-identity route surface is fanned into eleven registration modules — four of them under
-`cases/` alone — each inheriting the internal-trust seam silently. The granularity is finer than the callers
-justify, and it all sits behind the trust model that TKT-245 must decide first.
+The internal managed-identity route surface is registered through sixteen modules, but only eleven are imported
+by `register-internal-routes.ts`. Two non-outbox modules and three outbox modules are registered separately in
+`index.ts`, so consolidating only the eleven-module aggregator would leave the claimed surface incomplete.
 
 ## Evidence
 Verified read-only 2026-07-19: `services/data-api/src/platform/http/register-internal-routes.ts` wires eleven
-internal registration modules, including four under `cases/` (`internal-resolution`, `internal-operations`,
-`internal-maintenance`, `internal-archive-holding`). All are guarded by the internal-trust seam TKT-245
-consolidates.
+internal registration modules, including four under `cases/`. `services/data-api/src/index.ts` separately
+registers `features/inbound/retro-routes.ts` and `features/evidence/backfill-drain-route.ts`, both of which
+expose `/api/internal/*` handlers through the same shared seam. It also separately registers the three outbox
+route modules owned by TKT-264. That is thirteen non-outbox modules and sixteen total internal-auth modules.
 
 ## Proposed change
-Once TKT-245 has decided and hardened the single trust seam, review the eleven modules for single-caller
-granularity and consolidate them behind the one decided wrapper — inlining thin single-caller registrations
-rather than re-wrapping them. Preserve every route path, payload, and gated lane exactly.
+Once TKT-245 has decided the single trust seam, build a complete registration inventory and move all thirteen
+non-outbox modules behind one internal registration entrypoint. Review thin single-caller modules for
+consolidation, but do not equate a single entrypoint with mandatory file inlining. Explicitly assign the three
+outbox modules to TKT-264 and preserve every route path, payload, and gated lane.
 
 ## Acceptance
-- **A1.** The internal registration modules are consolidated behind the single TKT-245 trust seam; thin
-  single-caller registrations are inlined, not re-wrapped in a new layer.
-- **A2.** Every internal route path, request/response shape, and authentication behaviour is unchanged
+- **A1.** An AST/runtime-snapshot inventory accounts for all sixteen internal-auth registration modules:
+  thirteen non-outbox modules owned here and three outbox modules explicitly owned by TKT-264.
+- **A2.** All thirteen non-outbox modules register through one internal entrypoint and the single TKT-245 seam;
+  any file-level inlining is justified by caller/ownership evidence rather than a file-count target.
+- **A3.** Every internal route path, request/response shape, and authentication behaviour is unchanged
   (`check:runtime-contract` clean); no gated/dark lane is removed (the gates tests still pass).
-- **A3.** The four `cases/` splits are reviewed and consolidated where single-caller, with ownership recorded.
-- **A4.** The net file/LOC delta is negative; both services build.
-- **A5.** No live write.
+- **A4.** The four `cases/` splits, retro routes, and backfill drain are reviewed with ownership recorded.
+- **A5.** The net file/LOC delta is negative; both services build.
+- **A6.** No live write.
 
 ## Validation
 - `check:runtime-contract`; the dark-lane gates tests in `verify-all.mjs`; drive one internal route end-to-end;
   report the file/LOC delta.
 
 ## Research
-Distilled from `02-canonical-service-routes.md` step 3; the eleven-module count and the four `cases/` splits
-were re-verified read-only on 2026-07-19 (`PLAN-008.dossier`). Depends on TKT-245 (the decided seam).
+Distilled from `workingspace/architecture-simplification/02-canonical-service-routes.md` step 3, then corrected
+against `services/data-api/src/index.ts`, the shared-auth imports, and the runtime route snapshot on
+2026-07-19. Depends on TKT-245 (the decided seam).
 
 ## Artifacts
+- [Changes made](./changes.md)
+- [Verification](./verification.md)
 - [Distillation note](./evidence/distillation-note.md)
