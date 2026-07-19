@@ -62,3 +62,42 @@ item, including ignored dependencies, generated output, empty directories, symli
 metadata. The checkout inventory is ephemeral and uploaded by CI under `repository-audit-ledgers`; it is
 not retained because it contains checkout-local dependency and metadata paths. The staged repository
 inventory and reset reconciliation are retained and gated at final HEAD.
+
+## Regenerating governance artifacts
+
+Several committed files are generated, not hand-edited, and CI's `Repository contracts and hygiene` job
+fails if any is stale. Editing documentation, tickets, or any tracked file can invalidate them — a stale
+inventory or reconciliation ledger is the most common reason a documentation-only change passes locally but
+fails in CI. Stage your edits, then regenerate with one command before committing:
+
+```sh
+git add -A                    # stage your edits first — the inventory hashes STAGED content
+npm run generate:governance   # regenerates ticket views + both ledgers and stages them
+```
+
+Each generator and the gate it satisfies:
+
+| Generated artifact | Regenerate | CI gate |
+|---|---|---|
+| `docs/tickets/BOARD.md`, `docs/tickets/README.md`, plan progress blocks | `npm run generate:tickets` | `check:tickets` |
+| `docs/governance/repository-inventory.json` | `npm run generate:inventory` | `check:inventory` |
+| `docs/governance/repository-reconciliation.json` | `npm run generate:reconciliation` | `check:reconciliation` |
+
+Order matters, and the inventory reads **staged** blobs — so the artifacts must be staged as they are
+produced. Reconciliation reads the inventory (inventory first); the inventory hashes the ticket views (ticket
+views before that); and the inventory also records the reconciliation ledger's *own* hash, so the inventory is
+regenerated once more after reconciliation to reach a stable fixed point. `generate:governance` runs the whole
+sequence — ticket views → stage → inventory → reconciliation → stage → inventory → stage — staging only its own
+generated paths under `docs/tickets` and `docs/governance` (never `-A`). Run it whole rather than the
+individual generators, which would otherwise leave the inventory recording a stale reconciliation hash. The
+generated agent adapters and the runtime contract regenerate separately
+(`node scripts/maintenance/generate-agent-adapters.mjs`, `npm run generate:runtime-contract`).
+
+Enable the repository pre-commit hook once per clone so this staleness is caught before it reaches CI:
+
+```sh
+git config core.hooksPath scripts/hooks
+```
+
+The hook (`scripts/hooks/pre-commit`) blocks a commit whose inventory or reconciliation ledger is stale and
+prints the one-shot fix above. Bypass a single work-in-progress commit with `git commit --no-verify`.
