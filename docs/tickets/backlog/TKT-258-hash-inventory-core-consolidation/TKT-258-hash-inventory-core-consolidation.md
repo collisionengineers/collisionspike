@@ -12,42 +12,51 @@ plan: PLAN-010
 # Consolidate the hash and path-normalize inventory core
 
 ## Problem
-Two inventory generators independently re-implement the same content-hash and path-normalize logic. The
-inventory core is load-bearing for the governance ledgers, so a divergence there is expensive — a hashing or
-normalisation change fixed in one generator and missed in the other silently corrupts a ledger.
+Two inventory generators independently implement content hashing, and the checkout generator also carries a
+local copy of repository-path normalisation. The inventory core is load-bearing for the governance ledgers, so
+a change fixed in one hashing path and missed in another silently corrupts a ledger.
 
 ## Evidence
-Verified read-only 2026-07-19: `generate-repository-inventory.mjs` hashes the Git index and
-`generate-checkout-inventory.mjs` walks the physical checkout; each carries its own `sha256File` and
-path-normalisation. `reconcile-repository-reset.mjs` is **not** a third re-implementation — it already imports
-the inventory reader (`readGitBlobMetadata`) and does prefix-move reconciliation. The three files'
-classification maps (`categoryFor` / `ownerFor` / `lifecycleFor` and their baseline variants) are
-**intentionally divergent** (pre-reset vs current layout) and must not be merged.
+Verified read-only 2026-07-19: `generate-repository-inventory.mjs` hashes ordinary tracked blobs incrementally
+inside `readGitBlobMetadata`, hashes physical files through its local `sha256File`, and hashes symlink bytes
+directly. `generate-checkout-inventory.mjs` walks the physical checkout and carries its own `sha256File`,
+direct-byte hash, and local `normalize`. `reconcile-repository-reset.mjs` is **not** a third inventory
+implementation — it already imports `readGitBlobMetadata` and does prefix-move reconciliation. The three
+files' classification policies are **intentionally divergent** (pre-reset, current tracked tree, and physical
+checkout) and must not be merged.
 
 ## Proposed change
-Extract one shared core module holding `sha256File` and path-normalisation, consumed by both inventory
-generators (index-based and physical-checkout); leave `reconcile-repository-reset.mjs` on the reader it already
-imports. Do not touch the three divergent classification maps. The extraction changes structure only — the
-generated ledgers must be byte-identical before and after.
+Extract one incremental SHA-256 primitive that can consume both `git cat-file --batch` chunks and filesystem
+stream chunks, with byte and file helpers built on the same primitive. Both inventory generators consume it
+and the existing `normalizeRepositoryPath` source; neither keeps a local hash or path-normalisation copy. Leave
+`reconcile-repository-reset.mjs` on the reader it already imports and do not merge the three divergent
+classification policies. The extraction changes structure only — generated ledgers must be byte-identical
+before and after.
 
 ## Acceptance
-- **A1.** One shared module provides the content-hash and path-normalise primitives; both inventory generators
-  import it and contain no local copy.
+- **A1.** One shared incremental content-hash primitive handles streamed Git-index blob chunks, filesystem
+  streams, and direct bytes; both inventory generators import it and contain no local `createHash("sha256")`
+  or `sha256File` implementation.
 - **A2.** `docs/governance/repository-inventory.json` and the reconciliation ledger regenerate **byte-identical**
   to a pre-refactor snapshot (`check:inventory` and `check:reconciliation` pass; a diff shows zero change).
 - **A3.** The three divergent classification maps are left intact and separate; `reconcile-repository-reset.mjs`
   is not restructured beyond the reader it already imports.
-- **A4.** A unit test pins the shared core's output for each inventory mode.
-- **A5.** No live write.
+- **A4.** Both generators import `normalizeRepositoryPath` from its single shared source and contain no local
+  path-normalisation implementation.
+- **A5.** Unit tests prove identical SHA-256 output for the same bytes supplied as one buffer, multiple Git
+  blob-style chunks, and a filesystem stream; generator-level tests pin each inventory mode.
+- **A6.** The implementation records before/after owned-file and nonblank-line deltas for PLAN-010 close-out.
+- **A7.** No live write.
 
 ## Validation
 - Snapshot the two ledgers, extract, regenerate, assert zero diff; run `check:inventory`,
-  `check:reconciliation`, and the new core unit test; full `node verify-all.mjs`.
+  `check:reconciliation`, the primitive tests, and both generator suites; report the structural delta; full
+  `node verify-all.mjs`.
 
 ## Research
-Distilled from `04-scripts-and-tooling-dedup.md` item 1, softened after read-only verification on 2026-07-19
-(`PLAN-010.dossier`) established two cores (not three) and intentionally divergent classification maps. Gated
-on full PLAN-006 close-out.
+Distilled from `workingspace/architecture-simplification/04-scripts-and-tooling-dedup.md` item 1 and corrected
+by direct inspection of `readGitBlobMetadata`, both `sha256File` implementations, both direct-byte hash paths,
+and the three classification-policy groups on 2026-07-19. Gated on full PLAN-006 close-out.
 
 ## Artifacts
 - [Distillation note](./evidence/distillation-note.md)

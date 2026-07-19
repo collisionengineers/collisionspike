@@ -23,28 +23,33 @@ checker (`verify-all.mjs`) and hosts checks under `scripts/checks/` with sibling
 
 ## Proposed change
 Add a guard (import/reference-aware, not a naive text match) asserting the shared internals stay single-source:
-the inventory hash + normalise primitives are imported from the one shared module rather than re-implemented,
-and the generated-directory set is defined exactly once. Wire it into `verify-all.mjs`, with a negative fixture
-proving it fails on a synthetic re-duplication. Ship it last, after TKT-258–260 land, so it passes on merge.
+the inventory hash primitive and existing path normaliser are imported from their authoritative shared modules
+rather than re-implemented, and the generated-directory predicate and set are defined exactly once. Wire it
+into `verify-all.mjs`, with independent negative fixtures for both guarded surfaces. Ship it last, after
+TKT-258–260 land, so it passes on merge.
 
 ## Acceptance
-- **A1.** A guard under `scripts/checks/` asserts the inventory hash/normalise core is imported (not
-  re-implemented) by the inventory generators, and that the generated-directory set has a single definition.
+- **A1.** A guard under `scripts/checks/` asserts the hash primitive and path normaliser are imported (not
+  re-implemented) by the inventory generators, and that the generated-directory predicate and set each have a
+  single definition.
 - **A2.** The guard is import/reference-aware, not a lexical grep, and does not false-flag legitimate uses in
   tests or the shared modules themselves.
-- **A3.** A negative fixture proves the guard fails on a synthetic re-implementation of the hash core or a
-  second generated-directory set.
-- **A4.** The guard runs inside `node verify-all.mjs` and in CI.
-- **A5.** No live write.
+- **A3.** One negative fixture proves the guard fails on a synthetic re-implementation of the hash core.
+- **A4.** A separate negative fixture proves the guard fails on a second generated-directory policy
+  definition or bypass of the shared predicate.
+- **A5.** The guard runs inside `node verify-all.mjs` and in CI.
+- **A6.** The implementation records before/after owned-file and nonblank-line deltas for PLAN-010 close-out.
+- **A7.** No live write.
 
 ## Validation
-- Run the guard over the tree (expect pass, after TKT-258–260) and over the negative fixture (expect fail);
-  confirm `verify-all.mjs` invokes it; full `node verify-all.mjs`.
+- Run the guard over the tree (expect pass, after TKT-258–260), over the hash re-implementation fixture
+  (expect fail), and independently over the generated-directory-policy fixture (expect fail); confirm
+  `verify-all.mjs` invokes it; report the structural delta; full `node verify-all.mjs`.
 
 ## Research
-Distilled from `04-scripts-and-tooling-dedup.md` verification section plus Gate 0 item 12 (each plan's final
-ticket is an import/reference-aware forbidden-pattern guard). Generalised across all plans by PLAN-012. Gated
-on full PLAN-006 close-out.
+Distilled from `workingspace/architecture-simplification/04-scripts-and-tooling-dedup.md` verification section
+and the series README's drift-avoidance rule: each deduplication needs a scoped guard that prevents the removed
+copy from returning. This ticket owns PLAN-010's two guards directly. Gated on full PLAN-006 close-out.
 
 ## Artifacts
 - [Distillation note](./evidence/distillation-note.md)

@@ -8,9 +8,11 @@
 # What it does:
 #   1. BLOCKS the commit if a staged path contains a ':' (invalid on Windows).
 #   2. BLOCKS broken documentation links or an inconsistent ticket system.
-#   3. BLOCKS generated agent-adapter drift and tracked generated output.
-#   4. BLOCKS forbidden terminology, paths, and repository artifacts.
-#   5. WARNS (does NOT block) if docs/operations/live-environment.md is staged
+#   3. BLOCKS a stale repository inventory or reconciliation ledger — the usual reason a
+#      docs-only change goes green locally but red in CI. Fix: npm run generate:governance.
+#   4. BLOCKS generated agent-adapter drift and tracked generated output.
+#   5. BLOCKS forbidden terminology, paths, and repository artifacts.
+#   6. WARNS (does NOT block) if docs/operations/live-environment.md is staged
 #      but LIVE_FACTS.json is not — a possible un-mirrored live edit. The registry
 #      mirror and LIVE_FACTS.json should move together.
 #
@@ -50,7 +52,39 @@ else
   echo "pre-commit: node not found — skipping documentation and ticket checks (install Node to enable)."
 fi
 
-# --- 3. Generated-adapter and output gates (BLOCKING) ---
+# --- 3. Generated governance ledgers (BLOCKING) ---
+# CI's "Repository contracts and hygiene" job regenerates and gates two committed
+# ledgers that documentation and ticket edits routinely invalidate: the repository
+# inventory and the reset-reconciliation ledger. Neither regenerates automatically, so a
+# docs-only change that forgets them passes locally and then fails CI after push (the most
+# common cause of a red pipeline on a docs PR). This gate catches it before push.
+# One-shot fix (regenerates ticket views + both ledgers):  npm run generate:governance
+if command -v node >/dev/null 2>&1; then
+  if ! node scripts/maintenance/generate-repository-inventory.mjs --check; then
+    echo ""
+    echo "pre-commit: repository inventory is stale — commit blocked."
+    echo "  Fix:  npm run generate:governance && git add -A   (or: npm run generate:inventory)"
+    echo "  Bypass once with:  git commit --no-verify"
+    exit 1
+  fi
+  # Reconciliation reconstructs the baseline from the locked pre-reset commit (mirrors
+  # PRE_RESET_COMMIT in reconcile-repository-reset.mjs). A full clone has it; on a shallow
+  # clone that lacks it, warn instead of blocking so the hook never fails for a reason CI
+  # (fetch-depth: 0) would not hit.
+  if git cat-file -e "81ae8fdf68b4fd29648d76dc77c379cd98764dbe^{commit}" 2>/dev/null; then
+    if ! node scripts/maintenance/reconcile-repository-reset.mjs; then
+      echo ""
+      echo "pre-commit: reconciliation ledger is stale — commit blocked."
+      echo "  Fix:  npm run generate:governance && git add -A   (or: npm run generate:reconciliation)"
+      echo "  Bypass once with:  git commit --no-verify"
+      exit 1
+    fi
+  else
+    echo "pre-commit: skipping reconciliation gate — locked pre-reset commit absent (shallow clone)."
+  fi
+fi
+
+# --- 4. Generated-adapter and output gates (BLOCKING) ---
 if command -v node >/dev/null 2>&1; then
   if ! node scripts/maintenance/generate-agent-adapters.mjs --check; then
     echo ""
@@ -60,12 +94,12 @@ if command -v node >/dev/null 2>&1; then
   node scripts/checks/check-tracked-outputs.mjs || exit 1
 fi
 
-# --- 4. Repository terminology and artifact gate (BLOCKING) ---
+# --- 5. Repository terminology and artifact gate (BLOCKING) ---
 if command -v node >/dev/null 2>&1; then
   node scripts/checks/check-forbidden-references.mjs || exit 1
 fi
 
-# --- 5. Registry-mirror co-staging WARNING (non-blocking) ---
+# --- 6. Registry-mirror co-staging WARNING (non-blocking) ---
 echo "$STAGED" | grep -qx "docs/operations/live-environment.md"
 MIRROR_STAGED=$?
 echo "$STAGED" | grep -qx "LIVE_FACTS.json"

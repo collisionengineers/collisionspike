@@ -43,9 +43,10 @@ It was produced by querying Azure and Microsoft Graph directly on 2026-07-17; re
 9. **Security guardrails are minimal.** No Azure Policy, no resource locks, no Microsoft Defender for Cloud,
    no Conditional Access that this account can see, and any user may register apps and invite guests. The
    tenant has no Entra ID Premium (P1/P2), so several security reports could not be read at all.
-10. **Cost is low: about £50 month-to-date** (£29 of it AI). Top concerns for follow-up: the expired
-    CarClaims secret, the empty EVA vault, the absence of alerting, and an old EVA-validation app that is
-    still running despite being marked for retirement.
+10. **Cost is low: about £50 month-to-date** (£29 of it AI). Top concerns for follow-up: the empty EVA
+    vault, the absence of alerting, and an old EVA-validation app that is still running despite being
+    marked for retirement. (The expired CarClaims secret is **out of scope — CarClaims is off-limits per a
+    hard repository rule, AGENTS.md → Live-system safety; never touch it.**)
 
 ---
 
@@ -488,6 +489,11 @@ system.
 1. **[Security — act] The CarClaims Website app secret expired on 2026-04-29.** The app is consented to
    read and send mail via Microsoft Graph; anything relying on that credential has been broken for ~11
    weeks or is running on an undocumented fallback.
+   > **DO NOT ACT — CarClaims is off-limits.** Superseded by a hard repository rule (AGENTS.md →
+   > Live-system safety): CarClaims (the app registration, its secret, `carclaims.co.uk`, the mailbox, the
+   > brand) is **never touched** by agent work — no rotate, revoke, retire, or any mutation, and no ticket
+   > or remediation. This "[Security — act]" line is recorded for awareness only; the operator manages
+   > CarClaims themselves. Leave it entirely alone.
 2. **[Correctness] The EVA Key Vault (`cespkevakvufa3ci`) is empty**, leaving the EVA function app's
    `EVA_CLIENT_ID` / `EVA_CLIENT_SECRET` Key Vault references unresolved. Aligns with EVA submission being
    dormant, but the credentials are absent rather than merely gated.
