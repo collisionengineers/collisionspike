@@ -189,6 +189,7 @@ jobs:
           npm run check:source-size
           npm run check:inventory
           npm run check:reconciliation
+          npm run check:tree
           npm run inventory:checkout
           npm run check:line-endings
       - name: Reject tracked build output

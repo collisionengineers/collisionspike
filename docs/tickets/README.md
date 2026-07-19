@@ -24,7 +24,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-003](./plans/PLAN-003-operator-fixup-wave.md) — Operator review and fix-up wave | active | 28/37 (75%) |
 | [PLAN-004](./plans/PLAN-004-production-readiness.md) — Production readiness and lifecycle completion | active | 3/63 (4%) |
 | [PLAN-005](./plans/PLAN-005-full-remediation-plan.md) — Claimant remediation and repository reconciliation | active | 0/1 (0%) |
-| [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | active | 0/10 (0%) |
+| [PLAN-006](./plans/PLAN-006-repository-structure-documentation-reset.md) — Repository structure and documentation reset | done | 10/10 (100%) |
 | [PLAN-007](./plans/PLAN-007-server-runtime-foundation.md) — Shared server-runtime foundation | active | 0/5 (0%) |
 | [PLAN-008](./plans/PLAN-008-canonical-service-routes.md) — Canonical service routes | active | 0/6 (0%) |
 | [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 0/6 (0%) |
@@ -71,12 +71,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 | [TKT-246](./now/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 | docs | — |
 
-## Verify (43)
+## Verify (33)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 | [TKT-016](./verify/TKT-016-ai-image-analysis/TKT-016-ai-image-analysis.md) | Image-analysis VLM sequence (vehicle / reg / location) | P2 | ai | PLAN-001 |
-| [TKT-020](./verify/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Repository structure and documentation reset | P0 | docs | PLAN-006 |
 | [TKT-024](./verify/TKT-024-image-based-new-case/TKT-024-image-based-new-case.md) | Image-only new-case form (drop instruction-only fields) | P2 | ui | PLAN-003 |
 | [TKT-044](./verify/TKT-044-mileage-calc-check/TKT-044-mileage-calc-check.md) | Mileage calculations look ~10,000 over expected values | P2 | enrichment | — |
 | [TKT-047](./verify/TKT-047-email-sigs-box/TKT-047-email-sigs-box.md) | Email signature images archived to Box in error | P2 | intake | — |
@@ -105,21 +104,12 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-167](./verify/TKT-167-image-gap-chasers/TKT-167-image-gap-chasers.md) | Keep image chasers available until every image rule passes | P1 | pipeline | PLAN-004 |
 | [TKT-169](./verify/TKT-169-email-hover-preview-bounds/TKT-169-email-hover-preview-bounds.md) | Keep long email previews inside the visible window | P2 | ui | PLAN-004 |
 | [TKT-170](./verify/TKT-170-website-enquiry-classification/TKT-170-website-enquiry-classification.md) | Classify website contact forms as Website enquiries | P1 | email | PLAN-004 |
-| [TKT-207](./verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | Build the complete repository inventory and disposition ledger | P0 | docs | PLAN-006 |
-| [TKT-208](./verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | Catalog evidence and relocate workingspace without content changes | P0 | evidence | PLAN-006 |
-| [TKT-209](./verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | Migrate repository paths and remove generated output | P1 | platform | PLAN-006 |
-| [TKT-210](./verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
-| [TKT-211](./verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | Enforce the forbidden-reference zero state | P0 | platform | PLAN-006 |
-| [TKT-212](./verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | Establish one agent and skill source with generated adapters | P1 | docs | PLAN-006 |
-| [TKT-213](./verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | Reconcile tickets, indexes, plans and research links | P1 | docs | PLAN-006 |
-| [TKT-214](./verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 | platform | PLAN-006 |
-| [TKT-215](./verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 | integration | PLAN-006 |
 | [TKT-219](./verify/TKT-219-retro-parallel-reconstruction/TKT-219-retro-parallel-reconstruction.md) | Run Box and Outlook retro locates in parallel and combine findings, widen triggers, and split dev/live Case-PO adoption | P1 | intake | PLAN-004 |
 | [TKT-220](./verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md) | Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes) | P2 | intake | — |
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (109)
+## Done (119)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -138,6 +128,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-015](./done/TKT-015-ai-assistant/TKT-015-ai-assistant.md) | AI suggestion layer (observation-first, gated) | P2 | ai | PLAN-001 |
 | [TKT-017](./done/TKT-017-ai-reg-ocr/TKT-017-ai-reg-ocr.md) | Registration-recognition model research + bench | P2 | ai | PLAN-001 |
 | [TKT-019](./done/TKT-019-ticket-system/TKT-019-ticket-system.md) | Build the Markdown ticket system, generated board and validator | P2 | docs | — |
+| [TKT-020](./done/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | Repository structure and documentation reset | P0 | docs | PLAN-006 |
 | [TKT-022](./done/TKT-022-docx-extraction-fail/TKT-022-docx-extraction-fail.md) | .docx claim-form extraction fails | P1 | parsing | — |
 | [TKT-023](./done/TKT-023-follow-up-docs/TKT-023-follow-up-docs.md) | Link follow-up documents/emails to the existing case + Box | P2 | intake | — |
 | [TKT-025](./done/TKT-025-inbox-source-filter/TKT-025-inbox-source-filter.md) | Mark + filter inbox by source mailbox (info/engineers/desk) | P2 | email | — |
@@ -231,6 +222,15 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-148](./done/TKT-148-overview-photo-chaser/TKT-148-overview-photo-chaser.md) | Targeted overview-photo chaser for cases whose photo sets genuinely lack a vehicle overview | P2 | pipeline | PLAN-003 |
 | [TKT-149](./done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | Retire mandatory reciprocal Claude and Codex PR reviews | P0 | platform | PLAN-004 |
 | [TKT-164](./done/TKT-164-inbound-counts-500/TKT-164-inbound-counts-500.md) | Restore the live inbound dashboard counts | P1 | platform | PLAN-004 |
+| [TKT-207](./done/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | Build the complete repository inventory and disposition ledger | P0 | docs | PLAN-006 |
+| [TKT-208](./done/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | Catalog evidence and relocate workingspace without content changes | P0 | evidence | PLAN-006 |
+| [TKT-209](./done/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | Migrate repository paths and remove generated output | P1 | platform | PLAN-006 |
+| [TKT-210](./done/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
+| [TKT-211](./done/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | Enforce the forbidden-reference zero state | P0 | platform | PLAN-006 |
+| [TKT-212](./done/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | Establish one agent and skill source with generated adapters | P1 | docs | PLAN-006 |
+| [TKT-213](./done/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | Reconcile tickets, indexes, plans and research links | P1 | docs | PLAN-006 |
+| [TKT-214](./done/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 | platform | PLAN-006 |
+| [TKT-215](./done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 | integration | PLAN-006 |
 | [TKT-221](./done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates | P2 | docs | PLAN-004 |
 
 ## Next (0)

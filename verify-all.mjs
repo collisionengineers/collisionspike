@@ -65,6 +65,7 @@ const checks = [
   ['Owned source size', 'node scripts/checks/check-source-size.mjs'],
   ['Repository inventory', 'node scripts/maintenance/generate-repository-inventory.mjs --check'],
   ['Repository reset reconciliation', 'node scripts/maintenance/reconcile-repository-reset.mjs'],
+  ['Repository tree', 'node scripts/maintenance/generate-repository-tree.mjs --check'],
   ['Complete checkout inventory', 'node scripts/maintenance/generate-checkout-inventory.mjs'],
   ['Tracked output policy', 'node scripts/checks/check-tracked-outputs.mjs'],
   ['Line-ending policy', 'node scripts/maintenance/normalize-line-endings.mjs --check'],

@@ -1,7 +1,7 @@
 ---
 id: PLAN-006
 title: Repository structure and documentation reset
-status: active
+status: done
 tickets: [TKT-020, TKT-207, TKT-208, TKT-209, TKT-210, TKT-211, TKT-212, TKT-213, TKT-214, TKT-215]
 depends-on: []
 ---
@@ -64,27 +64,27 @@ member performs a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/10 done (0%).**
+**10/10 done (100%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
-| Verify | 10 |
-| Done | 0 |
+| Verify | 0 |
+| Done | 10 |
 | Next | 0 |
 | Backlog | 0 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
-| [TKT-020](../verify/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | verify | Repository structure and documentation reset |
-| [TKT-207](../verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | verify | Build the complete repository inventory and disposition ledger |
-| [TKT-208](../verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | verify | Catalog evidence and relocate workingspace without content changes |
-| [TKT-209](../verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | verify | Migrate repository paths and remove generated output |
-| [TKT-210](../verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | verify | Decompose source by feature and enforce the production-data boundary |
-| [TKT-211](../verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | verify | Enforce the forbidden-reference zero state |
-| [TKT-212](../verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | verify | Establish one agent and skill source with generated adapters |
-| [TKT-213](../verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | verify | Reconcile tickets, indexes, plans and research links |
-| [TKT-214](../verify/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | verify | Enforce repository structure in local checks and CI |
-| [TKT-215](../verify/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | verify | Audit live use and disposition of the EVA validation service |
+| [TKT-020](../done/TKT-020-docs-cleanup/TKT-020-docs-cleanup.md) | done | Repository structure and documentation reset |
+| [TKT-207](../done/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | done | Build the complete repository inventory and disposition ledger |
+| [TKT-208](../done/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | done | Catalog evidence and relocate workingspace without content changes |
+| [TKT-209](../done/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | done | Migrate repository paths and remove generated output |
+| [TKT-210](../done/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | done | Decompose source by feature and enforce the production-data boundary |
+| [TKT-211](../done/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | done | Enforce the forbidden-reference zero state |
+| [TKT-212](../done/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | done | Establish one agent and skill source with generated adapters |
+| [TKT-213](../done/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | done | Reconcile tickets, indexes, plans and research links |
+| [TKT-214](../done/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | done | Enforce repository structure in local checks and CI |
+| [TKT-215](../done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | done | Audit live use and disposition of the EVA validation service |
 <!-- /GENERATED:PROGRESS -->
