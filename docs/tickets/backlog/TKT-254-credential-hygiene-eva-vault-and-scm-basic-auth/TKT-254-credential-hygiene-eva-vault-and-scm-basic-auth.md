@@ -12,11 +12,14 @@ plan: PLAN-009
 # Close credential hygiene on the EVA vault and helper-app SCM basic auth
 
 ## Problem
-Three credential-hygiene gaps: the EVA app's client-id/secret references point at a Key Vault that holds no
-secrets (so the references are unresolved); several helper function apps still allow SCM/Kudu basic-publishing
-credentials — a passwordless-posture regression; and the `CarClaims Website` app registration holds an
-**expired** client secret while still consented to read and send mail via Microsoft Graph, which no other
-ticket owns.
+Two credential-hygiene gaps: the EVA app's client-id/secret references point at a Key Vault that holds no
+secrets (so the references are unresolved); and several helper function apps still allow SCM/Kudu
+basic-publishing credentials — a passwordless-posture regression.
+
+**Out of scope — CarClaims is off-limits.** `cloud-inventory-2026-07-17.md` flags the `CarClaims Website` app
+registration (expired secret, Graph mail consent) as a "[Security — act]" item, but per the hard repository
+rule (AGENTS.md → Live-system safety) **CarClaims must never be touched** — no rotate, revoke, retire, or any
+mutation. It is deliberately excluded from this ticket and is not a remediation target here or anywhere.
 
 ## Evidence
 Read-only live pass 2026-07-19: Key Vault `cespkevakvufa3ci` returned zero secrets; its keys and certificates
@@ -28,9 +31,7 @@ keys/certs), so "truly empty" is confirmed for secrets but not yet for keys/cert
 retires first**, so it is deliberately excluded from this remediation list — do not confuse it with the kept
 EVA Sentry app `cespkeva-fn`, one letter apart.) SCM is already disabled on the two app-tier apps
 (`cespk-api-dev`, `cespk-orch-dev`), and the OCR app is Functions-on-Container-Apps (`serverFarmId = null`,
-no Kudu/SCM surface). Separately, `docs/operations/cloud-inventory-2026-07-17.md` records the `CarClaims
-Website` app-registration secret as **expired 2026-04-29**, with the app consented to Microsoft Graph mail —
-the first "[Security — act]" item in that inventory, with no owning ticket.
+no Kudu/SCM surface).
 
 ## Proposed change
 Resolve the dangling EVA references (populate the vault or remove the references from the consuming config),
@@ -39,8 +40,7 @@ Separately, disable SCM/Kudu basic-publishing on the five helper apps that still
 TKT-252-retired EVA-validation app) **and encode that disabled policy in the retained bicep** so a recreated
 app cannot silently re-enable basic publishing — this is coordinated with TKT-255's bicep rationalisation, as
 no `basicPublishingCredentialsPolicies` resource exists in any `services/functions/*/infra/main.bicep` today.
-Finally, give the expired `CarClaims Website` app-registration secret an operator-gated disposition (rotate,
-revoke, or retire). All live writes are operator-authorised and verified live.
+All live writes are operator-authorised and verified live. **CarClaims is not in scope and is never touched.**
 
 ## Acceptance
 - **A1.** The EVA client-id/secret references are either resolved (vault populated) or removed from the
@@ -55,23 +55,23 @@ revoke, or retire). All live writes are operator-authorised and verified live.
   (`basicPublishingCredentialsPolicies/scm` with `allow: false`), coordinated with TKT-255, and verified by a
   what-if / recreation check so a redeploy preserves the passwordless posture — the live mutation alone is not
   sufficient closure.
-- **A4.** The `CarClaims Website` app-registration secret receives a recorded operator-gated disposition
-  (rotate / revoke / retire); if kept, the new credential's validity is recorded (no value printed), if
-  retired, the consented Graph mail access is removed and verified live.
-- **A5.** No secret value is printed, committed, or logged at any step.
-- **A6.** Before/after cloud-inventory runs are banked into `evidence/`; the redaction sweep exits clean.
+- **A4.** No secret value is printed, committed, or logged at any step.
+- **A5.** Before/after cloud-inventory runs are banked into `evidence/`; the redaction sweep exits clean.
+- **A6.** CarClaims is not touched by this ticket in any way (no rotate / revoke / retire / read-for-mutation);
+  it is recorded as off-limits per AGENTS.md and left entirely alone.
 
 ## Validation
 - Per-reference resolution recorded; elevated vault read evidence banked; live `scm` policy shows `false` on
   each of the five helper apps post-change and the retained bicep encodes the same (what-if / recreation
-  check); the CarClaims disposition is recorded; inventory diff before/after.
+  check); inventory diff before/after. CarClaims is untouched throughout.
 
 ## Research
 Distilled from `03-cloud-estate-cleanup.md` scope item 3; the empty-secrets state, the RBAC read limitation on
 keys/certs, and the exact set of SCM-basic-auth helper apps were re-verified read-only on 2026-07-19 — see the
 banked [PLAN-009 live-verification dossier](../../plans/PLAN-009.dossier.md). The `cespkeval-fn` exclusion
-(retired by TKT-252), the absence of any `basicPublishingCredentialsPolicies` resource in the per-service
-bicep, and the unowned expired `CarClaims Website` secret are the three corrections folded in here.
+(retired by TKT-252) and the absence of any `basicPublishingCredentialsPolicies` resource in the per-service
+bicep are the corrections folded in here. CarClaims, though flagged in the inventory, is **explicitly out of
+scope** — a hard repository rule forbids touching it (AGENTS.md → Live-system safety).
 
 ## Artifacts
 - [Changes made](./changes.md)

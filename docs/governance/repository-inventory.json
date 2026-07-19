@@ -17,7 +17,7 @@
     "files": 3566,
     "entries": 4642
   },
-  "totalFileBytes": 703212785,
+  "totalFileBytes": 703214500,
   "entries": [
     {
       "path": ".",
@@ -11821,8 +11821,8 @@
     {
       "path": "AGENTS.md",
       "mediaType": "text/plain",
-      "size": 7634,
-      "sha256": "2a7c880cdd3ecba0437f70541d8879ab05b3d2a11ead8804cd8aff8cd239eebb",
+      "size": 8403,
+      "sha256": "494693fa47070b643f09075e6b2ca7d5ea81e761263c7e5976cd0cde43bc6d37",
       "category": "documentation",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -15161,7 +15161,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4195412,
-      "sha256": "d809097901b5daa969a6012ee5fdf36351085793badb1875bc0296c480d68c4e",
+      "sha256": "5e3ad0c51b8ecc0885b94b0199766bd288d8a622b427b0ae6baa970c8143ecfc",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15187,8 +15187,8 @@
     {
       "path": "docs/operations/cloud-inventory-2026-07-17.md",
       "mediaType": "text/markdown",
-      "size": 32772,
-      "sha256": "e3eedfdf85e3586df19ddbd937989cf6b0862e9afdb0e9ac4975fde2f9a107d4",
+      "size": 33377,
+      "sha256": "9fa51ea4bd19e72fc55ae587ebaec6471a220a41d927e2953545b7f9f1af0659",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17833,8 +17833,8 @@
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md",
       "mediaType": "text/markdown",
-      "size": 5472,
-      "sha256": "d15ae22eb277272a4e3ef98cc49890d056e8198e19a9a1ae38e37ce7ce752740",
+      "size": 5393,
+      "sha256": "ff50443ad2ae9c8423e1c94f746a7b84e135a705691b4ca05f3d0fac3f16b281",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17851,8 +17851,8 @@
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence/distillation-note.md",
       "mediaType": "text/markdown",
-      "size": 2064,
-      "sha256": "39e22c03c379661ecada0bc2add87d8af2aa31be75c124df0f9cdf237dd9f1df",
+      "size": 2274,
+      "sha256": "84ae4e5e14dfb79719127f722babf39dd48030e0f0573ff65eca71a985dad003",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24637,8 +24637,8 @@
     {
       "path": "docs/tickets/plans/PLAN-009-cloud-estate-cleanup.md",
       "mediaType": "text/markdown",
-      "size": 8116,
-      "sha256": "cebf6542ccb42e0ba94bb44f8f1d549f6bf8b5c3af75316b55cbebc596594b81",
+      "size": 8237,
+      "sha256": "e6aaaa66605ff6c117e7282fa4f1906c6f2c28c3b25ce26f2f38af4859ddbfe2",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24646,8 +24646,8 @@
     {
       "path": "docs/tickets/plans/PLAN-009.dossier.md",
       "mediaType": "text/markdown",
-      "size": 6389,
-      "sha256": "dea66998a600683bfa933c6c52d7ba1d1de860a54f388ea53c53729a8b611268",
+      "size": 6478,
+      "sha256": "dc70c3f5bd6272d293434fdc1503e18a02b1c2942a5f533b1a8564d0f38f1f23",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

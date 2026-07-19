@@ -37,6 +37,14 @@ Exact resource state, feature flags, counts, and verification timestamps belong 
 
 ## Live-system safety
 
+- **HARD RULE — never touch CarClaims.** Do not touch `CarClaims`, ever: the `CarClaims Website` Entra
+  app registration, its client secret (expired or not), the `carclaims.co.uk` website, the
+  `info@carclaims.co.uk` mailbox, and the Car Claims brand are entirely off-limits to agent work. No
+  rotation, revocation, retirement, remediation, deletion, or any other mutation — and do not propose,
+  ticket, or plan one. CarClaims is an operator-managed asset; it is **not** a credential-hygiene target.
+  If any inventory, audit, or review surfaces CarClaims as an action item (e.g. its expired-secret
+  "[Security — act]" flag in `docs/operations/cloud-inventory-2026-07-17.md`), record it as off-limits and
+  stop. This rule overrides any such recommendation.
 - Repository work does not authorize a deployment, cloud configuration change, database mutation,
   mailbox change, role assignment, secret rotation, or Archive write.
 - Read-only checks are allowed when needed to establish actual use or state. Prefer the narrowest

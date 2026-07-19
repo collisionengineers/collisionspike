@@ -20,10 +20,11 @@ Kudu/SCM surface).
 `services/functions/*/infra/main.bicep`, so a redeploy would re-enable basic publishing. The disabled policy
 must be encoded in the retained bicep (coordinated with TKT-255), not just mutated live.
 
-**Unowned expired credential:** `docs/operations/cloud-inventory-2026-07-17.md` records the `CarClaims
-Website` app-registration secret as expired 2026-04-29 (consented to Microsoft Graph mail) as its first
-"[Security — act]" item, with no owning ticket — folded into this ticket's scope with an operator-gated
-disposition.
+**CarClaims — OFF-LIMITS, out of scope.** `docs/operations/cloud-inventory-2026-07-17.md` flags the
+`CarClaims Website` app-registration secret as expired 2026-04-29 (Graph mail consent) as a "[Security — act]"
+item. A **hard repository rule** (AGENTS.md → Live-system safety) forbids touching CarClaims — no rotate,
+revoke, retire, or any mutation. It is deliberately excluded from this ticket and is never a remediation
+target. (An earlier draft of this ticket wrongly folded in a CarClaims disposition; that has been removed.)
 
 **Safety:** every change here is a **live write** requiring separate operator authorisation and live
 post-verification; no secret value is ever printed or committed.
