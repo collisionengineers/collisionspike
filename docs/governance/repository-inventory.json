@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1110,
-    "files": 3648,
-    "entries": 4758
+    "files": 3651,
+    "entries": 4761
   },
-  "totalFileBytes": 703437055,
+  "totalFileBytes": 703445485,
   "entries": [
     {
       "path": ".",
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1492038,
+      "size": 1492980,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4242577,
-      "sha256": "0a765f171c50e9a3548270d40b5a9399b9f99a3e1e7820042bec498fdf313751",
+      "size": 4243768,
+      "sha256": "ae23e2ce39fd0e2e88516481e1d8e20c5d3821ba906540d74b27383816664af0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,8 +30559,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 589,
-      "sha256": "01726e9baf09a00e9fa70ef78442b23ea717b016a2718f575cf07ce2cc62fbed",
+      "size": 450,
+      "sha256": "88266e0f51efe64cc83e8844af132b1146aae6d0dcbb2cc2e8fd7ebcda18b4e8",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -32564,10 +32564,37 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/inbound/retro-case-lookup.ts",
+      "mediaType": "text/typescript",
+      "size": 4138,
+      "sha256": "1251b52fa52288a3674ff4ff428489fc998e93a3d8d8dbb5d467e003934efe57",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/retro-create.test.ts",
+      "mediaType": "text/typescript",
+      "size": 14585,
+      "sha256": "58c2d2b73a22af5ba692edcb36f523f047f98faea3078bd62e3ac9bfad434742",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/inbound/retro-create.ts",
+      "mediaType": "text/typescript",
+      "size": 22422,
+      "sha256": "2f011a4fe373957cb0b80392ca0e38c6df1b7e780d66414be769455a164306d7",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/inbound/retro-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 37674,
-      "sha256": "512e1e34ea38949d0783f5a0d39122f1a85a6ed58fba61d728c5bc3a9361830c",
+      "size": 27571,
+      "sha256": "73a5a53591d064a9d0613e8af9f6179e128850c8786ae84a762366b0d55aaa22",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -32575,8 +32602,8 @@
     {
       "path": "services/data-api/src/features/inbound/retro-routes.ts",
       "mediaType": "text/typescript",
-      "size": 45504,
-      "sha256": "c4b58fe42e10d21a346c8666ef2eab25c2689b7b9039268cf9632bb84ac38d3c",
+      "size": 20898,
+      "sha256": "b33e6ed5705053aedbbebb7abba6e3f284d95971ac7714c425de75d4a52e62cc",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
