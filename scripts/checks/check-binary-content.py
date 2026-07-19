@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from email import policy
 from email.parser import BytesParser
-import hashlib
 import html
 import io
 import json
@@ -17,11 +16,16 @@ import subprocess
 import sys
 import tempfile
 from typing import Iterable
-from urllib.parse import unquote_plus
 import zipfile
 
 import extract_msg
 from pypdf import PdfReader
+
+# The hashed-signature matcher is a cross-language mirror of
+# scripts/checks/hashed-signature-matcher.mjs; both consume forbidden-signatures.json
+# and are pinned to identical results by scripts/checks/forbidden-signature-vectors.json.
+# See scripts/checks/forbidden-signature-matcher-parity.md.
+from hashed_signature_matcher import create_hashed_signature_matcher
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,55 +54,10 @@ MAX_DEPTH = 4
 logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 
-def load_signatures() -> tuple[dict[int, dict[str, tuple[tuple[str, str], ...]]], int]:
-    document = json.loads(SIGNATURE_PATH.read_text(encoding="utf-8"))
-    if (
-        document.get("version") != 2
-        or document.get("prefilter") != "fnv1a32"
-        or document.get("digest") != "sha256"
-    ):
-        raise RuntimeError("Unsupported signature document")
-    max_adjacent_tokens = document.get("maxAdjacentTokens")
-    if not isinstance(max_adjacent_tokens, int) or max_adjacent_tokens < 1:
-        raise RuntimeError("Signature document requires a positive maxAdjacentTokens")
-
-    mutable: dict[int, dict[str, list[tuple[str, str]]]] = {}
-    for item in document.get("signatures", []):
-        identifier = item.get("id")
-        prefilter = item.get("fnv1a32")
-        digest_value = item.get("sha256")
-        length = item.get("normalizedLength")
-        if (
-            not isinstance(identifier, str)
-            or re.fullmatch(r"S\d{3}", identifier) is None
-            or not isinstance(prefilter, str)
-            or re.fullmatch(r"[a-f0-9]{8}", prefilter) is None
-            or not isinstance(digest_value, str)
-            or re.fullmatch(r"[a-f0-9]{64}", digest_value) is None
-            or not isinstance(length, int)
-            or length < 1
-        ):
-            raise RuntimeError(f"Invalid hashed signature: {item!r}")
-        mutable.setdefault(length, {}).setdefault(prefilter, []).append((digest_value, identifier))
-
-    frozen = {
-        length: {prefilter: tuple(candidates) for prefilter, candidates in prefilters.items()}
-        for length, prefilters in mutable.items()
-    }
-    return frozen, max_adjacent_tokens
-
-
-SIGNATURES_BY_LENGTH, MAX_ADJACENT_TOKENS = load_signatures()
-SIGNATURE_LENGTHS = sorted(SIGNATURES_BY_LENGTH)
-MAX_SIGNATURE_LENGTH = max(SIGNATURE_LENGTHS, default=0)
-
-
-def fnv1a32(value: str) -> str:
-    result = 0x811C9DC5
-    for character in value:
-        result ^= ord(character)
-        result = (result * 0x01000193) & 0xFFFFFFFF
-    return f"{result:08x}"
+# The forbidden vocabulary lives once in forbidden-signatures.json; the matcher
+# algorithm is shared with the Node consumer via the hashed_signature_matcher mirror.
+_SIGNATURE_DOCUMENT = json.loads(SIGNATURE_PATH.read_text(encoding="utf-8"))
+matches = create_hashed_signature_matcher(_SIGNATURE_DOCUMENT)
 
 
 def repository_files() -> list[Path]:
@@ -134,58 +93,6 @@ def text_forms(data: bytes) -> Iterable[str]:
 
 def normalized_markup(value: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", " ", value))
-
-
-def matches(value: str) -> list[str]:
-    identifiers: set[str] = set()
-    tested: set[str] = set()
-
-    def test_candidate(candidate: str) -> None:
-        prefilters = SIGNATURES_BY_LENGTH.get(len(candidate))
-        if prefilters is None or candidate in tested:
-            return
-        tested.add(candidate)
-        candidates = prefilters.get(fnv1a32(candidate))
-        if candidates is None:
-            return
-        digest_value = hashlib.sha256(candidate.encode("utf-8")).hexdigest()
-        identifiers.update(
-            identifier
-            for expected_digest, identifier in candidates
-            if expected_digest == digest_value
-        )
-
-    variants = [value]
-    decoded = value
-    for _ in range(2):
-        next_value = unquote_plus(decoded)
-        if next_value == decoded:
-            break
-        variants.append(next_value)
-        decoded = next_value
-
-    for variant in variants:
-        tokens = re.findall(r"[a-z0-9]+", variant.casefold())
-        for token in tokens:
-            if len(token) >= 40 and re.fullmatch(r"[a-f0-9]+", token) is not None:
-                continue
-            for length in SIGNATURE_LENGTHS:
-                if length > len(token):
-                    break
-                for offset in range(len(token) - length + 1):
-                    test_candidate(token[offset : offset + length])
-
-        for start in range(len(tokens)):
-            candidate = ""
-            limit = min(len(tokens), start + MAX_ADJACENT_TOKENS)
-            for end in range(start, limit):
-                candidate += tokens[end]
-                if len(candidate) > MAX_SIGNATURE_LENGTH:
-                    break
-                if end > start:
-                    test_candidate(candidate)
-
-    return sorted(identifiers)
 
 
 def scan_pdf(data: bytes, source: str) -> Iterable[tuple[str, str]]:

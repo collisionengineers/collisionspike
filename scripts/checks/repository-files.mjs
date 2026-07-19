@@ -15,6 +15,32 @@ export function normalizeRepositoryPath(value) {
   return value.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
+// Single source of truth for generated / dependency directory segments that must
+// never be tracked. Reconciles the two previously drifted sets: the repository-layout
+// check contributed `.artifacts`; the tracked-output check contributed
+// `.mypy_cache` / `.ruff_cache` / `.venv` / `.vite`. Entries are lower-case because
+// `generatedDirectorySegment` case-folds before matching.
+export const GENERATED_DIRECTORY_SEGMENTS = new Set([
+  ".artifacts",
+  ".cache",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".venv",
+  ".vite",
+  "__pycache__",
+  "coverage",
+  "dist",
+  "node_modules",
+]);
+
+// Normalises separators, case-folds each segment, and consults the shared set.
+// Returns the matched (lower-cased) segment, or null when the path is clean.
+export function generatedDirectorySegment(repositoryPath) {
+  const segments = normalizeRepositoryPath(repositoryPath).toLowerCase().split("/");
+  return segments.find((segment) => GENERATED_DIRECTORY_SEGMENTS.has(segment)) ?? null;
+}
+
 export function resolveRepositoryPath(repositoryPath) {
   const normalized = normalizeRepositoryPath(repositoryPath);
   const absolute = path.resolve(repositoryRoot, ...normalized.split("/"));

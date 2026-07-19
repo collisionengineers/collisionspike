@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1114,
-    "files": 3699,
-    "entries": 4813
+    "directories": 1115,
+    "files": 3710,
+    "entries": 4825
   },
-  "totalFileBytes": 703786085,
+  "totalFileBytes": 703866279,
   "entries": [
     {
       "path": ".",
@@ -2271,78 +2271,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-257-refresh-live-facts-and-environment/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4835,6 +4763,78 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6879,6 +6879,15 @@
     },
     {
       "path": "scripts/checks/fixtures/managed-identity-mint",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "scripts/checks/fixtures/scripts-dedup",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15547,7 +15556,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1508796,
+      "size": 1512519,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15565,8 +15574,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4264005,
-      "sha256": "3403b15da14709f75563da4b02b349ed4d0e65e9dbab7617e8ea76c356b9eb35",
+      "size": 4268732,
+      "sha256": "ca0b90edb930700bdc44c19c72d1a2594bedd020f79b3077ed96932c317fea0d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15574,8 +15583,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67637,
-      "sha256": "5847109ea56daeb7e2c9ce2d59f439e0c53b5bcd1d98d777c3d6cdccc2e1e7c5",
+      "size": 67669,
+      "sha256": "b84ffa4f5f4352d1f86935c113d4f5726a8eb478e7877c0c79d4e179178c8d45",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16069,8 +16078,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49320,
-      "sha256": "028a47390f69f3afa933a3939b351c8b3e58a7ae05266a726c8be0a720259126",
+      "size": 49308,
+      "sha256": "ae32e9a389830f84f411113880f16b094e03efa9bed70fddbc558f768b9648ec",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16078,8 +16087,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52159,
-      "sha256": "79b7e19490e2c4d8ad9b5486ea0a3525593396b21b3e3142e066ce9ff82860b2",
+      "size": 52149,
+      "sha256": "1bc4ce5f9ddd27d531bd5d0179fbf8203833bf4e4750c76bd593572f52d6dfd4",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18177,150 +18186,6 @@
       "mediaType": "text/markdown",
       "size": 238,
       "sha256": "ec4a502a7c625b5608be3d3f8c8027d4298ca0a42727c0f96d8c253528d976d2",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md",
-      "mediaType": "text/markdown",
-      "size": 3807,
-      "sha256": "664b244a02e54dab5a85409e9083d17d794c94886ba152d64047155234fc388d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 91,
-      "sha256": "f00b97794db1371331106f81d68b361fab21e7bf6a08dbf4012f423809e9ca8a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1461,
-      "sha256": "24871c7a2fb7f8d51e8fad1818fd980dd03a921682b9ed78d21988606dba5e64",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-258-hash-inventory-core-consolidation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 176,
-      "sha256": "b193aac33c588fdfcc20898b839e7a5a4bf50838475738d1ad28beeeade0b5da",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md",
-      "mediaType": "text/markdown",
-      "size": 3464,
-      "sha256": "e85e118c2a00c487a5c7e0d7648fad19a73623b86893cda1d9572cb2d76a355c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 108,
-      "sha256": "501d95c15b77bcf133cefc3e0907f73b9f90d1bff8a78ebd7e347368d374bc52",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1507,
-      "sha256": "c9f1d210822f990b131a0a717501a3eba1ae9c8ca2d63eab57c8659dc305f5a6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-259-repo-shape-guard-consolidation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 193,
-      "sha256": "9b7873487ed3aa84c73c21a5f9519063b534a25e685396c99fa83ba681cac61c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md",
-      "mediaType": "text/markdown",
-      "size": 3850,
-      "sha256": "a479dd498f9172d8985d93a6f16e2b4092fe3dbe68aaeb243139aad3acc68126",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/changes.md",
-      "mediaType": "text/markdown",
-      "size": 87,
-      "sha256": "f4e2c74cdad9b41ae4605a0b13fde290a73a6d5c76c568bb40e2f028753f0a83",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1418,
-      "sha256": "ec7c7cb5d05c1a7ec53e07eaef19e1f4f095e24d1406d24fe50e75c2d7ab2b5e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-260-shared-forbidden-signatures-data-file/verification.md",
-      "mediaType": "text/markdown",
-      "size": 172,
-      "sha256": "b687d9e04cc774a8fa10b08e8cf08638a61421d4ff155a0c0af4979bc27672b3",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md",
-      "mediaType": "text/markdown",
-      "size": 3083,
-      "sha256": "b8eda037e3ea2c21fcb1be9978cf69d98027e3fcd5ba5c6a0e5c88f265c1a349",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/changes.md",
-      "mediaType": "text/markdown",
-      "size": 88,
-      "sha256": "407d399bf3bc66314ee31e0b99d937c9de0bc20e4cbc2615f75c168cc32d7477",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1002,
-      "sha256": "b42a52e7b9f98bcc026ee9fc746392140bf447518fcf6a440eac34ed86f5de46",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-261-scripts-dedup-drift-guard/verification.md",
-      "mediaType": "text/markdown",
-      "size": 173,
-      "sha256": "6dcc7a89337e43f4671c1de6d37555cab20d875e7a1b79884e19b4e1d965e240",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24356,6 +24221,150 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3801,
+      "sha256": "ff01d293e3ee3dac4dd8b890a8623731131cb5181be21c9ccef06b4ebd9db290",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2753,
+      "sha256": "d3064f9d58ea103ae202ea546bb2aabcfff1c6453ab89b97f8db5a4c7c980d2d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1461,
+      "sha256": "24871c7a2fb7f8d51e8fad1818fd980dd03a921682b9ed78d21988606dba5e64",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-258-hash-inventory-core-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2543,
+      "sha256": "fdaedce43de259244d154ab06639d5937247a686c18a57fb0a11fc549bbf878b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3458,
+      "sha256": "0279f6cece240c4ea1c46dc6d49de3ba9c040f444ef06680af2b5d7f1084d124",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1876,
+      "sha256": "a017738c062e3ce0b5323f3395e2c4a3ec6987406d1ec81c127c3305eb1b545f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1507,
+      "sha256": "c9f1d210822f990b131a0a717501a3eba1ae9c8ca2d63eab57c8659dc305f5a6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-259-repo-shape-guard-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3034,
+      "sha256": "e0372bbab7a7b84b4f5723153dc642db87ddca3318a1433eb7e00d8946eadeb0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md",
+      "mediaType": "text/markdown",
+      "size": 3844,
+      "sha256": "5180c1cc5f2eb79a1712960c59a587fa71bdf98adfd930391cd0cdf201f26e5a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2794,
+      "sha256": "395f11c981c060ab9e092a22a063056809bba1d7d4c6fca4b148d91a81e48754",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1418,
+      "sha256": "ec7c7cb5d05c1a7ec53e07eaef19e1f4f095e24d1406d24fe50e75c2d7ab2b5e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-260-shared-forbidden-signatures-data-file/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3576,
+      "sha256": "7375df1ee93da499207daeb0c3d576afb7f343ed4d1c23a8c018567d8dd83014",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md",
+      "mediaType": "text/markdown",
+      "size": 3077,
+      "sha256": "6bd6182e4e2a45786cb8bacb7d0b0fc1d129f80e3250a08a5c674664fb1d9a44",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard/changes.md",
+      "mediaType": "text/markdown",
+      "size": 942,
+      "sha256": "7cc18600b80c02102b2b4de46648b731cc690321984640f49a9d461854e2bebf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1002,
+      "sha256": "b42a52e7b9f98bcc026ee9fc746392140bf447518fcf6a440eac34ed86f5de46",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-261-scripts-dedup-drift-guard/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3572,
+      "sha256": "ff93aaf4a71f79af2a1fe19a4fbfbb053c8cea7c5f054ff62fad0c766924831f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26041,8 +26050,8 @@
     {
       "path": "docs/tickets/plans/PLAN-010-scripts-and-tooling-dedup.md",
       "mediaType": "text/markdown",
-      "size": 6104,
-      "sha256": "f8d2fff61abc1e410734d03aff8a09eba48330380c5e75fa1f6655038f0cab0b",
+      "size": 6082,
+      "sha256": "a2cadb40d12d939b98e01b2efb2bda7fb5f6a166c0e261f9bf1c1b200106b032",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29542,8 +29551,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5142,
-      "sha256": "1ccf91d7e1182622253b2476dad1ec6b3be54eb2abb179e0d6a31c6d1882151f",
+      "size": 5216,
+      "sha256": "86b94cba929c0a4849686394de3354ff70750ff5b002316cca1205c8174ab3c3",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30559,8 +30568,8 @@
     {
       "path": "scripts/checks/check-binary-content.py",
       "mediaType": "text/x-python",
-      "size": 11940,
-      "sha256": "e6a5d52eb4771c121bfa12ac6295f6aaa41eb43215f0c39966959a571e9a86c2",
+      "size": 8752,
+      "sha256": "c72eeb41636a754b528f3f425d0582a12857c8135479e7e2b2f0980e137a98fd",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30658,8 +30667,8 @@
     {
       "path": "scripts/checks/check-repository-layout.mjs",
       "mediaType": "text/javascript",
-      "size": 3289,
-      "sha256": "c310a6b99a095bac732c1bfdd0a906b9c2b46eb0bbeb24f3238508ae5c89b2d8",
+      "size": 3032,
+      "sha256": "962ce43428111eced6a07b7eacce802c5ac4aa32385226a5da95c33f35373043",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30667,8 +30676,8 @@
     {
       "path": "scripts/checks/check-repository-layout.test.mjs",
       "mediaType": "text/javascript",
-      "size": 1973,
-      "sha256": "a91b538ea5dac6297ae00907319339c283193e128787a0f109355c289a5ac2d6",
+      "size": 2700,
+      "sha256": "014f562fa6cb281b081cb257dedc6c15321eb371049ca51038dc405e9494d9d3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30678,6 +30687,24 @@
       "mediaType": "text/javascript",
       "size": 1888,
       "sha256": "79ac30e0c5ae4f94d82c9b162a810363578fbd8ebbaae617df1a518b284f5059",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-scripts-dedup.mjs",
+      "mediaType": "text/javascript",
+      "size": 17805,
+      "sha256": "9c8b9080291590c1c9cd864013133e233a8d03c8bb8fcf7cd37e4a21c377654f",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-scripts-dedup.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 6168,
+      "sha256": "9e83fb17cfd14f87334c1dbcf69d5115ccf86a29b53d60a312dbcbf8ad7e5ed1",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30703,8 +30730,35 @@
     {
       "path": "scripts/checks/check-tracked-outputs.mjs",
       "mediaType": "text/javascript",
-      "size": 2096,
-      "sha256": "d3db69a809cd5d3f5a3e917e4969158e5deb77b307118d520ff324fe61cbcc2d",
+      "size": 2053,
+      "sha256": "ce15cfd3c95c25adf82ca49d617de152d6286adfab7acbb67865f8b65e221188",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-tracked-outputs.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 1756,
+      "sha256": "da2d34f424b93c0546d986a1df78bf4c5aae0f2c01a2fe15ffc177af0e1ac1c5",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/content-hash.mjs",
+      "mediaType": "text/javascript",
+      "size": 1366,
+      "sha256": "c20c46d60463dc50c0598620a3d8cc1edfbeb2cb760f832258f919a2fe78ae0c",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/content-hash.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 3579,
+      "sha256": "a268c021d5f14ef2759b98274661a567490254de5d955f7cacc4b5fd5dbce13f",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30728,6 +30782,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/fixtures/scripts-dedup/duplicate-generated-directory-policy.fixture.mjs",
+      "mediaType": "text/javascript",
+      "size": 1313,
+      "sha256": "42911a3144ce4f09169265d993e0f907433abf372f3798481bb90499900eb781",
+      "category": "fixture",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/fixtures/scripts-dedup/reimplemented-hash-core.fixture.mjs",
+      "mediaType": "text/javascript",
+      "size": 1188,
+      "sha256": "f36680a2956aaf08b233e34cc35b4ce693ff0a42058f8ce6abc0db362ebbc46d",
+      "category": "fixture",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/forbidden-signature-matcher-parity.md",
+      "mediaType": "text/markdown",
+      "size": 3004,
+      "sha256": "7b14bf321534cb9a5ec15cc87061c10cde6ded8fbf10624dc3587ba6d3540da6",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/forbidden-signature-parity.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 4190,
+      "sha256": "5cb8363bcdf3b632a7f6adeab54ccf5fc2c51b9fbe12a8121e9dc36ea5f44a60",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/forbidden-signature-vectors.json",
+      "mediaType": "application/json",
+      "size": 4503,
+      "sha256": "80ad4902c6ffff06dbd54a817c32a815ba15bd97e86a8e4a46c7cacd3b9bb035",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/forbidden-signatures.json",
       "mediaType": "application/json",
       "size": 5354,
@@ -30739,8 +30838,8 @@
     {
       "path": "scripts/checks/hashed-signature-matcher.mjs",
       "mediaType": "text/javascript",
-      "size": 3925,
-      "sha256": "093916bb35a8ed9bf273180cc84a413e590b15f003ca3f069d1f3f101e511138",
+      "size": 4766,
+      "sha256": "5f792547064a0ce961f0f6aa6c3b5de4415def6f03e3db34fff397f6ce831e85",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30750,6 +30849,15 @@
       "mediaType": "text/javascript",
       "size": 2146,
       "sha256": "489f9f8a44c1423b2b2cd97f56161b151bf317b5700ee970fde555485a0a0b13",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/hashed_signature_matcher.py",
+      "mediaType": "text/x-python",
+      "size": 8101,
+      "sha256": "9c142e3123e3219f4740d5f6fc50f0ceba95fc9af28edaff77c72bf91cd9afe3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30784,8 +30892,8 @@
     {
       "path": "scripts/checks/repository-files.mjs",
       "mediaType": "text/javascript",
-      "size": 1728,
-      "sha256": "7c8b009970b9ad575f683f92ebcf9321c42de6574e5b47dcbf01ffe48a910822",
+      "size": 2728,
+      "sha256": "1c9eeb764868fa7e23bf7460a7c30dc41e2d2e50fc0d3fdbe8b45dc9fbc47ca2",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31144,8 +31252,8 @@
     {
       "path": "scripts/maintenance/generate-checkout-inventory.mjs",
       "mediaType": "text/javascript",
-      "size": 8036,
-      "sha256": "30346d22a966c8c32821daab959c042576adc78196f8a32d313328789d81e082",
+      "size": 7826,
+      "sha256": "2998ff9b2c5c53ea99d18d4db6f92f7a2fcfcb1ae6ca9286e526c5e6dfc84897",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31153,8 +31261,8 @@
     {
       "path": "scripts/maintenance/generate-repository-inventory.mjs",
       "mediaType": "text/javascript",
-      "size": 20763,
-      "sha256": "31bb8630b825525dc3ee70b0bdbe620010bf3436fc2db38c82653a39d6cbd7e0",
+      "size": 20542,
+      "sha256": "df0209e3ccdd0189743b4514e82aca89d03071f34378a06a6471d8219f3bdb5e",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -42484,8 +42592,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 5799,
-      "sha256": "b5463fa5cfb170d3dd009a96ccc2c139c739d2e7e0d15b2cff8fbcf4e41a8c82",
+      "size": 5881,
+      "sha256": "cc446ee83b66dc1921c78400ce9e08ceb00d81dea95f022dcd0276c97f988f56",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
