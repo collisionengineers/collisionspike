@@ -1,18 +1,14 @@
 #!/usr/bin/env node
 
-import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
-import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, readdir, readlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { sha256Bytes, sha256File } from "../checks/content-hash.mjs";
+import { normalizeRepositoryPath } from "../checks/repository-files.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const DEFAULT_OUTPUT = ".artifacts/audit/repository-checkout-inventory.json";
-
-function normalize(value) {
-  return value.replaceAll("\\", "/").replace(/^\.\//, "") || ".";
-}
 
 function topLevel(repositoryPath) {
   return repositoryPath === "." ? "." : repositoryPath.split("/")[0];
@@ -39,19 +35,13 @@ function owner(repositoryPath) {
   return "repository";
 }
 
-async function sha256File(absolutePath) {
-  const digest = createHash("sha256");
-  for await (const chunk of createReadStream(absolutePath)) digest.update(chunk);
-  return digest.digest("hex");
-}
-
 async function walk() {
   const entries = [{ path: ".", absolutePath: ROOT, kind: "directory" }];
   async function visit(directory, relativeDirectory) {
     const children = await readdir(directory, { withFileTypes: true });
     children.sort((left, right) => left.name.localeCompare(right.name, "en"));
     for (const child of children) {
-      const relativePath = normalize(path.posix.join(relativeDirectory, child.name));
+      const relativePath = normalizeRepositoryPath(path.posix.join(relativeDirectory, child.name));
       const absolutePath = path.join(directory, child.name);
       const kind = child.isDirectory() ? "directory" : child.isSymbolicLink() ? "symlink" : "file";
       entries.push({ path: relativePath, absolutePath, kind });
@@ -64,7 +54,7 @@ async function walk() {
 
 function trackedPaths() {
   return new Set(execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" })
-    .split("\0").filter(Boolean).map(normalize));
+    .split("\0").filter(Boolean).map(normalizeRepositoryPath));
 }
 
 function ignoredPaths(paths) {
@@ -76,7 +66,7 @@ function ignoredPaths(paths) {
     maxBuffer: 128 * 1024 * 1024,
   });
   if (![0, 1].includes(result.status)) throw new Error(result.stderr || "git check-ignore failed");
-  return new Set((result.stdout ?? "").split("\0").filter(Boolean).map(normalize));
+  return new Set((result.stdout ?? "").split("\0").filter(Boolean).map(normalizeRepositoryPath));
 }
 
 async function enrich(item, tracked, ignored, outputPath) {
@@ -92,7 +82,7 @@ async function enrich(item, tracked, ignored, outputPath) {
     const target = await readlink(item.absolutePath, "utf8");
     const bytes = Buffer.from(target, "utf8");
     size = bytes.length;
-    sha256 = createHash("sha256").update(bytes).digest("hex");
+    sha256 = sha256Bytes(bytes);
   } else if (item.kind === "file") {
     sha256 = await sha256File(item.absolutePath);
   }
@@ -132,7 +122,7 @@ function documentFor(entries, outputPath) {
 async function main() {
   const args = process.argv.slice(2);
   const outputIndex = args.indexOf("--output");
-  const outputPath = normalize(outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT);
+  const outputPath = normalizeRepositoryPath(outputIndex >= 0 ? args[outputIndex + 1] : DEFAULT_OUTPUT);
   if (outputIndex >= 0 && !args[outputIndex + 1]) throw new Error("--output requires a path");
   const ephemeral = args.includes("--ephemeral") || !process.env.CI;
   const outputAbsolute = path.join(ROOT, ...outputPath.split("/"));

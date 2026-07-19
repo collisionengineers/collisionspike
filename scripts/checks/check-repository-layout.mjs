@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
-import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+
+import { generatedDirectorySegment, listRepositoryFiles } from "./repository-files.mjs";
 
 const allowedRootFiles = new Set([
   ".gitattributes",
@@ -66,16 +67,6 @@ const requiredPaths = [
   "workingspace/aifirstplan.txt",
 ];
 
-const forbiddenSegments = new Set([
-  ".artifacts",
-  ".cache",
-  ".pytest_cache",
-  "__pycache__",
-  "coverage",
-  "dist",
-  "node_modules",
-]);
-
 export function validateTrackedPaths(paths) {
   const normalized = [...new Set(paths.map((value) => value.replaceAll("\\", "/")))].sort();
   const present = new Set(normalized);
@@ -90,7 +81,7 @@ export function validateTrackedPaths(paths) {
       issues.push(`disallowed top-level directory: ${root} (${repositoryPath})`);
     }
 
-    const blocked = segments.find((segment) => forbiddenSegments.has(segment));
+    const blocked = generatedDirectorySegment(repositoryPath);
     if (blocked) issues.push(`tracked generated/dependency segment '${blocked}': ${repositoryPath}`);
   }
 
@@ -101,14 +92,8 @@ export function validateTrackedPaths(paths) {
   return issues;
 }
 
-function trackedPaths() {
-  return execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" })
-    .split("\0")
-    .filter(Boolean);
-}
-
 function main() {
-  const paths = trackedPaths();
+  const paths = listRepositoryFiles();
   const issues = validateTrackedPaths(paths);
   if (issues.length) {
     console.error("Repository-layout check failed:");

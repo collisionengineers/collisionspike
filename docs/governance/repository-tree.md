@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1114 directories, 3697 files.
+Grand total: 1115 directories, 3708 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1228,14 +1228,6 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-257-refresh-live-facts-and-environment/  (3 files)
         evidence/  (1 file)
-      TKT-258-hash-inventory-core-consolidation/  (3 files)
-        evidence/  (1 file)
-      TKT-259-repo-shape-guard-consolidation/  (3 files)
-        evidence/  (1 file)
-      TKT-260-shared-forbidden-signatures-data-file/  (3 files)
-        evidence/  (1 file)
-      TKT-261-scripts-dedup-drift-guard/  (3 files)
-        evidence/  (1 file)
       TKT-262-one-python-function-client/  (3 files)
         evidence/  (1 file)
       TKT-263-internal-msi-route-consolidation/  (3 files)
@@ -1512,6 +1504,14 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-251-server-runtime-forbidden-pattern-guard/  (3 files)
         evidence/  (1 file)
+      TKT-258-hash-inventory-core-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-259-repo-shape-guard-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-260-shared-forbidden-signatures-data-file/  (3 files)
+        evidence/  (1 file)
+      TKT-261-scripts-dedup-drift-guard/  (3 files)
+        evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1752,14 +1752,15 @@ packages/  (0 files)
     src/  (9 files)
 ```
 
-### scripts — 16 directories, 85 files
+### scripts — 17 directories, 96 files
 
 ```text
 scripts/  (6 files)
   build/  (3 files)
-  checks/  (29 files)
+  checks/  (38 files)
     fixtures/  (0 files)
       managed-identity-mint/  (2 files)
+      scripts-dedup/  (2 files)
   database/  (1 file)
     cutover/  (2 files)
     vehicle-enrichment/  (3 files)
@@ -2146,10 +2147,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3697 | 3697 | PASS |
-| Proposed tree directories == ledger final directories | 1114 | 1114 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3699 | 3699 | PASS |
-| Proposed directories == inventory directories | 1114 | 1114 | PASS |
+| Proposed tree files == ledger final files | 3708 | 3708 | PASS |
+| Proposed tree directories == ledger final directories | 1115 | 1115 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3710 | 3710 | PASS |
+| Proposed directories == inventory directories | 1115 | 1115 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

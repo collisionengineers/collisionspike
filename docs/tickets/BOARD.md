@@ -77,7 +77,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (124)
+## Done (128)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -205,13 +205,17 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-249](./done/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |
 | [TKT-250](./done/TKT-250-storage-managed-identity-token-helper/TKT-250-storage-managed-identity-token-helper.md) | Consolidate the storage managed-identity token helper | P2 · platform · PLAN-007 |
 | [TKT-251](./done/TKT-251-server-runtime-forbidden-pattern-guard/TKT-251-server-runtime-forbidden-pattern-guard.md) | Add the server-runtime forbidden-pattern drift guard | P1 · platform · PLAN-007 |
+| [TKT-258](./done/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | Consolidate the hash and path-normalize inventory core | P2 · platform · PLAN-010 |
+| [TKT-259](./done/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
+| [TKT-260](./done/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
+| [TKT-261](./done/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
 
 ## Next (0)
 
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (70)
+## Backlog (66)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -268,10 +272,6 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-255](./backlog/TKT-255-bicep-layout-rationalisation/TKT-255-bicep-layout-rationalisation.md) | Rationalise the bicep layout to one convention | P2 · platform · PLAN-009 |
 | [TKT-256](./backlog/TKT-256-helper-app-consolidation-assessment/TKT-256-helper-app-consolidation-assessment.md) | Assess helper-app consolidation (read-only) | P3 · platform · PLAN-009 |
 | [TKT-257](./backlog/TKT-257-refresh-live-facts-and-environment/TKT-257-refresh-live-facts-and-environment.md) | Refresh LIVE_FACTS and the live-environment doc | P1 · platform · PLAN-009 |
-| [TKT-258](./backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | Consolidate the hash and path-normalize inventory core | P2 · platform · PLAN-010 |
-| [TKT-259](./backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
-| [TKT-260](./backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
-| [TKT-261](./backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
 | [TKT-262](./backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Consolidate the active focused-Function clients onto one | P1 · platform · PLAN-008 |
 | [TKT-263](./backlog/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 · platform · PLAN-008 |
 | [TKT-264](./backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Share the outbox monitor lifecycle without flattening lane protocols | P2 · platform · PLAN-008 |

@@ -77,21 +77,21 @@ live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/4 done (0%).**
+**4/4 done (100%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 0 |
+| Done | 4 |
 | Next | 0 |
-| Backlog | 4 |
+| Backlog | 0 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
-| [TKT-258](../backlog/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | backlog | Consolidate the hash and path-normalize inventory core |
-| [TKT-259](../backlog/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | backlog | Consolidate repo-shape file-enumeration and the generated-directory set |
-| [TKT-260](../backlog/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | backlog | Pin cross-language forbidden-signature matcher parity |
-| [TKT-261](../backlog/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | backlog | Add the scripts-dedup single-source drift guard |
+| [TKT-258](../done/TKT-258-hash-inventory-core-consolidation/TKT-258-hash-inventory-core-consolidation.md) | done | Consolidate the hash and path-normalize inventory core |
+| [TKT-259](../done/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | done | Consolidate repo-shape file-enumeration and the generated-directory set |
+| [TKT-260](../done/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | done | Pin cross-language forbidden-signature matcher parity |
+| [TKT-261](../done/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | done | Add the scripts-dedup single-source drift guard |
 <!-- /GENERATED:PROGRESS -->

@@ -1,0 +1,56 @@
+{
+  "note": "Cross-language parity vectors for the hashed forbidden-signature matcher. Both the Node consumer (hashed-signature-matcher.mjs) and the Python consumer (hashed_signature_matcher.py) build a synthetic matcher from signatureTerms and must return identical signature IDs for every matchVector and identical rejection outcomes for every rejectionDocument. The terms are synthetic non-sensitive words: they exercise the algorithm without embedding any real forbidden vocabulary, which remains hashed-only in forbidden-signatures.json. Executed by forbidden-signature-parity.test.mjs.",
+  "maxAdjacentTokens": 4,
+  "signatureTerms": [
+    { "id": "S001", "term": "orangesignal" },
+    { "id": "S002", "term": "violet" },
+    { "id": "S003", "term": "alphabetagammadelta" },
+    { "id": "S004", "term": "redorangeyellowgreenblue" },
+    { "id": "S005", "term": "deadbeef" }
+  ],
+  "matchVectors": [
+    { "name": "exact-match-single-token", "input": "orangesignal", "expected": ["S001"] },
+    { "name": "exact-match-short-term", "input": "violet", "expected": ["S002"] },
+    { "name": "case-and-punctuation-normalisation", "input": "The ORANGE-signal is present.", "expected": ["S001"] },
+    { "name": "substring-inside-longer-token", "input": "prefixvioletsuffix", "expected": ["S002"] },
+    { "name": "single-url-decode", "input": "orange%2Dsignal", "expected": ["S001"] },
+    { "name": "double-url-decode", "input": "orange%252Dsignal", "expected": ["S001"] },
+    { "name": "adjacent-token-limit-within-bound", "input": "alpha beta gamma delta", "expected": ["S003"] },
+    { "name": "adjacent-token-limit-exceeded", "input": "red orange yellow green blue", "expected": [] },
+    { "name": "long-hex-token-suppressed", "input": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "expected": [] },
+    { "name": "short-hex-token-matches", "input": "value deadbeef here", "expected": ["S005"] },
+    { "name": "unrelated-text-no-match", "input": "blue marker text", "expected": [] },
+    { "name": "multiple-signatures-sorted", "input": "orangesignal and violet", "expected": ["S001", "S002"] },
+    { "name": "malformed-percent-prefix-then-encoded-term", "input": "%ZZ%6f%72%61%6e%67%65%73%69%67%6e%61%6c", "expected": ["S001"] }
+  ],
+  "rejectionDocuments": [
+    {
+      "name": "empty-signature-corpus",
+      "document": { "version": 2, "prefilter": "fnv1a32", "digest": "sha256", "maxAdjacentTokens": 4, "signatures": [] }
+    },
+    {
+      "name": "unsupported-version",
+      "document": { "version": 1, "prefilter": "fnv1a32", "digest": "sha256", "maxAdjacentTokens": 4, "signatures": [ { "id": "S001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 } ] }
+    },
+    {
+      "name": "unsupported-prefilter",
+      "document": { "version": 2, "prefilter": "crc32", "digest": "sha256", "maxAdjacentTokens": 4, "signatures": [ { "id": "S001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 } ] }
+    },
+    {
+      "name": "unsupported-digest",
+      "document": { "version": 2, "prefilter": "fnv1a32", "digest": "sha1", "maxAdjacentTokens": 4, "signatures": [ { "id": "S001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 } ] }
+    },
+    {
+      "name": "non-positive-max-adjacent-tokens",
+      "document": { "version": 2, "prefilter": "fnv1a32", "digest": "sha256", "maxAdjacentTokens": 0, "signatures": [ { "id": "S001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 } ] }
+    },
+    {
+      "name": "invalidly-shaped-signature",
+      "document": { "version": 2, "prefilter": "fnv1a32", "digest": "sha256", "maxAdjacentTokens": 4, "signatures": [ { "id": "X001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 } ] }
+    },
+    {
+      "name": "duplicate-signature-identifier",
+      "document": { "version": 2, "prefilter": "fnv1a32", "digest": "sha256", "maxAdjacentTokens": 4, "signatures": [ { "id": "S001", "fnv1a32": "00000000", "sha256": "0000000000000000000000000000000000000000000000000000000000000000", "normalizedLength": 6 }, { "id": "S001", "fnv1a32": "00000001", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "normalizedLength": 7 } ] }
+    }
+  ]
+}

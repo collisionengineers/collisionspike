@@ -1,9 +1,8 @@
-import { createHash } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
-import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, readlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createContentHash, sha256Bytes, sha256File } from "../checks/content-hash.mjs";
 import {
   comparePaths,
   normalizeRepositoryPath,
@@ -174,12 +173,6 @@ export function lifecycleFor(repositoryPath, kind = "file") {
   return "active";
 }
 
-async function sha256File(absolutePath) {
-  const hash = createHash("sha256");
-  for await (const chunk of createReadStream(absolutePath)) hash.update(chunk);
-  return hash.digest("hex");
-}
-
 function resolveWithinRoot(root, repositoryPath) {
   const normalized = normalizeRepositoryPath(repositoryPath);
   const absolute = path.resolve(root, ...normalized.split("/"));
@@ -295,12 +288,12 @@ export async function readGitBlobMetadata(root, objectIds) {
       throw new Error(`Expected blob ${expectedObjectId}, received ${header}`);
     }
     const size = Number(sizeText);
-    const hash = createHash("sha256");
+    const hash = createContentHash();
     await consumeBytes(size, (chunk) => hash.update(chunk));
     let separator = null;
     await consumeBytes(1, (chunk) => { separator = chunk[0]; });
     if (separator !== 0x0a) throw new Error(`Missing git cat-file separator after ${expectedObjectId}`);
-    metadata.set(expectedObjectId, { size, sha256: hash.digest("hex") });
+    metadata.set(expectedObjectId, { size, sha256: hash.digestHex() });
   }
 
   if (!ended) {
@@ -323,7 +316,7 @@ async function physicalFileEntry(root, repositoryPath) {
     const target = await readlink(absolutePath, "utf8");
     const bytes = Buffer.from(target, "utf8");
     size = bytes.length;
-    sha256 = createHash("sha256").update(bytes).digest("hex");
+    sha256 = sha256Bytes(bytes);
     mediaType = "inode/symlink";
   } else if (before.isFile()) {
     size = before.size;

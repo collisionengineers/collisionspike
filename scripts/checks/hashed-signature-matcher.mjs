@@ -13,6 +13,23 @@ function fnv1a32(value) {
   return result.toString(16).padStart(8, "0");
 }
 
+/**
+ * Lenient percent-decode that mirrors Python `unquote_plus`: decode each maximal run of valid `%XX`
+ * escapes and leave a malformed `%` (not followed by two hex digits, or a byte run that is not valid
+ * UTF-8) as a literal, instead of aborting the whole string the way `decodeURIComponent` does. This
+ * keeps this matcher in parity with the Python mirror on malformed-escape-prefixed input — e.g.
+ * `%ZZ%6f%72%61%6e%67%65` must reveal `orange` in both, not decode in one and abort in the other.
+ */
+function lenientPercentDecode(input) {
+  return input.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+}
+
 function signatureIndex(document) {
   if (document?.version !== 2 || document?.prefilter !== "fnv1a32" || document?.digest !== "sha256") {
     throw new Error("Unsupported signature document");
@@ -56,14 +73,12 @@ export function createHashedSignatureMatcher(document) {
     const variants = new Set([String(value)]);
     let decoded = String(value);
     for (let pass = 0; pass < 2; pass += 1) {
-      try {
-        const next = decodeURIComponent(decoded.replaceAll("+", "%20"));
-        if (next === decoded) break;
-        variants.add(next);
-        decoded = next;
-      } catch {
-        break;
-      }
+      // Lenient decode (mirrors Python unquote_plus): partial-decode valid escapes rather than
+      // aborting on a malformed one, so a `%ZZ`-prefixed encoded term is caught in both matchers.
+      const next = lenientPercentDecode(decoded.replaceAll("+", "%20"));
+      if (next === decoded) break;
+      variants.add(next);
+      decoded = next;
     }
 
     for (const variant of variants) {
