@@ -17,7 +17,7 @@
     "files": 3671,
     "entries": 4781
   },
-  "totalFileBytes": 703504475,
+  "totalFileBytes": 703506120,
   "entries": [
     {
       "path": ".",
@@ -5132,24 +5132,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5943,6 +5925,24 @@
     },
     {
       "path": "docs/tickets/verify/TKT-209-monorepo-path-migration-generated-output-removal/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15448,7 +15448,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1499341,
+      "size": 1499359,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15466,8 +15466,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4251793,
-      "sha256": "ff362363610a38519e911a3da7baaf71b3dca1d4a347c2e48286cd907d188161",
+      "size": 4251811,
+      "sha256": "f850427453bba882057557c743c54ba24fc029c7ad883d8220d700ccfd3a3061",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15961,8 +15961,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49356,
-      "sha256": "21c0a31f858e6f2af2ca0570c28a5c89baa40ba141816626fab0d088a2b5b271",
+      "size": 49359,
+      "sha256": "839ec0a6052a9e01a8085145a953aee8732ea76e74f8990fa0172e65b448b202",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -15970,8 +15970,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52192,
-      "sha256": "7ec0f1451e7069f19873bf121624f7be3014352dad6a3644a70636350200ef7b",
+      "size": 52195,
+      "sha256": "0dce74abcabc8824acf55caceff13561dc10f722a26eb8829a33f96fd2a30520",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24995,42 +24995,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
-      "mediaType": "text/markdown",
-      "size": 3394,
-      "sha256": "18d2fdab69da464ed58f00b74245016720be68c994d7d2ca785a862ed6721aa6",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1905,
-      "sha256": "0036e2b5e87ab6fefb8ed2b001803ffd0d659cee6ed474b6f069324f322ecb2e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 256,
-      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-210-source-decomposition-no-mock-invariant/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3224,
-      "sha256": "38939ff64a91db0cd306a4d79877dae3bf9430d25fff216ba6a2cb9dafadd81d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md",
       "mediaType": "text/markdown",
       "size": 3311,
@@ -25537,8 +25501,8 @@
     {
       "path": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
       "mediaType": "text/markdown",
-      "size": 5121,
-      "sha256": "7f17f5c2f8dc7a5355b5d8e7dbbfbad27e1d506f5db6e02d8bb2cbe6bd0744db",
+      "size": 5128,
+      "sha256": "b9dae40cc61d5f1d29ac61271bfe0962cc64aa37942d38888835062f66ac6c51",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27303,6 +27267,42 @@
       "mediaType": "text/markdown",
       "size": 1891,
       "sha256": "99e748a91bdc956c320e531f2ff376b53af52475efa063af8a2c9b17db5de91a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md",
+      "mediaType": "text/markdown",
+      "size": 3400,
+      "sha256": "3a5d158dff7015eb10a432ebadbd9d96caeb4b7ead6123a206a558a2aaa75c77",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3350,
+      "sha256": "e6c134a6b36f405254005126ffc6ed0d2093a01829f86e1c3ff679df4457b6e4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 256,
+      "sha256": "4e879a6b034eede51d20815a030555c25c3d4048d9ffc14fd6a43b705696853a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-210-source-decomposition-no-mock-invariant/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3369,
+      "sha256": "f3441c547537ba0fd40c740ea5bfa258145527508e4fa097de0617f270a646d8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

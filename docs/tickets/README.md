@@ -34,7 +34,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 
 [Open the generated board](./BOARD.md).
 
-## Now (32)
+## Now (31)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -59,7 +59,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-200](./now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md) | Add secure guided photo capture sessions | P1 | integration | PLAN-004 |
 | [TKT-205](./now/TKT-205-repository-worktree-governance/TKT-205-repository-worktree-governance.md) | Make ticketed worktrees and offline checks the repository workflow | P1 | platform | PLAN-004 |
 | [TKT-206](./now/TKT-206-remove-runtime-data-policy-controls/TKT-206-remove-runtime-data-policy-controls.md) | Remove privacy-driven runtime data restrictions safely | P0 | platform | PLAN-004 |
-| [TKT-210](./now/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
 | [TKT-216](./now/TKT-216-eva-sentry-route-body-contract/TKT-216-eva-sentry-route-body-contract.md) | Repair the EVA Sentry route and body contract | P1 | integration | PLAN-004 |
 | [TKT-225](./now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps | P1 | intake | PLAN-004 |
 | [TKT-226](./now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md) | Box uploads mislabel the queue as "Images received"; retro_related subtype silently nulls | P1 | intake | — |
@@ -71,7 +70,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 
-## Verify (42)
+## Verify (43)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -108,6 +107,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-207](./verify/TKT-207-repository-inventory-disposition-ledger/TKT-207-repository-inventory-disposition-ledger.md) | Build the complete repository inventory and disposition ledger | P0 | docs | PLAN-006 |
 | [TKT-208](./verify/TKT-208-evidence-catalog-workingspace-relocation/TKT-208-evidence-catalog-workingspace-relocation.md) | Catalog evidence and relocate workingspace without content changes | P0 | evidence | PLAN-006 |
 | [TKT-209](./verify/TKT-209-monorepo-path-migration-generated-output-removal/TKT-209-monorepo-path-migration-generated-output-removal.md) | Migrate repository paths and remove generated output | P1 | platform | PLAN-006 |
+| [TKT-210](./verify/TKT-210-source-decomposition-no-mock-invariant/TKT-210-source-decomposition-no-mock-invariant.md) | Decompose source by feature and enforce the production-data boundary | P1 | platform | PLAN-006 |
 | [TKT-211](./verify/TKT-211-forbidden-reference-gate/TKT-211-forbidden-reference-gate.md) | Enforce the forbidden-reference zero state | P0 | platform | PLAN-006 |
 | [TKT-212](./verify/TKT-212-canonical-agent-skill-generation/TKT-212-canonical-agent-skill-generation.md) | Establish one agent and skill source with generated adapters | P1 | docs | PLAN-006 |
 | [TKT-213](./verify/TKT-213-ticket-index-research-link-reconciliation/TKT-213-ticket-index-research-link-reconciliation.md) | Reconcile tickets, indexes, plans and research links | P1 | docs | PLAN-006 |
