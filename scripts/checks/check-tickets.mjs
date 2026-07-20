@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, extname, join, resolve } from "node:path";
 import {
   LIFECYCLE_STATUSES,
+  PLAN_KINDS,
   PLAN_STATUSES,
   PRIORITIES,
   ROOT,
@@ -144,6 +145,10 @@ for (const plan of plans) {
   if (!values.title) fail(`${label}: missing title`);
   if (!PLAN_STATUSES.includes(values.status)) fail(`${label}: invalid status ${values.status}`);
   if (!Array.isArray(values.tickets)) fail(`${label}: tickets must be a list`);
+  if (!values["plan-kind"]) fail(`${label}: missing plan-kind`);
+  else if (!PLAN_KINDS.includes(values["plan-kind"])) {
+    fail(`${label}: invalid plan-kind ${values["plan-kind"]} (expected one of ${PLAN_KINDS.join(", ")})`);
+  }
   if (planById.has(values.id)) fail(`${label}: duplicate plan id ${values.id}`);
   planById.set(values.id, plan);
 

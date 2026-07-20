@@ -4,6 +4,10 @@ title: Scripts and tooling dedup
 status: active
 tickets: [TKT-258, TKT-259, TKT-260, TKT-261]
 depends-on: [PLAN-006]
+plan-kind: consolidation
+terminal-guard: TKT-261
+terminal-guard-command: check:scripts-dedup
+guard-mode: import-reference
 ---
 
 # PLAN-010 — Scripts and tooling dedup

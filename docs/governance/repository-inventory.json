@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3749,
-    "entries": 4872
+    "files": 3753,
+    "entries": 4876
   },
-  "totalFileBytes": 704123555,
+  "totalFileBytes": 704159578,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4845,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15455,10 +15455,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0033-anti-drift-guard-doctrine.md",
+      "mediaType": "text/markdown",
+      "size": 5294,
+      "sha256": "1d2b6a805308becb6a7b3d6efdc5333edd43ef1fa61b26c7ec19d5fc9f58daff",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 5095,
-      "sha256": "267d57487f4a08d924e5e551b879534ad33e90bf2a586cd85ba83d6e4b385248",
+      "size": 5253,
+      "sha256": "e694327c55ca9fe675de72eded99063f277fd2ade1728244b19f43c57bb40ffe",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15601,8 +15610,17 @@
     {
       "path": "docs/governance/README.md",
       "mediaType": "text/markdown",
-      "size": 903,
-      "sha256": "ddee6cd9299572cb51cee558904699caaea7cd31399687755950d3d2740729e1",
+      "size": 1019,
+      "sha256": "3154217d26f896998dc91b70a44166a4b9113651a9da236f3368728bb82b94aa",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/governance/anti-drift-guards.md",
+      "mediaType": "text/markdown",
+      "size": 3882,
+      "sha256": "9e98252e358c381c5782a2e4719381836329238fd36a3dbd342a1490cab18fbe",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15637,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1526896,
+      "size": 1528121,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15655,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4287580,
-      "sha256": "e7cf7b13d6be588d60bfa123ba582851fbccb78913d32187dc1c9ecc50ec1f39",
+      "size": 4289141,
+      "sha256": "0dab0d13e7574a983260c190a49db6321dd6be64aa8eeb8adadb7ab570fae0d0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15665,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68039,
-      "sha256": "68812ad1bdbd9cc524fe13d70cffecc27108792686aa108b89dcf2284f43afe7",
+      "sha256": "96c58bd23c95824980ae4869a8db0a7070f4ed137be027d3aaca623ad0c67120",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16168,8 +16186,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49929,
-      "sha256": "6ed8f340d3b85f193442ab2f6cfef1b06b389f40d67d74f48e25cd5d9f8eea91",
+      "size": 49926,
+      "sha256": "7241ef923bdb37232dd593d08a6c0e9acb5be57d949fbca197b09934e97e1eb6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16177,8 +16195,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52791,
-      "sha256": "6c65089103eb0d1aacf9e9241c67e867b22e60524b0c779b559041b7f18c08bb",
+      "size": 52788,
+      "sha256": "d2dddac80692ebc5b65dd11d0eca63d6a3663ca75c498a45efebd8c071d88792",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18141,42 +18159,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md",
-      "mediaType": "text/markdown",
-      "size": 3569,
-      "sha256": "7addbdac5fd8994e2e694ec3310ea059959195a61c03aa0d4bcdcfba709d7b87",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/changes.md",
-      "mediaType": "text/markdown",
-      "size": 103,
-      "sha256": "c113870ff6ab5d34250fac7e3feba4b4c3633e3ff683698d4b1eb2e22eb7208b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1456,
-      "sha256": "3fb39eaf9604acd700063186cde19ddd605eeb44a4dbd70a4965296a20b4b5ca",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/verification.md",
-      "mediaType": "text/markdown",
-      "size": 188,
-      "sha256": "799ee5739f89502cb8b1aab69c3c0e2a264b72a041ac914fb5a614683d589b7d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24572,6 +24554,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md",
+      "mediaType": "text/markdown",
+      "size": 3563,
+      "sha256": "869beb19ee923c738388c96c35cce4562b5c303337d476b22da82c45eb971727",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2482,
+      "sha256": "8fa1daf71a53ccce1be09b26cc017faee2d133bfe1cf7243a368c9922ed96e74",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1456,
+      "sha256": "3fb39eaf9604acd700063186cde19ddd605eeb44a4dbd70a4965296a20b4b5ca",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1878,
+      "sha256": "0a93054070c2c1a90988e482bddc1b41cf23880bd88918b4bc6ad4465c3745fc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26140,8 +26158,8 @@
     {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
-      "size": 4510,
-      "sha256": "950574350f4018e1066adfafa9d17629ef015dbb0ae58f6e55982f7d723134db",
+      "size": 4529,
+      "sha256": "8d7508b2460b59a2d038c14182b8347543ed3f3d8806d3f9455a65e2595772cf",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26149,8 +26167,8 @@
     {
       "path": "docs/tickets/plans/PLAN-002-case-done-lifecycle.md",
       "mediaType": "text/markdown",
-      "size": 1787,
-      "sha256": "012bc846e70255324f4a2f7970ffe2331a655dfdd0bab9fb5ffc120b8c3e2b9d",
+      "size": 1806,
+      "sha256": "e4093ed307fa192765796cd56dfe0e7d4cdff55337c88a37d4823c11965fb6f1",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26158,8 +26176,8 @@
     {
       "path": "docs/tickets/plans/PLAN-003-operator-fixup-wave.md",
       "mediaType": "text/markdown",
-      "size": 8533,
-      "sha256": "996cf9d8ca307fd712b365a939b967caf636e7fe8d623627c6252406e3bba22a",
+      "size": 8556,
+      "sha256": "36a415152811d589c8b989d78a5262c5887aa3b19d894fab16c081c8fd536545",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26167,8 +26185,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 12915,
-      "sha256": "4f923600e5665cc8645ac9ad2d59878322fdce71054f1d3d783f51b1b5d7f3e7",
+      "size": 12934,
+      "sha256": "fec10c51c192bb2bf7ea2987208681aec02bc0c3664d7dece16aa565c1f66cd3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26176,8 +26194,8 @@
     {
       "path": "docs/tickets/plans/PLAN-005-full-remediation-plan.md",
       "mediaType": "text/markdown",
-      "size": 1757,
-      "sha256": "2e853912b430e527867a4cb9f0883db604d71767be4ceced855689bb152c22f9",
+      "size": 1780,
+      "sha256": "b5df75aaf3a7190c8726640253e1a2ad9f98b6ce9006e04872ff2491d209630a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26185,8 +26203,8 @@
     {
       "path": "docs/tickets/plans/PLAN-006-repository-structure-documentation-reset.md",
       "mediaType": "text/markdown",
-      "size": 5089,
-      "sha256": "4d36003fcf6a1bfe55735c4717c1bbe7f8b797a0226edaaf13ecbf932743c6ec",
+      "size": 5111,
+      "sha256": "9459a7302b34a517aadcefe4cd7d0a67cec512d75470c64bdcb93dc933530292",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26194,8 +26212,8 @@
     {
       "path": "docs/tickets/plans/PLAN-007-server-runtime-foundation.md",
       "mediaType": "text/markdown",
-      "size": 7768,
-      "sha256": "b34a9b89e49c35000d16c4b8ce8f97867b54b47c5d0834a47353a9986fe95bfe",
+      "size": 7892,
+      "sha256": "d1cb18270a704cb0593ca1ed6ee3f61bf251ed758f28e942d206a420d25c1c50",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26203,8 +26221,8 @@
     {
       "path": "docs/tickets/plans/PLAN-008-canonical-service-routes.md",
       "mediaType": "text/markdown",
-      "size": 6885,
-      "sha256": "32602946e00dc86e26a0f25cd610222dd88ffa5071f399b5c243fe538dcf6e49",
+      "size": 7003,
+      "sha256": "dd968e65134ed37121a16bd7ff9c4d57bdd5a2320b89642843347e94d6163393",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26212,8 +26230,8 @@
     {
       "path": "docs/tickets/plans/PLAN-009-cloud-estate-cleanup.md",
       "mediaType": "text/markdown",
-      "size": 8220,
-      "sha256": "51c6f58527be6bdffb150a989df96d45b874b7a9400a77184fddc1ba75863680",
+      "size": 8243,
+      "sha256": "f98bb7961818395239c0c29857f418eefe23404343bd86b84c0e636b7f73a00f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26230,8 +26248,8 @@
     {
       "path": "docs/tickets/plans/PLAN-010-scripts-and-tooling-dedup.md",
       "mediaType": "text/markdown",
-      "size": 6082,
-      "sha256": "a2cadb40d12d939b98e01b2efb2bda7fb5f6a166c0e261f9bf1c1b200106b032",
+      "size": 6204,
+      "sha256": "c23a0074de3489b63b89e025a760959af41f0bc4a22222311e2ac4f40a294d51",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26239,8 +26257,8 @@
     {
       "path": "docs/tickets/plans/PLAN-011-python-doctrine-and-parity.md",
       "mediaType": "text/markdown",
-      "size": 4856,
-      "sha256": "1495949097469874b5edc270d39e9e12726b2eb63c7eb89fef4102497b1695b4",
+      "size": 4974,
+      "sha256": "63c299624afb7886217127cebc77a18cc3182fe4469e42055c8aa157764c5abc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26248,8 +26266,8 @@
     {
       "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
       "mediaType": "text/markdown",
-      "size": 7666,
-      "sha256": "78b5cf72fde2238f77713ace4b9bd5a2346dd12ca2d7dabb12a8e36fa3e70f1d",
+      "size": 7660,
+      "sha256": "856e638cf6dc05ff263a171f0a86b2b5f487860c110629b7bcba8e5c7b5491ba",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29821,8 +29839,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5370,
-      "sha256": "84527540e3cd2c799ff769a5a45b0d11bbfa49d385a122ded8a48cb3de828867",
+      "size": 5522,
+      "sha256": "d89f541bad6968a6be39b8e474204eb0dfcc9a2e7e15e585503f21d4a0e2f5ee",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30917,6 +30935,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/check-guard-register.mjs",
+      "mediaType": "text/javascript",
+      "size": 11574,
+      "sha256": "d213c47670b7f66204f40afbc26f490f58fa5998935922ddfb7560cf7a7d36b7",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-guard-register.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 5617,
+      "sha256": "7a85a28ed92425c0562f1b1b700a55b4c84c4b12bcfc208cdcaede5c6e65e82d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/check-image-review.mjs",
       "mediaType": "text/javascript",
       "size": 6417,
@@ -31054,8 +31090,8 @@
     {
       "path": "scripts/checks/check-tickets.mjs",
       "mediaType": "text/javascript",
-      "size": 9503,
-      "sha256": "ebbfa7ccfbfb6f84a1017936ed475ebc00b72353e49d039a6b18414b1cffff2d",
+      "size": 9749,
+      "sha256": "d39593df2cf7233c004ba33c20c4772106f0f662392636699db88d96b51d2fb2",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31720,8 +31756,8 @@
     {
       "path": "scripts/maintenance/ticket-system.mjs",
       "mediaType": "text/javascript",
-      "size": 17488,
-      "sha256": "722ed95e85ad449fca696ca26a30a5c42e69e7d950638708336f3f16b09ff192",
+      "size": 18825,
+      "sha256": "fab9afcfc6f1a26c869ff985035dd66232ab7be1a21f1c2f3d78245e8ea364e2",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -43015,8 +43051,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 6049,
-      "sha256": "a7cce45f63a81321e8a9002ac43bfff9f851b3f4d91c022b8386178febffc154",
+      "size": 6229,
+      "sha256": "62699187c84afd6aa9fba50614650193e31ed3273b93a3dc7920dd0f744e62e2",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

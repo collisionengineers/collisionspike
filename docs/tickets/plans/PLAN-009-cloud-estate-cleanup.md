@@ -4,6 +4,7 @@ title: Cloud estate cleanup
 status: active
 tickets: [TKT-252, TKT-253, TKT-254, TKT-255, TKT-256, TKT-257]
 depends-on: [TKT-215, TKT-246]
+plan-kind: remediation
 ---
 
 # PLAN-009 — Cloud estate cleanup

@@ -4,6 +4,7 @@ title: Claimant remediation and repository reconciliation
 status: active
 tickets: [TKT-150]
 depends-on: []
+plan-kind: remediation
 ---
 
 # PLAN-005 — Claimant remediation and repository reconciliation

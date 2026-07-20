@@ -4,6 +4,10 @@ title: Shared server-runtime foundation
 status: active
 tickets: [TKT-247, TKT-248, TKT-249, TKT-250, TKT-251]
 depends-on: [TKT-210]
+plan-kind: consolidation
+terminal-guard: TKT-251
+terminal-guard-command: check:managed-identity-mint
+guard-mode: ast-import
 ---
 
 # PLAN-007 — Shared server-runtime foundation
