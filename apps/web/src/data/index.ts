@@ -351,6 +351,7 @@ export {
   // Outlook filing (TKT-054 / 020726 E6) — gate + queue-move mutation.
   useOutlookMoveGate,
   useOutlookMove,
+  useDeleteCaseImageGate,
   useCaptureSessionMutations,
   type QueryState,
   type CaseUpdateState,

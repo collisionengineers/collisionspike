@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Badge, Button, Caption1, Dropdown, Field, Link, Option, Spinner, Switch, Tooltip, mergeClasses } from '@fluentui/react-components';
-import { AlertTriangle, ArrowUpRight, Check, MapPin } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Check, MapPin, Trash2 } from 'lucide-react';
 import { getDataAccess, type Evidence, type ImageRole, type SuggestedAddress } from '../../data';
 import { useStyles } from './case-detail.styles';
 
@@ -25,6 +25,8 @@ interface EvidenceCardProps {
   saving?: boolean;
   /** Plain-language failure for this card's last save attempt. */
   saveError?: string;
+  /** TKT-160: present only when DELETE_CASE_IMAGE_ENABLED is on — omitting it hides the control. */
+  onDelete?: (ev: Evidence) => void;
 }
 
 export function EvidenceCard({
@@ -37,6 +39,7 @@ export function EvidenceCard({
   dismissingReflection,
   saving,
   saveError,
+  onDelete,
 }: EvidenceCardProps) {
   const styles = useStyles();
   // Real inline preview (TKT-048): fetch the bytes WITH the bearer -> blob: URL for <img>
@@ -154,6 +157,17 @@ export function EvidenceCard({
           <Link inline href={ev.boxFileUrl} target="_blank" rel="noopener noreferrer">
             <span className={styles.inlineIconText}>Open in Archive <ArrowUpRight size={12} /></span>
           </Link>
+        )}
+        {onDelete && (
+          <Button
+            appearance="subtle"
+            size="small"
+            icon={<Trash2 size={14} />}
+            disabled={saving}
+            onClick={() => onDelete(ev)}
+          >
+            Delete image
+          </Button>
         )}
       </div>
     </div>

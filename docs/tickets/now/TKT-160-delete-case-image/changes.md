@@ -78,3 +78,36 @@ default-off; no production or non-test Archive mutation was performed.
   designated-test-folder proof in `docs/operations/delete-case-image.md` (SPA-driven cancel→confirm→
   readback→repeat→replay sequence on a chosen test case/image). The verdict in `verification.md` stays
   `PENDING` until that proof runs. `LIVE_FACTS.json.safetyGates.deleteCaseImage` updated with a dated note.
+
+## 2026-07-20 — the claimed SPA action from the paragraph above never actually rendered (found + fixed)
+
+The "accessible action on every image card" claimed in the Implementation section above (lines 29-34)
+was **never reachable in the live `apps/web` tree**, despite `DELETE_CASE_IMAGE_ENABLED` being live-on.
+Root cause: PR #87 built the real button inside `mockup-app/src/screens/CaseDetail.tsx` (a prototype app
+on a branch that forked before `mockup-app` was renamed to `apps/web`, commit `b224c54b`). The
+reconciliation merge `bbe20b3e` ported `ImageDeleteDialog.tsx` and `useDeleteCaseImageGate` into
+`apps/web`, but had no way to merge the screen-level wiring against a target file (`CaseDetail.tsx`)
+that no longer existed in that shape — so the dialog and hook shipped completely orphaned (zero
+references outside their own test files). A second feature hit the identical failure mode the same day
+(see TKT-200's `changes.md`).
+
+Fixed by wiring the existing (previously-orphaned) pieces into the real screen — no new component or API
+behaviour, purely the missing integration:
+
+- `apps/web/src/features/cases/case-detail.controller.tsx` — reads `useDeleteCaseImageGate()` into
+  `deleteImageEnabled`; adds `deleteImageTarget`/`deletingImage`/`deleteImageError` state and
+  `openDeleteImage`/`cancelDeleteImage`/`confirmDeleteImage` handlers (calls the existing
+  `deleteCaseImage(caseId, evidenceId)`, then removes the row from local `imgState` on success).
+- `apps/web/src/features/cases/case-detail-cards.tsx` — `EvidenceCard` gains an optional `onDelete`
+  prop; the "Delete image" button only renders when a handler is passed (i.e. only while the gate is on).
+- `apps/web/src/features/cases/case-detail-main.tsx` — passes `onDelete={deleteImageEnabled ?
+  openDeleteImage : undefined}` into each card.
+- `apps/web/src/features/cases/case-detail-dialogs.tsx` — renders the existing `ImageDeleteDialog` wired
+  to the controller's state/handlers.
+- `apps/web/src/data/index.ts` — `useDeleteCaseImageGate` itself was missing from the barrel re-export
+  (unlike every other gate hook in the file); added.
+
+Verification (offline only — no live mutation): `tsc --noEmit` clean; full `apps/web` suite **556/556**
+passing (`npx vitest run`); production build (`tsc -b --force && vite build`) succeeds. The
+designated-test-folder live proof this ticket requires is unchanged and still outstanding — this entry
+only fixes the previously-nonexistent UI path, it does not constitute that proof.
