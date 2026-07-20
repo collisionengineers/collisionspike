@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1145 directories, 3844 files.
+Grand total: 1163 directories, 3884 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,12 +1096,12 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 571 directories, 1420 files
+### docs — 589 directories, 1459 files
 
 ```text
 docs/  (1 file)
-  adr/  (33 files)
-  architecture/  (10 files)
+  adr/  (34 files)
+  architecture/  (11 files)
   design/  (3 files)
     product-demo/  (2 files)
   governance/  (7 files)
@@ -1237,6 +1237,18 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/  (3 files)
         evidence/  (1 file)
+      TKT-279-guided-capture-device-camera-matrix/  (3 files)
+        evidence/  (1 file)
+      TKT-280-guided-capture-async-validation-and-derivatives/  (3 files)
+        evidence/  (1 file)
+      TKT-281-guided-capture-staff-panel-not-mounted/  (3 files)
+        evidence/  (1 file)
+      TKT-283-guided-capture-spa-deploy-pipeline/  (3 files)
+        evidence/  (1 file)
+      TKT-284-guided-capture-security-corpus-and-runbook/  (3 files)
+        evidence/  (1 file)
+      TKT-285-guided-capture-device-gate-calibration/  (3 files)
+        evidence/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
       TKT-009-clickable-case-and-email/  (4 files)
@@ -1252,6 +1264,8 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-178-production-archive-cutover-reconciliation/  (3 files)
         evidence/  (3 files)
+      TKT-286-guided-capture-advisory-pilot-launch/  (3 files)
+        evidence/  (1 file)
     done/  (0 files)
       TKT-001-document-parsing/  (5 files)
         followup/  (1 file)
@@ -1605,7 +1619,11 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-233-retro-anchor-provenance-and-parse-gaps/  (3 files)
         evidence/  (2 files)
-    plans/  (14 files)
+      TKT-278-collisioncapture-repository-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-282-guided-capture-live-boundary-verification/  (3 files)
+        evidence/  (1 file)
+    plans/  (15 files)
     verify/  (0 files)
       TKT-016-ai-image-analysis/  (3 files)
         evidence/  (3 files)
@@ -1745,11 +1763,11 @@ emailevals/  (3 files)
   work-logs/  (3 files)
 ```
 
-### infrastructure — 9 directories, 15 files
+### infrastructure — 9 directories, 16 files
 
 ```text
 infrastructure/  (1 file)
-  config-capture/  (4 files)
+  config-capture/  (5 files)
   functions/  (0 files)
     box-webhook/  (2 files)
     eva-sentry/  (1 file)
@@ -2177,10 +2195,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3844 | 3844 | PASS |
-| Proposed tree directories == ledger final directories | 1145 | 1145 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3846 | 3846 | PASS |
-| Proposed directories == inventory directories | 1145 | 1145 | PASS |
+| Proposed tree files == ledger final files | 3884 | 3884 | PASS |
+| Proposed tree directories == ledger final directories | 1163 | 1163 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3886 | 3886 | PASS |
+| Proposed directories == inventory directories | 1163 | 1163 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

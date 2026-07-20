@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1145,
-    "files": 3846,
-    "entries": 4991
+    "directories": 1163,
+    "files": 3886,
+    "entries": 5049
   },
-  "totalFileBytes": 705035278,
+  "totalFileBytes": 705149433,
   "entries": [
     {
       "path": ".",
@@ -2360,6 +2360,114 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/blocked",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2487,6 +2595,24 @@
     },
     {
       "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5664,6 +5790,42 @@
     },
     {
       "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15907,8 +16069,8 @@
     {
       "path": "docs/adr/0007-receipt-of-images.md",
       "mediaType": "text/markdown",
-      "size": 2574,
-      "sha256": "c78dea81a656ea526d38ed716b24e2c02bfeca1919667dd87bfa3fea515b7997",
+      "size": 3494,
+      "sha256": "81d2600f8eb933b1ae1ee2ae99b2f7c2bf49272a1d1d38b77d0118aa17558d20",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16139,10 +16301,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0034-guided-capture-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3898,
+      "sha256": "75d23e934e73be8887bd2c289d7fa446023f110b2150674eb6674653e46696ec",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 5253,
-      "sha256": "e694327c55ca9fe675de72eded99063f277fd2ade1728244b19f43c57bb40ffe",
+      "size": 5403,
+      "sha256": "082fe3f2eb58cde016fd6da991dee1bc4f4f69dd04c42e4da087835b300706da",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16150,8 +16321,8 @@
     {
       "path": "docs/architecture/README.md",
       "mediaType": "text/markdown",
-      "size": 947,
-      "sha256": "e2e01bd8266c5f6e8eef433e48984ade9dc8dd6824125eed4ad3aa83c5fb4674",
+      "size": 987,
+      "sha256": "6d200cfd5fc113c1699353b0d78f40a665b90ed6e11d386816cd44814b6d0966",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16188,6 +16359,15 @@
       "mediaType": "text/markdown",
       "size": 2082,
       "sha256": "0c765d926e45700ce1853bca5b1862558fb62ed8c0f557ed7da9bd53cff579df",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/architecture/guided-capture.md",
+      "mediaType": "text/markdown",
+      "size": 9512,
+      "sha256": "c1ef943b69120a113faf9eaf359818eeee71ab972bab4b6827647c5793cada36",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16330,7 +16510,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1561175,
+      "size": 1579978,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16348,8 +16528,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4331965,
-      "sha256": "aff676aec584ea4f9d3ef06b3c0ee4d85779dc7d2f1c810138ac3a4a14d04143",
+      "size": 4355741,
+      "sha256": "3994c2457bb8deda2d49e24f8a91d66065974bd7e8b3313fabe91e1fcd37c7dd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16357,8 +16537,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68575,
-      "sha256": "00f691b4de1918c940f16a2734617abdf94cf8730839c01827343893d3968613",
+      "size": 69422,
+      "sha256": "66dabca4981b3e7108b6abb3442551da1846520fdd37f69bdf5afeb9f9989e06",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16483,8 +16663,8 @@
     {
       "path": "docs/operations/operator-actions.md",
       "mediaType": "text/markdown",
-      "size": 3437,
-      "sha256": "2d9fc0d213eba4011c5ed8371d434cd9e71b34728db7d0824ffa9eae3550f88e",
+      "size": 3991,
+      "sha256": "3f696f6b5251e48efe0dee0bce7d8c9a9605e5b59516467eabf339ae7b31f5ab",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16879,8 +17059,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49906,
-      "sha256": "a0d6198edbcf58e5c97b44163d352faf3961357c0f26184a592445c88b016df7",
+      "size": 51872,
+      "sha256": "cd254eaa285acf9ba39555ee521239fa481368b74e6d742890b2fe4773b77b5d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16888,8 +17068,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52769,
-      "sha256": "c346581f3873cba3c24a09df1c10382ec74a54d437797e1dd7cdcbb8af992775",
+      "size": 54951,
+      "sha256": "d0ee02840cf1549298613e31a4d126b9e3eb74f521b8c350080019d2e10c68e9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18857,6 +19037,222 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/TKT-279-guided-capture-device-camera-matrix.md",
+      "mediaType": "text/markdown",
+      "size": 1978,
+      "sha256": "37fcf2ebf48b07212d34fb32a848b5a48352c15d3d130570adb7881d0cb1dc2d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/changes.md",
+      "mediaType": "text/markdown",
+      "size": 306,
+      "sha256": "e092654904d5c81f0eb4a240d2aafcb879bccf86c48c99a221ef795e18e45ad3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 434,
+      "sha256": "a6347c9e0732922af5176ba6c9d2b1d2bbc18ecf7ccacb4d3dbb200fc8d381dc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/verification.md",
+      "mediaType": "text/markdown",
+      "size": 595,
+      "sha256": "17130e4e705ee2f63c77001253a23d5f2c2443fa343c1e4991997d348e16be37",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/TKT-280-guided-capture-async-validation-and-derivatives.md",
+      "mediaType": "text/markdown",
+      "size": 2524,
+      "sha256": "d9689ef17a332278132e57dc3b68c97313b9b4f2863d0c0384cf6596d8277b04",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/changes.md",
+      "mediaType": "text/markdown",
+      "size": 514,
+      "sha256": "d0ed6bcb7f374fcb5b707b9e71221766866ddcc107aa624ce9cdb0c1b8153460",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 867,
+      "sha256": "d61973bb48f1e837dcb89b3d28fce7986b0a65e21b21e2ebd27cd18d8a3aa50d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/verification.md",
+      "mediaType": "text/markdown",
+      "size": 756,
+      "sha256": "deaf574c52b8edb4d02d20f14991981e370660ddcc12913d015f097681a3c26d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md",
+      "mediaType": "text/markdown",
+      "size": 2559,
+      "sha256": "bbd93d9d361661dc29d5a1e12be5141e11a1b1f6aa6278d28d07abddeb28d1b2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/changes.md",
+      "mediaType": "text/markdown",
+      "size": 613,
+      "sha256": "3a7fb468cd4c3721a76936f1e8db703fc39e20d7da3d8368245ae1fedba44696",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 1185,
+      "sha256": "63bb05e238e936c5995a6cab5569b6860fa68b542479878fd98017412b8ab19e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/verification.md",
+      "mediaType": "text/markdown",
+      "size": 889,
+      "sha256": "1cde1ed6a08299aaffcffd80e9fb3e5f1f350a8576280cd6d1d085fd8d607b91",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md",
+      "mediaType": "text/markdown",
+      "size": 2483,
+      "sha256": "5f27369eee36226c60b84d409cde021c3153077f0c339d47149a4582f87dd664",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/changes.md",
+      "mediaType": "text/markdown",
+      "size": 554,
+      "sha256": "8506624d6c798202d9ff65e365d4cf1bd9d26020fcd9f0da9d82c26228831c7d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 612,
+      "sha256": "ac6eb8bc4e57891d3f29e52502d3aa452fdb314cf63500cda7a3848b1201e6b6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/verification.md",
+      "mediaType": "text/markdown",
+      "size": 904,
+      "sha256": "5b4c330ab357c05572aa5b463389e0eca401ed879f416ba8a75025a1536190d0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md",
+      "mediaType": "text/markdown",
+      "size": 2075,
+      "sha256": "b65a0d3596e4a72d10ce98f2773f4c8e70a471386bfe528fbe65ab23b4509552",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/changes.md",
+      "mediaType": "text/markdown",
+      "size": 362,
+      "sha256": "39555587c02831f499cecb8f9033b3e9bc5357df756bd582dcc2fca89221acec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 450,
+      "sha256": "1f2e1e9ff7337e40c90ebb5dccd53e14b82e5aafbb13790668a86eac03d717a0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/verification.md",
+      "mediaType": "text/markdown",
+      "size": 722,
+      "sha256": "2332a103e3d9edc3e4243377845581347bad4f5c956d7464dbe3f5f6cde3eaee",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md",
+      "mediaType": "text/markdown",
+      "size": 1380,
+      "sha256": "499e00362c448b4838a7940b5b2421c1b1872e7e4dc2a3e5fa18efb7f4462cae",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/changes.md",
+      "mediaType": "text/markdown",
+      "size": 322,
+      "sha256": "846e6c0c109eb8dd7cd899c771d08023300c7b5501222212a2c8cb9336563466",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 257,
+      "sha256": "f746fab20699f86b144c04781f83a244cf113f2ac8ececdbe140aa637caed0b8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/verification.md",
+      "mediaType": "text/markdown",
+      "size": 302,
+      "sha256": "ad5351901203468750ddf856a785d8a25cf46801890134551ccc5205a015d3eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md",
       "mediaType": "text/markdown",
       "size": 2742,
@@ -19158,6 +19554,42 @@
       "mediaType": "text/markdown",
       "size": 10101,
       "sha256": "9b96d72f273e6585e7e2928f23d7f87f816acef6e7eab7049c78ade859a84a9e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/TKT-286-guided-capture-advisory-pilot-launch.md",
+      "mediaType": "text/markdown",
+      "size": 2188,
+      "sha256": "e6ed311ac1acc162dd6d3c0cd84b4ffdc25795ab2b7cfc1c1ac0fa3f74ab3124",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/changes.md",
+      "mediaType": "text/markdown",
+      "size": 454,
+      "sha256": "f4b41ce0e7d9c9f39a7ff474f551b5a00e1cae2ae1ed5e6921ac1ccf87092467",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 450,
+      "sha256": "ac4953db0e4177206f5bad0201bc055ac358e22436878e767b891c75784d280f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/verification.md",
+      "mediaType": "text/markdown",
+      "size": 613,
+      "sha256": "c28ef63d96818364c9555b3edd0f9e06c249d2f0bf46db4fe92621a747e9d606",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26104,8 +26536,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md",
       "mediaType": "text/markdown",
-      "size": 3799,
-      "sha256": "60b051d57c4e37ebb5f321c04d2420fc50bc5853a4ede9591787e415f8939028",
+      "size": 3817,
+      "sha256": "7b10d6240d381c13afbf2c2d61a0c540554e0b713d12808e3817038939805611",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26374,8 +26806,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md",
       "mediaType": "text/markdown",
-      "size": 4357,
-      "sha256": "24fe68ce333c94cfe865b7bf300abe56740a044533a5015bb0c8e21235fccc00",
+      "size": 4384,
+      "sha256": "bee1f995ebaea463cac2af4b9956d4c6bc7ba41580e3465684de368139ae04ed",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26903,6 +27335,78 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3850,
+      "sha256": "9926488fb3f525206bc2510c780aeff5e7274c204ae222552f5ab770aacd591b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4543,
+      "sha256": "0c0ada98f3bc9e6bcf8d87cc1559f1730f4fe0feaa29815d1b48cec6ba77718c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation/evidence/merge-scope.md",
+      "mediaType": "text/markdown",
+      "size": 2978,
+      "sha256": "84694d68bc37a85f499eca41d122521393badcc27d74fc158d6797313675c3ec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-278-collisioncapture-repository-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2176,
+      "sha256": "ff1538f1aa16399f8a0b62037c0697a0e69c0bd97808e011a0036bccb7c35cfa",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md",
+      "mediaType": "text/markdown",
+      "size": 2334,
+      "sha256": "d48516dccfcda3944490d34733fa6f9e27ededc8e617fbbb7072abccbff85c25",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/changes.md",
+      "mediaType": "text/markdown",
+      "size": 451,
+      "sha256": "10f698f7c92689ba3415c8c8a4625587f3509f12215b71e8035ddef7ae34582d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 776,
+      "sha256": "c903a089af20705c9752d938e38cc43d7e55b843642462ecdc50356f0bb378fb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/verification.md",
+      "mediaType": "text/markdown",
+      "size": 839,
+      "sha256": "7251c458a74ca2302921e1abfde2426761979bd8b078047787d05e0f5b6701e8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -27024,6 +27528,15 @@
       "mediaType": "text/markdown",
       "size": 8225,
       "sha256": "0eeeabbe3ef503da276eb9c943d908cd388945cb25967e607725ef1831e82bb3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-013-guided-capture-vision-programme.md",
+      "mediaType": "text/markdown",
+      "size": 3394,
+      "sha256": "778600163cd122372b9c7fcc0e370ca03bcb712195ebc51a24943b6d94b5e20e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30406,8 +30919,8 @@
     {
       "path": "infrastructure/config-capture/README.md",
       "mediaType": "text/markdown",
-      "size": 1324,
-      "sha256": "587306e0b48049ce92d9642a87050b19aa2a8abba51e95f9deb25f12c52ba7ef",
+      "size": 1434,
+      "sha256": "0e21387b59c9a2ccab17d6ac7cab4c955b5f3d086be38241d782b89a34736d6a",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -30417,6 +30930,15 @@
       "mediaType": "application/octet-stream",
       "size": 7622,
       "sha256": "7a0d87232546ca9b50f49bce84457963b19a13b2cae3908a5bf298bddd8ef702",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/config-capture/capture-spa.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 2663,
+      "sha256": "20ffd96142bf25619bfcab269e860f55a7d3a0a3f47efe7bbbd6f1a49d6a2eaa",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"

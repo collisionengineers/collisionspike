@@ -31,10 +31,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-010](./plans/PLAN-010-scripts-and-tooling-dedup.md) — Scripts and tooling dedup | active | 4/4 (100%) |
 | [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 3/3 (100%) |
 | [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 5/5 (100%) |
+| [PLAN-013](./plans/PLAN-013-guided-capture-vision-programme.md) — On-device vision programme for guided capture — dataset to enforced guidance | active | 0/0 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (31)
+## Now (33)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -69,6 +70,8 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 | email | — |
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
+| [TKT-278](./now/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 | integration | — |
+| [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 | integration | — |
 
 ## Verify (32)
 
@@ -267,7 +270,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (49)
+## Backlog (55)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -320,8 +323,14 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 | platform | PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 | platform | PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
+| [TKT-279](./backlog/TKT-279-guided-capture-device-camera-matrix/TKT-279-guided-capture-device-camera-matrix.md) | Guided capture — real-device camera matrix | P2 | integration | — |
+| [TKT-280](./backlog/TKT-280-guided-capture-async-validation-and-derivatives/TKT-280-guided-capture-async-validation-and-derivatives.md) | Guided capture — async validation worker, advisory OCR, and display derivatives | P2 | integration | — |
+| [TKT-281](./backlog/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 | web | — |
+| [TKT-283](./backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md) | Guided capture — SPA CI deploy pipeline, CSP headers, and custom domain | P2 | infra | — |
+| [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 | integration | — |
+| [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 | integration | — |
 
-## Blocked (8)
+## Blocked (9)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -333,3 +342,4 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-104](./blocked/TKT-104-tractable-api-integration/TKT-104-tractable-api-integration.md) | Tractable API integration (deferred — blocked on vendor docs) | P3 | intake | — |
 | [TKT-135](./blocked/TKT-135-circumstances-provider-samples/TKT-135-circumstances-provider-samples.md) | Circumstances coverage residual — needs one dropped sample per 0%-coverage provider layout | P2 | parsing | PLAN-003 |
 | [TKT-178](./blocked/TKT-178-production-archive-cutover-reconciliation/TKT-178-production-archive-cutover-reconciliation.md) | Reconcile active cases and the Archive at production cutover | P0 | platform | PLAN-004 |
+| [TKT-286](./blocked/TKT-286-guided-capture-advisory-pilot-launch/TKT-286-guided-capture-advisory-pilot-launch.md) | Guided capture — deterministic advisory pilot launch (blocked on TKT-159) | P1 | integration | — |

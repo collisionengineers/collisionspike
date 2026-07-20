@@ -1,6 +1,7 @@
 # ADR-0007 — Receipt of images
 
-**Status:** Accepted; rewritten and renamed 2026-07-16 per [Review 160726](../reviews/160726/decisions.md).
+**Status:** Accepted; rewritten and renamed 2026-07-16 per [Review 160726](../reviews/160726/decisions.md);
+amended 2026-07-20 per [ADR-0034](./0034-guided-capture-repository-consolidation.md).
 
 ## Decision
 
@@ -39,3 +40,14 @@ keeps each channel's build state honest.
 
 Every attachment records its receipt channel. Proposed matches are reviewable, ambiguous media stays
 visible, and no channel bypasses the correlation rules or the Archive safety rules.
+
+## Amendment — repository consolidation is not channel selection (2026-07-20)
+
+The former `collisioncapture` repository (the browser client for channel 2, "guided capture") has been
+merged into this repository as `apps/capture-web` + `packages/capture-*` — see
+[the guided-capture merge ADR](./0034-guided-capture-repository-consolidation.md) for the rationale.
+This is a repository-structure and engineering-ownership consolidation only. It does **not** select
+in-house guided capture as the committed image-receipt channel described above — channel 2's selection
+remains open, deferred, and owned by this ADR's existing decision text and selection criteria
+(capture quality, claimant friction, cost per case, data-protection posture). Commercial guided-capture
+products remain live alternatives until that selection is made.
