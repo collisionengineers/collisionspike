@@ -14,6 +14,7 @@ import {
   archiveMirrorApi,
   type PendingArchiveMirror,
 } from '../../adapters/archive-mirror-api.js';
+import { isAlive } from '../../platform/durable-monitor.js';
 
 export const ARCHIVE_MIRROR_MONITOR_INSTANCE_ID = 'archive-mirror-monitor-singleton';
 
@@ -180,7 +181,7 @@ export async function ensureArchiveMirrorMonitor(
 ): Promise<{ started: boolean; status?: string }> {
   try {
     const status = await client.getStatus(ARCHIVE_MIRROR_MONITOR_INSTANCE_ID);
-    if (status && ['Running', 'Pending', 'ContinuedAsNew'].includes(String(status.runtimeStatus))) {
+    if (status && isAlive(status.runtimeStatus)) {
       return { started: false, status: String(status.runtimeStatus) };
     }
   } catch {

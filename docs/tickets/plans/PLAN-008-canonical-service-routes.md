@@ -81,15 +81,15 @@ full `node verify-all.mjs` is green. No member performs a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**4/6 done (66%).**
+**5/6 done (83%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 4 |
+| Done | 5 |
 | Next | 0 |
-| Backlog | 2 |
+| Backlog | 1 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
@@ -97,7 +97,7 @@ full `node verify-all.mjs` is green. No member performs a live write.
 | [TKT-245](../done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | done | Decide and harden the internal service-trust seam (withServiceAuth) |
 | [TKT-262](../done/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | done | Consolidate the active focused-Function clients onto one |
 | [TKT-263](../done/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | done | Consolidate the internal MSI route surface behind the trust seam |
-| [TKT-264](../backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | backlog | Share the outbox monitor lifecycle without flattening lane protocols |
+| [TKT-264](../done/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | done | Share the outbox monitor lifecycle without flattening lane protocols |
 | [TKT-265](../done/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | done | Retire dead orchestration parser and location client exports |
 | [TKT-266](../backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | backlog | Add the route and authority inventory guard |
 <!-- /GENERATED:PROGRESS -->

@@ -70,3 +70,31 @@ CASCADE` when the evidence or case is deleted, keeping the Archive additive per
 generation shape is the platform convention for sibling durable lanes (provider-archive mirroring;
 Box file-request maintenance is a single-drain variant); a future move to share their monitor
 lifecycle (TKT-264) amends this record and must preserve each lane's protocol.
+
+## Amendment — shared monitor lifecycle, lane-owned protocols (2026-07-20)
+
+Per [TKT-264](../tickets/done/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md)
+(PLAN-008), the eternal-monitor **client-side singleton lifecycle** — the runtime-status readback and
+the race-safe ensure/start — is extracted into one helper
+([platform/durable-monitor.ts](../../services/orchestration/src/platform/durable-monitor.ts)), and the
+unrelated Box **image-classification** monitor is split out of `box-maintenance-monitor.ts` into its own
+[module](../../services/orchestration/src/workflows/archive/box-classification-monitor.ts). The combined
+`maintenance/box-monitors` control route and the `box-maintenance-monitor-bootstrap` timer still compose
+BOTH monitors' status with the same `ok = fileRequest.running && classification.running` semantics.
+
+**Shared (client side only):** the `Running`/`Pending`/`ContinuedAsNew` alive predicate, the
+`getStatus` readback with 404 tolerance, and — for the File Request and classification singletons, which
+were literally one implementation before the split — the race-safe `ensureMonitor` (loser re-reads the
+winner rather than failing deploy). The archive-mirror and provider-archive monitors reuse only the
+alive predicate; their thinner `ensure*` contract (`{ started, status? }`, no race re-read) is kept
+verbatim because unifying it onto the race-safe form would change observable behaviour.
+
+**Lane-owned, and NOT flattened:** every orchestrator generator body and its exact yield sequence; the
+per-lane `RetryOptions` (archive-mirror `15_000,4`; provider `10_000,4`; File Request / classification
+`15_000,4`; the box-folder-create sub-orchestrator `5_000,3`); the interval env vars and defaults; the
+reschedule tail (`createTimer(currentUtcDateTime + interval) → continueAsNew(undefined)`, kept inline
+per lane to protect replay determinism); the pending/complete/defer generation trios and their
+row-specific verification versus File Request's API-owned atomic `/drain`; and every Durable
+orchestrator, activity, sub-orchestrator, singleton-instance, route, and timer name. `check:runtime-
+contract` stays byte-identical (it does not fingerprint Durable identifiers; the archive-monitor and
+gate test suites are the guard for those), and no live write occurs.

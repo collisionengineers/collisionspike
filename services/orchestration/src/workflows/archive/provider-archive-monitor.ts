@@ -6,6 +6,7 @@ import {
   type PendingProviderArchive,
   type ProviderArchiveCompletion,
 } from '../../adapters/provider-archive-api.js';
+import { isAlive } from '../../platform/durable-monitor.js';
 
 export const PROVIDER_ARCHIVE_MONITOR_INSTANCE_ID = 'provider-archive-monitor-singleton';
 
@@ -115,7 +116,7 @@ export async function ensureProviderArchiveMonitor(
 ): Promise<{ started: boolean; status?: string }> {
   try {
     const status = await client.getStatus(PROVIDER_ARCHIVE_MONITOR_INSTANCE_ID);
-    if (status && ['Running', 'Pending', 'ContinuedAsNew'].includes(String(status.runtimeStatus))) {
+    if (status && isAlive(status.runtimeStatus)) {
       return { started: false, status: String(status.runtimeStatus) };
     }
   } catch {
