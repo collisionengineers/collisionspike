@@ -1,5 +1,5 @@
 {
-  "name": "@collisioncapture/testkit",
+  "name": "@cs/capture-testkit",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,8 +11,8 @@
     }
   },
   "dependencies": {
-    "@collisioncapture/contracts": "0.1.0",
-    "@collisioncapture/core": "0.1.0"
+    "@cs/capture-contracts": "0.1.0",
+    "@cs/capture-core": "0.1.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

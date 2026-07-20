@@ -1,5 +1,5 @@
 {
-  "name": "@collisioncapture/contracts",
+  "name": "@cs/capture-contracts",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

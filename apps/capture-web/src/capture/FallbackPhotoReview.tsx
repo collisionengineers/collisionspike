@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import type { GuidanceMode } from '@collisioncapture/contracts';
+import type { GuidanceMode } from '@cs/capture-contracts';
 import { CheckCircle2, CircleAlert, Image as ImageIcon, RotateCcw, X } from 'lucide-react';
 import {
   analyseDecodedFallbackPhoto,

@@ -1,4 +1,4 @@
-import type { CaptureSessionManifest } from '@collisioncapture/contracts';
+import type { CaptureSessionManifest } from '@cs/capture-contracts';
 import {
   DEFAULT_ACCEPTED_MIME_TYPES,
   DEFAULT_MAX_FILE_BYTES,

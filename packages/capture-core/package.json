@@ -1,5 +1,5 @@
 {
-  "name": "@collisioncapture/core",
+  "name": "@cs/capture-core",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,7 @@
     }
   },
   "dependencies": {
-    "@collisioncapture/contracts": "0.1.0"
+    "@cs/capture-contracts": "0.1.0"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

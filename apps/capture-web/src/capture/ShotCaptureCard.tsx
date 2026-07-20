@@ -4,8 +4,8 @@ import type {
   CaptureSessionManifest,
   CaptureShotDefinition,
   CaptureShotProgress
-} from '@collisioncapture/contracts';
-import { validateUploadRequest } from '@collisioncapture/core';
+} from '@cs/capture-contracts';
+import { validateUploadRequest } from '@cs/capture-core';
 import { Camera, CheckCircle2, CircleAlert, LoaderCircle } from 'lucide-react';
 import { GuidedCamera } from '../camera/GuidedCamera';
 import { UploadCoordinatorError } from '../uploads/uploadCoordinator';

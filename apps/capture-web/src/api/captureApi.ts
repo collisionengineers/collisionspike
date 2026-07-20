@@ -6,7 +6,7 @@ import type {
   CaptureUploadCompleteResponse,
   CaptureUploadIntent,
   CaptureUploadRequest
-} from '@collisioncapture/contracts';
+} from '@cs/capture-contracts';
 
 export interface CaptureAuthorization {
   sessionId: string;

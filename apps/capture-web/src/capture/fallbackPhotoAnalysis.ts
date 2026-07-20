@@ -3,7 +3,7 @@ import {
   evaluateFrameQuality,
   type FrameQualityEvaluation,
   type FrameQualitySignals
-} from '@collisioncapture/core';
+} from '@cs/capture-core';
 
 const ANALYSIS_WIDTH = 160;
 

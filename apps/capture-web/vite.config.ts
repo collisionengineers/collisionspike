@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@collisioncapture/contracts': fileURLToPath(new URL('../../packages/contracts/src/index.ts', import.meta.url)),
-      '@collisioncapture/core': fileURLToPath(new URL('../../packages/core/src/index.ts', import.meta.url))
+      '@cs/capture-contracts': fileURLToPath(new URL('../../packages/capture-contracts/src/index.ts', import.meta.url)),
+      '@cs/capture-core': fileURLToPath(new URL('../../packages/capture-core/src/index.ts', import.meta.url))
     }
   },
   server: {

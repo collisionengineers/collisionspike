@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CaptureShotProgress } from '@collisioncapture/contracts';
-import type { CaptureSessionManifest } from '@collisioncapture/contracts';
+import type { CaptureShotProgress } from '@cs/capture-contracts';
+import type { CaptureSessionManifest } from '@cs/capture-contracts';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { createDraftStore } from '../storage';
 import {

@@ -1,18 +1,33 @@
 {
-  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@collisioncapture/contracts": ["../contracts/src/index.ts"]
+      "@cs/capture-contracts": ["../capture-contracts/src/index.ts"]
     }
   },
   "references": [
-    { "path": "../contracts" }
+    { "path": "../capture-contracts" }
   ],
   "include": ["src"]
 }
-

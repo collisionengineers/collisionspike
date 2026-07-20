@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GuidanceMode } from '@collisioncapture/contracts';
-import { createMockManifest } from '@collisioncapture/core';
+import type { GuidanceMode } from '@cs/capture-contracts';
+import { createMockManifest } from '@cs/capture-core';
 import {
   UNSUPPORTED_CAPTURE_FORMAT_MESSAGE,
   UploadCoordinatorError

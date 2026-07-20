@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CaptureSessionManifest } from '@collisioncapture/contracts';
-import { createMockManifest, requiredShotsComplete } from '@collisioncapture/core';
+import type { CaptureSessionManifest } from '@cs/capture-contracts';
+import { createMockManifest, requiredShotsComplete } from '@cs/capture-core';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import type { CaptureSessionUnavailable } from '../uploads/uploadCoordinator';
 import { useUploadCoordinator } from '../uploads/useUploadCoordinator';

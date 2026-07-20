@@ -4,7 +4,7 @@ import type {
   CaptureShotProgress,
   CaptureUploadCompleteResponse,
   CaptureUploadRequest
-} from '@collisioncapture/contracts';
+} from '@cs/capture-contracts';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { CaptureApiProblem, type CaptureProblemCode } from '../api/problem';
 import type { DraftPhoto, DraftStore } from '../storage';

@@ -1,10 +1,10 @@
 import type {
   FrameQualityEvaluation,
   FrameQualitySignals
-} from '@collisioncapture/core';
-import type { ClientCaptureObservation } from '@collisioncapture/contracts';
+} from '@cs/capture-core';
+import type { ClientCaptureObservation } from '@cs/capture-contracts';
 
-export type { ClientCaptureObservation } from '@collisioncapture/contracts';
+export type { ClientCaptureObservation } from '@cs/capture-contracts';
 export type ClientCaptureRoute = ClientCaptureObservation['route'];
 
 interface AssessedObservationInput {

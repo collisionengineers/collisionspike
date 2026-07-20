@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import type { CaptureSessionManifest, CaptureShotProgress } from '@collisioncapture/contracts';
-import { completionCounts, orderedShots, requiredShotsComplete } from '@collisioncapture/core';
+import type { CaptureSessionManifest, CaptureShotProgress } from '@cs/capture-contracts';
+import { completionCounts, orderedShots, requiredShotsComplete } from '@cs/capture-core';
 import { Camera, CheckCircle2, CircleAlert, CloudUpload, RotateCw, ShieldCheck, WifiOff } from 'lucide-react';
 import { MockCaptureApi } from '../api/mockCaptureApi';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';

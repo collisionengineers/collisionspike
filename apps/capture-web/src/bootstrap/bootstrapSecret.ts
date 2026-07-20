@@ -1,4 +1,4 @@
-import type { CaptureExchangeResponse } from '@collisioncapture/contracts';
+import type { CaptureExchangeResponse } from '@cs/capture-contracts';
 import type { CaptureApi } from '../api/captureApi';
 
 const BOOTSTRAP_PARAMETER = 'capture';

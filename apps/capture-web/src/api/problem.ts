@@ -1,4 +1,4 @@
-import type { CaptureApiError } from '@collisioncapture/contracts';
+import type { CaptureApiError } from '@cs/capture-contracts';
 
 export type CaptureProblemCode = CaptureApiError['error'];
 

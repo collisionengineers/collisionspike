@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import type { GuidanceMode } from '@collisioncapture/contracts';
+import type { GuidanceMode } from '@cs/capture-contracts';
 import {
   advanceGuidanceStability,
   analyseFrameQuality,
@@ -12,7 +12,7 @@ import {
   type FrameQualitySignals,
   type Rect,
   type GuidanceStabilityState
-} from '@collisioncapture/core';
+} from '@cs/capture-core';
 import {
   Camera,
   CheckCircle2,

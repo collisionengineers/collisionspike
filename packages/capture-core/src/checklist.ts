@@ -3,7 +3,7 @@ import type {
   CaptureShotDefinition,
   CaptureShotProgress,
   CaptureUploadRequest
-} from '@collisioncapture/contracts';
+} from '@cs/capture-contracts';
 
 export const DEFAULT_MAX_FILE_BYTES = 15 * 1024 * 1024;
 

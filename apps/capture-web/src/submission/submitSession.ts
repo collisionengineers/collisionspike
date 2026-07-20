@@ -1,4 +1,4 @@
-import type { CaptureSubmitResponse } from '@collisioncapture/contracts';
+import type { CaptureSubmitResponse } from '@cs/capture-contracts';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import {
   clearSubmitKey,

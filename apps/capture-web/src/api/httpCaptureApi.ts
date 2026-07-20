@@ -6,7 +6,7 @@ import type {
   CaptureUploadCompleteResponse,
   CaptureUploadIntent,
   CaptureUploadRequest
-} from '@collisioncapture/contracts';
+} from '@cs/capture-contracts';
 import type { CaptureApi, CaptureAuthorization } from './captureApi';
 import { CaptureApiProblem, problemFromResponse } from './problem';
 

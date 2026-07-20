@@ -1,6 +1,6 @@
 import { webcrypto } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockManifest } from '@collisioncapture/core';
+import { createMockManifest } from '@cs/capture-core';
 import type { CaptureApi, CaptureAuthorization } from '../api/captureApi';
 import { CaptureApiProblem, type CaptureProblemCode } from '../api/problem';
 import { MemoryDraftStore } from '../storage';

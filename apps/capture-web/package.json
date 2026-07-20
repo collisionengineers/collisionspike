@@ -1,5 +1,5 @@
 {
-  "name": "@collisioncapture/mobile-web",
+  "name": "@cs/capture-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,13 +12,14 @@
     "test:e2e": "playwright test -c playwright.config.ts"
   },
   "dependencies": {
-    "@collisioncapture/contracts": "0.1.0",
-    "@collisioncapture/core": "0.1.0",
+    "@cs/capture-contracts": "0.1.0",
+    "@cs/capture-core": "0.1.0",
     "lucide-react": "^1.23.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",

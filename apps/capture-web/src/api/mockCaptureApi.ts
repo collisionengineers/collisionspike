@@ -6,8 +6,8 @@ import type {
   CaptureUploadCompleteResponse,
   CaptureUploadIntent,
   CaptureUploadRequest
-} from '@collisioncapture/contracts';
-import { createMockManifest, requiredShotsComplete } from '@collisioncapture/core';
+} from '@cs/capture-contracts';
+import { createMockManifest, requiredShotsComplete } from '@cs/capture-core';
 import type { CaptureApi, CaptureAuthorization } from './captureApi';
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => window.setTimeout(resolve, ms));
