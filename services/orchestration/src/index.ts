@@ -33,7 +33,8 @@ import './workflows/mailbox/outlook-link-backfill.js';
 import './workflows/evidence/evidence-backfill.js';
 // Box FILE.UPLOADED-lane image classify sweep (TKT-146; timer, IMAGE_ROLE_CLASSIFY + BOX_API gated)
 import './workflows/archive/box-classify-sweep.js';
-import './workflows/archive/box-maintenance-monitor.js'; // durable FC1 wake path for File Request + classification retries
+import './workflows/archive/box-classification-monitor.js'; // durable FC1 wake path for Box image classification (TKT-146; split from box-maintenance in TKT-264)
+import './workflows/archive/box-maintenance-monitor.js'; // durable FC1 wake path for File Request retries + combined maintenance control route
 import './workflows/intake/intakeOrchestrator.js';
 import './workflows/mailbox/archiveHolding.js';
 import './workflows/mailbox/archive-holding-monitor.js';
