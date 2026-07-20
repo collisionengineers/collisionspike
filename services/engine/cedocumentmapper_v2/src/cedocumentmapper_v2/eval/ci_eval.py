@@ -62,6 +62,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,11 +79,12 @@ BASELINE_SCHEMA_VERSION = 1
 # The baseline ships next to this module so it travels with the package.
 DEFAULT_BASELINE_PATH = Path(__file__).resolve().parent / "baseline.json"
 
-# Repo root is two parents above ``src/cedocumentmapper_v2`` ... resolve relative
-# to this file: .../src/cedocumentmapper_v2/eval/ci_eval.py -> repo root is 4 up.
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_CORPUS_DIR = _REPO_ROOT / "tests" / "fixtures"
-DEFAULT_SEED_PATH = _REPO_ROOT / "providers.json"
+# This engine now lives as a subtree inside collisionspike, not as its own repo
+# root; resolve relative to this file: .../src/cedocumentmapper_v2/eval/ci_eval.py
+# -> the engine's own root (services/engine/cedocumentmapper_v2/) is 4 up.
+_ENGINE_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_CORPUS_DIR = _ENGINE_ROOT / "tests" / "fixtures"
+DEFAULT_SEED_PATH = _ENGINE_ROOT / "providers.json"
 
 # Float wobble guard: scores are ratios, so equal values can differ by ~1e-16.
 DEFAULT_TOLERANCE = 1e-4
@@ -302,6 +304,14 @@ def main(argv: list[str] | None = None) -> int:
         help="providers.json seed for the isolated engine config.",
     )
     parser.add_argument(
+        "--app-data-dir",
+        type=Path,
+        default=None,
+        help="Isolated app-data dir for the engine's provider config. Defaults to "
+        "a fresh temporary directory per run so a real local desktop-app "
+        "install on the machine running this can never contaminate the score.",
+    )
+    parser.add_argument(
         "--update-baseline",
         action="store_true",
         help="Recompute and overwrite the baseline JSON from the current engine "
@@ -317,13 +327,17 @@ def main(argv: list[str] | None = None) -> int:
     if not args.corpus.exists():
         parser.error(f"corpus not found: {args.corpus}")
 
-    score = run_eval(corpus_dir=args.corpus, seed_path=args.seed_path)
+    if args.app_data_dir is not None:
+        score = run_eval(corpus_dir=args.corpus, seed_path=args.seed_path, app_data_dir=args.app_data_dir)
+    else:
+        with tempfile.TemporaryDirectory(prefix="ce-eval-") as scratch:
+            score = run_eval(corpus_dir=args.corpus, seed_path=args.seed_path, app_data_dir=Path(scratch))
 
     if args.update_baseline:
         # Record a stable, repo-relative corpus label when possible so the
         # committed baseline does not embed a machine-specific absolute path.
         try:
-            corpus_label = str(args.corpus.resolve().relative_to(_REPO_ROOT)).replace("\\", "/")
+            corpus_label = str(args.corpus.resolve().relative_to(_ENGINE_ROOT)).replace("\\", "/")
         except ValueError:
             corpus_label = str(args.corpus)
         baseline = build_baseline(score, corpus=corpus_label)

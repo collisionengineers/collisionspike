@@ -30,9 +30,9 @@ from cedocumentmapper_v2.eval.ci_eval import (
 )
 from cedocumentmapper_v2.eval.comparator import CorpusScore, FieldScore
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-SEED_PATH = REPO_ROOT / "providers.json"
+ENGINE_ROOT = Path(__file__).resolve().parents[1]
+FIXTURES_DIR = ENGINE_ROOT / "tests" / "fixtures"
+SEED_PATH = ENGINE_ROOT / "providers.json"
 
 
 # --------------------------------------------------------------------------- #

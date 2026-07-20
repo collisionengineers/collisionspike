@@ -57,10 +57,9 @@ collisionspike email-intake pipeline classifies the EMAIL *before* it parses
 any attached DOCUMENT (email classification is orchestration step 1.5; the
 document parser's ``/parse`` route runs at step 4), so this module's output
 cannot feed back into ``classify_email``'s Rule 1 corroboration gate without a
-pipeline reorder -- that is out of scope for this module and is tracked as a
-follow-up on the collisionspike side (see that repo's
-``functions/parser/cedocumentmapper_v2/PROVENANCE.md`` and
-``docs/plans/rules_engine_v2_plan_9ba034c4.plan.md``, Phase 3). What this
+pipeline reorder -- that is out of scope for this module and is tracked in the
+consuming repository's ticket system. See this package's ``PROVENANCE.md`` for
+the immutable source boundary. What this
 module DOES do: give a `/parse`-time, content-based typing that a downstream
 resolve/identification layer or telemetry pipeline can consume today.
 """

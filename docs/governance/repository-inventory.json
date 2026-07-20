@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1123,
-    "files": 3769,
-    "entries": 4892
+    "directories": 1149,
+    "files": 3887,
+    "entries": 5036
   },
-  "totalFileBytes": 704360922,
+  "totalFileBytes": 708451449,
   "entries": [
     {
       "path": ".",
@@ -7298,6 +7298,240 @@
       "sha256": null,
       "category": "directory",
       "owner": "data-api",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/testjsons",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/application",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/config",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/domain",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/exporters",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/normalization",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/resources",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/ui",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/contract",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/v1_wins",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/v1_wins/expected",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
       "lifecycle": "structural"
     },
     {
@@ -15655,7 +15889,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1533099,
+      "size": 1579291,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15907,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4295310,
-      "sha256": "2156fd9712ab090fa0e7e242367b1c6ee0c11087c51256d13968f542e508bcc0",
+      "size": 4356621,
+      "sha256": "671087091bd5841d93bdf147bf13649ffeed86c42a6b86d58968333b2961078b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15682,8 +15916,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68041,
-      "sha256": "ba84a0a1fd729c5407972b469f2a0dff430fc837cc529b54df74652fa2b2ffbd",
+      "size": 68817,
+      "sha256": "5a63d8facc98011fb64970138e55f5ae198a7a17e224b70e3173953742e81abf",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -34217,6 +34451,1068 @@
       "sha256": "4f7b945930ebbb49ec27c81232a82409e162dffc487eba0066022eee0bbe43fd",
       "category": "source",
       "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/README.md",
+      "mediaType": "text/markdown",
+      "size": 548,
+      "sha256": "664cef3461b26a33d8dc3201e6a3840ca6053e1256d47cff0378941528fc11f6",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/document-model.md",
+      "mediaType": "text/markdown",
+      "size": 1325,
+      "sha256": "5c02c3037ba8ace0700fcea65f3b4250898d1cce8f1698e6c81790a4d09cf45a",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/eva-json.schema.json",
+      "mediaType": "application/json",
+      "size": 1359,
+      "sha256": "b52aff967c42b24ad18a9046bad8879bdf3663f449e0d9d3bc93ac5421048471",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/expected-fixture.schema.json",
+      "mediaType": "application/json",
+      "size": 738,
+      "sha256": "f61c12c1ef1e14677c9a0733cfda29244b37b8111a7c81403266fda087296d8d",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/extraction-rule.schema.json",
+      "mediaType": "application/json",
+      "size": 1842,
+      "sha256": "f0aeb538af3e64673597c89af16a85baba353e6da77934b9a090963483f54ecb",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/module-interfaces.md",
+      "mediaType": "text/markdown",
+      "size": 1145,
+      "sha256": "bf99e76f0bf2be84b634d5ff14a7800407764e3baddcd1e31ef187c69d9b25da",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/contracts/provider-config.schema.json",
+      "mediaType": "application/json",
+      "size": 2407,
+      "sha256": "82572b31222ac3f18848a7ddc011ef5ab4a6edc7be2876f8a300a4ac9702e145",
+      "category": "contract",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/eval-harness.md",
+      "mediaType": "text/markdown",
+      "size": 5618,
+      "sha256": "7e4f383a39be20b02ff1f41750392dd2619065cb956a67b75afc57d8021cc177",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/regression-strategy.md",
+      "mediaType": "text/markdown",
+      "size": 901,
+      "sha256": "2ce99266538af7e09dad795067b49dd1012202c43e60029cfe5448f1ff1d307c",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/testjsons/ALISON_SJ12MRY.json",
+      "mediaType": "application/json",
+      "size": 427,
+      "sha256": "21023dd463a6e096cb07b7f31694d4b60fdf4986494d60ac6b82bc1b14e95864",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/testjsons/AX_PN64WBO.json",
+      "mediaType": "application/json",
+      "size": 619,
+      "sha256": "7446dcc7c8550a0f519e86b4cc9fc79833ea00a13232f1cb018806f55cd4d0ba",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/docs/testing/testjsons/YML_DE14.json",
+      "mediaType": "application/json",
+      "size": 740,
+      "sha256": "86a00f794c709537e54fe9057a2673489357501049be5a411c00b07519983c0b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/providers.json",
+      "mediaType": "application/json",
+      "size": 50059,
+      "sha256": "596a4f95f00e59f6e4e4672041661bd6702ca67a14ca48790ca2cf38cd55c06e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/pyproject.toml",
+      "mediaType": "application/toml",
+      "size": 1514,
+      "sha256": "9cf54bb1f00c76c6d4c9e48f228b06b1fc5b53e132cf5c3054f0f12b46583b53",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 61,
+      "sha256": "0feb21be34566289a21e923b68fb5b8937eec49d25835f3df935ebb670e551c0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/application/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 135,
+      "sha256": "79fa369b65308a21a1ec67aa114b87e9afbfc36401830c54d301f0dd0eec3e0c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/application/service.py",
+      "mediaType": "text/x-python",
+      "size": 38078,
+      "sha256": "f4492c58bb0e8e96cf6c42e54983f69e84079de0a52e103a13c19052df1f7f84",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/config/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 5138,
+      "sha256": "b3c3b6b8a6eb77ee1c6a70331d214cc4773a40521f92972d93b7607f6db3c83c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/config/migration.py",
+      "mediaType": "text/x-python",
+      "size": 14632,
+      "sha256": "416199a12cf874a4dfbbd86c85c8268766101a25a1a66864e18f18e02a223d91",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 485,
+      "sha256": "c661b43a369200cbe7830ead22508fa4607d7972f43a773ae824dcb9d27db409",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection/attachment_typing.py",
+      "mediaType": "text/x-python",
+      "size": 11959,
+      "sha256": "7d04aeca0a765a23cdbd5640b8903c4b3b28866200ecf9226b0b8045f4953ba6",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection/case_type.py",
+      "mediaType": "text/x-python",
+      "size": 5027,
+      "sha256": "1fd506131620ce4ad11afbb40da667d0c4d6cd4a6d2d5e84df15c2e66f97d3b8",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection/detector.py",
+      "mediaType": "text/x-python",
+      "size": 4736,
+      "sha256": "79aafc564474e5a12dc4f07d890ae60f60672651e289e6e59554342c091d7e2d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/domain/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 542,
+      "sha256": "2c424cc7b3c15553098f8b2d5877c652a6035925313c9b871d0a60f6ea133660",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/domain/models.py",
+      "mediaType": "text/x-python",
+      "size": 7475,
+      "sha256": "f56e71d1d013d9a9a38310e40119e039a5952ac06c89108e061beaaf7c65202b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval/README.md",
+      "mediaType": "text/markdown",
+      "size": 1990,
+      "sha256": "9701c1140f96ef0de5f5e6292ee958b0f963a20ea04e1d58d12ab04f46bcffae",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 859,
+      "sha256": "97dd37587866e6b6429e97d380b8688e7aa37494428c10978e0926955e5c52e6",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval/baseline.json",
+      "mediaType": "application/json",
+      "size": 497,
+      "sha256": "3b50074b715645e8fdbe4c9f96ec6dc97487d61106f6471e5b508709bfd2177f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval/ci_eval.py",
+      "mediaType": "text/x-python",
+      "size": 13253,
+      "sha256": "aabe2aa1299ca1e087c9bab49587cd0b42d959c6dbbd4cf7e01c2360a297b6cb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/eval/comparator.py",
+      "mediaType": "text/x-python",
+      "size": 16528,
+      "sha256": "88874b5d45ac31f31ff2b53dd0aee768a4b3ef291e827acacd9409640bccf908",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/exporters/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 126,
+      "sha256": "b91b8e8e2911628c85de92ec00b9c3390928bb39581eb85ae075e3c47a2043c3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/exporters/base.py",
+      "mediaType": "text/x-python",
+      "size": 315,
+      "sha256": "a3dc0aa10b892ab8712b4807bf5893c2d5c6006f69db2ce99532e509860cae71",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/exporters/eva_json.py",
+      "mediaType": "text/x-python",
+      "size": 2255,
+      "sha256": "2f76bba09a94023a9dfd5c112157909ac5ac769f7b5638e7bfba433c37e2cc28",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/exporters/rjs_docx.py",
+      "mediaType": "text/x-python",
+      "size": 9463,
+      "sha256": "b8bb910d8ea2919bd2f85623b06de7e2e1923802f81829e99de11bfad7fc9172",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/normalization/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 514,
+      "sha256": "2a4df007ca573149294e137ff8a1c127dcddb847c594ba400adb66df80ed0b82",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/normalization/normalizers.py",
+      "mediaType": "text/x-python",
+      "size": 13795,
+      "sha256": "5188fb5053ed2e63af810a246a2bc8b1539d6f7a088c769f069beddaa87c8a55",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 1115,
+      "sha256": "6763ecfec90806b7a04d5b93380a8a6c4cc81acc1bc47bfa2a1368fc2d8a8989",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/base.py",
+      "mediaType": "text/x-python",
+      "size": 375,
+      "sha256": "43896abd1b8fd2f09e3898b226cb59bf97e5aa76725b6442ea51187063843837",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/doc.py",
+      "mediaType": "text/x-python",
+      "size": 21779,
+      "sha256": "83b9a6bb673a35c4ef04fd91187bfe7707a776f2aca6b0aed3b0b9ec2bd27534",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/docx.py",
+      "mediaType": "text/x-python",
+      "size": 8111,
+      "sha256": "031294abbaf56c0e24f8360e5b2c4fa26d65a55a83d7f447f4eda0e0567efa93",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/email.py",
+      "mediaType": "text/x-python",
+      "size": 14011,
+      "sha256": "671313cffe0001da7455348891f2959e9ed43748f494a70fa6c6648d16f8a15a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/errors.py",
+      "mediaType": "text/x-python",
+      "size": 356,
+      "sha256": "e9461fbc9956072ee1d2493535cf3b2388db6e1c5c178e4346604ea8c1cd89c3",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/readers/pdf.py",
+      "mediaType": "text/x-python",
+      "size": 18785,
+      "sha256": "644d210351959ad1005e88e8f12dd66d62b29bd404f6a29250da903fd2208e33",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/resources/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 934,
+      "sha256": "d0a5826583738cf518da12aead7dff14506e3c25826d276cb7ba63253d25d742",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/resources/eva-json.schema.json",
+      "mediaType": "application/json",
+      "size": 1451,
+      "sha256": "720f308e6f4e281c7d728a3eeafe33d4f5f445ce10d13da18f3b79fef0a1c5fd",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/resources/triage-rules.json",
+      "mediaType": "application/json",
+      "size": 8978,
+      "sha256": "6721dae573e05df38917883ce8f744339f11d65d12937087770c021b9eca8c67",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/resources/triage-rules.schema.json",
+      "mediaType": "application/json",
+      "size": 7240,
+      "sha256": "380f9c97637efd9ecd2933f8be4efbe9d6888e8411db1a696a79360aa23a0da2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 57,
+      "sha256": "65aa66885a394183c8ccbe488da9f852c0c6db776de6f2c2b1f1a5f9e7b01c01",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/base.py",
+      "mediaType": "text/x-python",
+      "size": 342,
+      "sha256": "85824320d74b638c9677550b8883dfb92b3b99e15efcb02f00667b2870471acf",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/email_classifier.py",
+      "mediaType": "text/x-python",
+      "size": 98694,
+      "sha256": "e90a9c2818690183a83d8ecd66c26b428433960a99e8348731d1a5cd85acbaf9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/engine.py",
+      "mediaType": "text/x-python",
+      "size": 146786,
+      "sha256": "9f9e8691b292b66a60e55941ef596f8c1b0b0ee42dd9f4c557839fccf5d6b0e1",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/triage_rules.py",
+      "mediaType": "text/x-python",
+      "size": 6773,
+      "sha256": "da0d9dc202c5df59b473893ec241ed3354d1f4018fdca0fbdaefcebc444b5479",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/ui/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 339,
+      "sha256": "e19a103a57b717fa2fdb2cfa1d1ef2f8280b4da2b98228d96cc87924da47994e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/ui/paths.py",
+      "mediaType": "text/x-python",
+      "size": 3067,
+      "sha256": "121326be03598a61edef6f21b2ec808864c02b39edf7b5323268f9e17d0ba857",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/README.md",
+      "mediaType": "text/markdown",
+      "size": 755,
+      "sha256": "699b7c2b12ba07294194c1b1457f978b8663b2893fd97a0d2e5ed0e709fa920a",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/contract/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 25,
+      "sha256": "44b7cff9df28b5fee403ae607eecde9c921e83b05227267c8b8cd52d539f35cf",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/contract/test_contracts.py",
+      "mediaType": "text/x-python",
+      "size": 2232,
+      "sha256": "d3bea14666bd7ddfdfd90ee895a9bcdeb231338faf6439c3f0dbc0f39fdb6516",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/README.md",
+      "mediaType": "text/markdown",
+      "size": 372,
+      "sha256": "3eefbfbcd99b921143b1c8bcf1da0a933f18c37e0c56820858fa9cd6e16dd968",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/ACSP_DOCX_01.expected.json",
+      "mediaType": "application/json",
+      "size": 737,
+      "sha256": "4c312d22e0e2dd05b631ac99c837d660cb778b454588abb66e2efe90ff470afb",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/ACSP_SCAN_01.expected.json",
+      "mediaType": "application/json",
+      "size": 779,
+      "sha256": "436d66374e3057ddb84dc49c1bb732d88dce1e7468ca76b8d511dcb5a2ec4f9a",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/ALISON_WORD_01.expected.json",
+      "mediaType": "application/json",
+      "size": 439,
+      "sha256": "b6ac024032ca09b61a4843cd368c04eb8bdabc476f72e943c4ada71ba6f578b7",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CDQ_DOCX_01.expected.json",
+      "mediaType": "application/json",
+      "size": 1225,
+      "sha256": "bc1eef7eb4e52bbe37cba8ff4a83b09b950d3f6bc45ad3fbeeed720f9b7e5972",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_LABEL_INTERVENING_01.expected.json",
+      "mediaType": "application/json",
+      "size": 498,
+      "sha256": "2cb2c87dc7d7f4b7d88009fa959ecd96cac156fad9f0bb0adb5abc58c45d8416",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_LABEL_PROSE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 442,
+      "sha256": "7a88f3bc17f5659c72b1756b84f2f62bbffc7866997cda411af7a4ae8b52f246",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_PLACEHOLDER_SIGNATURE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 433,
+      "sha256": "af3885da151a473340f12dec382e5565060f1861efb05561200b9a40af51a72e",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_PROSE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 470,
+      "sha256": "b9dbac60a355ae8954b95a04c76a4b65549b84c6ed8d170ef90b600df7093f4d",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_SIGNATURE_ONLY_DOC_01.expected.json",
+      "mediaType": "application/json",
+      "size": 459,
+      "sha256": "d74a548776ca09c964edb39b8e645b2bbfa37c654a06c55fe8c2e7297f1b49d4",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_SINGLE_SURNAME_01.expected.json",
+      "mediaType": "application/json",
+      "size": 439,
+      "sha256": "0e334a8722c3f3b5d85d959bb580df315aa56bcab51dba8abaa27a327f642257",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/CLAIMANT_THREADED_01.expected.json",
+      "mediaType": "application/json",
+      "size": 542,
+      "sha256": "b3f84035709341e2dde33955f58125e8f6e05c98e9f1db1f7da7028ecd33cfea",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/EMAIL_SIGNATURE_ONLY_01.expected.json",
+      "mediaType": "application/json",
+      "size": 443,
+      "sha256": "c6a9a35afb1ffeaeaf83fb4c905e2342c3f5794c8dc89c07a5eef73953ffedc3",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/OAK_RTF_01.expected.json",
+      "mediaType": "application/json",
+      "size": 1106,
+      "sha256": "1288aeacd234ceacabb2331fbf3eef0f33b12f32a3c8c8d77543ea229e46ffdf",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/QDOS_TRIAGE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 1142,
+      "sha256": "60500e90902b9aa7b77893b5ed188f4178632673e32ee738711c773dd7e35693",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/RIGERANT_ESTIMATE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 771,
+      "sha256": "b651296c500639a1af43182e289f5fd9c8793c34f44dd9aa5a87065705449a20",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/TRACTABLE_01.expected.json",
+      "mediaType": "application/json",
+      "size": 1708,
+      "sha256": "d6654e55de37109ef98e9c079689e8caedd7d51d61b98834b0d30fd37130164f",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/expected/TRACTABLE_02.expected.json",
+      "mediaType": "application/json",
+      "size": 1323,
+      "sha256": "bc6def96a7676bedb0537c0e540f9b0aa5ced52c4be23e0f52cfd343ec563488",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/ACSP DOCX 01.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 48715,
+      "sha256": "4b50e9209d710d269ffaf64a21335f41d475259957924d3ab1383a755c17df98",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/ACSP SCAN 01.pdf",
+      "mediaType": "application/pdf",
+      "size": 143221,
+      "sha256": "8fa3ea31d2610844bc0f13ec48714924141cf141ad4f373d75404900d4013e4e",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/ALISON WORD 01.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 27258,
+      "sha256": "0bb5640eadfe71c8fa7bca3cf03fdb123ae1d05dd2c6bac61e2054bdba389367",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CDQ DOCX 01.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 344384,
+      "sha256": "f5ef2047e92bb24a311f389e1c184eb4f0a6a80d677d81121afd1ef81ab7c13b",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT LABEL INTERVENING 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 350,
+      "sha256": "ba4dc4ff492aa3f2fb1666a29c2e4ff4e566cfb5049ba1be106d5bb841367adc",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT LABEL PROSE 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 343,
+      "sha256": "54599f7720298c276ca19401a06b918aa293561afaf7c932ec89ce1544b81646",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT PLACEHOLDER SIGNATURE 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 373,
+      "sha256": "c8a4be642e3cb56d9814afa95d2c8fdcd312f8b19f30f09dfe14687f5c689087",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT PROSE 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 357,
+      "sha256": "c9656854379adf620b898046b4eef6a77c372a627f36dbcb22734354e6578646",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT SIGNATURE ONLY 01.DOC",
+      "mediaType": "application/msword",
+      "size": 266,
+      "sha256": "f0ce1239f2f8b122422a859b3535685164502bb79829c869559a260d9c6fe6f7",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT SINGLE SURNAME 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 253,
+      "sha256": "bb6f3328b17a5a5cecdc2bb332a1845f2bbe959cbf103929874bcfce1f6c4430",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/CLAIMANT THREADED 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 564,
+      "sha256": "b42896c5af4b7c10db282775a9cebdb5d7970669c673d8aabe5b5745ea565d35",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/EMAIL SIGNATURE ONLY 01.eml",
+      "mediaType": "message/rfc822",
+      "size": 346,
+      "sha256": "311d3ed2a7e38e05a42be0243d9dc2e68b224ffb4ee8bdc583c70a68f8bf3ec1",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/OAK RTF 01.DOC",
+      "mediaType": "application/msword",
+      "size": 97621,
+      "sha256": "6078d5a632ee30774ad82f109f2fbff00ec3f5a5cbd34d2fc43de0010a8c83f5",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/QDOS_TRIAGE_01.doc",
+      "mediaType": "application/msword",
+      "size": 44032,
+      "sha256": "3a58542956162f193794d6b3a468ea9f51129b114c889cdac237b3857dbb3f7b",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/RIGERANT ESTIMATE 01.pdf",
+      "mediaType": "application/pdf",
+      "size": 2632,
+      "sha256": "79d858269cd7561be9b8f27dc1c6b72049e9a0160f6074e0866956e2aca3c86e",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/SBL 01.pdf",
+      "mediaType": "application/pdf",
+      "size": 77652,
+      "sha256": "fa2d7e6abe04830ac29bd5faa7b9452212a6bc91d636cfddf10510c821780fc8",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/TRACTABLE 01.pdf",
+      "mediaType": "application/pdf",
+      "size": 525256,
+      "sha256": "452b80d5abeea53374f93e1ea9dd91eed16e5cb02c4b23b329a09f0de65b486e",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/instructions/TRACTABLE 02.pdf",
+      "mediaType": "application/pdf",
+      "size": 1856713,
+      "sha256": "2706c8e82761e63a54b5653c4501faeb06f36202cdbf991cae7e72e364819872",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/v1_wins/README.md",
+      "mediaType": "text/markdown",
+      "size": 2171,
+      "sha256": "18c02ad789e039ac5ee6f6430d994f11118a1127b52b5f70ce7d46b9465d1f1c",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/fixtures/v1_wins/expected/v1_wins_placeholder.expected.json",
+      "mediaType": "application/json",
+      "size": 797,
+      "sha256": "4f3f0f64f24f8d62259f45de2a8a1a289978cd6f91c085edf86b6f4752f651e8",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_attachment_typing.py",
+      "mediaType": "text/x-python",
+      "size": 7568,
+      "sha256": "0a6c4e94472526ea31e6715acbdfc3e77a570da799c7465ef469455ad475a36c",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_audit_case_type.py",
+      "mediaType": "text/x-python",
+      "size": 14059,
+      "sha256": "3f7ee92a4bacd2e82c16663a7eb7efb9b4bb2cc5466f5cb33617a799d37e0f68",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_claimant_name_extraction.py",
+      "mediaType": "text/x-python",
+      "size": 12432,
+      "sha256": "f98adbf74864004435dff7a39275f8abbf9717070d22a1ba162919640cba2c49",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_comparator.py",
+      "mediaType": "text/x-python",
+      "size": 9076,
+      "sha256": "4cf9367bfd8eece7f0b81284b5f28f2f26dfc2355113a95994125147f09c9884",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_contact_extraction.py",
+      "mediaType": "text/x-python",
+      "size": 2926,
+      "sha256": "30e1770b9c1bcc9840c08dd12b9c8f9edd1076e605aa48cfaa2c197074c4fc43",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_detection.py",
+      "mediaType": "text/x-python",
+      "size": 3198,
+      "sha256": "0614c44422d22cafca3582d2d8fc90fbcdbbaa8a237d266f5c230536aae8f88c",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_email_classifier.py",
+      "mediaType": "text/x-python",
+      "size": 45288,
+      "sha256": "5f7db3211b05608512b4f9e80c8478c04a93b921c6418bcb3f259e24abb265c5",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_eval_harness.py",
+      "mediaType": "text/x-python",
+      "size": 7447,
+      "sha256": "2a4471da04e2d5e0f77032b4e77b2ae249281b482405382c93ca1a0a788cf710",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_export_integrity.py",
+      "mediaType": "text/x-python",
+      "size": 4564,
+      "sha256": "3eaa0dce7b23b06f38f42d3fccadcf3f126cd13c2825e62c0862dd622fe2efa6",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_exporters.py",
+      "mediaType": "text/x-python",
+      "size": 7224,
+      "sha256": "1c5d57f768c2cd31ce0ffc198ae9c263abd3df2108fc44e192bcb0ea5de63e90",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_extract_images.py",
+      "mediaType": "text/x-python",
+      "size": 10626,
+      "sha256": "5e9b4a05445bf431cfa1114070b69c4c3ddb9e68d7c29dbe779f55bc53fe0596",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_extraction_targeted.py",
+      "mediaType": "text/x-python",
+      "size": 14090,
+      "sha256": "26f9843569a185f4900d737b086c466d0f110aaacee9aa2236e73d6f4fcaa794",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_migration.py",
+      "mediaType": "text/x-python",
+      "size": 6387,
+      "sha256": "039b4b9ff4b12ccbd0606ac31d8ecc08ce4f74de5bd88a2028929b9f84381aea",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_normalization.py",
+      "mediaType": "text/x-python",
+      "size": 4673,
+      "sha256": "52c262c78fa4f29bfc37aa3e68522f094c2b3d8f3e49ae4ac2b4237dd2394e37",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_readers.py",
+      "mediaType": "text/x-python",
+      "size": 2369,
+      "sha256": "74fde9af06cc72b2848015e410141bce6ad5ad97b4f780bd8616431b2be2ca44",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_readers_isolated.py",
+      "mediaType": "text/x-python",
+      "size": 11722,
+      "sha256": "f71bee9575602bb83ab2f9c8f73f757caeb38d71a579d99a4f55dc325a2b4cf2",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_reference_guards.py",
+      "mediaType": "text/x-python",
+      "size": 7950,
+      "sha256": "31f951ca5a4b1835f44fd823fe367cf55fd2010e465faa35f99182e739d14150",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_regression.py",
+      "mediaType": "text/x-python",
+      "size": 7710,
+      "sha256": "b3d23c5caed60c7808509d1661149ba524f1caaf21078b8370dd336665e461bc",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_rule_contract.py",
+      "mediaType": "text/x-python",
+      "size": 6215,
+      "sha256": "19d52ce4d5f8aa341acc1ea2143c74c6fe1c5ab24e407fa5b70dbf00272da088",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_rules.py",
+      "mediaType": "text/x-python",
+      "size": 28582,
+      "sha256": "144c70ccb6c78ab2af0ceee26e6722e3c19e1f88025b4bb5cc75f667ec2f9cf1",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_service.py",
+      "mediaType": "text/x-python",
+      "size": 5975,
+      "sha256": "8048ff34282b6b36c273c4e68ebb1c425f2ce58d9eb152a11bb11b6af54aba36",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_table_model.py",
+      "mediaType": "text/x-python",
+      "size": 5628,
+      "sha256": "81ed156488cd4b6930515ef0930ca4393bf46224a8bf9566acee32e5a8aed866",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_triage_rules.py",
+      "mediaType": "text/x-python",
+      "size": 10597,
+      "sha256": "62ca3e96fd333e2975b0c6da77a8e1ccd7554ec8820a6921181127978a0b8f3c",
+      "category": "test",
+      "owner": "repository",
       "lifecycle": "active"
     },
     {

@@ -416,8 +416,8 @@ _DUAL_REPORT_AUDIT_PHRASES: tuple[str, ...] = _RULES.dual_report_audit_phrases
 # distinct case-type (D. Case/PO marker, e.g. D.PCH26190), NOT an audit
 # subtype. Anchored two-word phrases, never the bare word "diminution",
 # mirroring the _AUDIT_PHRASES discipline. Grounded so far only in CE-side
-# artefacts (the D.PCH26190 case folder's own documents; docs/requirements/
-# company-background.md's "Diminution in Value Report") -- NO real inbound
+# artefacts (the D.PCH26190 case folder's own documents and the current product
+# scope's "Diminution in Value Report") -- NO real inbound
 # diminution instruction email has been captured yet, so downstream treats a
 # diminution hit as REVIEW-FIRST (case-type surfaced for a person; no D.
 # Case/PO is minted from content alone until detection is grounded on a real

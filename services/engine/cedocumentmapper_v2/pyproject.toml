@@ -19,11 +19,7 @@ dependencies = [
   "jsonschema>=4.22.0",
   "olefile>=0.47",
   "pywin32>=306; platform_system == 'Windows'",
-  "pywebview>=5.1",
 ]
-
-[project.scripts]
-cedocumentmapper = "cedocumentmapper_v2.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -31,7 +27,6 @@ dev = [
   "pytest-cov>=5.0.0",
   "ruff>=0.5.0",
   "mypy>=1.10.0",
-  "pyinstaller>=6.10.0",
 ]
 
 [tool.setuptools]
