@@ -38,3 +38,8 @@ export type { DataApiErrorMapper, DataApiRequestOptions } from './data-api-http-
 
 export { RETRYABLE_HTTP_STATUS, RETRY_AFTER_STATUS, withRetry } from './retry.js';
 export type { RetryOptions } from './retry.js';
+
+export { contentSha256, requestDigest } from './content-digest.js';
+export type { RequestDigestOptions } from './content-digest.js';
+
+export { safeErrorText } from './safe-error-text.js';

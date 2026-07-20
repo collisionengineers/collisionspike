@@ -1,7 +1,7 @@
 /** upload-support — cohesive Data API module. */
 
 import { createHash, randomUUID } from 'node:crypto';
-import { canonicalizeVrm, isTerminalStatus, type CaseStatus } from '@cs/domain';
+import { canonicalizeVrm, isTerminalStatus, SHA256_HEX_RE, type CaseStatus } from '@cs/domain';
 import { caseStatusCodec, statusToInt } from '@cs/domain/codecs';
 import { tx, type TxQuery } from '../../platform/db/client.js';
 import { evidenceBlobPath } from './blob-store.js';
@@ -20,7 +20,9 @@ const OTHER_KIND_CODE = 100000006;
 
 export const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 
-export const SHA256_RE = /^[0-9a-f]{64}$/;
+// Single source: the canonical browser-safe validator from @cs/domain (TKT-275), re-exported under
+// the name this module's importers already use.
+export const SHA256_RE = SHA256_HEX_RE;
 
 const IMAGE_CHECK_PENDING = 'Image check pending';
 

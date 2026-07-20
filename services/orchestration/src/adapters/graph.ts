@@ -17,6 +17,7 @@
 // Intra-package import only (still zero external npm deps, per "Dependency-free" above) —
 // TKT-047's signature/logo-image raster floor (rules-engine-v2 Phase 2 "Signature filter").
 import { assessSignatureImage } from '../platform/image-sniff.js';
+import { safeErrorText } from '@cs/server-runtime';
 
 const GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const MAX_ATTACHMENT_PAGES = 100;
@@ -55,7 +56,7 @@ export async function getGraphToken(): Promise<string> {
     body,
   });
   if (!res.ok) {
-    throw new Error(`graph token endpoint ${res.status}: ${await safeText(res)}`);
+    throw new Error(`graph token endpoint ${res.status}: ${await safeErrorText(res)}`);
   }
   const json = (await res.json()) as { access_token: string; expires_in: number };
   cachedToken = {
@@ -84,7 +85,7 @@ export async function graphFetch<T = unknown>(
     },
   });
   if (!res.ok) {
-    throw new Error(`graph ${init.method ?? 'GET'} ${path} → ${res.status}: ${await safeText(res)}`);
+    throw new Error(`graph ${init.method ?? 'GET'} ${path} → ${res.status}: ${await safeErrorText(res)}`);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -285,7 +286,7 @@ export async function getMessageRawMime(mailbox: string, messageId: string): Pro
     `${GRAPH_BASE}/users/${encodeURIComponent(mailbox)}/messages/${encodeURIComponent(messageId)}/$value`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
-    throw new Error(`graph GET message $value → ${res.status}: ${await safeText(res)}`);
+    throw new Error(`graph GET message $value → ${res.status}: ${await safeErrorText(res)}`);
   }
   return Buffer.from(await res.arrayBuffer());
 }
@@ -302,7 +303,7 @@ async function getAttachmentRawValue(
     `/attachments/${encodeURIComponent(attachmentId)}/$value`;
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
-    throw new Error(`graph GET attachment $value → ${res.status}: ${await safeText(res)}`);
+    throw new Error(`graph GET attachment $value → ${res.status}: ${await safeErrorText(res)}`);
   }
   return Buffer.from(await res.arrayBuffer());
 }
@@ -609,12 +610,4 @@ function requireEnv(key: string): string {
   const v = process.env[key];
   if (!v) throw new Error(`missing app-setting ${key}`);
   return v;
-}
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return '<no body>';
-  }
 }

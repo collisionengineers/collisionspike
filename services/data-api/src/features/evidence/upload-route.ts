@@ -1,7 +1,7 @@
 /** upload-route — cohesive Data API module. */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
-import { createHash } from 'node:crypto';
+import { contentSha256 } from '@cs/server-runtime';
 import type { JWTPayload } from 'jose';
 import { withRole } from '../../platform/auth/staff-auth.js';
 import { tx } from '../../platform/db/client.js';
@@ -171,7 +171,7 @@ export async function handleEvidenceUpload(
         });
         continue;
       }
-      const sha256 = createHash('sha256').update(bytes).digest('hex');
+      const sha256 = contentSha256(bytes);
       if (!SHA256_RE.test(sha256)) throw new Error('unreachable sha256 result');
       prepared.push({
         index,

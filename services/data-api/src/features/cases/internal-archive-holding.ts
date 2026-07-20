@@ -1,4 +1,5 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
+import { SHA256_HEX_RE } from '@cs/domain';
 import { withServiceAuth } from '../inbound/internal/service-support.js';
 import { claimArchiveHolding, checkpointArchiveHoldingFile, failArchiveHoldingAdoption,
   claimArchiveHoldingUploads, claimDeferredArchiveHoldingIntakes, completeDeferredArchiveHoldingIntake,
@@ -14,7 +15,7 @@ app.http('internalArchiveHoldingReserve',{methods:['POST'],authLevel:'anonymous'
   const b=await body(req);const vrm=String(b.vrm??'').toUpperCase().replace(/\s+/g,'');
   if(!/^[A-Z0-9]{2,16}$/.test(vrm)||!b.rootFolderId||!b.sourceMessageId||!b.claimToken||!Array.isArray(b.files))return bad('valid vrm, root, message, claim and files are required');
   const files=(b.files as Array<Record<string,unknown>>).map((f)=>({filename:String(f.filename??''),contentType:String(f.contentType??'application/octet-stream'),size:Number(f.size??0),blobPath:String(f.blobPath??''),sha256:String(f.sha256??'').toLowerCase()}));
-  if(!files.length||files.some((f)=>!f.filename||!f.blobPath||!Number.isFinite(f.size)||f.size<0||!/^[0-9a-f]{64}$/.test(f.sha256)))return bad('every image needs a filename, blob path, size and sha256');
+  if(!files.length||files.some((f)=>!f.filename||!f.blobPath||!Number.isFinite(f.size)||f.size<0||!SHA256_HEX_RE.test(f.sha256)))return bad('every image needs a filename, blob path, size and sha256');
   return {status:200,jsonBody:await reserveArchiveHoldingIntake({sourceMessageId:String(b.sourceMessageId),vrm,
     rootFolderId:String(b.rootFolderId),claimToken:String(b.claimToken),files})};
 })});
@@ -24,7 +25,7 @@ app.http('internalArchiveHoldingRegister',{methods:['POST'],authLevel:'anonymous
   if(!/^[A-Z0-9]{2,16}$/.test(vrm)||!b.rootFolderId||!b.boxFolderId||!b.sourceMessageId||!b.claimToken||!Array.isArray(b.files)) return bad('valid vrm, folder, message, claim and files are required');
   const manifest=b.files as Array<Record<string,unknown>>;
   const files=manifest.map((f)=>({filename:String(f.filename??''),contentType:String(f.contentType??'application/octet-stream'),size:Number(f.size??0),blobPath:String(f.blobPath??''),sha256:String(f.sha256??'').toLowerCase()}));
-  if(!files.length||files.some((f)=>!f.filename||!f.blobPath||!Number.isFinite(f.size)||f.size<0||!/^[0-9a-f]{64}$/.test(f.sha256)))return bad('every image needs a filename, blob path, size and sha256');
+  if(!files.length||files.some((f)=>!f.filename||!f.blobPath||!Number.isFinite(f.size)||f.size<0||!SHA256_HEX_RE.test(f.sha256)))return bad('every image needs a filename, blob path, size and sha256');
   return {status:200,jsonBody:await registerArchiveHolding({vrm,rootFolderId:String(b.rootFolderId),boxFolderId:String(b.boxFolderId),sourceMessageId:String(b.sourceMessageId),claimToken:String(b.claimToken),files})};
 })});
 

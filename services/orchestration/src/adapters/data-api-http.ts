@@ -1,6 +1,6 @@
 /** Authentication and HTTP error handling for the REST data service. */
 
-import { request as coreRequest, type DataApiErrorMapper } from '@cs/server-runtime';
+import { request as coreRequest, safeErrorText, type DataApiErrorMapper } from '@cs/server-runtime';
 
 /* ---------- request core ---------- */
 
@@ -19,7 +19,7 @@ const mapError: DataApiErrorMapper = async (res, { method, path }) => {
   if (res.status === 409) {
     // Surfaced verbatim so caseResolve can map a UNIQUE(sourcemessageid) collision
     // to `already_ingested` (idempotent intake).
-    const detail = await safeText(res);
+    const detail = await safeErrorText(res);
     if (detail.includes('evidence_backfill_reclassification_required')) {
       let targetCaseId: string | undefined;
       try {
@@ -41,7 +41,7 @@ const mapError: DataApiErrorMapper = async (res, { method, path }) => {
     }
     return new ConflictError(`${method} ${path} → 409: ${detail}`);
   }
-  const detail = await safeText(res);
+  const detail = await safeErrorText(res);
   return new DataApiHttpError(
     `data-api ${method} ${path} → ${res.status}: ${detail}`,
     res.status,
@@ -63,13 +63,5 @@ export class EvidenceBackfillTargetChangedError extends ConflictError {}
 export class EvidenceBackfillReclassificationRequiredError extends ConflictError {
   constructor(message: string, public readonly targetCaseId?: string) {
     super(message);
-  }
-}
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return '<no body>';
   }
 }

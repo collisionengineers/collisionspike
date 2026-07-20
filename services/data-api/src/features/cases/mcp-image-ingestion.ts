@@ -17,7 +17,7 @@ import {
 } from '@cs/domain';
 import { caseStatusCodec } from '@cs/domain/codecs';
 import { gates } from '@cs/domain/gates';
-import { createHash } from 'node:crypto';
+import { contentSha256 } from '@cs/server-runtime';
 import { query } from '../../platform/db/client.js';
 import { actorFromClaims } from '../../shared/audit.js';
 import { mergedIntoFrom } from '../../shared/mapping/index.js';
@@ -539,7 +539,7 @@ export function createImageIngestExecutor(deps: ImageIngestDependencies = produc
         name,
         type: metadata.contentType,
         bytes,
-        sha256: createHash('sha256').update(bytes).digest('hex'),
+        sha256: contentSha256(bytes),
       });
     }
     const batchRefusal = validateUploadBatch(decodedSizes);
