@@ -57,3 +57,24 @@ including the exact-folder and scope-lock suite. Live test-folder proof, deploym
 verdict remain the independent verifier's
 work. The database, Box façade, API and SPA were later deployed with `DELETE_CASE_IMAGE_ENABLED`
 default-off; no production or non-test Archive mutation was performed.
+
+## 2026-07-20 — gate flipped live by explicit operator direction (TKT-159 audit)
+
+- A fresh `az functionapp config appsettings list -n cespk-api-dev -g rg-collisionspike-dev` readback
+  (operator-run) confirmed the prior default-off state. Current settings were backed up
+  (`cespk-api-dev-appsettings-backup-2026-07-20.json`, scratch, not committed) before mutation.
+- `DELETE_CASE_IMAGE_ENABLED` was set `true` on `cespk-api-dev` (`az functionapp config appsettings set`),
+  confirmed by readback, and the app was confirmed `Running` with 144 registered functions and no new
+  5xx/exceptions in the 15 minutes after the settings-change recycle (Flex Consumption recreates on a
+  settings change).
+- Before flipping, the route's actual scope was re-checked against code: `deleteCaseImage` is gated only
+  by `withRole('CollisionSpike.User')` (the standard staff role) with no case-folder restriction in the
+  API layer itself — the Box leg is confined to `BOX_ALLOWED_ROOT_ID` (live `392761581105`), but the
+  Postgres/Blob legs are not. The operator confirmed `392761581105` is a genuinely separate Box "test
+  folder" (verified live via `npx box folders:get 0`), distinct from the real archive root `4077648161`
+  ("Collision Engineers") which is not currently written to — i.e. this environment's case data is
+  currently all test/dev data, not real customer records.
+- **This is only the gate flip.** No live delete was performed and no independent verifier has run the
+  designated-test-folder proof in `docs/operations/delete-case-image.md` (SPA-driven cancel→confirm→
+  readback→repeat→replay sequence on a chosen test case/image). The verdict in `verification.md` stays
+  `PENDING` until that proof runs. `LIVE_FACTS.json.safetyGates.deleteCaseImage` updated with a dated note.

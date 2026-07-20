@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3767,
-    "entries": 4890
+    "files": 3769,
+    "entries": 4892
   },
-  "totalFileBytes": 704268392,
+  "totalFileBytes": 704346685,
   "entries": [
     {
       "path": ".",
@@ -5132,6 +5132,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5916,24 +5934,6 @@
     },
     {
       "path": "docs/tickets/verify/TKT-151-vehicle-enrichment-completeness/evidence/followup-2026-07-13",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -12280,8 +12280,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 8540,
-      "sha256": "affd7405c0b95e5e1c09a3c3833dbd410af00f62c666e27a233497f4c2569960",
+      "size": 12779,
+      "sha256": "1ff6a66b7b1ef65dfd9a3cc6cf38459f433ab1ebf7b8e821856d7262c352c430",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -14179,8 +14179,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "mediaType": "application/json",
-      "size": 156765,
-      "sha256": "fa2d2b974fa3ce13987adb61cea0f76eeccb4777160f6dfdc545b1de114dfbfa",
+      "size": 156899,
+      "sha256": "158d0688f45940b77c13549724451261a8b081757a124a58b40732c6e5684eef",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1532448,
+      "size": 1533093,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4294631,
-      "sha256": "9c65e6f6f8b497dd4a0af4563c83e1b8e42d0e88896be68d6fa13748e1bd2a8b",
+      "size": 4295304,
+      "sha256": "2578089e4f91725c3fca4e2fba096e76c31f88ce58236e991212ff154d516827",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15682,8 +15682,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68040,
-      "sha256": "56f3d116593bc73950c428d1ac60687da27f1f58bc8cae1da7cad3356a7d88fe",
+      "size": 68041,
+      "sha256": "e6027e8c8f9b34714f3fa6deb4eb7afae517b37ccdc2749fbeb5dd51685c82f9",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15691,8 +15691,8 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 1142,
-      "sha256": "21a370770c68503e6511d75384e2916293f554d8f5b3c4765bf9e1f67a470450",
+      "size": 1255,
+      "sha256": "dcde3554f70e7d4a33e1ac4e109970fe83beab3d09b765046cb6c2c3548eb921",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15756,6 +15756,15 @@
       "mediaType": "text/markdown",
       "size": 2013,
       "sha256": "f8c329ebbc01de779b47536146ef9e075f33a387d518cf43ddf7662c72f13f0b",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/feature-gates.md",
+      "mediaType": "text/markdown",
+      "size": 26689,
+      "sha256": "23374795dc04765a4e772b594bdcfaaf225a222ef7736f2ff8f0f9d941bc5d99",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16195,8 +16204,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49908,
-      "sha256": "ef25a4367ac914fc66b2a1df70010d8a662c643a48e8ddc1f8d9e303fa49fc94",
+      "size": 49905,
+      "sha256": "43df9b4027726b235f56545c819ddb44cd15c42b9a3f31bef14ab9db0e8bbb5b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16204,8 +16213,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52771,
-      "sha256": "ac88cbaac36a594ccec2ca48a89b2ba61ecd5bd3125511bc70e0de16d06bbfb2",
+      "size": 52768,
+      "sha256": "e6b368b9fabb7aa7b8eba099047800b94342787931281d9ad94c87f45b307c22",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24736,8 +24745,8 @@
     {
       "path": "docs/tickets/now/TKT-034-images-received-routing/verification.md",
       "mediaType": "text/markdown",
-      "size": 10743,
-      "sha256": "6759d0500d721e66e203fa3ae3d30bd9facefc05bcf296532236e4c91741ae87",
+      "size": 11596,
+      "sha256": "ba1448b2fc8abb57596c543f11c803c6d51274a91800c8e8aadf97677e35c835",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25292,6 +25301,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md",
+      "mediaType": "text/markdown",
+      "size": 6219,
+      "sha256": "0812a6640763bdfcb2c20c62bad87096fd08f5f2bfcc392b6d1b5d4c85eef0fe",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/changes.md",
+      "mediaType": "text/markdown",
+      "size": 15713,
+      "sha256": "5aa492552d789001afea7d90f928b671344fde1d8055bdd048be70014bfabd58",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 794,
+      "sha256": "faf81cf63b2765b51ba64687634eeed3f11655c204bff4b2eed6112274bea42f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/evidence/sibling-consolidation-2026-07-12.md",
+      "mediaType": "text/markdown",
+      "size": 2483,
+      "sha256": "bb491d4fe77b7f9303c64f9b77b3a91d9e835ee958faad98af1a7516d8b6f9d4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-152-canonical-mileage-estimator/verification.md",
+      "mediaType": "text/markdown",
+      "size": 5037,
+      "sha256": "dbeed3b841a4c7b4fa917dabd8205c62cdbab54234cac87c737435beaeba6216",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md",
       "mediaType": "text/markdown",
       "size": 4157,
@@ -25303,8 +25357,8 @@
     {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/changes.md",
       "mediaType": "text/markdown",
-      "size": 9465,
-      "sha256": "179abc7648ccd53244a47cddda8bf46dc61777d4f9c4dd289c9d45fa12ea88fe",
+      "size": 10860,
+      "sha256": "1d36f6e9ea288111abf638e89e36ff230172846778f1e1db939c60905b91eddc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25330,8 +25384,8 @@
     {
       "path": "docs/tickets/now/TKT-154-mcp-image-ingestion/verification.md",
       "mediaType": "text/markdown",
-      "size": 7805,
-      "sha256": "9873db3e3966954c17184dd0a25d33a4b17f5fbc354132ddfe646479a310a665",
+      "size": 8287,
+      "sha256": "d0381b13aaffd7a5dc6e35ccd1778ea303e0a92db6f07c645ec20f26b4bf9798",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25339,8 +25393,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md",
       "mediaType": "text/markdown",
-      "size": 3405,
-      "sha256": "b45aef0b66d46435ef3e4a9444e66bb59799ecd6dccd4f167928593888ac761c",
+      "size": 3799,
+      "sha256": "60b051d57c4e37ebb5f321c04d2420fc50bc5853a4ede9591787e415f8939028",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25348,8 +25402,17 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/changes.md",
       "mediaType": "text/markdown",
-      "size": 934,
-      "sha256": "725ab221b62b0e92fdf550a1f1663974fed2718afa7b9270fc8452a757e5f8b2",
+      "size": 11218,
+      "sha256": "e3da0bdd1242cf739c89abbc3772cadb77ed63ec61a4ba115ce4a94461e2a1f8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence/code-derived-gate-inventory-2026-07-20.md",
+      "mediaType": "text/markdown",
+      "size": 21155,
+      "sha256": "59073154a843be3f707d2c2251f5647d4153c5f2b48003c2fa4b34689036abbe",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25366,8 +25429,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/verification.md",
       "mediaType": "text/markdown",
-      "size": 899,
-      "sha256": "3b880032445ee94447ea2b92807eb6f801efcbe66964983cd461e3f68777e559",
+      "size": 2435,
+      "sha256": "d2386edf65dc8a9e676ac2d5570e81d965ebe90eafb2de10bb25809d4f3d9cb6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25384,8 +25447,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/changes.md",
       "mediaType": "text/markdown",
-      "size": 4334,
-      "sha256": "2e3a43c29a9309e82e05dd61394a488f89d21a5df447eb0312e3507c93ac16f4",
+      "size": 6136,
+      "sha256": "aa9e84db4bacdbf1d85a5540a9fb320a963e14b25a1237a4db952eb895bf6b79",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25411,8 +25474,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/verification.md",
       "mediaType": "text/markdown",
-      "size": 3643,
-      "sha256": "82e945006e993366c4140c24b8425316e7b5174d26dd6d4fa977f8ba739a3a27",
+      "size": 4018,
+      "sha256": "6bcf02b759e79468d9bac311be113cee566ec74a53cff877d194f3a4d0e72203",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25609,8 +25672,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/changes.md",
       "mediaType": "text/markdown",
-      "size": 8909,
-      "sha256": "b7448f950b461ca43dc7aad1f728d6ec0f1f0b0bd05ce61341bbebb40593b571",
+      "size": 11291,
+      "sha256": "36e4fe83609399f716b90b8dba07dc0ef0a855e4edc440ea3113ba3f0cf2e050",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25969,8 +26032,8 @@
     {
       "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/verification.md",
       "mediaType": "text/markdown",
-      "size": 3216,
-      "sha256": "3973c84e3f479f65dae5c810a5eb8572c61e7a9ef587d949ce11cf75f8afee6e",
+      "size": 5443,
+      "sha256": "23c556194a843b6d845f87d22638ea757bdbbf9d304db63f7337ce08622e4041",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26194,8 +26257,8 @@
     {
       "path": "docs/tickets/plans/PLAN-004-production-readiness.md",
       "mediaType": "text/markdown",
-      "size": 12934,
-      "sha256": "fec10c51c192bb2bf7ea2987208681aec02bc0c3664d7dece16aa565c1f66cd3",
+      "size": 12928,
+      "sha256": "040427bad107cbeebccfd0abff930bba64bb9d17af26e3bc3b7cc4c25a744738",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27490,53 +27553,8 @@
     {
       "path": "docs/tickets/verify/TKT-151-vehicle-enrichment-completeness/verification.md",
       "mediaType": "text/markdown",
-      "size": 3767,
-      "sha256": "0d0e99c953f522f3e54a4b2f1997af11a4cce124443608223e92b7d905b2e15d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md",
-      "mediaType": "text/markdown",
-      "size": 6222,
-      "sha256": "7276c2d5eb4d660118e8b36876bf56a2fc37fd0709aacf0732bbc82da6b4da13",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/changes.md",
-      "mediaType": "text/markdown",
-      "size": 14207,
-      "sha256": "34d91ed50a6c419b926d42c660eb457f451866468c9aad8eb908f4670d096847",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/evidence/operator-note.md",
-      "mediaType": "text/markdown",
-      "size": 794,
-      "sha256": "faf81cf63b2765b51ba64687634eeed3f11655c204bff4b2eed6112274bea42f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/evidence/sibling-consolidation-2026-07-12.md",
-      "mediaType": "text/markdown",
-      "size": 2483,
-      "sha256": "bb491d4fe77b7f9303c64f9b77b3a91d9e835ee958faad98af1a7516d8b6f9d4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/verify/TKT-152-canonical-mileage-estimator/verification.md",
-      "mediaType": "text/markdown",
-      "size": 4289,
-      "sha256": "52a7053d36f4716d2043dd8a857fad8ea960a2c83eae5413721cce7906ea9c02",
+      "size": 3774,
+      "sha256": "decbb3026ca0528a4a7eda4d61706f4575f96713daf09a46c50acfc5eeb01c60",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -35986,8 +36004,8 @@
     {
       "path": "services/functions/vehicle-enrichment/tests/test_vehicle_data.py",
       "mediaType": "text/x-python",
-      "size": 29434,
-      "sha256": "3e00877be6d796681153884612e0fa01bdadec70ac4d88d36c880c601b73c8f9",
+      "size": 30770,
+      "sha256": "c693dcc4737dd2a9424b0d544a738ecb0694f1c0c2c8318d3d69ca7271693171",
       "category": "test",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -36013,8 +36031,8 @@
     {
       "path": "services/functions/vehicle-enrichment/vehicle_data/contracts.py",
       "mediaType": "text/x-python",
-      "size": 7593,
-      "sha256": "aa75c077bfee8ae1ff3c7a4f0b0bb9621fa7cf0094916bde69fa26a768482537",
+      "size": 6986,
+      "sha256": "6108cad704324b62b3bb28fa59c7feb23b623cb1d2be620892a4088d8f4044d8",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -36022,8 +36040,8 @@
     {
       "path": "services/functions/vehicle-enrichment/vehicle_data/mileage.py",
       "mediaType": "text/x-python",
-      "size": 20423,
-      "sha256": "fd89d177942700ed88781265e428ba3e7894f6efad5ef1c5e8324ccc06f1d6f9",
+      "size": 20362,
+      "sha256": "8587daa823e97d5e1c4c6f05e8ae53d7e20b9f8f446a156cd905c779a1f77d1a",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"

@@ -11,7 +11,7 @@ PENDING
 - Offline suites prove the shared numeric-mileage boundary, Manual Intake
   make/model persistence, partial-provider warning preservation and caller-stable
   retry replay without duplicate audit or field-source writes. Exact counts are in
-  [TKT-152 changes](../TKT-152-canonical-mileage-estimator/changes.md).
+  [TKT-152 changes](../../now/TKT-152-canonical-mileage-estimator/changes.md).
 
 ## Pending / gaps
 

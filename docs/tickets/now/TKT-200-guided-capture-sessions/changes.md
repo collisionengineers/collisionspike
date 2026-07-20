@@ -108,3 +108,36 @@ three generated governance/contract ledgers reconverged; no functional conflicts
   to `capture.ts` = 1689 and `capture.test.ts` = 1993 (the committed branch bump undershot the actual
   nonblank line counts, failing `check:source-size`). Also fixed a comment-only key-shape nit in the
   rate-limit module header (`{scope}:{id}`, not `session:{scope}:{id}`).
+
+## 2026-07-20 — found live-ON without the documented go-live prerequisite (TKT-159 audit, unresolved)
+
+A fresh `az functionapp config appsettings list -n cespk-api-dev -g rg-collisionspike-dev` readback
+(operator-run) shows `PUBLIC_CAPTURE_ENABLED=true`, `CAPTURE_SESSIONS_ENABLED=true`,
+`CAPTURE_DIRECT_UPLOAD_ENABLED=true` (only `CAPTURE_CLEANUP_ENABLED=false`). **This was not a change made
+in this or any tracked session** — nothing in `docs/tickets/**` or `LIVE_FACTS.json` records a decision
+to flip these. It contradicts:
+
+- This ticket's own verdict, still `PENDING` in `verification.md`, stating the feature "is dark."
+- `LIVE_FACTS.json`'s 2026-07-19 `safetyGates.publicCapture: false` reading.
+- The go-live prerequisite immediately above (2026-07-18 entry): a Front Door ingress lockdown
+  (`AzureFrontDoor.Backend` service tag + `X-Azure-FDID` header match) must exist **before**
+  `CAPTURE_SWA_FDID` is set, because the in-app FDID check alone cannot prove Front Door transit.
+
+Checked live and confirmed missing, 2026-07-20:
+- `az functionapp config access-restriction show -n cespk-api-dev -g rg-collisionspike-dev` — both main
+  and SCM ingress are "Allow all" / `Any`, no Front Door restriction.
+- `CAPTURE_SWA_FDID` is absent from `cespk-api-dev` app settings.
+- No Azure Front Door / CDN profile exists anywhere in the subscription (`az afd profile list`,
+  `az cdn profile list`, and a subscription-wide `Microsoft.Network/frontDoors`/`Microsoft.Cdn` resource
+  search all returned empty) — so the documented lockdown is not a quick config change, it requires
+  provisioning new infrastructure (cost, DNS, cert implications).
+
+The code itself is not the gap: the capture cleanup job, session lifecycle, direct-upload SAS minting and
+rate limiting are all fully implemented (see `capture-cleanup.ts`, scheduled daily timer, correctly
+gated off pending its own separate proof). The gap is that three public, unauthenticated routes are
+reachable right now at `cespk-api-dev`'s direct `*.azurewebsites.net` endpoint with none of the ingress
+protection the ticket's own review requires first.
+
+**Operator decision (2026-07-20):** leave exposed, document only — no live mutation, no Front Door
+provisioning this session. Flagged as an open, unresolved risk. `LIVE_FACTS.json.safetyGates.publicCapture`
+updated with a dated note recording this exact state.

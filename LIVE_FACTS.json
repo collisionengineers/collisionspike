@@ -65,6 +65,12 @@
     "locationAssist": {
       "resource": "cespkloc-fn-a7tzj2",
       "source": "services/functions/location-assist"
+    },
+    "captureSpa": {
+      "resource": "cespk-capture-spa-dev",
+      "source": "external — active/collisioncapture (sibling repo, not part of this repository's source tree)",
+      "hostname": "agreeable-stone-0780f5d03.7.azurestaticapps.net",
+      "note": "Found live 2026-07-20 during the TKT-159/TKT-200 capture-ingress audit — was not previously tracked in this file. Standard-tier Azure Static Web App, created 2026-07-16, with a `linkedBackends` entry pointing at cespk-api-dev (this link provides no ingress protection — the Function App's raw origin stays directly reachable regardless, confirmed live by telemetry). Its own repo's top-level README currently states production Azure infrastructure is 'not delivered' and its infra/static-web-app/README.md is still a hosting placeholder — both are stale relative to this live resource. Cross-repo drift, not something this repository's tooling can correct on its own; flagged for whoever owns the collisioncapture repo."
     }
   },
   "mailIntake": {
@@ -154,13 +160,34 @@
     },
     "boxWrites": {
       "allowedRootId": "392761581105",
-      "scope": "approved test folder only"
+      "scope": "approved test folder only",
+      "note": "Confirmed 2026-07-20 via `npx box folders:get 0`: 392761581105 is genuinely named \"test folder\"; the real archive root is a separate folder (4077648161, \"Collision Engineers\") not currently written to."
+    },
+    "BOX_REG_FOLDER_ENABLED": {
+      "orchestration": true,
+      "note": "Found live true on cespk-orch-dev via the 2026-07-20 TKT-159 gate readback, contradicting TKT-034's own written verdict (still says dark/pending operator approval of the non-case_po registration-plate folder-naming semantic). Operator confirmed 2026-07-20 this was a deliberate, approved flip. TKT-034's verification.md needs updating to match; its own post-flip live proof (one reg-keyed folder create observed end to end) has still not been recorded."
+    },
+    "MILEAGE_ESTIMATE_AUTOFILL_ENABLED": {
+      "vehicleEnrichment": true,
+      "note": "Flipped true on cespkenrich-fn-gi62sd 2026-07-20 by explicit operator direction during the TKT-159 gate audit (settings backed up first, health confirmed after — the dvsa_mot_enrich route was already called twice post-change, both 200). Operator was shown the unresolved gaps before approving: no production chronological holdout (>=1,000 rows, only a 24-row synthetic fixture with MAE 379mi exists), the source-precedence safeguard (real mileage must always outrank an MOT estimate) is unproven live, and provider-side prior credential rotation is unproved. This is only the gate flip, not resolution of those gaps. TKT-152 verdict stays PENDING; ticket moved verify->blocked->now to reflect the gaps are now live-risk items."
     },
     "evaSubmission": false,
-    "deleteCaseImage": false,
-    "publicCapture": false,
+    "deleteCaseImage": {
+      "dataApi": true,
+      "note": "Flipped true on cespk-api-dev 2026-07-20 by explicit operator direction during the TKT-159 gate audit (settings backed up first, health confirmed after). This is ONLY the gate flip — the route is live for any CollisionSpike.User staff member against any real case (Blob/Postgres legs are not test-root-scoped; only the Box leg is, via BOX_ALLOWED_ROOT_ID). TKT-160's designated-test-folder live delete+readback proof (docs/operations/delete-case-image.md) has not been run; verdict stays PENDING."
+    },
+    "publicCapture": {
+      "dataApi": true,
+      "captureSessions": true,
+      "captureDirectUpload": true,
+      "note": "Found live-ON 2026-07-20 during the TKT-159 audit — NOT a change made this session and NOT an approved cutover. Contradicts TKT-200's own PENDING verdict and this file's prior 2026-07-19 `false` reading. No Azure Front Door exists in the subscription, so the ingress lockdown TKT-200/changes.md requires before go-live (AzureFrontDoor.Backend + X-Azure-FDID) is unbuildable without new infra; access restrictions on cespk-api-dev are Allow-all. Operator decision 2026-07-20: leave exposed, document only, no mutation. Treat as an open risk, see TKT-200 evidence."
+    },
     "captureCleanup": false,
-    "mcpImageIngestion": false,
+    "mcpImageIngestion": {
+      "dataApi": true,
+      "boxRootId": "392761581105",
+      "note": "Flipped true (+ MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105) on cespk-api-dev 2026-07-20 by explicit operator direction. Fails closed for every current caller: the write lane additionally requires the dedicated `CollisionSpike.ImageIngest` Entra app role, which has not been created or assigned to any principal (TKT-154 verification.md). TKT-154 verdict stays PENDING."
+    },
     "liveCutoverPerformed": false
   },
   "operatorWatchItems": [

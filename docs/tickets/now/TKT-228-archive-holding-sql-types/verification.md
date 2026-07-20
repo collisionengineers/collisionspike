@@ -60,3 +60,31 @@ Data-api KQL after the deploy: `internalArchiveHoldingAdoptionCandidates` return
 responses since 2026-07-16 13:00Z (the 9 x500 in the same window are pre-deploy
 residue). The 36/hr `archiveHoldingRecoverUploads` failure signature stops at the
 deploy boundary.
+
+## 2026-07-20 — REGRESSED live (read-only diagnosis, not fixed this pass)
+
+Discovered incidentally during the TKT-159 gate audit. `cespk-api-dev` App Insights (last 2h, and
+matching over 24h) shows both routes back to **100% failure**:
+`internalArchiveHoldingAdoptionCandidates` 33/33 500s, `internalArchiveHoldingRegister` 2/2 500s, with
+the exact pre-fix error text (`COALESCE types text and jsonb cannot be matched`,
+`inconsistent types deduced for parameter $2`, both at `main.cjs:4199:21`). The fix is still present on
+current `main` (commit `3bb70249`).
+
+Deployment-history timing is the likely explanation: `az webapp log deployment list` /
+`Microsoft.Web/sites/deployments` show only 3 recorded deploys, all 2026-07-17, all `deployer:
+core_tools` (`func azure functionapp publish`) — **10:43:55Z, 11:09:40Z, and 15:29:01Z (active/current)**.
+All three postdate the ~05:00Z proof above by 5-10+ hours. None of the three deployment records carry an
+author, message, or commit SHA (Flex Consumption exposes no build/package metadata this way, and Kudu
+build logs are not persisted on this plan — confirmed via `az webapp log deployment show`). **Best-evidenced
+hypothesis, not proven**: the active 15:29-15:30Z publish packaged a build that did not include commit
+`3bb70249` — e.g. `func azure functionapp publish` ran from a working tree/branch that predated the fix,
+or `npm run build:api` wasn't rerun against fixed source before that specific publish. Reading the package
+blob directly to confirm would require Storage Blob Data Reader access not available to this read-only
+identity; account-key retrieval was deliberately not attempted to work around that.
+
+**Not fixed in this pass — operator chose "diagnose further, don't redeploy yet."** Recommended next step
+for whoever picks this up: rebuild `services/data-api` from current `main` and redeploy via the documented
+Windows `func` toolchain, confirm the deployed package actually contains `archive-holding.ts` at commit
+`3bb70249` or later, re-run the KQL in "How to re-verify" above, and bank a second live proof here. Verdict
+stays `TESTED (offline)` — do not treat the 2026-07-17 live proof above as current; it no longer reflects
+the live app.

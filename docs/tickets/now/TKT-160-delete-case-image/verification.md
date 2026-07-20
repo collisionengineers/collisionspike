@@ -52,3 +52,10 @@ records that live proof.
 Follow `docs/operations/delete-case-image.md` in deploy order. Run cross-store deletion/retry/replay tests,
 then delete one test image inside Box root `392761581105` and read back every store, the UI, readiness and
 audit state.
+
+## 2026-07-20 addendum
+
+`DELETE_CASE_IMAGE_ENABLED` was flipped `true` live on `cespk-api-dev` by explicit operator direction
+during the TKT-159 gate audit (see `changes.md`). This is an app-setting readback fact, not the
+designated-test-folder live proof this ticket requires — the verdict stays `PENDING` and "How to
+re-verify" above is unchanged and still outstanding.

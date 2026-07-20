@@ -47,8 +47,8 @@ or authorization named; they are never treated as complete by plan aggregation.
 
 | Status | Count |
 |---|---:|
-| Now | 14 |
-| Verify | 12 |
+| Now | 15 |
+| Verify | 11 |
 | Done | 3 |
 | Next | 0 |
 | Backlog | 33 |
@@ -60,7 +60,7 @@ or authorization named; they are never treated as complete by plan aggregation.
 | [TKT-102](../now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md) | now | Tractable received-email handling — categorise, match to case, parse PDF, extract images |
 | [TKT-149](../done/TKT-149-reciprocal-pr-reviews/TKT-149-reciprocal-pr-reviews.md) | done | Retire mandatory reciprocal Claude and Codex PR reviews |
 | [TKT-151](../verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | verify | Complete vehicle enrichment and warn when a registration cannot be resolved |
-| [TKT-152](../verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | verify | Consolidate vehicle lookups and harden the MOT mileage estimator |
+| [TKT-152](../now/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | now | Consolidate vehicle lookups and harden the MOT mileage estimator |
 | [TKT-153](../verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | verify | Save case edits explicitly as one reviewed change |
 | [TKT-154](../now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | now | Add a constrained MCP path for registration-based image ingestion |
 | [TKT-155](../verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | verify | Simplify the dashboard around Not Ready, Review and Held |
