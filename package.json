@@ -59,7 +59,9 @@
     "check:layout": "node scripts/checks/check-repository-layout.mjs",
     "check:runtime-contract": "node scripts/checks/check-runtime-contract.mjs",
     "check:parity": "npm run test --workspace @cs/domain -- parser-parity",
-    "check:guard-register": "node scripts/checks/check-guard-register.mjs"
+    "check:guard-register": "node scripts/checks/check-guard-register.mjs",
+    "check:live-facts": "node scripts/checks/check-live-facts.mjs",
+    "compare:live-facts": "node scripts/checks/live-facts-azure-compare.mjs"
   },
   "dependencies": {
     "@azure/storage-blob": "12.33.0",

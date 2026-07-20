@@ -32,7 +32,7 @@
     "parser": {
       "resource": "cespike-parser-dev-x7xt3d5ovhi7y",
       "source": "services/functions/parser",
-      "functionCount": 4
+      "functionCount": 5
     },
     "archiveEvents": {
       "resource": "cespkbox-fn-v76a47",
@@ -171,6 +171,10 @@
   "authority": {
     "workStatus": "docs/tickets",
     "humanReadableEnvironment": "docs/operations/live-environment.md",
+    "machineEvidence": {
+      "path": "docs/operations/live-facts.evidence.json",
+      "sha256": "e3bb5f1b750acda182ffb8488015189196b788f4b0ddd01496f4a5e043838cdb"
+    },
     "rule": "Replace this snapshot only with dated read-only evidence; never infer live state from source code."
   }
 }

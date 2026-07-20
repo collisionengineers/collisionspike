@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3753,
-    "entries": 4876
+    "files": 3758,
+    "entries": 4881
   },
-  "totalFileBytes": 704174559,
+  "totalFileBytes": 704208972,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4845,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -12208,8 +12208,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 10079,
-      "sha256": "87d47f15bf931c74134217d5f6388cc284351d8faa0ba6289fe2ac55169e27f6",
+      "size": 10120,
+      "sha256": "489db3c772bb14dacd01769da42394f8ec8fa74f1981bc280318d8626a1fe780",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -12280,8 +12280,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 8367,
-      "sha256": "374f5cd3c8b1e80a0f80891d0f0729582c041ee74dcd914bfead4133dd416ddb",
+      "size": 8540,
+      "sha256": "affd7405c0b95e5e1c09a3c3833dbd410af00f62c666e27a233497f4c2569960",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1528106,
+      "size": 1529657,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4289126,
-      "sha256": "bafb35a3b754c3d0e7362ebd8643005983e26146b0872c07a09c9aa1868d40e3",
+      "size": 4291091,
+      "sha256": "c161205511c50aa8ccbf6dce250dd4556e72f442f3230c1a6a76d7801c68e030",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68039,
-      "sha256": "7f4d691982862b4dea7dddfe80fd3d64a19f558638f7711d37ea2598c55e4829",
+      "sha256": "1ab811d5b1abd89a244f83a25ac144d0e8ecbfdbdf89159c8959dfb7019c6d3a",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15709,8 +15709,8 @@
     {
       "path": "docs/operations/cloud-inventory-2026-07-17.md",
       "mediaType": "text/markdown",
-      "size": 33377,
-      "sha256": "9fa51ea4bd19e72fc55ae587ebaec6471a220a41d927e2953545b7f9f1af0659",
+      "size": 34020,
+      "sha256": "2203fa8a9d2138880bffc58b2f3c531dd1c29dc9e9848d30b38065c79a99e4d0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15781,8 +15781,17 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 4989,
-      "sha256": "25e7914ee5abbb9a4c2c4c8742d6b6301c876065aed651e4081b4e9bdb70e3a1",
+      "size": 6389,
+      "sha256": "baff41f50d7f833e77f0e0c8beeb7661e4549a5c24097049dc0e0daaefc9be56",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/live-facts.evidence.json",
+      "mediaType": "application/json",
+      "size": 4469,
+      "sha256": "e3bb5f1b750acda182ffb8488015189196b788f4b0ddd01496f4a5e043838cdb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16186,8 +16195,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49923,
-      "sha256": "97050fdfaf0cb08107d9f8f2ffe483e517c9a40e8fa42e499755287b1e5f377f",
+      "size": 49920,
+      "sha256": "cc583dcf6211f1da9fc207846171a563bf0738119080084810500198594ced85",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16195,8 +16204,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52785,
-      "sha256": "1a8949dbf95ccabb940bfee78c1ec63e8b335967201b88140e8439345370318e",
+      "size": 52782,
+      "sha256": "c873a6172701b6f443a183807467718828eac298f4fdb212d35edcaa515d8a58",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18159,42 +18168,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md",
-      "mediaType": "text/markdown",
-      "size": 5283,
-      "sha256": "a7750477d1e35cf38ec3203a101a97a164d9e5cac063cba4cffa153947672ec3",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/changes.md",
-      "mediaType": "text/markdown",
-      "size": 103,
-      "sha256": "137d2342d443751fe9c198ff53e2f4f36a5b9f1cc4d582870f530590bb6d7f7e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1720,
-      "sha256": "a99932f46ae6bdaf9b97918e8bdd3923e2908efaa799b8331a40c40182f5c144",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/verification.md",
-      "mediaType": "text/markdown",
-      "size": 188,
-      "sha256": "4d29bd2aaaf410555a8f422fce0a63b00f0bc28fdcb335d1b3d3d49d48608e23",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24590,6 +24563,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md",
+      "mediaType": "text/markdown",
+      "size": 5269,
+      "sha256": "d848c6c196854a752231ca3a7b3ab7e9f60eec9058750cbf0847a5a6cf55cdce",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3001,
+      "sha256": "862210301a975c35cc7d52c1332a466bf846e49706628139548a7296a7309860",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1720,
+      "sha256": "a99932f46ae6bdaf9b97918e8bdd3923e2908efaa799b8331a40c40182f5c144",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2362,
+      "sha256": "d884db95645cde4f6868bda9d8ce35919cd36ab59ec034e57bc5704a0e2d4fb4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26266,8 +26275,8 @@
     {
       "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
       "mediaType": "text/markdown",
-      "size": 7654,
-      "sha256": "e17e1cbe9d5692585f0ff38a5c65a2ac4e98ee97a269f05aabcbaa6416c68501",
+      "size": 7648,
+      "sha256": "bbb8cdc718801bdb310ed9ff60d9540537c55888d38335add4877b0ca81f9283",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29839,8 +29848,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5522,
-      "sha256": "d89f541bad6968a6be39b8e474204eb0dfcc9a2e7e15e585503f21d4a0e2f5ee",
+      "size": 5668,
+      "sha256": "d51031546b4469aaea179bdcaa050282dfd5f8caeaa01d6cc9eabb759abb7b35",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30962,6 +30971,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/check-live-facts.mjs",
+      "mediaType": "text/javascript",
+      "size": 7044,
+      "sha256": "934090b6054d1955b2d5efe637a712c1b4a200e051f4b5d895de23ec37849675",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-live-facts.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 4207,
+      "sha256": "3d9b2c450329e0e007551e7a0603f0fcc5bf66165306dce1e3f371ff50d4c6e2",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/check-managed-identity-mint.mjs",
       "mediaType": "text/javascript",
       "size": 15525,
@@ -31254,6 +31281,24 @@
       "mediaType": "text/javascript",
       "size": 1034,
       "sha256": "6c5b689e1281737df6a548646e2ee1ebe2b07bfe77499b4b7702fc6ae4c8296b",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/live-facts-azure-compare.mjs",
+      "mediaType": "text/javascript",
+      "size": 6230,
+      "sha256": "2856e18f14b7ab19b1ea2032f048e309aafc4040fa9f1ddf327d53dd9806776d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/live-facts-azure-compare.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 1418,
+      "sha256": "78e4eeb1447670bde732a73d5701e879a8d6c9f541ce5e10e4453c91159e8dcb",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -43051,8 +43096,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 6229,
-      "sha256": "62699187c84afd6aa9fba50614650193e31ed3273b93a3dc7920dd0f744e62e2",
+      "size": 6309,
+      "sha256": "5f9e69891450e83468648bd6b4356e57366e1a5b10ac34e25b321a93954a7e3d",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
