@@ -15,6 +15,10 @@ export default defineConfig({
       { find: '@cs/domain/codecs', replacement: domainSrc('codecs/index.ts') },
       { find: '@cs/domain/gates', replacement: domainSrc('gates.ts') },
       { find: '@cs/domain', replacement: domainSrc('index.ts') },
+      {
+        find: '@cs/server-runtime/focused-function-client',
+        replacement: serverRuntimeSrc('focused-function-client/index.ts'),
+      },
       { find: '@cs/server-runtime', replacement: serverRuntimeSrc('index.ts') },
     ],
   },

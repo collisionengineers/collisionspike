@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1116,
-    "files": 3712,
-    "entries": 4828
+    "directories": 1117,
+    "files": 3714,
+    "entries": 4831
   },
-  "totalFileBytes": 703903005,
+  "totalFileBytes": 703924376,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4808,6 +4790,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/done/TKT-263-internal-msi-route-consolidation",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6897,6 +6897,15 @@
     },
     {
       "path": "packages/server-runtime/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/server-runtime/src/focused-function-client",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15565,7 +15574,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1513207,
+      "size": 1514084,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15583,8 +15592,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4270135,
-      "sha256": "a7e571beb9eea2d3785f664238b382157a714c38c816abf5be5cf47353d5c1ba",
+      "size": 4271266,
+      "sha256": "a974d11bf422f90a0f6c59e6bf1b3b4f2e148a7d59923b20c09e7639c0e5969e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15592,8 +15601,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67715,
-      "sha256": "cbcfd567d9a898e10d85a972dd62b26ad770e2f13026bdad614fe7ed0126bf7e",
+      "size": 67757,
+      "sha256": "db2b49dce1dcbba08bb91a3ddd2863ae2a03b0faed7fe38d5ef5dfcefc44248e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16096,8 +16105,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49291,
-      "sha256": "68979383abd95a1ab3b22f7eb25ce818f59c56612df868a3e0ce51eb76f9d629",
+      "size": 49288,
+      "sha256": "4a16f24333821d7d52407429f096470f23862f8a6e86b3df2f352c99f5f3a5eb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16105,8 +16114,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52134,
-      "sha256": "577c6e7825fed338dc96bf7b040b7661137de607e9526c8cf6c47840dab11cc4",
+      "size": 52131,
+      "sha256": "4730071fe6a992bdf99efbe280e05f7408fafb7416304104e2653bbcb6aa68a3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18069,42 +18078,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md",
-      "mediaType": "text/markdown",
-      "size": 4033,
-      "sha256": "f2cccc1ed2fe0d40f8c64bf21c7baa31c1e099fe598bf05ed59dc8218a7a2972",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client/changes.md",
-      "mediaType": "text/markdown",
-      "size": 105,
-      "sha256": "b8983b7fbdb1df20b5b7420d5ee07c6a876abf24dd34228e69dcb74767062b76",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1767,
-      "sha256": "10683a6a49b65d21d316f142bd4992425d175c9d2b9d8ddef8549dbe72fcf87e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-262-one-python-function-client/verification.md",
-      "mediaType": "text/markdown",
-      "size": 190,
-      "sha256": "aefac7b2abae9d8ff592adf5e7544473d24f5b2204746c24185e2d93112f5431",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24338,6 +24311,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md",
+      "mediaType": "text/markdown",
+      "size": 4027,
+      "sha256": "fd19e07dd029926cd817a9be27596343f6d88beabfd4aea1301740fd869233e3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4857,
+      "sha256": "e7c5a6036d7e8b96acdf1b9d496bba70cc88c4f27810f67e6c9c16aa7a4eebc4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1767,
+      "sha256": "10683a6a49b65d21d316f142bd4992425d175c9d2b9d8ddef8549dbe72fcf87e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-262-one-python-function-client/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3213,
+      "sha256": "bb45d49bfaa7d11c5a9db444087219c90653000888c328a7873b72f7d01dd7b1",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/done/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md",
       "mediaType": "text/markdown",
       "size": 3089,
@@ -26041,8 +26050,8 @@
     {
       "path": "docs/tickets/plans/PLAN-008-canonical-service-routes.md",
       "mediaType": "text/markdown",
-      "size": 6902,
-      "sha256": "4fbf3b9563cc4a6f5b65273c18f81f5b596d13eda17fb9bd3c1e186956b591db",
+      "size": 6896,
+      "sha256": "a918f9259f1e7144c9cc1ffbcb97ca85bb0916c6f2184d74148b03c84ce1de0b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30523,8 +30532,8 @@
     {
       "path": "packages/server-runtime/package.json",
       "mediaType": "application/json",
-      "size": 355,
-      "sha256": "d86acd1373c82bd5dd47078469729629d90f7f76bcb8b6de860d40a7fb291007",
+      "size": 512,
+      "sha256": "04a067d144a9871adb8c235fb2ee10930f7e9e34e760fb3942f2270f0b7ba139",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30543,6 +30552,24 @@
       "mediaType": "text/typescript",
       "size": 4258,
       "sha256": "c939dbf6b49c73d5e8d16e6b33c8b3661218a906866e5a76705d114f06991dd0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/server-runtime/src/focused-function-client/index.test.ts",
+      "mediaType": "text/typescript",
+      "size": 5647,
+      "sha256": "f905099bf4c914e4e51ddea163d1eeb3f16a56c9aa51e5c0a182c44315967d3c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/server-runtime/src/focused-function-client/index.ts",
+      "mediaType": "text/typescript",
+      "size": 5575,
+      "sha256": "15f76a4208c4f14711c491a3a6536d1dd4bb4477baed09ff6ed5659b80317f43",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -33610,8 +33637,8 @@
     {
       "path": "services/data-api/src/platform/http/service-client.ts",
       "mediaType": "text/typescript",
-      "size": 16170,
-      "sha256": "b6cb7a7934a3bcd85acc2a90d6ed7388bf9bfed9d6880927769e7fc0139d7562",
+      "size": 15931,
+      "sha256": "7ccf850b01155c8f67c4ab8c2be6fb7901538a5b435761a23a3d7b8eb2d00f9b",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -33772,8 +33799,8 @@
     {
       "path": "services/data-api/vitest.config.ts",
       "mediaType": "text/typescript",
-      "size": 1212,
-      "sha256": "80d6a897496eac094266139c1b4ec33e82d1da1fd1c73be697838a244ea2bf98",
+      "size": 1364,
+      "sha256": "4f7b945930ebbb49ec27c81232a82409e162dffc487eba0066022eee0bbe43fd",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -35689,8 +35716,8 @@
     {
       "path": "services/orchestration/src/adapters/functions-client.ts",
       "mediaType": "text/typescript",
-      "size": 16143,
-      "sha256": "41d36d45a33ccc1e52317e9dbf113cff835d3f6cd0572d64611aa7b1ede68356",
+      "size": 16263,
+      "sha256": "69dfa73331794354c63b2a89962321d480af85de784b749faec6cf38dab2ec7b",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -36769,8 +36796,8 @@
     {
       "path": "services/orchestration/vitest.config.ts",
       "mediaType": "text/typescript",
-      "size": 874,
-      "sha256": "a4d6de9b8dcf2aeb6f4f093018a646bfd3d89f238b0f8e981b7ced0cadc8143f",
+      "size": 1026,
+      "sha256": "e33258a394fd8eb09575d4ddab834d0df8a9adba51ef01e0e569193ce673c510",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
