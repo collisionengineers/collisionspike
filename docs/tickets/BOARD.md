@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (31)
+## Now (32)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -37,6 +37,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 · email |
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
+| [TKT-287](./now/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md) | cedocumentmapper engine repository consolidation | P1 · parsing |
 
 ## Verify (32)
 

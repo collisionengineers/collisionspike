@@ -59,3 +59,15 @@ own boundaries, and no tautological EVA-normalisation comparison is introduced (
 `decideCaseType` project already-normalised values and are not independent Python-normalizer
 counterparts). Changing this decision — adopting a shared Python runtime module — would require a new ADR
 or a dated superseding amendment and would re-open the sharing-versus-isolation calculus above.
+
+## Amendment — the vendor-lock mechanism is retired, not this decision (2026-07-20)
+
+[ADR-0035](./0035-cedocumentmapper-engine-repository-consolidation.md) supersedes ADR-0018 and merges the
+vendored parser engine into this repository. The sentence above stating "the vendored parser remains
+vendored and drift-locked (ADR-0018); this decision only widens the parity guard and does not touch the
+vendor-lock mechanism" is no longer accurate as written: the vendor-lock *mechanism*
+(`VENDOR_LOCK.json`/`PROVENANCE.md`/`verify_vendor_pin.py`) is retired outright, replaced by
+`scripts/checks/check-engine-materialized.py`. This decision's actual substance — no shared Python
+runtime module for the divergent per-client auth/retry policies, independence over merging — is
+unaffected; ADR-0035 changes where and how the parser engine is authored, not whether Python services
+share a runtime.

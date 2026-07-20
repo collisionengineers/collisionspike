@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1160,
-    "files": 3924,
-    "entries": 5084
+    "directories": 1162,
+    "files": 3929,
+    "entries": 5091
   },
-  "totalFileBytes": 708981130,
+  "totalFileBytes": 709007282,
   "entries": [
     {
       "path": ".",
@@ -5520,6 +5520,24 @@
     },
     {
       "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -12388,8 +12406,8 @@
     {
       "path": ".cursor/rules/collisionspike-core.mdc",
       "mediaType": "application/octet-stream",
-      "size": 817,
-      "sha256": "8196be9495698818d888c9c215037b16508c25e5af375fe663adaa6aa4f87aa5",
+      "size": 913,
+      "sha256": "d2016d6d3a9e6180e1fee825666a004b5f8b23719341d6415d33d3862910e4ba",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -12577,8 +12595,8 @@
     {
       "path": "AGENTS.md",
       "mediaType": "text/plain",
-      "size": 8403,
-      "sha256": "494693fa47070b643f09075e6b2ca7d5ea81e761263c7e5976cd0cde43bc6d37",
+      "size": 8520,
+      "sha256": "1bf28311de52c89ee7dac3bb32d704940ae53e4a5e5588ace7b5dcdc7de13460",
       "category": "documentation",
       "owner": "agent-governance",
       "lifecycle": "active"
@@ -15646,8 +15664,8 @@
     {
       "path": "docs/adr/0018-cedocumentmapper-dual-target-vendored-engine.md",
       "mediaType": "text/markdown",
-      "size": 1218,
-      "sha256": "697d74568416aeae307ab06775752689f2619ee500686110d457fb89716d6dea",
+      "size": 1462,
+      "sha256": "6f903104ea35f017211ca4b5efa7dde3d9e2235bf5b0c6b5e692789fc390f7b3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15772,8 +15790,8 @@
     {
       "path": "docs/adr/0032-python-independent-packaging.md",
       "mediaType": "text/markdown",
-      "size": 4712,
-      "sha256": "4b3b2a259fe925fdc13dcf2e28c97b3e5aa7a2bee2529025d16324d038646a32",
+      "size": 5607,
+      "sha256": "4c894e53aefd86e6438fdf1e55902d24ace32790080e0955471bea05f169154a",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15788,10 +15806,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0035-cedocumentmapper-engine-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 5241,
+      "sha256": "c00e1125ac9837797a1036e32c1243891b6669519d43f2a50e4ff4399ab048fc",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 5253,
-      "sha256": "e694327c55ca9fe675de72eded99063f277fd2ade1728244b19f43c57bb40ffe",
+      "size": 5422,
+      "sha256": "1146249a6f606fcc031f348e13500f30ea8ca3b3d24a48c1f739fc152f5b344d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15979,7 +16006,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1594024,
+      "size": 1596356,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15988,8 +16015,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 10820,
-      "sha256": "3f40a440be245953a4055a9463a244c7ffd71d3556dac91233459d68fb2965f6",
+      "size": 10987,
+      "sha256": "c0aca5d4d912fd47a58889ea5274cc4bbd3015d0b9ca3f00000ddaec5517a8d8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15997,8 +16024,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4377145,
-      "sha256": "f6592a39c95400233c024580cadf301d50d01908c2e5fca5d6a96839694198fb",
+      "size": 4380078,
+      "sha256": "57b923bdcf291ebdb41bbab931415b02c88a19773971499eafc815dd9412d6c2",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16006,8 +16033,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 69146,
-      "sha256": "715f75117e7a0e7484eefc5e45f1f7f09693c3f8666ee418fe1adce543668218",
+      "size": 69249,
+      "sha256": "dce267b8d724b32c991b6fc8bee2d640fb51f4733e97fd9be8ea1cc51ccb334c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16528,8 +16555,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49906,
-      "sha256": "a0d6198edbcf58e5c97b44163d352faf3961357c0f26184a592445c88b016df7",
+      "size": 50111,
+      "sha256": "a18b8efc18972aa588db6f7ff638a8c23acd84303c919cae1e05cc11d344e70a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16537,8 +16564,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52769,
-      "sha256": "c346581f3873cba3c24a09df1c10382ec74a54d437797e1dd7cdcbb8af992775",
+      "size": 52979,
+      "sha256": "d75ca2dd358173e3b960ff8e436f375cee60a755414514d9a574124127978ca1",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26547,6 +26574,42 @@
       "mediaType": "text/markdown",
       "size": 2380,
       "sha256": "745f30d877ad7562e55fe0c4e91e3df52db73894db54d9aa2a5ec11333213c30",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3634,
+      "sha256": "ca15ee5c6ed61d002ed71a628df56b7e148234399d1002b1a80e13c42f80974e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2582,
+      "sha256": "ea342c56419b1c71bd534be932ec4d19451fcddd0bf2a0e1911a712718b82984",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence/merge-notes.md",
+      "mediaType": "text/markdown",
+      "size": 3546,
+      "sha256": "799e6201ad76de3c9616b458a1d63913dfa2e4f125b2979d9f42f46abba56c2c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3441,
+      "sha256": "1b1af8567601d827921a43d2b60d648525dd826056dd6506ec0c7b16ba929ffd",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -36841,8 +36904,8 @@
     {
       "path": "services/functions/parser/README.md",
       "mediaType": "text/markdown",
-      "size": 892,
-      "sha256": "0d3d3f825d97404471bd7303550bedb9b5e39591488b51383268eb072a210153",
+      "size": 1129,
+      "sha256": "a58649ef5285a4cbe68158f36c8b5feafbcfa883efa18574caf3099f78b91d06",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active"

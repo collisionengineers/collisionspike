@@ -22,7 +22,7 @@ progress, branch history, or incident diaries.
 | [0015](./0015-email-triage-inbox-management.md) | Every message enters deterministic triage; the vocabulary lives in code and corpus, append-only | Accepted |
 | [0016](./0016-inspection-address-corpus-eva-export.md) | Address suggestions use validated full-address exports | Amended 2026-07-16 |
 | 0017 | Withdrawn 2026-07-16 (Review 160726) — retention architecture removed with TKT-206; the Archive no-automated-deletion rule lives in ADR-0012 | Withdrawn |
-| [0018](./0018-cedocumentmapper-dual-target-vendored-engine.md) | Parser core is pinned and vendored | Accepted |
+| [0018](./0018-cedocumentmapper-dual-target-vendored-engine.md) | Parser core is pinned and vendored | Superseded by ADR-0035 |
 | [0019](./0019-triage-policy-stage-split.md) | Triage separates signals, policy, and suggestions | Accepted |
 | [0020](./0020-provider-api-intake-channel.md) | Provider machine-to-machine intake | Accepted |
 | [0021](./0021-case-po-marker-taxonomy.md) | Case/PO markers have independent sequences | Accepted |
@@ -38,6 +38,7 @@ progress, branch history, or incident diaries.
 | [0031](./0031-server-runtime-boundary.md) | Server-only runtime plumbing (`@cs/server-runtime`) is a separate SDK-allowed package from browser-safe `@cs/domain` | Accepted |
 | [0032](./0032-python-independent-packaging.md) | Python function services are independently packaged; duplication is checked (conformance + parity), not shared | Accepted |
 | [0033](./0033-anti-drift-guard-doctrine.md) | Standing drift is caught by a modality-appropriate terminal guard, registered from plan metadata | Accepted |
+| [0035](./0035-cedocumentmapper-engine-repository-consolidation.md) | The parser engine is merged into this repository, superseding ADR-0018 | Accepted |
 
 Changing an accepted decision requires a new ADR or an explicit superseding amendment. Exact live state
 belongs in [LIVE_FACTS.json](../../LIVE_FACTS.json).
