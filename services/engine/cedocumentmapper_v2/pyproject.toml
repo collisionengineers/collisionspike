@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cedocumentmapper-v2"
+version = "0.1.0"
+description = "Replacement architecture for CE Document Mapper."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "PyMuPDF>=1.24.0",
+  "pypdf[image]>=5.0.0",
+  "Pillow>=10.0.0",
+  "python-docx>=1.1.0",
+  "extract-msg>=0.45.0",
+  "pytesseract>=0.3.10",
+  "pydantic>=2.7.0",
+  "jsonschema>=4.22.0",
+  "olefile>=0.47",
+  "pywin32>=306; platform_system == 'Windows'",
+  "pywebview>=5.1",
+]
+
+[project.scripts]
+cedocumentmapper = "cedocumentmapper_v2.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2.0",
+  "pytest-cov>=5.0.0",
+  "ruff>=0.5.0",
+  "mypy>=1.10.0",
+  "pyinstaller>=6.10.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"cedocumentmapper_v2.resources" = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["cedocumentmapper_v2"]
+
+[[tool.mypy.overrides]]
+module = [
+  "fitz",
+  "fitz.*",
+  "pypdf",
+  "pypdf.*",
+  "PIL",
+  "PIL.*",
+  "pytesseract",
+  "pytesseract.*",
+  "docx",
+  "docx.*",
+  "extract_msg",
+  "extract_msg.*",
+  "jsonschema",
+  "jsonschema.*",
+  "olefile",
+  "olefile.*",
+  "win32com",
+  "win32com.*",
+  "pythoncom",
+  "pythoncom.*",
+]
+ignore_missing_imports = true
+ignore_errors = false
+
+[[tool.mypy.overrides]]
+module = ["extract_msg", "extract_msg.*"]
+disallow_untyped_calls = false
+

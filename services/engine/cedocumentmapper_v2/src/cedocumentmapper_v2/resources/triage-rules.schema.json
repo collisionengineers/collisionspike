@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://collisionengineers.local/contracts/triage-rules.schema.json",
+  "title": "Triage Rule Phrase Data",
+  "description": "The externalized flat keyword/phrase string collections consumed by the email-triage classifier (rules/email_classifier.py, via rules/engine.py) and content-based attachment typing (detection/attachment_typing.py). Scope is deliberately narrow (collisionspike rules-engine-v2 plan, Phase 5): regexes, rule ordering, confidence bands and suppression logic all stay in Python -- this schema covers ONLY the flat phrase/keyword lists. additionalProperties is false throughout so a typo'd key (or a stray extra one) fails validation loudly instead of silently missing a rule.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "rules"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "rules": { "$ref": "#/$defs/rules" }
+  },
+  "$defs": {
+    "rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audit_phrases",
+        "dual_report_audit_phrases",
+        "diminution_phrases",
+        "work_keywords",
+        "billing_keywords",
+        "informal_work_keywords",
+        "query_keywords",
+        "chase_phrases",
+        "summary_markers",
+        "cancellation_phrases",
+        "payment_phrases",
+        "pre_instruction_phrases",
+        "image_service_sender_domains",
+        "image_service_identity_phrases",
+        "image_service_delivery_phrases",
+        "auto_reply_markers",
+        "vrm_stopword_trigrams",
+        "report_title_phrases",
+        "report_structure_phrases",
+        "junk_phrases"
+      ],
+      "properties": {
+        "audit_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an AUDIT re-inspection instruction (rules/engine.py detect_audit_signals)."
+        },
+        "dual_report_audit_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal a DUAL 'report + audit report' instruction -- one letter commissioning both a standard report AND an audit (the QDOS template; rules/engine.py detect_case_type_signals). The dual form changes downstream Case/PO numbering (collisionspike ADR-0021)."
+        },
+        "diminution_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal a Diminution in Value engagement (distinct case-type, 'D.' Case/PO marker; rules/engine.py detect_case_type_signals). Review-first downstream until grounded on a real inbound instruction."
+        },
+        "work_keywords": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an email is instructing new work (formal instruction wording)."
+        },
+        "billing_keywords": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an invoice/fee request for work already carried out."
+        },
+        "informal_work_keywords": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Weaker, informal work-request wording; only promotes when corroborated elsewhere."
+        },
+        "query_keywords": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal a question/chase/enquiry rather than an instruction."
+        },
+        "chase_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "High-precision chase wording -- asking us to send a report we already owe."
+        },
+        "summary_markers": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Case-summary / digest recap markers (not a fresh instruction)."
+        },
+        "cancellation_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal the sender is cancelling/withdrawing an existing instruction, claim or inspection."
+        },
+        "payment_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal an INBOUND payment notification -- a remittance advice or payment-transfer notice for work we did (collisionspike TKT-105/TKT-120). The mirror-image of billing_keywords (which is a REQUEST for our invoice): these say money has been / is being sent, so the email routes to billing/payment_remittance, never receiving_work."
+        },
+        "pre_instruction_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Signal PRE-INSTRUCTION directions -- the sender is telling us what to do WHEN the official instruction later arrives (collisionspike TKT-084). Anchored to a future-instruction reference ('when you receive an instruction'), never bare direction verbs, so a live instruction email cannot trip it."
+        },
+        "image_service_sender_domains": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Sender DOMAINS of image-capture delivery services CE itself commissions (collisionspike TKT-102: Tractable). An email from one of these domains is a candidate image delivery, never a work provider instructing new work. Matched exactly or as a subdomain suffix (email_classifier.py Rule 0f)."
+        },
+        "image_service_identity_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Body/footer wording that identifies an image-capture delivery service when the sender domain is unavailable or the mail is forwarded ('powered by tractable'). An identity anchor alone does not fire Rule 0f -- a delivery phrase must corroborate."
+        },
+        "image_service_delivery_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "The completed-capture delivery shape ('completed lead', 'damage capture') -- the signal that the service is DELIVERING captured vehicle images/quote (collisionspike TKT-102). Requires an image_service identity anchor (domain or phrase); deliberately never keyed on subject emoji."
+        },
+        "auto_reply_markers": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Out-of-office / automatic-reply / bounce markers (email_classifier.py)."
+        },
+        "vrm_stopword_trigrams": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true,
+          "description": "Common English words a well-formed VRM's 3-letter alpha group can accidentally spell (email_classifier.py); a genuine set, order-independent -- loaded as a frozenset."
+        },
+        "report_title_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "A genuine engineer's report's own front-matter/heading wording (detection/attachment_typing.py)."
+        },
+        "report_structure_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Weaker report body/findings wording; only promotes when corroborated by an engineer_report provider match."
+        },
+        "junk_phrases": {
+          "$ref": "#/$defs/phrase_list",
+          "description": "Marketing/newsletter footer boilerplate (detection/attachment_typing.py)."
+        }
+      }
+    },
+    "phrase_list": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    }
+  }
+}

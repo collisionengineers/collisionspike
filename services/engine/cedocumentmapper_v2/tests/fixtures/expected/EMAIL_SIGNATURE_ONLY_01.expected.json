@@ -1,0 +1,12 @@
+{
+  "fixture_id": "email_signature_only_01",
+  "source_file": "EMAIL SIGNATURE ONLY 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "CD34EFG",
+    "claimant_name": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 non-PII negative control: the source contains no claimant. A bare Name label and staff name below the e-mail sign-off are signature data, so claimant_name must remain honestly blank."
+}
+
