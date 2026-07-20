@@ -1,0 +1,22 @@
+{
+  "name": "@cs/capture-contracts",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "contract:generate": "openapi-typescript ../../contracts/capture.v1.yaml -o src/generated.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^5.9.3"
+  }
+}

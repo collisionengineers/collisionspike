@@ -4,7 +4,7 @@ title: Reconcile every live feature gate with intended production behavior
 status: now
 priority: P1
 area: platform
-tickets-it-relates-to: [TKT-013, TKT-063, TKT-110, TKT-154, TKT-156]
+tickets-it-relates-to: [TKT-013, TKT-063, TKT-110, TKT-154, TKT-156, TKT-282, TKT-286]
 research-link: docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence/operator-note.md
 plan: PLAN-004
 ---

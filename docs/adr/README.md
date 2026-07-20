@@ -11,7 +11,7 @@ progress, branch history, or incident diaries.
 | [0004](./0004-parser-as-azure-function-inline.md) | Parsing is an inline service boundary | Accepted |
 | [0005](./0005-eva-api-full-scope-test-environment.md) | EVA API remains in scope and test-first | Accepted |
 | [0006](./0006-vehicle-enrichment-service-boundary.md) | Vehicle enrichment has one service boundary | Amended 2026-07-16 |
-| [0007](./0007-receipt-of-images.md) | Images are received through five recorded channels | Accepted |
+| [0007](./0007-receipt-of-images.md) | Images are received through five recorded channels | Amended 2026-07-20 |
 | [0008](./0008-tool-boundary-ends-at-eva-handoff.md) | Product responsibility runs to confirmed report delivery | Accepted |
 | [0009](./0009-image-processing-suggestion-first.md) | Image processing is staged and suggestion-first | Amended 2026-07-16 |
 | [0010](./0010-dedup-reference-disambiguated-no-time-window.md) | Deduplication is reference-aware | Accepted |
@@ -38,6 +38,7 @@ progress, branch history, or incident diaries.
 | [0031](./0031-server-runtime-boundary.md) | Server-only runtime plumbing (`@cs/server-runtime`) is a separate SDK-allowed package from browser-safe `@cs/domain` | Accepted |
 | [0032](./0032-python-independent-packaging.md) | Python function services are independently packaged; duplication is checked (conformance + parity), not shared | Accepted |
 | [0033](./0033-anti-drift-guard-doctrine.md) | Standing drift is caught by a modality-appropriate terminal guard, registered from plan metadata | Accepted |
+| [0034](./0034-guided-capture-repository-consolidation.md) | The guided-capture browser client is merged into this repository | Accepted |
 | [0035](./0035-cedocumentmapper-engine-repository-consolidation.md) | The parser engine is merged into this repository, superseding ADR-0018 | Accepted |
 
 Changing an accepted decision requires a new ADR or an explicit superseding amendment. Exact live state

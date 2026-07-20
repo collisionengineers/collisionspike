@@ -9,6 +9,7 @@ this repository:
 | `api.bicep` | Data API settings, managed identity, secret references, storage access, and feature gates |
 | `orch.bicep` | Orchestration settings, mail intake dependencies, managed identity, storage access, and feature gates |
 | `spa.bicep` | Staff web application resource identity and SKU |
+| `capture-spa.bicep` | Guided-capture PWA (`apps/capture-web/`) resource identity, SKU, and linked backend |
 
 Service-specific host templates are centralised under `infrastructure/functions/<service>/` (one
 convention across the estate, per TKT-255 / [ADR-0028](../../docs/adr/0028-three-tier-compute-topology.md)).

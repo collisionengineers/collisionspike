@@ -46,4 +46,20 @@ throughout).
 
 The above means this exact machine has a real, working CE Document Mapper desktop installation with
 real (if now slightly stale) provider customisations, last touched 2026-07-09 — not a hypothetical
-"if any staff machine..." scenario. See `changes.md`'s Phase 6 note for how this was handled.
+"if any staff machine..." scenario.
+
+## Reconciliation check: the local provider catalog has no genuine customisation to preserve
+
+Before archiving the sibling repository, diffed the local install's `providers.json` (82,010 bytes)
+against the canonical seed (51,992 bytes) structurally — all 29 providers present in both, none only
+in one or the other. Every provider's byte-level diff differs, but a closer look shows this is entirely
+schema evolution, not content divergence: the local copy uses an older provider-config schema
+(per-provider `id`/`enabled`/top-level `work_provider` fields, field-rule shape `{id, kind}`), while the
+canonical copy uses the current schema (`detect_phrases` list, field-rule shape `{method, config}`, no
+`id`/`enabled`). Spot-checked the actual detection content across several providers (ACSP, Tractable,
+RJS, QDOS, SBL, KERR): in every case the underlying phrases/confidence are byte-identical once compared
+at the semantic level — e.g. RJS's local `detect.required_phrases: ["Robert James Solicitors"]` is the
+exact same phrase as canonical's flattened `detect_phrases: ["Robert James Solicitors"]`. No provider,
+phrase, or rule exists locally that isn't already in the canonical seed. **No reconciliation was
+needed** — the local file is simply an old-schema snapshot of the same data, not a source of unique
+customisation.
