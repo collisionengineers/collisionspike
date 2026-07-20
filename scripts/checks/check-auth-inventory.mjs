@@ -47,7 +47,11 @@ export function isProductionPython(repositoryPath) {
   if (!posix.endsWith(".py")) return false;
   if (!posix.startsWith("services/functions/")) return false;
   const segments = posix.split("/");
-  return !segments.some((s) => s === "tests" || s === "__pycache__" || s === ".venv" || s === "node_modules");
+  // `_authconf` is the shared TEST-ONLY conformance harness (TKT-268) — not a runtime client. Its
+  // negative-fixture fakes carry auth/retry markers on purpose, so it is excluded like `tests`.
+  return !segments.some(
+    (s) => s === "tests" || s === "__pycache__" || s === ".venv" || s === "node_modules" || s === "_authconf",
+  );
 }
 
 /** Strip triple-quoted docstrings and `#` line comments so markers in prose do not match. */
@@ -71,7 +75,7 @@ function collectPythonFiles(directory) {
     for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
       const absolute = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        if (["__pycache__", ".venv", "node_modules", "tests"].includes(entry.name)) continue;
+        if (["__pycache__", ".venv", "node_modules", "tests", "_authconf"].includes(entry.name)) continue;
         walk(absolute);
       } else if (entry.name.endsWith(".py")) {
         results.push(absolute);

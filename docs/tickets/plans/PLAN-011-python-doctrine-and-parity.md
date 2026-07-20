@@ -67,13 +67,13 @@ a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**2/3 done (66%).**
+**3/3 done (100%).**
 
 | Status | Count |
 |---|---:|
-| Now | 1 |
+| Now | 0 |
 | Verify | 0 |
-| Done | 2 |
+| Done | 3 |
 | Next | 0 |
 | Backlog | 0 |
 | Blocked | 0 |
@@ -81,6 +81,6 @@ a live write.
 | Ticket | Status | Title |
 |---|---|---|
 | [TKT-267](../done/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | done | Decide and record the Python packaging doctrine |
-| [TKT-268](../now/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | now | Implement the Python authentication and retry doctrine outcome |
+| [TKT-268](../done/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | done | Implement the Python authentication and retry doctrine outcome |
 | [TKT-269](../done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | done | Guard independently duplicated parser and domain rules |
 <!-- /GENERATED:PROGRESS -->
