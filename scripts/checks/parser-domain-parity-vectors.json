@@ -1,0 +1,61 @@
+{
+  "$comment": "TKT-269 / PLAN-011 shared cross-language parity corpus. Both the Python emitter (scripts/checks/parser_parity_emitter.py) and the vitest guard (packages/domain/src/domain/parser-parity.test.ts) read THIS file. Each vector pins BOTH languages' output; a legitimate current difference carries distinct columns + an allowedDivergence reason (see parser-domain-parity.md). Python's None is written in its normalised form ('standard' for case-type). Any behavioural change to one side must update the other column here in the same change.",
+  "vrmVectors": [
+    { "name": "spaced-lower", "input": "yt13 utv", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "spaced-upper", "input": "YT13 UTV", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "padded-double-space", "input": " YT13  UTV ", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "already-compact", "input": "YT13UTV", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "empty", "input": "", "python": "", "ts": "" },
+    { "name": "whitespace-only", "input": "   ", "python": "", "ts": "" },
+    {
+      "name": "ocr-extra-digit",
+      "input": "YT113UTV",
+      "python": "YT13UTV",
+      "ts": "YT113UTV",
+      "allowedDivergence": "D1 — Python normalize_vrm strips an intrusive OCR '1' in the LL1DDLLL shape; the TS canonicaliser has no extra-digit special-case."
+    },
+    {
+      "name": "hyphenated",
+      "input": "YT13-UTV",
+      "python": "YT13-UTV",
+      "ts": "YT13UTV",
+      "allowedDivergence": "D2 — Python strips only whitespace (\\s), keeping the hyphen; TS strips all [^A-Z0-9]."
+    },
+    {
+      "name": "dotted",
+      "input": "YT13.UTV",
+      "python": "YT13.UTV",
+      "ts": "YT13UTV",
+      "allowedDivergence": "D2 — Python keeps the dot separator; TS strips all non-alphanumerics."
+    }
+  ],
+  "markerVectors": [
+    { "name": "audit", "input": "A.PCH261269", "python": "audit", "ts": "audit" },
+    { "name": "total-loss", "input": "AP.QDOS261530", "python": "audit_total_loss", "ts": "audit_total_loss" },
+    { "name": "diminution", "input": "D.PCH26190", "python": "diminution", "ts": "diminution" },
+    { "name": "unmarked", "input": "PCH26050", "python": "standard", "ts": "standard" },
+    { "name": "spaced-lower-marker", "input": "a. pch261269", "python": "audit", "ts": "audit" },
+    { "name": "leading-junk", "input": "x A.PCH261269", "python": "standard", "ts": "standard" },
+    {
+      "name": "marker-then-digit",
+      "input": "A.4",
+      "python": "standard",
+      "ts": "audit",
+      "allowedDivergence": "D3 — Python's marker regex requires a trailing alphabetic char (guards 'A.4' numeric noise); the TS parser matches the marker prefix regardless of the next char."
+    },
+    {
+      "name": "total-loss-then-digits",
+      "input": "AP.26050",
+      "python": "standard",
+      "ts": "audit_total_loss",
+      "allowedDivergence": "D3 — same trailing-alpha guard: Python rejects a marker followed by digits; TS accepts the prefix."
+    },
+    {
+      "name": "bare-marker",
+      "input": "A.",
+      "python": "standard",
+      "ts": "audit",
+      "allowedDivergence": "D4 — a bare marker with no body: Python returns no marker; TS's prefix match yields the case type."
+    }
+  ]
+}
