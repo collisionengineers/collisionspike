@@ -17,7 +17,7 @@
     "files": 3771,
     "entries": 4894
   },
-  "totalFileBytes": 704365702,
+  "totalFileBytes": 704380004,
   "entries": [
     {
       "path": ".",
@@ -4376,6 +4376,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/done/TKT-245-service-trust-seam",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5412,24 +5430,6 @@
     },
     {
       "path": "docs/tickets/now/TKT-227-box-purge-connection-exhaustion/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -12532,8 +12532,8 @@
     {
       "path": "apps/web/src/data/index.ts",
       "mediaType": "text/typescript",
-      "size": 11441,
-      "sha256": "a619898bc6b16b3fb945f5d7e288003d6ae9a742d64a9f4925edde2685d690f2",
+      "size": 11467,
+      "sha256": "d33ad5b8012c2bfe5885c3111f2fef57b7a5c872952cb62a1b097158cdd8a3b1",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12865,8 +12865,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail-cards.tsx",
       "mediaType": "text/tsx",
-      "size": 11315,
-      "sha256": "7996b28cb24b912dcd7a6c457359e72acb7ab82e943402094f04c01eacf48ac4",
+      "size": 11752,
+      "sha256": "1bda91be626a33ab20bb0494f362ba38588310a13adc982e52187c75d36b5e84",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12883,8 +12883,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail-dialogs.tsx",
       "mediaType": "text/tsx",
-      "size": 6327,
-      "sha256": "734d048bf44436ac537358e56530a2d8726711753686e4779bc1bd35431b78fc",
+      "size": 6944,
+      "sha256": "d965b40cdd6e6c4884536bfd32646389c01e52592c6443a7eec9fea7f1a679ac",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12910,8 +12910,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail-main.tsx",
       "mediaType": "text/tsx",
-      "size": 24630,
-      "sha256": "4b3477a5ea87c4f4b8b98fd0541c891833f02508d0efe398bf19c1b8f6a37c00",
+      "size": 25349,
+      "sha256": "c5a29d4c0170d7341159becf674ca10023ce8d3ac700f444d7152399a858a858",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -12946,8 +12946,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail.controller.tsx",
       "mediaType": "text/tsx",
-      "size": 34193,
-      "sha256": "1a8f9a9b13f35c6adec563bfcfddcd37c4a098ca8666b414ad30367ed637d32d",
+      "size": 36438,
+      "sha256": "d02163f0318c25dfb0f2b143ef979429f8c6b25a01825ab44a2d9d0183453170",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1533763,
+      "size": 1533770,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4296140,
-      "sha256": "20869b7ca54ea52f8b41305089f02bc4f67ae8ee05e7d3f6726d55e04940e072",
+      "size": 4296147,
+      "sha256": "8c25037421d6a24879c5abb06c3aa340c302d2b356abc7ca38d0b8168ca622ed",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68041,
-      "sha256": "832db65da02afde84a5efd732b6504aea7bcb0fc9d60aad1b1505055ec2fde09",
+      "sha256": "940028ea7fa1e0e8336f8d3ab2af932ae268181afddd660c6bdf111bfcdd28a9",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16204,8 +16204,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49905,
-      "sha256": "43df9b4027726b235f56545c819ddb44cd15c42b9a3f31bef14ab9db0e8bbb5b",
+      "size": 49906,
+      "sha256": "a0d6198edbcf58e5c97b44163d352faf3961357c0f26184a592445c88b016df7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16213,8 +16213,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52768,
-      "sha256": "e6b368b9fabb7aa7b8eba099047800b94342787931281d9ad94c87f45b307c22",
+      "size": 52769,
+      "sha256": "c346581f3873cba3c24a09df1c10382ec74a54d437797e1dd7cdcbb8af992775",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -23564,6 +23564,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md",
+      "mediaType": "text/markdown",
+      "size": 4284,
+      "sha256": "3e4d971a1327dad3910f7e970efb034615b85390d396379c46ef83914467b72a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2284,
+      "sha256": "4be0c1fb64453368470782bc7ff8b9e87108ca8fb2222554455b9f48f2c4bde3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md",
+      "mediaType": "text/markdown",
+      "size": 3326,
+      "sha256": "27f2da5007e0727d489348733b6c9df3b927fc25c963270ad0a29ee6c9f00cea",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-228-archive-holding-sql-types/verification.md",
+      "mediaType": "text/markdown",
+      "size": 9285,
+      "sha256": "1af8c265d126ade367cb18f17c1d3c0018831cc33b7bc3624792fed89689fbaa",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md",
       "mediaType": "text/markdown",
       "size": 3857,
@@ -25447,8 +25483,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/changes.md",
       "mediaType": "text/markdown",
-      "size": 6136,
-      "sha256": "aa9e84db4bacdbf1d85a5540a9fb320a963e14b25a1237a4db952eb895bf6b79",
+      "size": 8654,
+      "sha256": "cbf0c4938f7eb63d5648fa605bb7ffe1df248e7394424aa74b1ccea5dd6b24ef",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25474,8 +25510,8 @@
     {
       "path": "docs/tickets/now/TKT-160-delete-case-image/verification.md",
       "mediaType": "text/markdown",
-      "size": 4018,
-      "sha256": "6bcf02b759e79468d9bac311be113cee566ec74a53cff877d194f3a4d0e72203",
+      "size": 4764,
+      "sha256": "9f67124e89aee591f7bad41b324c8bdc56da9ea7ce830acbd2d1ddbd6071d71d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25672,8 +25708,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/changes.md",
       "mediaType": "text/markdown",
-      "size": 11291,
-      "sha256": "36e4fe83609399f716b90b8dba07dc0ef0a855e4edc440ea3113ba3f0cf2e050",
+      "size": 13388,
+      "sha256": "d90ea7c0c1871f196c5d5d67ce2cd4c01f47dfc2c979bb77aa320e6347da173e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25690,8 +25726,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/verification.md",
       "mediaType": "text/markdown",
-      "size": 4203,
-      "sha256": "b1a42b4fc389399960cf9781e2680e66ca45f820e90a86adf535ed099974d16a",
+      "size": 5050,
+      "sha256": "574afbb3cc47ce905145bc11daf93256aabdf9da70561da475bb7707d94b75d0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25998,42 +26034,6 @@
       "mediaType": "text/markdown",
       "size": 3191,
       "sha256": "f7b432fc2df07191a7ac084f78818292adbd4c3a51f4d15f8d4d11e4a0df064b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md",
-      "mediaType": "text/markdown",
-      "size": 4282,
-      "sha256": "24d09f4095fb4a6107bdb88e3d3117a348cdc507c5b063eadce9876865a69067",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2157,
-      "sha256": "45724aabe70e1b19ca35e6fc0c182f8f6da75dd7fdf5a112b59e45c650e9226c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md",
-      "mediaType": "text/markdown",
-      "size": 3326,
-      "sha256": "27f2da5007e0727d489348733b6c9df3b927fc25c963270ad0a29ee6c9f00cea",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-228-archive-holding-sql-types/verification.md",
-      "mediaType": "text/markdown",
-      "size": 5443,
-      "sha256": "23c556194a843b6d845f87d22638ea757bdbbf9d304db63f7337ce08622e4041",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -31459,8 +31459,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 37,
-      "sha256": "710ca532b1441da078095eb49f7cd493c6f5f947e683b26d7318b4de15d6ddbd",
+      "size": 100,
+      "sha256": "cac4a1c1fb176f7ead8d9062ab8c12a19c73e6f0871c8e26c808bd85029d1976",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"

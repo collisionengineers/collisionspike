@@ -1,11 +1,11 @@
 ---
 id: TKT-228
 title: Archive-holding recovery loop 500s on two Postgres type bugs
-status: now
+status: done
 priority: P1
 area: archive
 tickets-it-relates-to: [TKT-034, TKT-141]
-research-link: docs/tickets/now/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md
+research-link: docs/tickets/done/TKT-228-archive-holding-sql-types/evidence/audit-findings-2026-07-16.md
 ---
 
 # Archive-holding recovery loop 500s on two Postgres type bugs

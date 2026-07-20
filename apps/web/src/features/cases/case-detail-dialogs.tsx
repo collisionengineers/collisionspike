@@ -2,13 +2,16 @@
 import { Outlet } from 'react-router-dom';
 import { Button, Caption1, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle, Field, Input, MessageBar, MessageBarBody, MessageBarTitle, Spinner, Textarea } from '@fluentui/react-components';
 import { FolderClosed } from 'lucide-react';
+import { ImageDeleteDialog } from '../../shared/ui/ImageDeleteDialog';
 import type { useCaseDetailController } from './case-detail.controller';
 
 type CaseDetailViewModel = ReturnType<typeof useCaseDetailController>;
 
 export function CaseDetailDialogs(props: CaseDetailViewModel) {
-  const { c, discardOpen, doRemove, navigationBlocker, removeAckBox, removeConfirmText, removeConfirmed, removeMatch, removeOpen, removeReason, removing, restorePersistedDraft, savingEdits, setDiscardOpen, setRemoveAckBox, setRemoveConfirmText, setRemoveOpen, setRemoveReason, styles } = props;
-  return (<>\n      <Dialog
+  const { c, cancelDeleteImage, confirmDeleteImage, deleteImageError, deleteImageTarget, deletingImage, discardOpen, doRemove, navigationBlocker, removeAckBox, removeConfirmText, removeConfirmed, removeMatch, removeOpen, removeReason, removing, restorePersistedDraft, savingEdits, setDiscardOpen, setRemoveAckBox, setRemoveConfirmText, setRemoveOpen, setRemoveReason, styles } = props;
+  return (
+    <>
+      <Dialog
         open={discardOpen}
         modalType="modal"
         onOpenChange={(_, detail) => {
@@ -149,6 +152,19 @@ export function CaseDetailDialogs(props: CaseDetailViewModel) {
         </DialogSurface>
       </Dialog>
 
+      {/* Delete case image (TKT-160) — presentational confirmation only; the
+          mutation belongs solely to onConfirm, so dismiss/cancel never deletes. */}
+      <ImageDeleteDialog
+        open={deleteImageTarget !== undefined}
+        fileName={deleteImageTarget?.fileName}
+        busy={deletingImage}
+        error={deleteImageError}
+        onCancel={cancelDeleteImage}
+        onConfirm={() => void confirmDeleteImage()}
+      />
+
       {/* Nested /case/:id/submit dialog overlay. */}
-      <Outlet />\n</>);
+      <Outlet />
+    </>
+  );
 }

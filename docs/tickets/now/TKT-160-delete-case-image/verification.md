@@ -59,3 +59,13 @@ audit state.
 during the TKT-159 gate audit (see `changes.md`). This is an app-setting readback fact, not the
 designated-test-folder live proof this ticket requires — the verdict stays `PENDING` and "How to
 re-verify" above is unchanged and still outstanding.
+
+## 2026-07-20 — SPA wiring gap found and fixed (offline only)
+
+A TKT-159 follow-up audit found the "Delete image" control this ticket's own acceptance criteria require
+was never actually reachable in `apps/web` (the mockup-app→apps/web port dropped the screen wiring, not
+the component — see `changes.md`). That gap is now fixed: gate-checked button on every image card →
+confirm dialog → `deleteCaseImage` → local state update. `tsc --noEmit` clean, full `apps/web` suite
+556/556 passing, production build succeeds. This is still purely an offline code fix — it does not
+change the verdict, does not touch Box/Blob/Postgres live data, and does not substitute for the
+designated-test-folder proof this ticket needs to leave `now`.
