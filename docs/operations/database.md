@@ -4,6 +4,8 @@ The live server is `cespk-pg-dev`, database `collisionspike`. Applications conne
 `cespk_app` login. Row-level security is enabled and forced; privileged ownership is reserved for
 approved schema and verification work.
 
+Decision of record: [ADR-0026](../adr/0026-rls-as-final-authorization.md).
+
 ## Repository layout
 
 - `database/baseline` — complete clean-install schema.

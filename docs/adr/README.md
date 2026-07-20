@@ -30,11 +30,11 @@ progress, branch history, or incident diaries.
 | [0023](./0023-mcp-server-hosting-and-auth.md) | MCP is hosted with the Data API under a tiered access model | Accepted |
 | [0024](./0024-assistant-write-tier-confirmation-protocol.md) | Assistant writes require human confirmation | Accepted |
 | [0025](./0025-shared-capability-registry.md) | AI surfaces share one capability registry | Accepted |
-| [0026](./0026-rls-as-final-authorization.md) | Row-level security is the final authorization boundary | Proposed |
-| [0027](./0027-ship-dark-gate-model.md) | Features ship dark behind default-off deployment gates | Proposed |
-| [0028](./0028-three-tier-compute-topology.md) | Compute is three tiers: a browser SPA, two TypeScript services, and focused Python services | Proposed |
-| [0029](./0029-staff-identity-jose-msal-pkce.md) | Staff identity is validated in-code with jose behind MSAL PKCE | Proposed |
-| [0030](./0030-outbox-generation-counter-reliability.md) | Archive mirroring runs on a per-evidence generation-counter outbox | Proposed |
+| [0026](./0026-rls-as-final-authorization.md) | Row-level security is the final authorization boundary | Accepted |
+| [0027](./0027-ship-dark-gate-model.md) | Features ship dark behind default-off deployment gates | Accepted |
+| [0028](./0028-three-tier-compute-topology.md) | Compute is three tiers: a browser SPA, two TypeScript services, and focused Python services | Accepted |
+| [0029](./0029-staff-identity-jose-msal-pkce.md) | Staff identity is validated in-code with jose behind MSAL PKCE | Accepted |
+| [0030](./0030-outbox-generation-counter-reliability.md) | Archive mirroring runs on a per-evidence generation-counter outbox | Accepted |
 | [0031](./0031-server-runtime-boundary.md) | Server-only runtime plumbing (`@cs/server-runtime`) is a separate SDK-allowed package from browser-safe `@cs/domain` | Accepted |
 
 Changing an accepted decision requires a new ADR or an explicit superseding amendment. Exact live state

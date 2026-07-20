@@ -11,6 +11,8 @@ audience and requires an enforced application role:
 The reserved Engineer role has no enforced product meaning yet. UI visibility is not authorization;
 every route and PostgreSQL transaction enforces the caller again.
 
+Decision of record: [ADR-0029](../adr/0029-staff-identity-jose-msal-pkce.md).
+
 ## Service access
 
 Prefer managed identity and narrowly scoped role assignments. Where a provider requires a credential,
