@@ -74,5 +74,7 @@ West Europe.
 - New staff accounts need an explicit application-role assignment before they can use the app.
 - Legal and data-protection records remain open ticketed work; do not infer completion from enabled code.
 
+Decision of record: [ADR-0027](../adr/0027-ship-dark-gate-model.md).
+
 No secrets, tokens, object IDs, subscription GUIDs, transient URLs, or connection strings belong on this
 page.

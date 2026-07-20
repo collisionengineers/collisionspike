@@ -1,6 +1,6 @@
 # ADR-0029 — Staff identity is validated in-code with jose behind MSAL PKCE
 
-**Status:** Proposed — pending operator approval (TKT-246).
+**Status:** Accepted 2026-07-20 per operator approval ([TKT-246](../tickets/done/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md)).
 
 ## Decision
 

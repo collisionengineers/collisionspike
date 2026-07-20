@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (32)
+## Now (31)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -37,7 +37,6 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 · email |
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
-| [TKT-246](./now/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
 
 ## Verify (33)
 
@@ -77,7 +76,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (134)
+## Done (135)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -201,6 +200,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-215](./done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 · integration · PLAN-006 |
 | [TKT-221](./done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates | P2 · docs · PLAN-004 |
 | [TKT-245](./done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 · platform · PLAN-008 |
+| [TKT-246](./done/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 · docs |
 | [TKT-247](./done/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 · platform · PLAN-007 |
 | [TKT-248](./done/TKT-248-managed-identity-token-mint-consolidation/TKT-248-managed-identity-token-mint-consolidation.md) | Consolidate the managed-identity token mint across the six bearer-token sites | P1 · platform · PLAN-007 |
 | [TKT-249](./done/TKT-249-data-api-http-wrapper-and-retry-primitive/TKT-249-data-api-http-wrapper-and-retry-primitive.md) | Consolidate the Data-API HTTP core and add one bounded-retry primitive | P1 · platform · PLAN-007 |

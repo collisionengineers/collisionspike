@@ -1,6 +1,6 @@
 # ADR-0026 — Row-level security is the final authorization boundary
 
-**Status:** Proposed — pending operator approval (TKT-246).
+**Status:** Accepted 2026-07-20 per operator approval ([TKT-246](../tickets/done/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md)).
 
 ## Decision
 

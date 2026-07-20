@@ -41,7 +41,9 @@ operation identities so retries replay the first committed result rather than du
   compatibility contracts.
 
 Decisions of record: [ADR-0008](../adr/0008-tool-boundary-ends-at-eva-handoff.md),
-[ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md).
+[ADR-0012](../adr/0012-box-centric-intake-additive-hybrid.md),
+[ADR-0026](../adr/0026-rls-as-final-authorization.md),
+[ADR-0028](../adr/0028-three-tier-compute-topology.md).
 
 ## Reliability posture
 

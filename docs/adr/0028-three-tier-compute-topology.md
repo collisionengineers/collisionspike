@@ -1,6 +1,6 @@
 # ADR-0028 — Compute is three tiers: a browser SPA, two TypeScript services, and focused Python services
 
-**Status:** Proposed — pending operator approval (TKT-246).
+**Status:** Accepted 2026-07-20 per operator approval ([TKT-246](../tickets/done/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md)).
 
 ## Decision
 
