@@ -2841,6 +2841,11 @@
       "name": "cespkbox-fn-v76a47"
     },
     {
+      "registryPath": "deployables.captureSpa.resource",
+      "kind": "resource",
+      "name": "cespk-capture-spa-dev"
+    },
+    {
       "registryPath": "deployables.dataApi.resource",
       "kind": "resource",
       "name": "cespk-api-dev"
