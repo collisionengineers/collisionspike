@@ -34,7 +34,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 
 [Open the generated board](./BOARD.md).
 
-## Now (32)
+## Now (31)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -64,7 +64,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-225](./now/TKT-225-retro-related-attachment-ingest/TKT-225-retro-related-attachment-ingest.md) | Parse retro-linked related correspondence into the case — attachments become evidence, details fill the gaps | P1 | intake | PLAN-004 |
 | [TKT-226](./now/TKT-226-honest-box-upload-labels-retro-subtype/TKT-226-honest-box-upload-labels-retro-subtype.md) | Box uploads mislabel the queue as "Images received"; retro_related subtype silently nulls | P1 | intake | — |
 | [TKT-227](./now/TKT-227-box-purge-connection-exhaustion/TKT-227-box-purge-connection-exhaustion.md) | Nightly box-purge fan-out exhausts Postgres connections; nothing purges | P1 | archive | — |
-| [TKT-228](./now/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md) | Archive-holding recovery loop 500s on two Postgres type bugs | P1 | archive | — |
 | [TKT-229](./now/TKT-229-archive-mirror-origin-audit-dedup/TKT-229-archive-mirror-origin-audit-dedup.md) | The "Archived" (archive_mirror) label never fires and Box redeliveries duplicate audits | P2 | intake | — |
 | [TKT-230](./now/TKT-230-retro-post-sweep-remediation/TKT-230-retro-post-sweep-remediation.md) | Retro post-sweep batch — stale stamps, multi-mailbox trigger, rung-1 writable mirror, receiving_work surfacing | P2 | email | — |
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 | email | — |
@@ -108,7 +107,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (149)
+## Done (150)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -231,6 +230,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-214](./done/TKT-214-repository-gates-ci-closeout/TKT-214-repository-gates-ci-closeout.md) | Enforce repository structure in local checks and CI | P0 | platform | PLAN-006 |
 | [TKT-215](./done/TKT-215-eva-validation-live-use-audit/TKT-215-eva-validation-live-use-audit.md) | Audit live use and disposition of the EVA validation service | P2 | integration | PLAN-006 |
 | [TKT-221](./done/TKT-221-retro-docs-cutover-po/TKT-221-retro-docs-cutover-po.md) | Document the retro Case-PO cutover flip, correct retro ADR/spec drift, and register the retro gates | P2 | docs | PLAN-004 |
+| [TKT-228](./done/TKT-228-archive-holding-sql-types/TKT-228-archive-holding-sql-types.md) | Archive-holding recovery loop 500s on two Postgres type bugs | P1 | archive | — |
 | [TKT-245](./done/TKT-245-service-trust-seam/TKT-245-service-trust-seam.md) | Decide and harden the internal service-trust seam (withServiceAuth) | P1 | platform | PLAN-008 |
 | [TKT-246](./done/TKT-246-platform-adr-backfill/TKT-246-platform-adr-backfill.md) | Backfill the platform ADRs (0026–0030) | P1 | docs | — |
 | [TKT-247](./done/TKT-247-server-runtime-scaffold-and-boundary/TKT-247-server-runtime-scaffold-and-boundary.md) | Scaffold the server-runtime package and record its boundary | P1 | platform | PLAN-007 |

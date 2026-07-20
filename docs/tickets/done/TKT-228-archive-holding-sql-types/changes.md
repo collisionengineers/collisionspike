@@ -2,8 +2,9 @@
 
 ## Status
 
-now — code + offline tests complete on `feat/tkt-219-retro-parallel-reconstruction`; rides
-PR #102's deploy train (data-api lane).
+done — code shipped on `main` (commit `3bb70249`, 2026-07-17), a subsequent stale-build deploy
+briefly regressed it (2026-07-20), and a fresh `cespk-api-dev` redeploy on 2026-07-20T15:58Z
+(commit `e4cb663b`) resolved it with live proof. See verification.md.
 
 ## Commits
 
