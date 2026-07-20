@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1202 directories, 4046 files.
+Grand total: 1204 directories, 4050 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,7 +1096,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 591 directories, 1464 files
+### docs — 593 directories, 1468 files
 
 ```text
 docs/  (1 file)
@@ -1246,6 +1246,8 @@ docs/  (1 file)
       TKT-284-guided-capture-security-corpus-and-runbook/  (3 files)
         evidence/  (1 file)
       TKT-285-guided-capture-device-gate-calibration/  (3 files)
+        evidence/  (1 file)
+      TKT-288-engine-classifier-precedence-findings/  (3 files)
         evidence/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
@@ -2234,10 +2236,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4046 | 4046 | PASS |
-| Proposed tree directories == ledger final directories | 1202 | 1202 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4048 | 4048 | PASS |
-| Proposed directories == inventory directories | 1202 | 1202 | PASS |
+| Proposed tree files == ledger final files | 4050 | 4050 | PASS |
+| Proposed tree directories == ledger final directories | 1204 | 1204 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4052 | 4052 | PASS |
+| Proposed directories == inventory directories | 1204 | 1204 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

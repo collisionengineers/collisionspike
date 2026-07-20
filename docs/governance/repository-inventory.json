@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1202,
-    "files": 4048,
-    "entries": 5250
+    "directories": 1204,
+    "files": 4052,
+    "entries": 5256
   },
-  "totalFileBytes": 709830152,
+  "totalFileBytes": 709845844,
   "entries": [
     {
       "path": ".",
@@ -2442,6 +2442,24 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16861,7 +16879,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1643896,
+      "size": 1645845,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16879,8 +16897,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4441336,
-      "sha256": "f2a9088fb2601f5e7970fd0f382f47314ef887f2c337fcce11ee842d0cda5cbe",
+      "size": 4443801,
+      "sha256": "00df98aba485d30f200c345e83f7dea3b01b3defb3a17cb8072baca046744aeb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16888,8 +16906,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 70630,
-      "sha256": "37dbaf60fe89d4db5459fffc0205883823793a0670a47125fcd3b98c46757cb9",
+      "size": 70722,
+      "sha256": "e0e94b9095d0a6931b9c35d438a5d9d80a4feeea1780c8f5a64a476d14b9acf6",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17410,8 +17428,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52075,
-      "sha256": "f110682cf47bdc39eb45d0c26a6fcefdabe837533495054b73e8c1de80d2f651",
+      "size": 52295,
+      "sha256": "db77eb1739b127a74b308eb41c1b3aac0eed7cd81e61b99fa00fabd584807b34",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17419,8 +17437,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 55159,
-      "sha256": "eebe53166196de5712b7e898eb8f64cc3f54c7eb0b523371b75ac8275c33737e",
+      "size": 55384,
+      "sha256": "550f3741e10df20eb76e33eb3c992bdf9e034c20da1dccb6985c28001ca66118",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19563,6 +19581,42 @@
       "mediaType": "text/markdown",
       "size": 302,
       "sha256": "ad5351901203468750ddf856a785d8a25cf46801890134551ccc5205a015d3eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md",
+      "mediaType": "text/markdown",
+      "size": 2645,
+      "sha256": "2f8a24431dd545b1725b53c77b291cc93751361b994657f09e693076dfbd1f04",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/changes.md",
+      "mediaType": "text/markdown",
+      "size": 128,
+      "sha256": "c4db2e4b83db66affb99c11d9730aabd619e16ff3b1b2d77a16a4c22a01022de",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/evidence/sibling-issue-6.md",
+      "mediaType": "text/markdown",
+      "size": 7285,
+      "sha256": "1bd8d0edc3b4d0956bf9f447bf0042d37b74cda51b0ab7dafed2ab882530946d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/verification.md",
+      "mediaType": "text/markdown",
+      "size": 683,
+      "sha256": "b0752fa3a04f52972f93c5a7ddb2eb043124793f5893b5555a7e247484056dbd",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
