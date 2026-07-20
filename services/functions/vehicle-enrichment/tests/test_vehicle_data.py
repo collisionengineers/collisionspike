@@ -744,7 +744,11 @@ def test_oversized_registration_returns_schema_valid_invalid_contract():
     Draft202012Validator(schema, format_checker=FormatChecker()).validate(fallback)
 
 
-def test_uncalibrated_estimate_is_visible_but_never_available_to_case_autofill():
+def test_uncalibrated_estimate_is_visible_but_not_autofilled_while_the_flag_is_off():
+    """The estimate is always computed and visible. Whether it's applied to the
+    case is controlled solely by MILEAGE_ESTIMATE_AUTOFILL_ENABLED (estimate_autofill_enabled)
+    — there is deliberately no separate calibration-quality gate (removed 2026-07-20,
+    operator decision: the rollout decision belongs to the operator flag alone)."""
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),
@@ -763,7 +767,28 @@ def test_uncalibrated_estimate_is_visible_but_never_available_to_case_autofill()
     assert "mileage_confidence" not in adapted
 
 
-def test_estimate_autofill_requires_empirical_profile_and_explicit_rollout_gate():
+def test_estimate_autofill_gated_solely_by_the_operator_flag():
+    """No calibration-quality requirement remains: the small, non-empirical test
+    fixture profile (holdout_sample_size=0, well short of a production-scale
+    dataset) still becomes autofill-eligible once estimate_autofill_enabled is
+    True — calibration.autofill_ready no longer exists as a second gate."""
+    payload = vehicle(
+        mot("2023-01-01", "40000", number="1"),
+        mot("2024-01-01", "48000", number="2"),
+    )
+    contract = VehicleDataService(
+        dvsa=StaticDvsa(payload),
+        clock=lambda: datetime(2024, 7, 1, tzinfo=timezone.utc),
+        calibration=calibration(),
+        estimate_autofill_enabled=True,
+    ).lookup("TE57VRM")
+    assert contract["mileage"]["status"] == "estimated"
+    assert contract["mileage"]["auto_fill_eligible"] is True
+    adapted = case_enrichment_projection(contract)
+    assert adapted["current_mileage"] == contract["mileage"]["estimated_mileage"]
+
+
+def test_estimate_autofill_with_empirical_profile_and_explicit_rollout_gate():
     payload = vehicle(
         mot("2023-01-01", "40000", number="1"),
         mot("2024-01-01", "48000", number="2"),

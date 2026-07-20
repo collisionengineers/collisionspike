@@ -17,7 +17,7 @@
     "files": 3769,
     "entries": 4892
   },
-  "totalFileBytes": 704345870,
+  "totalFileBytes": 704346551,
   "entries": [
     {
       "path": ".",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4295291,
-      "sha256": "687fc6d6ce5c8afcc4d2f6531468f2121efd5f4007f463cf83fc9ab3af2c0d75",
+      "size": 4295304,
+      "sha256": "583f978fc9e32b101ced1fc4f0bac18b449eabac14e6d3a9e5a2ef0f24d46a3a",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -36004,8 +36004,8 @@
     {
       "path": "services/functions/vehicle-enrichment/tests/test_vehicle_data.py",
       "mediaType": "text/x-python",
-      "size": 29434,
-      "sha256": "3e00877be6d796681153884612e0fa01bdadec70ac4d88d36c880c601b73c8f9",
+      "size": 30770,
+      "sha256": "c693dcc4737dd2a9424b0d544a738ecb0694f1c0c2c8318d3d69ca7271693171",
       "category": "test",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -36031,8 +36031,8 @@
     {
       "path": "services/functions/vehicle-enrichment/vehicle_data/contracts.py",
       "mediaType": "text/x-python",
-      "size": 7593,
-      "sha256": "aa75c077bfee8ae1ff3c7a4f0b0bb9621fa7cf0094916bde69fa26a768482537",
+      "size": 6986,
+      "sha256": "6108cad704324b62b3bb28fa59c7feb23b623cb1d2be620892a4088d8f4044d8",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
@@ -36040,8 +36040,8 @@
     {
       "path": "services/functions/vehicle-enrichment/vehicle_data/mileage.py",
       "mediaType": "text/x-python",
-      "size": 20423,
-      "sha256": "fd89d177942700ed88781265e428ba3e7894f6efad5ef1c5e8324ccc06f1d6f9",
+      "size": 20362,
+      "sha256": "8587daa823e97d5e1c4c6f05e8ae53d7e20b9f8f446a156cd905c779a1f77d1a",
       "category": "source",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"

@@ -172,23 +172,6 @@ class CalibrationProfile:
             )
         )
 
-    @property
-    def autofill_ready(self) -> bool:
-        """True only for a production-scale empirical holdout profile.
-
-        Small synthetic fixtures are useful for algorithm tests, but cannot
-        authorise automatic case-field writes. The explicit sample/coverage
-        evidence keeps the rollout gate fail-closed.
-        """
-
-        return (
-            self.defensible
-            and self.holdout_sample_size >= 1000
-            and math.isfinite(self.observed_coverage)
-            and self.observed_coverage >= self.target_coverage
-            and self.observed_coverage < 1
-        )
-
     def select(
         self,
         *,

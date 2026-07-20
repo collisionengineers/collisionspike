@@ -189,9 +189,7 @@ def _apply_interval(
                 "dataset_digest": calibration.dataset_digest,
                 "sample_size": bucket.sample_size,
             }
-            result["auto_fill_eligible"] = bool(
-                allow_estimate_autofill and calibration.autofill_ready
-            )
+            result["auto_fill_eligible"] = bool(allow_estimate_autofill)
             if not result["auto_fill_eligible"]:
                 existing_codes = [
                     warning.get("code")
