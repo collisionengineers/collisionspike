@@ -81,15 +81,15 @@ full `node verify-all.mjs` is green. No member performs a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**5/6 done (83%).**
+**6/6 done (100%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 5 |
+| Done | 6 |
 | Next | 0 |
-| Backlog | 1 |
+| Backlog | 0 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
@@ -99,5 +99,5 @@ full `node verify-all.mjs` is green. No member performs a live write.
 | [TKT-263](../done/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | done | Consolidate the internal MSI route surface behind the trust seam |
 | [TKT-264](../done/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | done | Share the outbox monitor lifecycle without flattening lane protocols |
 | [TKT-265](../done/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | done | Retire dead orchestration parser and location client exports |
-| [TKT-266](../backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | backlog | Add the route and authority inventory guard |
+| [TKT-266](../done/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | done | Add the route and authority inventory guard |
 <!-- /GENERATED:PROGRESS -->
