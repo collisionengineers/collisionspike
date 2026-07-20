@@ -1,8 +1,8 @@
 # Live environment
 
 This is the readable view of [LIVE_FACTS.json](../../LIVE_FACTS.json), last verified there on
-2026-07-16. The JSON registry wins if values differ. Verify live before making a decision that depends on
-current state.
+2026-07-19. The JSON registry wins if values differ (this date is derived from `LIVE_FACTS.lastVerified`
+and checked by `check:live-facts`). Verify live before making a decision that depends on current state.
 
 ## Core resources
 
@@ -73,6 +73,25 @@ West Europe.
 - Keep proof of unattended mail-subscription renewal.
 - New staff accounts need an explicit application-role assignment before they can use the app.
 - Legal and data-protection records remain open ticketed work; do not infer completion from enabled code.
+
+## Registry integrity
+
+The governed numeric facts in `LIVE_FACTS.json` are backed by a committed, secret-free evidence snapshot
+and field map at [`live-facts.evidence.json`](./live-facts.evidence.json). `LIVE_FACTS.json` records that
+file's path and SHA-256 under `authority.machineEvidence`.
+
+- **Offline** — `npm run check:live-facts` (in `verify-all.mjs` and CI) validates the snapshot schema,
+  the digest, that the snapshot's capture time matches `LIVE_FACTS.lastVerified`, that every governed
+  function/table count maps to and equals the snapshot, and that this page's "last verified" date is
+  derived from the registry. It never contacts Azure and is not live verification.
+- **Credential-gated (read-only)** — `npm run compare:live-facts` (the CI `verify-live` job) runs
+  read-only `az functionapp function list` probes, compares every ARM-probable governed count with both
+  the committed evidence and the registry, and fails closed on any query failure or drift. Without
+  credentials it prints an explicit skip that is not live verification. It performs no writes and emits
+  only a sanitised counts-only artifact.
+
+The repository-tree ledger checks (`check:inventory`, `check:reconciliation`) remain the canonical,
+separate governance ledgers; this integrity check does not reimplement them.
 
 Decision of record: [ADR-0027](../adr/0027-ship-dark-gate-model.md).
 

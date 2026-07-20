@@ -1,0 +1,68 @@
+{
+  "$comment": "Committed, secret-free machine-readable evidence snapshot + field map for the machine-governed LIVE_FACTS.json fields (TKT-273 / PLAN-012). Each entry maps a LIVE_FACTS JSON path to its evidenced value, the dated read-only evidence source, the read-only probe that reproduces it, and the comparison rule. Replace only from dated read-only evidence; never infer live state from source. LIVE_FACTS.json records this file's path and sha256 under authority.machineEvidence; scripts/checks/check-live-facts.mjs compares the two offline, and scripts/checks/live-facts-azure-compare.mjs re-mints it read-only against Azure when credentials are present. No secrets, tokens, connection strings, or private identifiers appear here.",
+  "capturedAt": "2026-07-19T22:40:05Z",
+  "evidenceBasis": "Read-only ARM resource inventory of rg-collisionspike-dev (2026-07-19, TKT-257), the banked PLAN-009 read-only dossier and docs/operations/cloud-inventory-2026-07-17.md, and the tracked route count in services/functions/parser/function_app.py.",
+  "resourceGroup": "rg-collisionspike-dev",
+  "fields": [
+    {
+      "path": "deployables.dataApi.functionCount",
+      "resource": "cespk-api-dev",
+      "value": 144,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespk-api-dev -g rg-collisionspike-dev -o json",
+      "evidenceSource": "The 2026-07-17 inventory captured 146 raw function endpoints for cespk-api-dev; TKT-257 reconciled that to 144 registered application functions (the 146 markdown figure over-counts host/admin endpoints). live-environment.md's 2026-07-19 re-verification confirms 144."
+    },
+    {
+      "path": "deployables.orchestration.functionCount",
+      "resource": "cespk-orch-dev",
+      "value": 105,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespk-orch-dev -g rg-collisionspike-dev -o json",
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md and the 2026-07-19 re-verification (105, up from 101 after the 2026-07-17 d6ee70de deploy)."
+    },
+    {
+      "path": "deployables.parser.functionCount",
+      "resource": "cespike-parser-dev-x7xt3d5ovhi7y",
+      "value": 5,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespike-parser-dev-x7xt3d5ovhi7y -g rg-collisionspike-dev -o json",
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1 lists five parser functions (classify, explode .eml, extract images, fingerprint, parse); services/functions/parser/function_app.py declares five @app.route handlers. Corrects the prior registry undercount of 4 (which no dated evidence supported)."
+    },
+    {
+      "path": "deployables.archiveEvents.functionCount",
+      "resource": "cespkbox-fn-v76a47",
+      "value": 16,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespkbox-fn-v76a47 -g rg-collisionspike-dev -o json",
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1."
+    },
+    {
+      "path": "deployables.evaSentry.functionCount",
+      "resource": "cespkeva-fn-ufa3ci",
+      "value": 1,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespkeva-fn-ufa3ci -g rg-collisionspike-dev -o json",
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1."
+    },
+    {
+      "path": "deployables.evaValidation.functionCount",
+      "resource": "cespkeval-fn-6c6fxd",
+      "value": 1,
+      "comparison": "exact",
+      "probe": "az functionapp function list -n cespkeval-fn-6c6fxd -g rg-collisionspike-dev -o json",
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md; retained as the rollback guard (live retirement operator-gated, TKT-252)."
+    },
+    {
+      "path": "deployables.database.baseTableCount",
+      "resource": "cespk-pg-dev",
+      "value": 78,
+      "comparison": "exact",
+      "probe": "read-only SQL against collisionspike: SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
+      "evidenceSource": "Database baseline plus the 2026-07-17 read-only inventory. Not reproducible from ARM alone (requires a read-only database connection); the offline check:database gate governs the schema itself."
+    }
+  ],
+  "docAuthority": {
+    "path": "docs/operations/live-environment.md",
+    "rule": "The human-readable view's 'last verified' date must equal the date part of LIVE_FACTS.lastVerified."
+  }
+}

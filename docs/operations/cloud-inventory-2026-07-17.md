@@ -554,6 +554,14 @@ all eleven documented deployables were found running.
 | EVA validation app | Removed / no source | **Still running** (1 function) |
 | AI Foundry, Document Intelligence, Vision, Maps, ACR, capture SPA, MCP client app, 2 DevOps orgs | Not itemised | **Present** (documented here) |
 
+**Reconciliation (TKT-257 / TKT-273).** The `cespk-api-dev` "146" above is the raw endpoint count captured
+on 2026-07-17; it over-counts host/admin endpoints. The reconciled count of **registered application
+functions is 144**, which is the governed value in `LIVE_FACTS.json` and in the machine-readable evidence
+snapshot [`live-facts.evidence.json`](./live-facts.evidence.json). The `cespk-orch-dev` reading later rose
+to 105 after the 2026-07-17 `d6ee70de` deploy. The parser host runs five functions (`LIVE_FACTS.json` now
+records 5, not the earlier 4). The offline `check:live-facts` gate keeps the registry and this snapshot in
+parity.
+
 ## Appendix B — Dataset provenance
 
 The collection produced **510 datasets**, each saved with its exact command and UTC timestamp in a run
