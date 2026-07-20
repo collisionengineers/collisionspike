@@ -141,3 +141,31 @@ protection the ticket's own review requires first.
 **Operator decision (2026-07-20):** leave exposed, document only — no live mutation, no Front Door
 provisioning this session. Flagged as an open, unresolved risk. `LIVE_FACTS.json.safetyGates.publicCapture`
 updated with a dated note recording this exact state.
+
+## 2026-07-20 — staff-side SPA panel was orphaned; wired (unrelated to the Front Door gap above)
+
+Separately from the public-ingress gap above, a TKT-159 follow-up audit found the **staff** side of this
+ticket had its own, unrelated problem: `apps/web/src/shared/ui/GuidedPhotoRequestPanel.tsx` (the panel a
+staff member uses to create/replace/cancel a case's guided-photo capture link) existed, was exported, and
+was fully tested — but was never rendered by any screen, so staff had no way to issue a capture link at
+all. Same root cause as TKT-160's identical finding this same day: the reconciliation merge `bbe20b3e`
+ported the component but not its integration into the (by-then-renamed) case-detail screen. `ChaserPanel`
+even had a `guidedPhotoLink` prop built specifically to receive the created link, but nothing ever passed
+one in.
+
+Fixed by wiring the existing pieces together — no new component, API, or public-route behaviour:
+
+- `apps/web/src/features/cases/case-detail.controller.tsx` — adds `guidedPhotoLink` state and
+  `onGuidedPhotoLinkCancelled` (clears the link only when the cancelled session is the one that supplied
+  the current draft, per the panel's own contract).
+- `apps/web/src/features/cases/case-detail-main.tsx` — renders `GuidedPhotoRequestPanel` in the Chasers
+  tab, above `ChaserPanel`; `disabled={isRemoved}` (a closed case cannot issue a new link); its
+  `onLinkReady`/`onLinkCancelled` feed the controller state, which now flows into
+  `<ChaserPanel guidedPhotoLink={guidedPhotoLink}>` so a created link auto-populates the chaser draft as
+  originally designed.
+
+This only makes the already-implemented staff capture-session create/replace/cancel API reachable from
+the UI. It does **not** touch `PUBLIC_CAPTURE_ENABLED`, `CAPTURE_DIRECT_UPLOAD_ENABLED`, or the Front Door
+ingress-lockdown gap documented immediately above — those remain exactly as recorded, unresolved, and
+explicitly left exposed per the operator's decision. Verification (offline only): `tsc --noEmit` clean,
+full `apps/web` suite 556/556 passing, production build succeeds.
