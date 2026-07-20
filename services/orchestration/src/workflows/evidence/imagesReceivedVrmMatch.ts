@@ -32,7 +32,7 @@
  */
 
 import * as df from 'durable-functions';
-import { canonicalizeVrm } from '@cs/domain';
+import { canonicalizeVrm, distinctByCaseId } from '@cs/domain';
 import type { TriagePolicyDecision } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../adapters/data-api.js';
@@ -115,21 +115,21 @@ export type VrmMatchResolution =
 /**
  * Phase 2 (pure): resolve the context read's open-case matches. EXACTLY ONE distinct open
  * case → suggest attaching (never attach — VRM-only, the permanent ADR-0010 rule); zero
- * or several → the visible TKT-034 flag for a person to place.
+ * or several → the visible TKT-034 flag for a person to place. Dedup by case id is the
+ * shared `@cs/domain` primitive (`distinctByCaseId`, also used by triage-policy.ts's
+ * cardinality rungs) — only the primitive is shared; the suggest/flag decision here stays
+ * its own, since it differs from triage-policy's rung logic.
  */
 export function resolveVrmMatches(
   matches: ReadonlyArray<{ caseId: string; casePo: string }>,
 ): VrmMatchResolution {
-  const distinct = new Map<string, { caseId: string; casePo: string }>();
-  for (const m of matches) {
-    if (!distinct.has(m.caseId)) distinct.set(m.caseId, { caseId: m.caseId, casePo: m.casePo });
-  }
-  if (distinct.size === 1) {
-    return { step: 'suggest', target: [...distinct.values()][0] };
+  const distinct = distinctByCaseId(matches);
+  if (distinct.length === 1) {
+    return { step: 'suggest', target: distinct[0] };
   }
   return {
     step: 'flag',
-    reason: distinct.size === 0 ? 'no_open_case' : 'multiple_open_cases',
+    reason: distinct.length === 0 ? 'no_open_case' : 'multiple_open_cases',
   };
 }
 

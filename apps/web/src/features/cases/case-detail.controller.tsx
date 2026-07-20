@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate } from 'react-router-dom';
 import { Link, Toast, ToastBody, ToastTitle, useToastController } from '@fluentui/react-components';
-import { computeReadiness, useSeverityChipStyles, type ChecklistItem } from '../../shared/ui';
-import { data, EVA_FIELD_ORDER, dueInfo, getSharedLink, statusToStage, checkVrm, useBoxGates, useCaseUpdate, useLogChase, useInspectionAddressSuggestions, useLocationAssistGate, activeGetSharedLinkTransport, serverMessageOf, type Case, type CaseStatus, type EvaFieldKey, type Evidence, type PipelineStageKey, type SuggestedAddress } from '../../data';
+import { computeReadiness, useSeverityChipStyles, type ChecklistItem, type GuidedPhotoLink } from '../../shared/ui';
+import { data, EVA_FIELD_ORDER, dueInfo, getSharedLink, statusToStage, checkVrm, useBoxGates, useCaseUpdate, useDeleteCaseImageGate, useLogChase, useInspectionAddressSuggestions, useLocationAssistGate, activeGetSharedLinkTransport, serverMessageOf, type Case, type CaseStatus, type EvaFieldKey, type Evidence, type PipelineStageKey, type SuggestedAddress } from '../../data';
 import { canSubmitCaseToEva, allowedCaseTypes, CASE_PO_SHAPE_RE, derivedMarkerCasePo, isValidEvaMileage, normalizeCasePo, type CaseWorkType } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../../shared/ui';
 import { inspectionChoiceForCase } from '../../shared/ui/InspectionChoice';
@@ -681,6 +681,49 @@ export function useCaseDetailController({ caseData, images, imagesLoading, onRef
   // The working copy changes only after the server confirms; failures keep the prior row.
   const { evidenceMutations, evidenceSaveErrors, onRole, onRegistrationVisible, onAcceptedForEva, onExclude, onDismissReflection, addNote, acceptedImages, setEvaOrderKeys, exportingEva, onExportForEva, markingDone, onMarkReportDelivered } = useEvidenceWorkflow({ dispatchToast, imgState, setImgState, liveCase, setC, noteDraft, setNoteDraft, toast });
 
+  // --- Delete case image (TKT-160) — destructive, so gate-driven visibility (the
+  // control is hidden entirely while the gate is off/loading) plus an explicit
+  // confirm dialog whose dismiss/cancel path can never fire the mutation.
+  const { data: deleteGate } = useDeleteCaseImageGate();
+  const deleteImageEnabled = deleteGate?.enabled ?? false;
+  const [deleteImageTarget, setDeleteImageTarget] = useState<Evidence | undefined>(undefined);
+  const [deletingImage, setDeletingImage] = useState(false);
+  const [deleteImageError, setDeleteImageError] = useState<string | undefined>(undefined);
+  const openDeleteImage = (ev: Evidence) => {
+    setDeleteImageTarget(ev);
+    setDeleteImageError(undefined);
+  };
+  const cancelDeleteImage = () => {
+    if (deletingImage) return;
+    setDeleteImageTarget(undefined);
+    setDeleteImageError(undefined);
+  };
+  const confirmDeleteImage = async () => {
+    const target = deleteImageTarget;
+    if (!target || deletingImage) return;
+    setDeletingImage(true);
+    setDeleteImageError(undefined);
+    try {
+      await (data as DataAccessExt).deleteCaseImage(c.id, target.id);
+      setImgState((prev) => prev.filter((e) => e.id !== target.id));
+      setDeleteImageTarget(undefined);
+      toast('Image deleted');
+    } catch (error) {
+      setDeleteImageError(serverMessageOf(error) ?? 'Couldn’t delete this image. Try again.');
+    } finally {
+      setDeletingImage(false);
+    }
+  };
+
+  // --- Guided photo request link (TKT-200) — the one-time capture-session URL
+  // returned by create/replace, handed straight to the Chasers tab draft.
+  // Cancelling the session that supplied the current draft clears it, so an
+  // older cancelled link can never linger in a still-open newer draft.
+  const [guidedPhotoLink, setGuidedPhotoLink] = useState<GuidedPhotoLink | undefined>(undefined);
+  const onGuidedPhotoLinkCancelled = (sessionId: string) => {
+    setGuidedPhotoLink((prev) => (prev?.sessionId === sessionId ? undefined : prev));
+  };
+
   // TKT-002 (display-only): images are present but NONE (non-excluded) shows a
   // readable registration — the case can't be EVA-ready until a vehicle overview
   // with the full plate arrives. Derived from the per-image registrationVisible
@@ -701,5 +744,5 @@ export function useCaseDetailController({ caseData, images, imagesLoading, onRef
   const stageKey = caseStageKey(c.status);
   const due = dueInfo(c); // ONE shared due/aging parser for the header chip.
 
-  return { acceptedImages, addNote, addrSearch, addrSearching, archiveEnabled, assistAiEnabled, assistCandidates, assistNoResult, assistRunning, beginEditPo, beginEditVrm, blocked, blockerCount, c, canSaveEdits, cancelEditPo, cancelEditVrm, caseTypeOptions, caseVersion, changeImageBasedReason, checkVehicleAgain, checkingVehicle, chips, chooseInspection, confirmedProvenance, currentCaseType, decisionMode, derivedAuditId, discardOpen, dispatchToast, doRemove, documents, due, editValidation, editingPo, editingVrm, evidenceMutations, evidenceSaveErrors, exportingEva, focusFirstEditIssue, goToBlocker, hasUnsavedChanges, imgState, inspectionDraft, invalidFieldCount, isRemoved, liveCase, locationAssistEnabled, logChase, markingDone, navigate, navigationBlocker, noViewableRegistration, noteDraft, notesNewestFirst, onAcceptedForEva, onDismissReflection, onExclude, onExportForEva, onMarkReportDelivered, onOpenInArchive, onRegistrationVisible, onRole, onSuggestLocation, onTextChange, openRemove, openingArchive, overrideAddr, overrideReason, persistedCase, poDraft, poShapeOk, readiness, refreshAfterAiPromotion, registerRef, reloadLatestForReconcile, removeAckBox, removeConfirmText, removeConfirmed, removeMatch, removeOpen, removeReason, removing, restorePersistedDraft, saveCaseEdits, saveConflict, saveError, savePo, saveVrm, savingEdits, savingPo, savingVrm, setAddrSearch, setC, setCaseType, setCaseVersion, setDiscardOpen, setEvaOrderKeys, setNoteDraft, setPersistedCase, setPoDraft, setRemoveAckBox, setRemoveConfirmText, setRemoveOpen, setRemoveReason, setShowAllSuggestions, setTab, setVrmDraft, showAllSuggestions, showCaseTypeControl, stageKey, styles, subtitle, suggestions, tab, titleText, toast, uploadLinkEnabled, useSuggestion, validationByField, vehicleWarning, vrmCheck, vrmDraft, vrmEditBtnRef, vrmInputRef, workflowBlocked, imagesLoading };
+  return { acceptedImages, addNote, addrSearch, addrSearching, archiveEnabled, assistAiEnabled, assistCandidates, assistNoResult, assistRunning, beginEditPo, beginEditVrm, blocked, blockerCount, c, canSaveEdits, cancelDeleteImage, cancelEditPo, cancelEditVrm, caseTypeOptions, caseVersion, changeImageBasedReason, checkVehicleAgain, checkingVehicle, chips, chooseInspection, confirmDeleteImage, confirmedProvenance, currentCaseType, decisionMode, deleteImageEnabled, deleteImageError, deleteImageTarget, deletingImage, derivedAuditId, discardOpen, dispatchToast, doRemove, documents, due, editValidation, editingPo, editingVrm, evidenceMutations, evidenceSaveErrors, exportingEva, focusFirstEditIssue, goToBlocker, guidedPhotoLink, hasUnsavedChanges, imgState, inspectionDraft, invalidFieldCount, isRemoved, liveCase, locationAssistEnabled, logChase, markingDone, navigate, navigationBlocker, noViewableRegistration, noteDraft, notesNewestFirst, onAcceptedForEva, onDismissReflection, onExclude, onExportForEva, onGuidedPhotoLinkCancelled, onMarkReportDelivered, onOpenInArchive, onRegistrationVisible, onRole, onSuggestLocation, onTextChange, openDeleteImage, openRemove, openingArchive, overrideAddr, overrideReason, persistedCase, poDraft, poShapeOk, readiness, refreshAfterAiPromotion, registerRef, reloadLatestForReconcile, removeAckBox, removeConfirmText, removeConfirmed, removeMatch, removeOpen, removeReason, removing, restorePersistedDraft, saveCaseEdits, saveConflict, saveError, savePo, saveVrm, savingEdits, savingPo, savingVrm, setAddrSearch, setC, setCaseType, setCaseVersion, setDiscardOpen, setEvaOrderKeys, setGuidedPhotoLink, setNoteDraft, setPersistedCase, setPoDraft, setRemoveAckBox, setRemoveConfirmText, setRemoveOpen, setRemoveReason, setShowAllSuggestions, setTab, setVrmDraft, showAllSuggestions, showCaseTypeControl, stageKey, styles, subtitle, suggestions, tab, titleText, toast, uploadLinkEnabled, useSuggestion, validationByField, vehicleWarning, vrmCheck, vrmDraft, vrmEditBtnRef, vrmInputRef, workflowBlocked, imagesLoading };
 }

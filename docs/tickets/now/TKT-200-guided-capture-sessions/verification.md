@@ -57,3 +57,14 @@ The schema and deployables are live, but no public gate, Archive content or live
 feature is dark. End-to-end session proof under the Archive test root, physical-device camera proof,
 security review, rollback rehearsal and safe abuse control remain outstanding before this ticket can leave
 `now`.
+
+## 2026-07-20 — staff SPA panel wiring gap found and fixed (offline only; distinct from the public-ingress gap)
+
+A TKT-159 follow-up audit found `GuidedPhotoRequestPanel` (the staff control for issuing/managing a
+case's capture link) was never rendered by any screen — see `changes.md` for the root cause (same
+mockup-app→apps/web port failure as TKT-160). Fixed by rendering it in the case-detail Chasers tab and
+threading its result into `ChaserPanel`'s existing `guidedPhotoLink` prop. `tsc --noEmit` clean, full
+`apps/web` suite 556/556 passing, production build succeeds. This is unrelated to, and does not change,
+the separate live `PUBLIC_CAPTURE_ENABLED`/Front-Door-ingress gap recorded in `changes.md`'s 2026-07-20
+entry above — that remains open, live, and explicitly left exposed by operator decision. Verdict stays
+`PENDING`.
