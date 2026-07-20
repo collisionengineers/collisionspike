@@ -99,7 +99,11 @@ def main(argv: list[str] | None = None) -> int:
     targets = [t.resolve() for t in args.target] if args.target else list(DEFAULT_TARGETS)
     for target in targets:
         materialize(target)
-        print(f"[sync-engine] materialized {target.relative_to(REPO_ROOT)}")
+        try:
+            label = target.relative_to(REPO_ROOT)
+        except ValueError:
+            label = target
+        print(f"[sync-engine] materialized {label}")
     return 0
 
 

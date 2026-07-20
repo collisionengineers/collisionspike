@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1161 directories, 3923 files.
+Grand total: 1160 directories, 3922 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1001,13 +1001,13 @@ Grand total: 1161 directories, 3923 files.
     ui-ux-pro-max/  (1 file)
 ```
 
-### .cursor — 15 directories, 37 files
+### .cursor — 15 directories, 36 files
 
 ```text
 .cursor/  (2 files)
   agents/  (15 files)
   hooks/  (5 files)
-  rules/  (5 files)
+  rules/  (4 files)
   skills/  (0 files)
     box-rest-api/  (1 file)
     collision-engineers-design/  (1 file)
@@ -1763,12 +1763,12 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
-### scripts — 19 directories, 115 files
+### scripts — 19 directories, 116 files
 
 ```text
 scripts/  (6 files)
   build/  (4 files)
-  checks/  (54 files)
+  checks/  (55 files)
     fixtures/  (0 files)
       auth-inventory/  (1 file)
       managed-identity-mint/  (2 files)
@@ -1787,7 +1787,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 103 directories, 759 files
+### services — 102 directories, 758 files
 
 ```text
 services/  (0 files)
@@ -1874,7 +1874,6 @@ services/  (0 files)
         rules/  (5 files)
         ui/  (2 files)
       contracts/  (1 file)
-      scripts/  (1 file)
       tests/  (19 files)
         fixtures/  (5 files)
           expected/  (11 files)
@@ -2193,10 +2192,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3923 | 3923 | PASS |
-| Proposed tree directories == ledger final directories | 1161 | 1161 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3925 | 3925 | PASS |
-| Proposed directories == inventory directories | 1161 | 1161 | PASS |
+| Proposed tree files == ledger final files | 3922 | 3922 | PASS |
+| Proposed tree directories == ledger final directories | 1160 | 1160 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3924 | 3924 | PASS |
+| Proposed directories == inventory directories | 1160 | 1160 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

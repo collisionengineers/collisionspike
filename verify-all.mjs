@@ -51,7 +51,7 @@ run('Orchestration bundle — smoke load', 'node -e "require(\'./.artifacts/depl
 const checks = [
   ['Database code-table parity', 'node database/tests/code-table-parity.mjs'],
   ['Runtime contract baseline', 'node scripts/checks/check-runtime-contract.mjs'],
-  ['Parser vendor pin', 'python services/functions/parser/scripts/verify_vendor_pin.py'],
+  ['Engine materialized copies', 'python scripts/checks/check-engine-materialized.py'],
   ['Repository data authority', 'node scripts/checks/check-repository-data-authority.mjs'],
   ['Repository check unit tests', 'node --test scripts/checks/*.test.mjs scripts/maintenance/*.test.mjs'],
   ['Documentation links', 'node scripts/checks/check-doc-links.mjs'],
@@ -109,6 +109,11 @@ for (const [label, folder] of pythonSuites) {
     tail: 8,
   });
 }
+
+run('Python engine tests', 'python -m pytest tests -q', {
+  cwd: join(ROOT, 'services', 'engine', 'cedocumentmapper_v2'),
+  tail: 8,
+});
 
 run('Python email evaluation tests', 'python -m pytest scripts/evaluation/email/tests -q', { tail: 8 });
 run('Email evaluation manifest smoke', 'python scripts/evaluation/email/run_ab.py --limit 1', { tail: 8 });

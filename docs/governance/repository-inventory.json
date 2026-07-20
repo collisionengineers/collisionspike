@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1161,
-    "files": 3925,
-    "entries": 5086
+    "directories": 1160,
+    "files": 3924,
+    "entries": 5084
   },
-  "totalFileBytes": 708996347,
+  "totalFileBytes": 708981130,
   "entries": [
     {
       "path": ".",
@@ -7868,15 +7868,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "services/functions/parser/scripts",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "document-parsing",
-      "lifecycle": "structural"
-    },
-    {
       "path": "services/functions/parser/tests",
       "mediaType": "inode/directory",
       "size": 0,
@@ -12413,15 +12404,6 @@
       "lifecycle": "active"
     },
     {
-      "path": ".cursor/rules/parser-sibling.mdc",
-      "mediaType": "application/octet-stream",
-      "size": 601,
-      "sha256": "d65510e2c14aa3773d2561e09c9a8b6b39e513a4d4c69e943e444e94761e3250",
-      "category": "source",
-      "owner": "repository",
-      "lifecycle": "active"
-    },
-    {
       "path": ".cursor/rules/ui-user-language.mdc",
       "mediaType": "application/octet-stream",
       "size": 793,
@@ -12550,8 +12532,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 10120,
-      "sha256": "489db3c772bb14dacd01769da42394f8ec8fa74f1981bc280318d8626a1fe780",
+      "size": 10160,
+      "sha256": "c40f0f0e16f9b74cda70695c68e41dfbc2d17b98c4c41a178a65ef50054a1c3a",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -15997,7 +15979,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1594564,
+      "size": 1594024,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16015,8 +15997,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4377720,
-      "sha256": "d7bdb2dc839ff405acb33d896190794003e7451e614deadc6da36cfbf3b0cf64",
+      "size": 4377145,
+      "sha256": "f6592a39c95400233c024580cadf301d50d01908c2e5fca5d6a96839694198fb",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16024,8 +16006,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 69171,
-      "sha256": "7ef1e6f7ddba417d09fba9627dfc1834574fc5177d3b4a33b02be31f8dd3d7a7",
+      "size": 69146,
+      "sha256": "715f75117e7a0e7484eefc5e45f1f7f09693c3f8666ee418fe1adce543668218",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -31270,8 +31252,8 @@
     {
       "path": "scripts/build/sync-engine.py",
       "mediaType": "text/x-python",
-      "size": 4126,
-      "sha256": "6e825231d7f34d4c98ebf2760d96d77a697e62865ec9e94d0a6dda4408f86c9f",
+      "size": 4219,
+      "sha256": "95241be3081e8b4c994ef1b91c1de306ec099839450651a2f4d686a3dfd50d59",
       "category": "automation",
       "owner": "engineering-automation",
       "lifecycle": "generated"
@@ -31344,6 +31326,15 @@
       "mediaType": "text/javascript",
       "size": 14367,
       "sha256": "33b6a3964a4da4b328d1d832975ef06e4e5293cc2ad39adf194949833f47f051",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-engine-materialized.py",
+      "mediaType": "text/x-python",
+      "size": 3454,
+      "sha256": "fed331a41dee338b9b7babeec2ee9d67b75d019b6bcc394882e5072d4f9833d1",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31729,8 +31720,8 @@
     {
       "path": "scripts/checks/parser-domain-parity.md",
       "mediaType": "text/markdown",
-      "size": 5402,
-      "sha256": "91b9327ce2b0cfb02211a78d2915c17ab14ef39952c5fa305fc1b940501e9726",
+      "size": 5452,
+      "sha256": "a83c9a79a4d9cf2beb74d8db8859cdb06e6627a02e3cdda8584a5b6c34bc28cb",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -37257,15 +37248,6 @@
       "mediaType": "text/x-python",
       "size": 4776,
       "sha256": "1002effeb90baa44f9404a01e25dfa5cd478c38b9f29a21ca8e0307c9277bda6",
-      "category": "source",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/parser/scripts/verify_vendor_pin.py",
-      "mediaType": "text/x-python",
-      "size": 17249,
-      "sha256": "3d317c3150b66e5831a7819be43dd6b6a5c93a0123260540c8d4d59b184d18c6",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -44941,8 +44923,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 6403,
-      "sha256": "d08f35380c9da2e1bfa3745b42cbc6b9f2e59d329249e0d3c6b5bcbc66244852",
+      "size": 6539,
+      "sha256": "99f0ec4c597234ecc644bb4c9d497756b9e6f94d99286c1cfbecceec0b61d675",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
