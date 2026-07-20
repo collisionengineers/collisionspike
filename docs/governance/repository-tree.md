@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1149 directories, 3884 files.
+Grand total: 1161 directories, 3923 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1787,7 +1787,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 91 directories, 720 files
+### services — 103 directories, 759 files
 
 ```text
 services/  (0 files)
@@ -1848,7 +1848,19 @@ services/  (0 files)
     location-assist/  (14 files)
       tests/  (8 files)
     ocr/  (12 files)
-      tests/  (5 files)
+      cedocumentmapper_v2/  (3 files)
+        application/  (2 files)
+        config/  (2 files)
+        detection/  (4 files)
+        domain/  (2 files)
+        exporters/  (4 files)
+        normalization/  (2 files)
+        readers/  (7 files)
+        resources/  (4 files)
+        rules/  (5 files)
+        ui/  (2 files)
+      tests/  (6 files)
+        fixtures/  (1 file)
     parser/  (10 files)
       cedocumentmapper_v2/  (3 files)
         application/  (2 files)
@@ -2181,10 +2193,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3884 | 3884 | PASS |
-| Proposed tree directories == ledger final directories | 1149 | 1149 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3886 | 3886 | PASS |
-| Proposed directories == inventory directories | 1149 | 1149 | PASS |
+| Proposed tree files == ledger final files | 3923 | 3923 | PASS |
+| Proposed tree directories == ledger final directories | 1161 | 1161 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3925 | 3925 | PASS |
+| Proposed directories == inventory directories | 1161 | 1161 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

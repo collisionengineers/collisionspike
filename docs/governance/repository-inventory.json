@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1149,
-    "files": 3886,
-    "entries": 5035
+    "directories": 1161,
+    "files": 3925,
+    "entries": 5086
   },
-  "totalFileBytes": 708450006,
+  "totalFileBytes": 708996347,
   "entries": [
     {
       "path": ".",
@@ -7634,7 +7634,115 @@
       "lifecycle": "structural"
     },
     {
+      "path": "services/functions/ocr/cedocumentmapper_v2",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/application",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/config",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/detection",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/domain",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/exporters",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/normalization",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/resources",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/ui",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
       "path": "services/functions/ocr/tests",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "image-analysis",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/ocr/tests/fixtures",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15889,7 +15997,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1578939,
+      "size": 1594564,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15907,8 +16015,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356214,
-      "sha256": "c314fd4a106d862634c23bb51225d57567c2a9f20af6b503f6b1b74177ed2c6b",
+      "size": 4377720,
+      "sha256": "d7bdb2dc839ff405acb33d896190794003e7451e614deadc6da36cfbf3b0cf64",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15916,8 +16024,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68817,
-      "sha256": "506d4bfaf4df4aa52d8cb3d33a4acec46b93b53d48aff08ebf8463a2d8ffa0d5",
+      "size": 69171,
+      "sha256": "7ef1e6f7ddba417d09fba9627dfc1834574fc5177d3b4a33b02be31f8dd3d7a7",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -36263,6 +36371,339 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/ocr/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
+      "mediaType": "application/json",
+      "size": 159,
+      "sha256": "becba6a56dc8c9d062cb72633e28a84e79949e53a54233e3284ebd04e2011d57",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 61,
+      "sha256": "0feb21be34566289a21e923b68fb5b8937eec49d25835f3df935ebb670e551c0",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/application/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 135,
+      "sha256": "79fa369b65308a21a1ec67aa114b87e9afbfc36401830c54d301f0dd0eec3e0c",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/application/service.py",
+      "mediaType": "text/x-python",
+      "size": 38078,
+      "sha256": "f4492c58bb0e8e96cf6c42e54983f69e84079de0a52e103a13c19052df1f7f84",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/config/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 5138,
+      "sha256": "b3c3b6b8a6eb77ee1c6a70331d214cc4773a40521f92972d93b7607f6db3c83c",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/config/migration.py",
+      "mediaType": "text/x-python",
+      "size": 14632,
+      "sha256": "416199a12cf874a4dfbbd86c85c8268766101a25a1a66864e18f18e02a223d91",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/detection/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 485,
+      "sha256": "c661b43a369200cbe7830ead22508fa4607d7972f43a773ae824dcb9d27db409",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/detection/attachment_typing.py",
+      "mediaType": "text/x-python",
+      "size": 11959,
+      "sha256": "7d04aeca0a765a23cdbd5640b8903c4b3b28866200ecf9226b0b8045f4953ba6",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/detection/case_type.py",
+      "mediaType": "text/x-python",
+      "size": 5027,
+      "sha256": "1fd506131620ce4ad11afbb40da667d0c4d6cd4a6d2d5e84df15c2e66f97d3b8",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/detection/detector.py",
+      "mediaType": "text/x-python",
+      "size": 4736,
+      "sha256": "79aafc564474e5a12dc4f07d890ae60f60672651e289e6e59554342c091d7e2d",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/domain/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 542,
+      "sha256": "2c424cc7b3c15553098f8b2d5877c652a6035925313c9b871d0a60f6ea133660",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/domain/models.py",
+      "mediaType": "text/x-python",
+      "size": 7475,
+      "sha256": "f56e71d1d013d9a9a38310e40119e039a5952ac06c89108e061beaaf7c65202b",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/exporters/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 126,
+      "sha256": "b91b8e8e2911628c85de92ec00b9c3390928bb39581eb85ae075e3c47a2043c3",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/exporters/base.py",
+      "mediaType": "text/x-python",
+      "size": 315,
+      "sha256": "a3dc0aa10b892ab8712b4807bf5893c2d5c6006f69db2ce99532e509860cae71",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/exporters/eva_json.py",
+      "mediaType": "text/x-python",
+      "size": 2255,
+      "sha256": "2f76bba09a94023a9dfd5c112157909ac5ac769f7b5638e7bfba433c37e2cc28",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/exporters/rjs_docx.py",
+      "mediaType": "text/x-python",
+      "size": 9463,
+      "sha256": "b8bb910d8ea2919bd2f85623b06de7e2e1923802f81829e99de11bfad7fc9172",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/normalization/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 514,
+      "sha256": "2a4df007ca573149294e137ff8a1c127dcddb847c594ba400adb66df80ed0b82",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/normalization/normalizers.py",
+      "mediaType": "text/x-python",
+      "size": 13795,
+      "sha256": "5188fb5053ed2e63af810a246a2bc8b1539d6f7a088c769f069beddaa87c8a55",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/providers.json",
+      "mediaType": "application/json",
+      "size": 50059,
+      "sha256": "596a4f95f00e59f6e4e4672041661bd6702ca67a14ca48790ca2cf38cd55c06e",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 1115,
+      "sha256": "6763ecfec90806b7a04d5b93380a8a6c4cc81acc1bc47bfa2a1368fc2d8a8989",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/base.py",
+      "mediaType": "text/x-python",
+      "size": 375,
+      "sha256": "43896abd1b8fd2f09e3898b226cb59bf97e5aa76725b6442ea51187063843837",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/doc.py",
+      "mediaType": "text/x-python",
+      "size": 21779,
+      "sha256": "83b9a6bb673a35c4ef04fd91187bfe7707a776f2aca6b0aed3b0b9ec2bd27534",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/docx.py",
+      "mediaType": "text/x-python",
+      "size": 8111,
+      "sha256": "031294abbaf56c0e24f8360e5b2c4fa26d65a55a83d7f447f4eda0e0567efa93",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/email.py",
+      "mediaType": "text/x-python",
+      "size": 14011,
+      "sha256": "671313cffe0001da7455348891f2959e9ed43748f494a70fa6c6648d16f8a15a",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/errors.py",
+      "mediaType": "text/x-python",
+      "size": 356,
+      "sha256": "e9461fbc9956072ee1d2493535cf3b2388db6e1c5c178e4346604ea8c1cd89c3",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/readers/pdf.py",
+      "mediaType": "text/x-python",
+      "size": 18785,
+      "sha256": "644d210351959ad1005e88e8f12dd66d62b29bd404f6a29250da903fd2208e33",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/resources/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 934,
+      "sha256": "d0a5826583738cf518da12aead7dff14506e3c25826d276cb7ba63253d25d742",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/resources/eva-json.schema.json",
+      "mediaType": "application/json",
+      "size": 1451,
+      "sha256": "720f308e6f4e281c7d728a3eeafe33d4f5f445ce10d13da18f3b79fef0a1c5fd",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/resources/triage-rules.json",
+      "mediaType": "application/json",
+      "size": 8978,
+      "sha256": "6721dae573e05df38917883ce8f744339f11d65d12937087770c021b9eca8c67",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/resources/triage-rules.schema.json",
+      "mediaType": "application/json",
+      "size": 7240,
+      "sha256": "380f9c97637efd9ecd2933f8be4efbe9d6888e8411db1a696a79360aa23a0da2",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 57,
+      "sha256": "65aa66885a394183c8ccbe488da9f852c0c6db776de6f2c2b1f1a5f9e7b01c01",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules/base.py",
+      "mediaType": "text/x-python",
+      "size": 342,
+      "sha256": "85824320d74b638c9677550b8883dfb92b3b99e15efcb02f00667b2870471acf",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules/email_classifier.py",
+      "mediaType": "text/x-python",
+      "size": 98694,
+      "sha256": "e90a9c2818690183a83d8ecd66c26b428433960a99e8348731d1a5cd85acbaf9",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules/engine.py",
+      "mediaType": "text/x-python",
+      "size": 146786,
+      "sha256": "9f9e8691b292b66a60e55941ef596f8c1b0b0ee42dd9f4c557839fccf5d6b0e1",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/rules/triage_rules.py",
+      "mediaType": "text/x-python",
+      "size": 6773,
+      "sha256": "da0d9dc202c5df59b473893ec241ed3354d1f4018fdca0fbdaefcebc444b5479",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/ui/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 339,
+      "sha256": "e19a103a57b717fa2fdb2cfa1d1ef2f8280b4da2b98228d96cc87924da47994e",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/cedocumentmapper_v2/ui/paths.py",
+      "mediaType": "text/x-python",
+      "size": 3067,
+      "sha256": "121326be03598a61edef6f21b2ec808864c02b39edf7b5323268f9e17d0ba857",
+      "category": "source",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/ocr/function_app.py",
       "mediaType": "text/x-python",
       "size": 13539,
@@ -36319,8 +36760,8 @@
     {
       "path": "services/functions/ocr/requirements.txt",
       "mediaType": "text/plain",
-      "size": 1383,
-      "sha256": "5b08ce413c9f5731e152472b8b39170309949768cd46ff58aea85ab099ce929f",
+      "size": 1863,
+      "sha256": "f3fbfc642c0957feafaf1e51243201005b13c22c9bc7a0557f06a2ec360e5a75",
       "category": "documentation",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -36330,6 +36771,15 @@
       "mediaType": "text/x-python",
       "size": 394,
       "sha256": "3c72c62f85eabb75f0e4fac8fcee9f56fd3d20130d3f86013e650a0569092df7",
+      "category": "test",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/tests/fixtures/collision-repair-estimate-01.pdf",
+      "mediaType": "application/pdf",
+      "size": 2632,
+      "sha256": "79d858269cd7561be9b8f27dc1c6b72049e9a0160f6074e0866956e2aca3c86e",
       "category": "test",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -36348,6 +36798,15 @@
       "mediaType": "text/x-python",
       "size": 5777,
       "sha256": "1d10627b5fe8e3a95591d6dfda721c40be0aff3d6f9532029d2ddfa64be177e5",
+      "category": "test",
+      "owner": "image-analysis",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/ocr/tests/test_engine_real_path.py",
+      "mediaType": "text/x-python",
+      "size": 1597,
+      "sha256": "c5491c17feb15ab122523d0211f2782b660152c71ebced8a802d0aa67b7383a8",
       "category": "test",
       "owner": "image-analysis",
       "lifecycle": "active"
