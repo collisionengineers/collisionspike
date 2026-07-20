@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1118 directories, 3718 files.
+Grand total: 1118 directories, 3723 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1080,11 +1080,11 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 568 directories, 1404 files
+### docs — 568 directories, 1405 files
 
 ```text
 docs/  (1 file)
-  adr/  (31 files)
+  adr/  (32 files)
   architecture/  (10 files)
   design/  (3 files)
     product-demo/  (2 files)
@@ -1221,11 +1221,7 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/  (3 files)
         evidence/  (1 file)
-      TKT-267-python-packaging-doctrine-decision/  (3 files)
-        evidence/  (1 file)
       TKT-268-python-token-backoff-conformance-suite/  (3 files)
-        evidence/  (1 file)
-      TKT-269-vendored-parser-cross-language-parity-guard/  (3 files)
         evidence/  (1 file)
       TKT-270-hardcore-repository-drift-audit/  (3 files)
         evidence/  (1 file)
@@ -1513,6 +1509,10 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-266-route-authority-inventory-guard/  (3 files)
         evidence/  (1 file)
+      TKT-267-python-packaging-doctrine-decision/  (3 files)
+        evidence/  (1 file)
+      TKT-269-vendored-parser-cross-language-parity-guard/  (3 files)
+        evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1740,7 +1740,7 @@ infrastructure/  (1 file)
     vehicle-enrichment/  (1 file)
 ```
 
-### packages — 15 directories, 109 files
+### packages — 15 directories, 110 files
 
 ```text
 packages/  (0 files)
@@ -1752,7 +1752,7 @@ packages/  (0 files)
       data/  (0 files)
         code-tables/  (17 files)
         schema/  (1 file)
-      domain/  (36 files)
+      domain/  (37 files)
       dto/  (4 files)
       model/  (9 files)
   server-runtime/  (4 files)
@@ -1760,12 +1760,12 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
-### scripts — 18 directories, 100 files
+### scripts — 18 directories, 103 files
 
 ```text
 scripts/  (6 files)
   build/  (3 files)
-  checks/  (41 files)
+  checks/  (44 files)
     fixtures/  (0 files)
       managed-identity-mint/  (2 files)
       route-authority/  (1 file)
@@ -2150,9 +2150,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3718 | 3718 | PASS |
+| Proposed tree files == ledger final files | 3723 | 3723 | PASS |
 | Proposed tree directories == ledger final directories | 1118 | 1118 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3720 | 3720 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3725 | 3725 | PASS |
 | Proposed directories == inventory directories | 1118 | 1118 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the

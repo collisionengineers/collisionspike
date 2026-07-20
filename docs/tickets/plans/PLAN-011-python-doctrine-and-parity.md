@@ -67,20 +67,20 @@ a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/3 done (0%).**
+**2/3 done (66%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 0 |
+| Done | 2 |
 | Next | 0 |
-| Backlog | 3 |
+| Backlog | 1 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
-| [TKT-267](../backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | backlog | Decide and record the Python packaging doctrine |
+| [TKT-267](../done/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | done | Decide and record the Python packaging doctrine |
 | [TKT-268](../backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | backlog | Implement the Python authentication and retry doctrine outcome |
-| [TKT-269](../backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | backlog | Guard independently duplicated parser and domain rules |
+| [TKT-269](../done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | done | Guard independently duplicated parser and domain rules |
 <!-- /GENERATED:PROGRESS -->

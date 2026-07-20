@@ -29,7 +29,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-008](./plans/PLAN-008-canonical-service-routes.md) — Canonical service routes | active | 6/6 (100%) |
 | [PLAN-009](./plans/PLAN-009-cloud-estate-cleanup.md) — Cloud estate cleanup | active | 3/6 (50%) |
 | [PLAN-010](./plans/PLAN-010-scripts-and-tooling-dedup.md) — Scripts and tooling dedup | active | 4/4 (100%) |
-| [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 0/3 (0%) |
+| [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 2/3 (66%) |
 | [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 0/5 (0%) |
 
 [Open the generated board](./BOARD.md).
@@ -108,7 +108,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (138)
+## Done (140)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -250,13 +250,15 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-264](./done/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Share the outbox monitor lifecycle without flattening lane protocols | P2 | platform | PLAN-008 |
 | [TKT-265](./done/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Retire dead orchestration parser and location client exports | P3 | platform | PLAN-008 |
 | [TKT-266](./done/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | Add the route and authority inventory guard | P2 | platform | PLAN-008 |
+| [TKT-267](./done/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 | platform | PLAN-011 |
+| [TKT-269](./done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 | platform | PLAN-011 |
 
 ## Next (0)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (57)
+## Backlog (55)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -309,9 +311,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 | platform | PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 | platform | PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
-| [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 | platform | PLAN-011 |
 | [TKT-268](./backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 | platform | PLAN-011 |
-| [TKT-269](./backlog/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 | platform | PLAN-011 |
 | [TKT-270](./backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | Run the hardcore repository duplication and drift audit | P1 | platform | PLAN-012 |
 | [TKT-271](./backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 | platform | PLAN-012 |
 | [TKT-272](./backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | Record and enforce the repository-structure and package-boundary rules | P2 | platform | PLAN-012 |

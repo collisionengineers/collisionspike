@@ -1,7 +1,9 @@
 # Python function services
 
 Each child directory is an independently packaged Python service with its own contract, tests,
-requirements, and deployment inputs.
+requirements, and deployment inputs. Cross-service duplication is checked, not shared — see
+[ADR-0032](../../docs/adr/0032-python-independent-packaging.md) (the packaging doctrine; Decision of
+record).
 
 | Service | Responsibility |
 | --- | --- |
