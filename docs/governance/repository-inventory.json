@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1117,
-    "files": 3716,
-    "entries": 4833
+    "directories": 1118,
+    "files": 3720,
+    "entries": 4838
   },
-  "totalFileBytes": 703938691,
+  "totalFileBytes": 703998719,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4844,6 +4826,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6951,6 +6951,15 @@
     },
     {
       "path": "scripts/checks/fixtures/managed-identity-mint",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "scripts/checks/fixtures/route-authority",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15574,7 +15583,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1514718,
+      "size": 1516245,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15592,8 +15601,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4272066,
-      "sha256": "102b9e13a22dbacc88471c4d8047bc1185417254da74498609ee36e88fac520b",
+      "size": 4274012,
+      "sha256": "ce4c298d22f2660ea4e64cea79615b736bebbf7f651ff99f1260c27f0ebbffff",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15601,8 +15610,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67757,
-      "sha256": "6b5161fc282f900394ea6bd528ce3c310db7a825c22b55358b1c154623298191",
+      "size": 67791,
+      "sha256": "c6144c4675d6bb45c73cf7209f08c1cee3e2d7a6a8bf8b5660904833bb4ea86f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16105,8 +16114,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49285,
-      "sha256": "14cdccedfe4275c496e8b36fbbea60d5f2f5e86dbbe92259be8e80cb1e2ea55c",
+      "size": 49282,
+      "sha256": "12384cc4b900f1774ea3c001581b93a01af225dfee33bdab7467f5398f724bcf",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16114,8 +16123,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52128,
-      "sha256": "803812f9570411a2787d3ca0384c2e9946918abf5544e2888f0275963ef94ca1",
+      "size": 52126,
+      "sha256": "e03a8d3a2e103891d9b48780137905f0e35e86b0cffdc89168ef37f126c3474b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18078,42 +18087,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md",
-      "mediaType": "text/markdown",
-      "size": 3123,
-      "sha256": "85e26b46334421f48ef962cc3849e2605431afa32a18b62568c43f7af434ab92",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard/changes.md",
-      "mediaType": "text/markdown",
-      "size": 92,
-      "sha256": "763282a6b9165abcfcd5599a4b31777fa40c2936d07c1e0a7b487c8b8eb9b24b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1003,
-      "sha256": "91c76df4f12a343215e63d33b0d6b88a52aef1cfbf127694195ba1dc05a0c201",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-266-route-authority-inventory-guard/verification.md",
-      "mediaType": "text/markdown",
-      "size": 177,
-      "sha256": "0a39234ae12c809250d96726a48cde82c2fa081c764a67902e7bc1a670dbfb17",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24419,6 +24392,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md",
+      "mediaType": "text/markdown",
+      "size": 3117,
+      "sha256": "336d0180c921d47bfda038e2d5cb2f6d28725ba394e7bf7083814b8a884e6f0e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3266,
+      "sha256": "98a5187b42586ab04a6b95b32dbff229f7365d4d3dcbac1271767171dac69d7d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1003,
+      "sha256": "91c76df4f12a343215e63d33b0d6b88a52aef1cfbf127694195ba1dc05a0c201",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-266-route-authority-inventory-guard/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2662,
+      "sha256": "1a700dc8d09086bef66962ef8e9856fba119fb3dcba98bd04af4a92b64770a99",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26050,8 +26059,8 @@
     {
       "path": "docs/tickets/plans/PLAN-008-canonical-service-routes.md",
       "mediaType": "text/markdown",
-      "size": 6890,
-      "sha256": "d201bbf518eb9bfba7649a2ac6dc55b12f61580cd052aa78bdb437c70871578a",
+      "size": 6885,
+      "sha256": "32602946e00dc86e26a0f25cd610222dd88ffa5071f399b5c243fe538dcf6e49",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29668,8 +29677,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5216,
-      "sha256": "86b94cba929c0a4849686394de3354ff70750ff5b002316cca1205c8174ab3c3",
+      "size": 5294,
+      "sha256": "04ab3eb1fcd1f3533fc9d606c03ddc3bf215105b975bb03bc0f8e12590b8c797",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30818,6 +30827,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/check-route-authority.mjs",
+      "mediaType": "text/javascript",
+      "size": 20994,
+      "sha256": "221f51ef7e0d343c35f42a2e55cad2cbbdab040b1e580831e6a08a45f2320d3d",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-route-authority.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 6121,
+      "sha256": "b3b920d1b171f9aa6681359aacca1641c02262b019b171f900fb6c8ef543c8d4",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/check-runtime-contract.mjs",
       "mediaType": "text/javascript",
       "size": 1888,
@@ -30912,6 +30939,15 @@
       "mediaType": "text/typescript",
       "size": 1725,
       "sha256": "b826d316856c07fe4ae59976a68f69d5b6fdd90ef03022e679c35c6859b1e26a",
+      "category": "fixture",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/fixtures/route-authority/second-trust-helper.fixture.ts",
+      "mediaType": "text/typescript",
+      "size": 1746,
+      "sha256": "45d527e4f6485cff7f4d07c0335a44ad3ec37e5fb6d85b10fb7aeacdf1087f4e",
       "category": "fixture",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31038,6 +31074,15 @@
       "mediaType": "text/plain",
       "size": 34,
       "sha256": "e85ab8e34c115486136e49578d89db49e96dbce24e5f58bcd789a06a232f5669",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/route-authority-inventory.json",
+      "mediaType": "application/json",
+      "size": 21853,
+      "sha256": "aa58650a4c2e63d3ac92b1a307b50995228fe8d4d18b3773da87f758890884e3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -42664,8 +42709,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 5881,
-      "sha256": "cc446ee83b66dc1921c78400ce9e08ceb00d81dea95f022dcd0276c97f988f56",
+      "size": 5967,
+      "sha256": "ace5c6ccd4e040f42b9b80b1e0a40034ac12d729cc69b71870785ed1b077bf1d",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

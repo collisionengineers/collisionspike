@@ -1,0 +1,730 @@
+{
+  "schemaVersion": 1,
+  "authorities": [
+    {
+      "name": "internalBoxFileRequestOutboxDrain",
+      "owner": "services/data-api/src/features/archive/file-request-outbox-routes.ts",
+      "route": "internal/box-file-request-outbox/drain",
+      "methods": [
+        "POST"
+      ],
+      "capability": "box-file-request-outbox",
+      "transition": "drain_stamp",
+      "writeAuthority": true
+    },
+    {
+      "name": "internalEvidenceBoxClassification",
+      "owner": "services/data-api/src/features/archive/internal-classification-routes.ts",
+      "route": "internal/evidence/{id}/box-classification",
+      "methods": [
+        "POST"
+      ],
+      "capability": "evidence",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalEvidenceUnclassifiedBox",
+      "owner": "services/data-api/src/features/archive/internal-classification-routes.ts",
+      "route": "internal/evidence/unclassified-box",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "capability": "evidence",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesArchiveEvidence",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/archive-evidence",
+      "methods": [
+        "GET"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesArchiveEvidenceRelease",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/archive-evidence/release",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesArchiveEvidenceStamp",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/archive-evidence/stamp",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesMarkDone",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/mark-done",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesSetIngested",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/set-ingested",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesStatusEvaluate",
+      "owner": "services/data-api/src/features/archive/internal-evidence-routes.ts",
+      "route": "internal/cases/{id}/status-evaluate",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveMirrorOutboxComplete",
+      "owner": "services/data-api/src/features/archive/mirror-outbox-routes.ts",
+      "route": "internal/archive-mirror-outbox/{id}/complete",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-mirror-outbox",
+      "transition": "completed_generation",
+      "writeAuthority": true
+    },
+    {
+      "name": "internalArchiveMirrorOutboxDefer",
+      "owner": "services/data-api/src/features/archive/mirror-outbox-routes.ts",
+      "route": "internal/archive-mirror-outbox/{id}/defer",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-mirror-outbox",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveMirrorOutboxPending",
+      "owner": "services/data-api/src/features/archive/mirror-outbox-routes.ts",
+      "route": "internal/archive-mirror-outbox/pending",
+      "methods": [
+        "GET"
+      ],
+      "capability": "archive-mirror-outbox",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalProviderArchiveOutboxComplete",
+      "owner": "services/data-api/src/features/archive/provider-outbox-routes.ts",
+      "route": "internal/provider-archive-outbox/{id}/complete",
+      "methods": [
+        "POST"
+      ],
+      "capability": "provider-archive-outbox",
+      "transition": "provider_archive_completed_generation",
+      "writeAuthority": true
+    },
+    {
+      "name": "internalProviderArchiveOutboxDefer",
+      "owner": "services/data-api/src/features/archive/provider-outbox-routes.ts",
+      "route": "internal/provider-archive-outbox/{id}/defer",
+      "methods": [
+        "POST"
+      ],
+      "capability": "provider-archive-outbox",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalProviderArchiveOutboxPending",
+      "owner": "services/data-api/src/features/archive/provider-outbox-routes.ts",
+      "route": "internal/provider-archive-outbox/pending",
+      "methods": [
+        "GET"
+      ],
+      "capability": "provider-archive-outbox",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingAdoptionCandidates",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/adoption-candidates",
+      "methods": [
+        "GET"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingAdoptionFailed",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/{id}/failed",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingCheckpoint",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/{id}/files/{fileId}/checkpoint",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingClaim",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/cases/{id}/archive-holding/claim",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingDeferredClaim",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/deferred/claim",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingDeferredComplete",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/deferred/{id}/complete",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingDeferredFailed",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/deferred/{id}/failed",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingFinalize",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/{id}/finalize",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingRegister",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/register",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingReserve",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/reserve",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingUploadClaim",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/uploads/claim",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingUploaded",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/files/{id}/uploaded",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalArchiveHoldingUploadFailed",
+      "owner": "services/data-api/src/features/cases/internal-archive-holding.ts",
+      "route": "internal/archive-holding/files/{id}/failed",
+      "methods": [
+        "POST"
+      ],
+      "capability": "archive-holding",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCaseBoxFolderGet",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/cases/{id}/box-folder",
+      "methods": [
+        "GET"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCaseBoxFolderStamp",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/cases/{id}/box-folder",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalOutlookLinkBackfillCandidates",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/outlook-links/backfill-candidates",
+      "methods": [
+        "GET"
+      ],
+      "capability": "outlook-links",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalOutlookLinkBackfillResult",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/outlook-links/backfill-result",
+      "methods": [
+        "POST"
+      ],
+      "capability": "outlook-links",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalStatusRecomputeComplete",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/status-recompute/{id}/complete",
+      "methods": [
+        "POST"
+      ],
+      "capability": "status-recompute",
+      "transition": "status_recompute_completed_generation",
+      "writeAuthority": true
+    },
+    {
+      "name": "internalStatusRecomputePending",
+      "owner": "services/data-api/src/features/cases/internal-maintenance-routes.ts",
+      "route": "internal/status-recompute/pending",
+      "methods": [
+        "GET"
+      ],
+      "capability": "status-recompute",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalAudit",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/audit",
+      "methods": [
+        "POST"
+      ],
+      "capability": "audit",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalBoxCaseByFolder",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/box/case-by-folder/{folderId}",
+      "methods": [
+        "GET"
+      ],
+      "capability": "box",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalBoxMarkPurged",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/box/mark-purged",
+      "methods": [
+        "POST"
+      ],
+      "capability": "box",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalBoxPurgeCandidates",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/box/purge-candidates",
+      "methods": [
+        "GET"
+      ],
+      "capability": "box",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesLookup",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/cases/lookup",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalDispositionCase",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/disposition/{id}",
+      "methods": [
+        "POST"
+      ],
+      "capability": "disposition",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalDispositionDue",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/disposition/due",
+      "methods": [
+        "GET"
+      ],
+      "capability": "disposition",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalEvaSubmission",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/cases/{id}/eva-submission",
+      "methods": [
+        "GET"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalPrincipals",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/principals",
+      "methods": [
+        "GET"
+      ],
+      "capability": "principals",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalStaffUploadCleanupClaim",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/staff-upload-cleanup/claim",
+      "methods": [
+        "POST"
+      ],
+      "capability": "staff-upload-cleanup",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalStaffUploadCleanupComplete",
+      "owner": "services/data-api/src/features/cases/internal-operations-routes.ts",
+      "route": "internal/staff-upload-cleanup/{id}/complete",
+      "methods": [
+        "POST"
+      ],
+      "capability": "staff-upload-cleanup",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesResolve",
+      "owner": "services/data-api/src/features/cases/internal-resolution-routes.ts",
+      "route": "internal/cases/resolve",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalEvidenceBackfillRequestDrain",
+      "owner": "services/data-api/src/features/evidence/backfill-drain-route.ts",
+      "route": "internal/evidence-backfill-requests/drain",
+      "methods": [
+        "POST"
+      ],
+      "capability": "evidence-backfill-requests",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundEvidenceBackfill",
+      "owner": "services/data-api/src/features/evidence/internal-backfill-routes.ts",
+      "route": "internal/inbound/{id}/evidence-backfill",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundEvidenceBackfillValidate",
+      "owner": "services/data-api/src/features/evidence/internal-backfill-routes.ts",
+      "route": "internal/inbound/{id}/evidence-backfill/validate",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalCasesEvidence",
+      "owner": "services/data-api/src/features/evidence/internal-persist-routes.ts",
+      "route": "internal/cases/{id}/evidence",
+      "methods": [
+        "POST"
+      ],
+      "capability": "cases",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundAttention",
+      "owner": "services/data-api/src/features/evidence/internal-persist-routes.ts",
+      "route": "internal/inbound/attention",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundEmail",
+      "owner": "services/data-api/src/features/inbound/internal-record-routes.ts",
+      "route": "internal/inbound-email",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound-email",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundLinkReply",
+      "owner": "services/data-api/src/features/inbound/internal-record-routes.ts",
+      "route": "internal/inbound/link-reply",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalInboundOutlookMoved",
+      "owner": "services/data-api/src/features/inbound/internal-triage-routes.ts",
+      "route": "internal/inbound/{id}/outlook-moved",
+      "methods": [
+        "POST"
+      ],
+      "capability": "inbound",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalTriageContext",
+      "owner": "services/data-api/src/features/inbound/internal-triage-routes.ts",
+      "route": "internal/triage/context",
+      "methods": [
+        "POST"
+      ],
+      "capability": "triage",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalTriageHeldPreInstruction",
+      "owner": "services/data-api/src/features/inbound/internal-triage-routes.ts",
+      "route": "internal/triage/held-pre-instruction",
+      "methods": [
+        "POST"
+      ],
+      "capability": "triage",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalTriageSuggestLink",
+      "owner": "services/data-api/src/features/inbound/internal-triage-routes.ts",
+      "route": "internal/triage/suggest-link",
+      "methods": [
+        "POST"
+      ],
+      "capability": "triage",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalRetroBackfillFields",
+      "owner": "services/data-api/src/features/inbound/retro-routes.ts",
+      "route": "internal/retro/backfill-fields",
+      "methods": [
+        "POST"
+      ],
+      "capability": "retro",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalRetroCreate",
+      "owner": "services/data-api/src/features/inbound/retro-routes.ts",
+      "route": "internal/retro/create",
+      "methods": [
+        "POST"
+      ],
+      "capability": "retro",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalRetroLinkRelated",
+      "owner": "services/data-api/src/features/inbound/retro-routes.ts",
+      "route": "internal/retro/link-related",
+      "methods": [
+        "POST"
+      ],
+      "capability": "retro",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalRetroResolveExisting",
+      "owner": "services/data-api/src/features/inbound/retro-routes.ts",
+      "route": "internal/retro/resolve-existing",
+      "methods": [
+        "POST"
+      ],
+      "capability": "retro",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalDedupContext",
+      "owner": "services/data-api/src/features/providers/internal-routes.ts",
+      "route": "internal/dedup-context",
+      "methods": [
+        "GET"
+      ],
+      "capability": "dedup-context",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalProviderMatchRecords",
+      "owner": "services/data-api/src/features/providers/internal-routes.ts",
+      "route": "internal/provider-match-records",
+      "methods": [
+        "GET"
+      ],
+      "capability": "provider-match-records",
+      "transition": null,
+      "writeAuthority": false
+    },
+    {
+      "name": "internalWorkProviderAiAllowed",
+      "owner": "services/data-api/src/features/providers/internal-routes.ts",
+      "route": "internal/work-provider/{id}/ai-allowed",
+      "methods": [
+        "GET"
+      ],
+      "capability": "work-provider",
+      "transition": null,
+      "writeAuthority": false
+    }
+  ],
+  "delegations": [
+    {
+      "capability": "parser",
+      "callerLane": "public-staff",
+      "owner": "services/data-api/src/platform/http/proxy-routes.ts",
+      "route": "parser/parse",
+      "delegatesTo": "parser-fn"
+    },
+    {
+      "capability": "location-assist",
+      "callerLane": "public-staff",
+      "owner": "services/data-api/src/platform/http/proxy-routes.ts",
+      "route": "location-assist/suggest",
+      "delegatesTo": "location-suggest-fn"
+    }
+  ],
+  "downstreams": [
+    "parser-fn",
+    "location-suggest-fn"
+  ]
+}
