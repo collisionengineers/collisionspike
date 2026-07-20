@@ -4,6 +4,10 @@ title: Canonical service routes
 status: active
 tickets: [TKT-245, TKT-262, TKT-263, TKT-264, TKT-265, TKT-266]
 depends-on: [PLAN-007]
+plan-kind: consolidation
+terminal-guard: TKT-266
+terminal-guard-command: check:route-authority
+guard-mode: ast-import
 ---
 
 # PLAN-008 — Canonical service routes

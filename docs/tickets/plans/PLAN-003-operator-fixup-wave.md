@@ -4,6 +4,7 @@ title: Operator review and fix-up wave
 status: active
 tickets: [TKT-010, TKT-024, TKT-070, TKT-099, TKT-116, TKT-117, TKT-118, TKT-119, TKT-120, TKT-121, TKT-122, TKT-123, TKT-124, TKT-125, TKT-126, TKT-127, TKT-128, TKT-129, TKT-130, TKT-131, TKT-132, TKT-133, TKT-134, TKT-135, TKT-136, TKT-137, TKT-138, TKT-139, TKT-140, TKT-141, TKT-142, TKT-143, TKT-144, TKT-145, TKT-146, TKT-147, TKT-148]
 depends-on: []
+plan-kind: remediation
 ---
 
 # PLAN-003 — Operator review and fix-up wave

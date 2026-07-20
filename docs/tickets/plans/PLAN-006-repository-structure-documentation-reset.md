@@ -4,6 +4,7 @@ title: Repository structure and documentation reset
 status: done
 tickets: [TKT-020, TKT-207, TKT-208, TKT-209, TKT-210, TKT-211, TKT-212, TKT-213, TKT-214, TKT-215]
 depends-on: []
+plan-kind: governance
 ---
 
 # PLAN-006 — Repository structure and documentation reset

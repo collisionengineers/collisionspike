@@ -4,6 +4,7 @@
 - [Documentation maintenance](./documentation.md) — authority, freshness, links, and deletion rules.
 - [Repository data authority](./repository-data-authority.md) — evidence-processing authority and limits.
 - [Decisions and reviews](./decisions-and-reviews.md) — precedence and change recording.
+- [Anti-drift guards](./anti-drift-guards.md) — guard modes, plan classification, and the derived guard register.
 
 - [Repository tree](./repository-tree.md) — human-readable current and proposed trees, reconciled to the ledgers.
 

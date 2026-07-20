@@ -76,7 +76,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (142)
+## Done (143)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -222,13 +222,14 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-268](./done/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | Implement the Python authentication and retry doctrine outcome | P2 · platform · PLAN-011 |
 | [TKT-269](./done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | Guard independently duplicated parser and domain rules | P2 · platform · PLAN-011 |
 | [TKT-270](./done/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | Run the hardcore repository duplication and drift audit | P1 · platform · PLAN-012 |
+| [TKT-271](./done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 · platform · PLAN-012 |
 
 ## Next (0)
 
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (56)
+## Backlog (55)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -281,7 +282,6 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 · platform · PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 · platform · PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 · platform · PLAN-009 |
-| [TKT-271](./backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | Establish the anti-drift guard doctrine and meta-guard | P1 · platform · PLAN-012 |
 | [TKT-272](./backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | Record and enforce the repository-structure and package-boundary rules | P2 · platform · PLAN-012 |
 | [TKT-273](./backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md) | Add the LIVE_FACTS and ledger integrity standing check | P2 · platform · PLAN-012 |
 | [TKT-274](./backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md) | Restore distillation-boundary reviewability and record the rule-of-three | P3 · platform · PLAN-012 |

@@ -66,6 +66,8 @@ const checks = [
   ['Route and authority inventory', 'node scripts/checks/check-route-authority.mjs'],
   ['Auth-conformance inventory', 'node scripts/checks/check-auth-inventory.mjs'],
   ['Scripts single-source drift', 'node scripts/checks/check-scripts-dedup.mjs'],
+  ['Cross-language parser/domain parity', 'npm run test --workspace @cs/domain -- parser-parity'],
+  ['Anti-drift guard register', 'node scripts/checks/check-guard-register.mjs'],
   ['Owned source size', 'node scripts/checks/check-source-size.mjs'],
   ['Repository inventory', 'node scripts/maintenance/generate-repository-inventory.mjs --check'],
   ['Repository reset reconciliation', 'node scripts/maintenance/reconcile-repository-reset.mjs'],

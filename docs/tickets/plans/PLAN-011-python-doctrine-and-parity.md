@@ -4,6 +4,10 @@ title: Python runtime doctrine and cross-language parity
 status: active
 tickets: [TKT-267, TKT-268, TKT-269]
 depends-on: [PLAN-009]
+plan-kind: consolidation
+terminal-guard: TKT-269
+terminal-guard-command: check:parity
+guard-mode: behavioural-fixture
 ---
 
 # PLAN-011 — Python runtime doctrine and cross-language parity

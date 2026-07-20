@@ -27,6 +27,34 @@ export const LIFECYCLE_STATUSES = [
 export const PLAN_STATUSES = ["active", "done", "superseded"];
 export const PRIORITIES = ["P0", "P1", "P2", "P3"];
 
+// Machine-readable plan classification (TKT-271 / PLAN-012). Every plan declares one `plan-kind`.
+//   feature       — delivers new product capability.
+//   remediation   — fixes, reconciles, or cleans up existing state.
+//   consolidation — removes structural duplication behind a terminal drift guard.
+//   governance    — establishes rules, docs, or checks with no functional change.
+export const PLAN_KINDS = ["feature", "remediation", "consolidation", "governance"];
+export const CONSOLIDATION_PLAN_KIND = "consolidation";
+
+// Anti-drift guard modes (TKT-271 A1). A consolidation plan's terminal guard declares the mode that
+// matches its risk; naive lexical bans are never an accepted mode.
+//   ast-import          — AST/import analysis of TypeScript source syntax.
+//   import-reference    — import/reference analysis of shared-source policy.
+//   behavioural-fixture — cross-language behavioural fixtures.
+//   machine-evidence    — machine-readable evidence comparison for live state.
+export const GUARD_MODES = [
+  "ast-import",
+  "import-reference",
+  "behavioural-fixture",
+  "machine-evidence",
+];
+
+// The flat frontmatter fields a consolidation plan must carry so the ticket parser can read them.
+export const TERMINAL_GUARD_FIELDS = [
+  "terminal-guard",
+  "terminal-guard-command",
+  "guard-mode",
+];
+
 const STATUS_TITLES = new Map([
   ["now", "Now"],
   ["verify", "Verify"],

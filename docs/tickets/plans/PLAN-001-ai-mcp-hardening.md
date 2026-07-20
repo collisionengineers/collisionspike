@@ -4,6 +4,7 @@ title: Harden and extend AI and agent capabilities
 status: active
 tickets: [TKT-015, TKT-016, TKT-017, TKT-018, TKT-060, TKT-064, TKT-066, TKT-067, TKT-068, TKT-069, TKT-072, TKT-088, TKT-107, TKT-110, TKT-111, TKT-112, TKT-113]
 depends-on: []
+plan-kind: feature
 ---
 
 # PLAN-001 — Harden and extend AI and agent capabilities

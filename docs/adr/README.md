@@ -37,6 +37,7 @@ progress, branch history, or incident diaries.
 | [0030](./0030-outbox-generation-counter-reliability.md) | Archive mirroring runs on a per-evidence generation-counter outbox | Accepted |
 | [0031](./0031-server-runtime-boundary.md) | Server-only runtime plumbing (`@cs/server-runtime`) is a separate SDK-allowed package from browser-safe `@cs/domain` | Accepted |
 | [0032](./0032-python-independent-packaging.md) | Python function services are independently packaged; duplication is checked (conformance + parity), not shared | Accepted |
+| [0033](./0033-anti-drift-guard-doctrine.md) | Standing drift is caught by a modality-appropriate terminal guard, registered from plan metadata | Accepted |
 
 Changing an accepted decision requires a new ADR or an explicit superseding amendment. Exact live state
 belongs in [LIVE_FACTS.json](../../LIVE_FACTS.json).

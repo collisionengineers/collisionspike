@@ -4,6 +4,7 @@ title: Case done lifecycle
 status: active
 tickets: [TKT-094, TKT-095, TKT-096]
 depends-on: []
+plan-kind: feature
 ---
 
 # PLAN-002 — Case done lifecycle
