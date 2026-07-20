@@ -13,7 +13,7 @@ VRM and Case/PO rules). Where duplication is genuinely present, it is converted 
 
 - The divergent per-client **authentication and retry** policies are pinned by a shared **test-only**
   behavioural conformance harness against an explicit, checked per-client inventory
-  ([TKT-268](../tickets/now/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md)).
+  ([TKT-268](../tickets/done/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md)).
   It asserts only the expiry-aware-reuse, one-time-refresh, bounded-transient-retry, and `Retry-After`
   behaviours each client actually claims — never identical internals.
 - The independently implemented **vendored-parser** VRM canonicalisation and Case/PO-marker recognition

@@ -9,5 +9,7 @@ import os
 import sys
 
 _FUNCTION_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if _FUNCTION_ROOT not in sys.path:
-    sys.path.insert(0, _FUNCTION_ROOT)
+_FUNCTIONS_DIR = os.path.dirname(_FUNCTION_ROOT)  # services/functions — for the shared _authconf harness (TKT-268)
+for _path in (_FUNCTIONS_DIR, _FUNCTION_ROOT):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)

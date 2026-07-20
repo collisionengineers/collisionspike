@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1122,
-    "files": 3739,
-    "entries": 4861
+    "directories": 1123,
+    "files": 3749,
+    "entries": 4872
   },
-  "totalFileBytes": 704088227,
+  "totalFileBytes": 704123555,
   "entries": [
     {
       "path": ".",
@@ -4817,6 +4817,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/done/TKT-269-vendored-parser-cross-language-parity-guard",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5484,24 +5502,6 @@
     },
     {
       "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -7302,6 +7302,15 @@
     },
     {
       "path": "services/functions",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/functions/_authconf",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15439,8 +15448,8 @@
     {
       "path": "docs/adr/0032-python-independent-packaging.md",
       "mediaType": "text/markdown",
-      "size": 4711,
-      "sha256": "11e7777f139797d54c8ee55e44d4e48420e910af7887032a916a1eeb7e4db667",
+      "size": 4712,
+      "sha256": "4b3b2a259fe925fdc13dcf2e28c97b3e5aa7a2bee2529025d16324d038646a32",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15628,7 +15637,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1523542,
+      "size": 1526896,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15646,8 +15655,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4283264,
-      "sha256": "9c1669d35036f10b8b97c3549665cec6496311fde6f9e790503ca02105034cb9",
+      "size": 4287580,
+      "sha256": "e7cf7b13d6be588d60bfa123ba582851fbccb78913d32187dc1c9ecc50ec1f39",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15655,8 +15664,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68012,
-      "sha256": "e739bd985b87f6382bc80afe619ef354138e4cecf2c8d2c9319097ff8e5f5716",
+      "size": 68039,
+      "sha256": "68812ad1bdbd9cc524fe13d70cffecc27108792686aa108b89dcf2284f43afe7",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16159,8 +16168,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49928,
-      "sha256": "7b260a2f2de6e60502161dee4bdc51cdfdcde53dca411f2f50dd000ac674a857",
+      "size": 49929,
+      "sha256": "6ed8f340d3b85f193442ab2f6cfef1b06b389f40d67d74f48e25cd5d9f8eea91",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16168,8 +16177,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52789,
-      "sha256": "794d6c1781141e40348855c03a2419e6f527c4ec76f808c75c03d76e6301121a",
+      "size": 52791,
+      "sha256": "6c65089103eb0d1aacf9e9241c67e867b22e60524b0c779b559041b7f18c08bb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24446,6 +24455,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md",
+      "mediaType": "text/markdown",
+      "size": 3671,
+      "sha256": "93dc78379ba66c08470b9bf731edcb21348fc994c436173ac796c4bd2ca51512",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4938,
+      "sha256": "172494f9714fa92c56b3c08dd65bad4cbb0ca71d5b8b43e155e8e029d21dbded",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1340,
+      "sha256": "75071de45ec888690f1ec5826f4e576a650839589c42ab228b25847ca086a867",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-268-python-token-backoff-conformance-suite/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2208,
+      "sha256": "8db363b1e79da43a67b530a777927b1ee3dd96ef79ad43504ad0cf0ed56a2ba5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md",
       "mediaType": "text/markdown",
       "size": 3258,
@@ -26093,42 +26138,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md",
-      "mediaType": "text/markdown",
-      "size": 3669,
-      "sha256": "6ca9d9d2ed384937ca9e5417e840b2811adac4fb3c6adec1e8395ff66774e529",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/changes.md",
-      "mediaType": "text/markdown",
-      "size": 3584,
-      "sha256": "4d28136ea0face0c7f10d088074953365bdad4ce93aa31b49900a180436448fd",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1340,
-      "sha256": "75071de45ec888690f1ec5826f4e576a650839589c42ab228b25847ca086a867",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1860,
-      "sha256": "30bbab0bc592bc292b519b3166f22f1efef6be9402f71582c1b37c0c1f4b1af4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4510,
@@ -26230,8 +26239,8 @@
     {
       "path": "docs/tickets/plans/PLAN-011-python-doctrine-and-parity.md",
       "mediaType": "text/markdown",
-      "size": 4853,
-      "sha256": "225d01787f06d90e76203e23cd0ae409c0df939a8d126e8155ab63fe5c6cae60",
+      "size": 4856,
+      "sha256": "1495949097469874b5edc270d39e9e12726b2eb63c7eb89fef4102497b1695b4",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30856,8 +30865,8 @@
     {
       "path": "scripts/checks/check-auth-inventory.mjs",
       "mediaType": "text/javascript",
-      "size": 8037,
-      "sha256": "a2ee20b53465dbd27227a5016752b48b93629fb92a5ade50ce8100ee2cb898c5",
+      "size": 8278,
+      "sha256": "03ec831e693838e5667d5f8977e8402bd0c6914c95b591e328b86f6fb4288811",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -34058,6 +34067,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/_authconf/__init__.py",
+      "mediaType": "text/x-python",
+      "size": 433,
+      "sha256": "c0d674245e10c7732c3542e34f6ef66d8ef1851326a9d601171aa85d2d1b0658",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/_authconf/conformance.py",
+      "mediaType": "text/x-python",
+      "size": 8747,
+      "sha256": "c8f2afe9d76742c151e35399cda62f10a2747505a068fb65c2598cc041a17527",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/_authconf/fakes.py",
+      "mediaType": "text/x-python",
+      "size": 2767,
+      "sha256": "a1ca130c40f072c265bdbd3e67c31c5e8d620d7386147d936e2cafa3a4b23db2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/auth-conformance-inventory.json",
       "mediaType": "application/json",
       "size": 4715,
@@ -34211,10 +34247,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/box-webhook/tests/conftest.py",
+      "mediaType": "text/x-python",
+      "size": 572,
+      "sha256": "d35ccbab1e1089093774ce0f70c7370efd46fc480c62a5e7516b533dbe4a3e53",
+      "category": "test",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/box-webhook/tests/jwt_testkit.py",
       "mediaType": "text/x-python",
       "size": 2077,
       "sha256": "7264a766d4087033ff230eced3fc04e16dc2f894beb42a42659ce46f60b4e674",
+      "category": "test",
+      "owner": "archive-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/box-webhook/tests/test_auth_conformance.py",
+      "mediaType": "text/x-python",
+      "size": 5664,
+      "sha256": "1737e4140a42b86b13cad894ba041f70572c9acbce8916d765e1e5e94c245ae1",
       "category": "test",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -34427,6 +34481,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/eva-sentry/tests/conftest.py",
+      "mediaType": "text/x-python",
+      "size": 540,
+      "sha256": "a4710bc49910572d92fffd78d01cabb0c557d05e0cfb4f301b6d4ad999a7f065",
+      "category": "test",
+      "owner": "eva-integration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/eva-sentry/tests/fixtures/core_payload_valid.json",
       "mediaType": "application/json",
       "size": 436,
@@ -34458,6 +34521,15 @@
       "mediaType": "application/json",
       "size": 111,
       "sha256": "ea8df701d352e25680ce63e937a7c89a51d6d406c32a4429c99d8c572f867f4e",
+      "category": "test",
+      "owner": "eva-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/eva-sentry/tests/test_auth_conformance.py",
+      "mediaType": "text/x-python",
+      "size": 1597,
+      "sha256": "5dc2c6143eab3cea28baffa47ef94ad7667e2bf19da6b51f4922e8694ae8199a",
       "category": "test",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -34591,8 +34663,8 @@
     {
       "path": "services/functions/location-assist/tests/conftest.py",
       "mediaType": "text/x-python",
-      "size": 454,
-      "sha256": "62c3605f755b1dfaf0480c5497c77334b86de571b321743b0e3bb8237180c797",
+      "size": 609,
+      "sha256": "34e4b3df80762e2952dd318f76c3cffe437590d27faf6a715248031138f9a12f",
       "category": "test",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -34611,6 +34683,15 @@
       "mediaType": "text/x-python",
       "size": 4878,
       "sha256": "0b56d0c502e262b66d5080d77d98f0db241cf7b3ccb2d4a620365ab4f1530a20",
+      "category": "test",
+      "owner": "location-suggestions",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/location-assist/tests/test_auth_conformance.py",
+      "mediaType": "text/x-python",
+      "size": 1389,
+      "sha256": "be76465809993b871374e1252dbd3157e63069e50da386a6c640de704c7bb6aa",
       "category": "test",
       "owner": "location-suggestions",
       "lifecycle": "active"
@@ -35678,6 +35759,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/vehicle-enrichment/tests/conftest.py",
+      "mediaType": "text/x-python",
+      "size": 555,
+      "sha256": "24cec77f3420c075624277ef4ecb920fde7d0cd5aa39d164f398f2539f4b56d9",
+      "category": "test",
+      "owner": "vehicle-enrichment",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/vehicle-enrichment/tests/fixtures/chronological_holdouts.json",
       "mediaType": "application/json",
       "size": 8648,
@@ -35718,6 +35808,15 @@
       "mediaType": "application/json",
       "size": 125,
       "sha256": "5cb0aa7fb327da4b08ceed52a492cf15f2af54a811838e0dc232bd2d7f2dc278",
+      "category": "test",
+      "owner": "vehicle-enrichment",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/vehicle-enrichment/tests/test_auth_conformance.py",
+      "mediaType": "text/x-python",
+      "size": 3260,
+      "sha256": "b8c3411071363d0057d5b928a4fcdbf8444d9093dfc6cea00033db8c07ba36b4",
       "category": "test",
       "owner": "vehicle-enrichment",
       "lifecycle": "active"
