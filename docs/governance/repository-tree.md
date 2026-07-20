@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1119 directories, 3727 files.
+Grand total: 1122 directories, 3737 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1080,7 +1080,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 568 directories, 1405 files
+### docs — 571 directories, 1415 files
 
 ```text
 docs/  (1 file)
@@ -1221,8 +1221,6 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/  (3 files)
         evidence/  (1 file)
-      TKT-270-hardcore-repository-drift-audit/  (3 files)
-        evidence/  (1 file)
       TKT-271-anti-drift-guard-doctrine-and-meta-guard/  (3 files)
         evidence/  (1 file)
       TKT-272-repository-structure-and-package-boundary-rules/  (3 files)
@@ -1231,6 +1229,9 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-274-distillation-reviewability-and-rule-of-three/  (3 files)
         evidence/  (1 file)
+      TKT-275-runtime-shared-mechanism-consolidation/  (3 files)
+      TKT-276-status-recompute-authority-unification/  (3 files)
+      TKT-277-cross-language-parity-widening/  (3 files)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
       TKT-009-clickable-case-and-email/  (4 files)
@@ -1511,6 +1512,8 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-269-vendored-parser-cross-language-parity-guard/  (3 files)
         evidence/  (1 file)
+      TKT-270-hardcore-repository-drift-audit/  (3 files)
+        evidence/  (2 files)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -2151,10 +2154,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3727 | 3727 | PASS |
-| Proposed tree directories == ledger final directories | 1119 | 1119 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3729 | 3729 | PASS |
-| Proposed directories == inventory directories | 1119 | 1119 | PASS |
+| Proposed tree files == ledger final files | 3737 | 3737 | PASS |
+| Proposed tree directories == ledger final directories | 1122 | 1122 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3739 | 3739 | PASS |
+| Proposed directories == inventory directories | 1122 | 1122 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a
