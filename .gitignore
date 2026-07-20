@@ -52,6 +52,9 @@ Thumbs.db
 # Test / coverage
 coverage/
 .nyc_output/
+test-results/
+playwright-report/
+blob-report/
 
 # Playwright MCP scratch output (console logs + page snapshots from UI screenshots)
 .playwright-mcp/

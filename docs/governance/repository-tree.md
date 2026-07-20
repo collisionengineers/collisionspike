@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1123 directories, 3769 files.
+Grand total: 1163 directories, 3886 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1034,10 +1034,26 @@ Grand total: 1123 directories, 3769 files.
 .vscode/  (2 files)
 ```
 
-### apps — 23 directories, 205 files
+### apps — 39 directories, 258 files
 
 ```text
 apps/  (0 files)
+  capture-web/  (5 files)
+    public/  (6 files)
+    src/  (4 files)
+      api/  (5 files)
+      app/  (2 files)
+      assets/  (1 file)
+      bootstrap/  (2 files)
+      camera/  (4 files)
+      capture/  (8 files)
+      storage/  (6 files)
+      submission/  (3 files)
+      ui/  (1 file)
+      uploads/  (3 files)
+      vision/  (2 files)
+    tests/  (0 files)
+      e2e/  (1 file)
   web/  (10 files)
     public/  (1 file)
     src/  (2 files)
@@ -1080,12 +1096,12 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 571 directories, 1420 files
+### docs — 589 directories, 1459 files
 
 ```text
 docs/  (1 file)
-  adr/  (33 files)
-  architecture/  (10 files)
+  adr/  (34 files)
+  architecture/  (11 files)
   design/  (3 files)
     product-demo/  (2 files)
   governance/  (7 files)
@@ -1221,6 +1237,16 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/  (3 files)
         evidence/  (1 file)
+      TKT-279-guided-capture-device-camera-matrix/  (3 files)
+        evidence/  (1 file)
+      TKT-280-guided-capture-async-validation-and-derivatives/  (3 files)
+        evidence/  (1 file)
+      TKT-283-guided-capture-spa-deploy-pipeline/  (3 files)
+        evidence/  (1 file)
+      TKT-284-guided-capture-security-corpus-and-runbook/  (3 files)
+        evidence/  (1 file)
+      TKT-285-guided-capture-device-gate-calibration/  (3 files)
+        evidence/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
       TKT-009-clickable-case-and-email/  (4 files)
@@ -1236,6 +1262,8 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-178-production-archive-cutover-reconciliation/  (3 files)
         evidence/  (3 files)
+      TKT-286-guided-capture-advisory-pilot-launch/  (3 files)
+        evidence/  (1 file)
     done/  (0 files)
       TKT-001-document-parsing/  (5 files)
         followup/  (1 file)
@@ -1518,6 +1546,10 @@ docs/  (1 file)
       TKT-275-runtime-shared-mechanism-consolidation/  (3 files)
       TKT-276-status-recompute-authority-unification/  (3 files)
       TKT-277-cross-language-parity-widening/  (3 files)
+      TKT-278-collisioncapture-repository-consolidation/  (3 files)
+        evidence/  (1 file)
+      TKT-281-guided-capture-staff-panel-not-mounted/  (3 files)
+        evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1589,7 +1621,9 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-233-retro-anchor-provenance-and-parse-gaps/  (3 files)
         evidence/  (2 files)
-    plans/  (14 files)
+      TKT-282-guided-capture-live-boundary-verification/  (3 files)
+        evidence/  (1 file)
+    plans/  (15 files)
     verify/  (0 files)
       TKT-016-ai-image-analysis/  (3 files)
         evidence/  (3 files)
@@ -1729,11 +1763,11 @@ emailevals/  (3 files)
   work-logs/  (3 files)
 ```
 
-### infrastructure — 9 directories, 15 files
+### infrastructure — 9 directories, 16 files
 
 ```text
 infrastructure/  (1 file)
-  config-capture/  (4 files)
+  config-capture/  (5 files)
   functions/  (0 files)
     box-webhook/  (2 files)
     eva-sentry/  (1 file)
@@ -1743,10 +1777,16 @@ infrastructure/  (1 file)
     vehicle-enrichment/  (1 file)
 ```
 
-### packages — 15 directories, 113 files
+### packages — 21 directories, 137 files
 
 ```text
 packages/  (0 files)
+  capture-contracts/  (2 files)
+    src/  (2 files)
+  capture-core/  (3 files)
+    src/  (14 files)
+  capture-testkit/  (2 files)
+    src/  (1 file)
   domain/  (4 files)
     src/  (2 files)
       capabilities/  (5 files)
@@ -2155,10 +2195,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3769 | 3769 | PASS |
-| Proposed tree directories == ledger final directories | 1123 | 1123 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3771 | 3771 | PASS |
-| Proposed directories == inventory directories | 1123 | 1123 | PASS |
+| Proposed tree files == ledger final files | 3886 | 3886 | PASS |
+| Proposed tree directories == ledger final directories | 1163 | 1163 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3888 | 3888 | PASS |
+| Proposed directories == inventory directories | 1163 | 1163 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

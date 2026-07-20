@@ -4,7 +4,7 @@ title: Add secure guided photo capture sessions
 status: now
 priority: P1
 area: integration
-tickets-it-relates-to: [TKT-064, TKT-148, TKT-156, TKT-165, TKT-167]
+tickets-it-relates-to: [TKT-064, TKT-148, TKT-156, TKT-165, TKT-167, TKT-278, TKT-281, TKT-282]
 research-link: docs/tickets/now/TKT-200-guided-capture-sessions/evidence/code-audit.md
 plan: PLAN-004
 ---

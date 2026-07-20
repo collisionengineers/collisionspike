@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1123,
-    "files": 3771,
-    "entries": 4894
+    "directories": 1163,
+    "files": 3888,
+    "entries": 5051
   },
-  "totalFileBytes": 704380004,
+  "totalFileBytes": 705182518,
   "entries": [
     {
       "path": ".",
@@ -696,6 +696,150 @@
     },
     {
       "path": "apps",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/public",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/api",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/app",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/assets",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/bootstrap",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/camera",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/capture",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/storage",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/submission",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/ui",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/uploads",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/src/vision",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/tests",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "apps/capture-web/tests/e2e",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -2216,6 +2360,96 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/blocked",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2343,6 +2577,24 @@
     },
     {
       "path": "docs/tickets/blocked/TKT-178-production-archive-cutover-reconciliation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4889,6 +5141,42 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5520,6 +5808,24 @@
     },
     {
       "path": "docs/tickets/now/TKT-233-retro-anchor-provenance-and-parse-gaps/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -6807,6 +7113,60 @@
     },
     {
       "path": "packages",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-contracts",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-contracts/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-core",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-core/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-testkit",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "packages/capture-testkit/src",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -12199,8 +12559,8 @@
     {
       "path": ".github/workflows/capture-contract.yml",
       "mediaType": "application/yaml",
-      "size": 1349,
-      "sha256": "c4ecb584b90b733aa834a692818c59523a31c1a704f850f224293b0cd57a665d",
+      "size": 1726,
+      "sha256": "c54d32251cf3703544937b6e534613631ff60f9a1f853e9962c664f59a3642b8",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -12208,8 +12568,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 10120,
-      "sha256": "489db3c772bb14dacd01769da42394f8ec8fa74f1981bc280318d8626a1fe780",
+      "size": 11556,
+      "sha256": "148421d7f053a91a9b231cc0a731696a1baacc64d0008f0c00b2efd18d9bd06c",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -12217,8 +12577,8 @@
     {
       "path": ".gitignore",
       "mediaType": "text/plain",
-      "size": 2186,
-      "sha256": "4d6c2172338eb68e66cda2044317f54a711dfb77bf8064dde983b6fd8ca77058",
+      "size": 2232,
+      "sha256": "dd19e2cc8f0c688877ff2be3172ef29a7a8213ee1b6b1050164721c745b44eb7",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -12292,6 +12652,483 @@
       "size": 3784,
       "sha256": "502e9d9e03fc274a4b0a0774530a4886e8c08b8e604883f5256f1d9852e18a9b",
       "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/index.html",
+      "mediaType": "text/html",
+      "size": 515,
+      "sha256": "690c2cca62151ee9fa09e6ed42830f59dcf0bd150258e05ba9bb85ea063447ae",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/package.json",
+      "mediaType": "application/json",
+      "size": 863,
+      "sha256": "b5a67ebc8aed0de19d79a56535b4849eaf8c1190df77ac8abb3a51f82aa19f6a",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/playwright.config.ts",
+      "mediaType": "text/typescript",
+      "size": 514,
+      "sha256": "8d1558996fc51a2b4cb81f5fe1d4f4c012ecfa81ea1954858a65dc7d1075cd79",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/apple-touch-icon.png",
+      "mediaType": "image/png",
+      "size": 9215,
+      "sha256": "3f01b63f005b89be2baaca49f6a5ee4eae151fe5b9fe8a5fd218d68f6f202d6a",
+      "category": "asset",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/manifest.webmanifest",
+      "mediaType": "application/octet-stream",
+      "size": 431,
+      "sha256": "ad6ce2167bd06a7c7873fa439d8bec0f47c5b1672c0967ef46425faa9d7eef5b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/pwa-icon-192.png",
+      "mediaType": "image/png",
+      "size": 9980,
+      "sha256": "08dcb6c18d9812d63065bf2a94a750a285a7a07e2de1311f40215531a5427928",
+      "category": "asset",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/pwa-icon-512.png",
+      "mediaType": "image/png",
+      "size": 28443,
+      "sha256": "d971c71b0d000d0a7041f72b9787fba61e28fdb29162cd7ffa078781b7fee968",
+      "category": "asset",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/service-worker.js",
+      "mediaType": "text/javascript",
+      "size": 2090,
+      "sha256": "4b7616683c2523e6f661d870f3feb1dffaa3b1425a6e1dea00cc50cbe3ee84f0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/public/staticwebapp.config.json",
+      "mediaType": "application/json",
+      "size": 344,
+      "sha256": "1606668771ddec8a128224e02490616139630e7fe5684ec9271d161810259e51",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/api/captureApi.ts",
+      "mediaType": "text/typescript",
+      "size": 1082,
+      "sha256": "9f6d49f02416a31fd36633ab31ef0f98e0e26e2df2c73f4d038b737a527c46e9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/api/httpCaptureApi.test.ts",
+      "mediaType": "text/typescript",
+      "size": 8436,
+      "sha256": "749a5e91a18ce378d6a4e0ad045180d142bbc60e0fd169b4f86139fa0a813d31",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/api/httpCaptureApi.ts",
+      "mediaType": "text/typescript",
+      "size": 5917,
+      "sha256": "f416dcd2af8847cab3eb79097c0b6eded75c9246326d0e59fd7e17b767b68afd",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/api/mockCaptureApi.ts",
+      "mediaType": "text/typescript",
+      "size": 3767,
+      "sha256": "b780b27cd7d808f31eac5ee501b844b848c8a67c0cd3af26d6bc584b997ee380",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/api/problem.ts",
+      "mediaType": "text/typescript",
+      "size": 2876,
+      "sha256": "51e66c51cbd2cd0643ff7d6d743ce2f1ebc8191f6ce1184cbc39c514eb783de4",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/app/CaptureApp.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 10516,
+      "sha256": "fee4796f030cb33e9af92c24bc123df08bf3cb2c7d6a607b46ef8061fd1d5674",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/app/CaptureApp.tsx",
+      "mediaType": "text/tsx",
+      "size": 12190,
+      "sha256": "4236d149e8a9272ae866daffad6de4a8f18e65ec05f965d5cdaaf5abd2da5228",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/assets/ce-logo.png",
+      "mediaType": "image/png",
+      "size": 199792,
+      "sha256": "e7247be45911c46905343473e4c57b9f6ed7a450563d19c508c2d9652c2c63e2",
+      "category": "asset",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/bootstrap/bootstrapSecret.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3852,
+      "sha256": "c1f58cb695d2eaf47bd8e4010ec5e958fb62c55298987cbaa24a44bef8947262",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/bootstrap/bootstrapSecret.ts",
+      "mediaType": "text/typescript",
+      "size": 2228,
+      "sha256": "1303e90801d08d22371486e22bdc5cff44ee8f8cfa1704d353a7000d2da8134b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/camera/GuidedCamera.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 9421,
+      "sha256": "d99701f33c3c46b8c449d4956b10fb89b6b94051fce462d6ac17f9e351ead223",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/camera/GuidedCamera.tsx",
+      "mediaType": "text/tsx",
+      "size": 17536,
+      "sha256": "cc0086f8a654ea221ffedeb5bb4a90fdeeec9a0729996f27f0e17b4b03b1c17e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/camera/cameraDevice.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6192,
+      "sha256": "f217a3d54fb3e41917224845cd62b903cae62db6810dfd9ec5cb362d55e81801",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/camera/cameraDevice.ts",
+      "mediaType": "text/typescript",
+      "size": 6339,
+      "sha256": "7910c519ec2b687b5a68bd5844f2011f7bfc7b22fec5851e5f63198a994c560e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/FallbackPhotoReview.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 10158,
+      "sha256": "e5038f379f2cf1e7012255765331578e16cdb8657b295361134a715f78bca1ec",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/FallbackPhotoReview.tsx",
+      "mediaType": "text/tsx",
+      "size": 7114,
+      "sha256": "4a7740cc37a6c6cebd9b74500154bd4f115c720ffd38dbb3b87f483507301755",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/ShotCaptureCard.test.tsx",
+      "mediaType": "text/tsx",
+      "size": 7495,
+      "sha256": "4201641205647a77921c533824515ecb21e4977fff144b536c31bf743ad63a19",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/ShotCaptureCard.tsx",
+      "mediaType": "text/tsx",
+      "size": 6393,
+      "sha256": "bff615b637760fb5deeee41954dfb966756abfad5ccd9777a5c312b1abb6f0ba",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/captureObservation.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2160,
+      "sha256": "178a79fcd39e36658ca091157cc540e875f6f7e0a61e5b50b034bcb48f6e2dbb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/captureObservation.ts",
+      "mediaType": "text/typescript",
+      "size": 2497,
+      "sha256": "3e052ce7be96c074333d377441952b939da61118f8d96d17879ebb32b9d40a31",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/fallbackPhotoAnalysis.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1725,
+      "sha256": "994a31a88aa29e50cdcce360e4a339036f84d5cc993986113c3b6a8abcf31be5",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/capture/fallbackPhotoAnalysis.ts",
+      "mediaType": "text/typescript",
+      "size": 1891,
+      "sha256": "28ae2e24cc9a75a6dc0ae601732d958b06326efb1a9da528d44c94943a464bfb",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/main.tsx",
+      "mediaType": "text/tsx",
+      "size": 637,
+      "sha256": "4773fd775c2be36d6fe3b7ecb3127617cfb9b559e87bd24fb52a7b9c3e7dbd1e",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/createDraftStore.ts",
+      "mediaType": "text/typescript",
+      "size": 4020,
+      "sha256": "6447e685854db91b11b6362795548e4ef7f5413b4b0a1a2a75945a41b6472807",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/draftStore.test.ts",
+      "mediaType": "text/typescript",
+      "size": 12697,
+      "sha256": "b02524f4f0addc4ae53aec5a6c14833e48df3b83c093b018b752585677cdb67a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/draftStore.ts",
+      "mediaType": "text/typescript",
+      "size": 5051,
+      "sha256": "97bb478e4881773fd3f5e6e16f0892772d0061959f258a0243c0c49e49acadc2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/index.ts",
+      "mediaType": "text/typescript",
+      "size": 387,
+      "sha256": "c18380d9d39eeba914e14daa7b52d05093047aa08ce501d038ddf88a2fbdd4d2",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/indexedDbDraftStore.ts",
+      "mediaType": "text/typescript",
+      "size": 7345,
+      "sha256": "6f0d8fe82f9cbe2299e24c46a972cf6443bc8bddf3a34c1536aaa09f1d2e53b5",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/storage/memoryDraftStore.ts",
+      "mediaType": "text/typescript",
+      "size": 3228,
+      "sha256": "52ac07fe5805612a657db1b6754204405fe2fb747143441a487bd72b28146382",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/styles.css",
+      "mediaType": "application/octet-stream",
+      "size": 12222,
+      "sha256": "937bbf7d773e4611de01542b7c76f105c50154664216e23231c4d00729cd8c1c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/submission/submitKeyStore.ts",
+      "mediaType": "text/typescript",
+      "size": 2738,
+      "sha256": "583bb8753c60f19ae74778b2cf2a6aec5a2a244d023ee41844284ef4bf0306c0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/submission/submitSession.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2653,
+      "sha256": "d20d831a894156be4c5aabe0708ffa4fee73ed5ffd221319d6e7dd040f77ad29",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/submission/submitSession.ts",
+      "mediaType": "text/typescript",
+      "size": 680,
+      "sha256": "cc12fae6e017a38f69d4a8d775b340760fd4c794c265742b9af140e4fa4cd51f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/tokens.css",
+      "mediaType": "application/octet-stream",
+      "size": 522,
+      "sha256": "565f3a627cad44d196d00d7ce6a386f9526a20099eba77469f197b36b6b3de18",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/ui/VehicleGuide.tsx",
+      "mediaType": "text/tsx",
+      "size": 1366,
+      "sha256": "c209928ee36145a1e07309839ad910ea383a4b29176cc11f671bf14c293e94a9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/uploads/uploadCoordinator.test.ts",
+      "mediaType": "text/typescript",
+      "size": 19640,
+      "sha256": "57cc012c8c4901c9d43fde098aeccb8e60e14ec44555d58d088e2910e225d021",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/uploads/uploadCoordinator.ts",
+      "mediaType": "text/typescript",
+      "size": 22283,
+      "sha256": "96952f2087ad2f91c02714a261920c88c969c454fd795e841f29dc2556d25e97",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/uploads/useUploadCoordinator.ts",
+      "mediaType": "text/typescript",
+      "size": 3268,
+      "sha256": "2ca20ffde8e1b983d430d9414745066961f25d292076829c4be4c52a24dd88e7",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/vision/visionRuntime.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1486,
+      "sha256": "3b1ccd6cfc4ef71fd6c7f419d1d8c48b2b63a568730e2fd00628eba4bfc7094b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/vision/visionRuntime.ts",
+      "mediaType": "text/typescript",
+      "size": 3285,
+      "sha256": "172b65de4b52e6a036f609b93f4f1f6c2409ed03c8949f5dc017d62b4055a339",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/src/vite-env.d.ts",
+      "mediaType": "text/typescript",
+      "size": 38,
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/tests/e2e/capture.spec.ts",
+      "mediaType": "text/typescript",
+      "size": 5191,
+      "sha256": "9f62dbb5c0513c45a022784256a0f2e01c53060fd23fc3a55e54f57852437558",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/tsconfig.json",
+      "mediaType": "application/json",
+      "size": 1028,
+      "sha256": "797edec04d66bfe95e654b1ea6e935a372e45f680083d611e9f2cde32efc504c",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "apps/capture-web/vite.config.ts",
+      "mediaType": "text/typescript",
+      "size": 978,
+      "sha256": "eb362934d1bbb7f2a1298f688400183e02fce1b4f578a1315847f7ec53a65f60",
+      "category": "source",
       "owner": "repository",
       "lifecycle": "active"
     },
@@ -15232,8 +16069,8 @@
     {
       "path": "docs/adr/0007-receipt-of-images.md",
       "mediaType": "text/markdown",
-      "size": 2574,
-      "sha256": "c78dea81a656ea526d38ed716b24e2c02bfeca1919667dd87bfa3fea515b7997",
+      "size": 3494,
+      "sha256": "81d2600f8eb933b1ae1ee2ae99b2f7c2bf49272a1d1d38b77d0118aa17558d20",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15464,10 +16301,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0034-guided-capture-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3900,
+      "sha256": "2ec9c25f0b0b0e2bcccd176c404bd45546475bfc85ebaf89711f3c89efa0e00c",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 5253,
-      "sha256": "e694327c55ca9fe675de72eded99063f277fd2ade1728244b19f43c57bb40ffe",
+      "size": 5403,
+      "sha256": "082fe3f2eb58cde016fd6da991dee1bc4f4f69dd04c42e4da087835b300706da",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15475,8 +16321,8 @@
     {
       "path": "docs/architecture/README.md",
       "mediaType": "text/markdown",
-      "size": 947,
-      "sha256": "e2e01bd8266c5f6e8eef433e48984ade9dc8dd6824125eed4ad3aa83c5fb4674",
+      "size": 987,
+      "sha256": "6d200cfd5fc113c1699353b0d78f40a665b90ed6e11d386816cd44814b6d0966",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15513,6 +16359,15 @@
       "mediaType": "text/markdown",
       "size": 2082,
       "sha256": "0c765d926e45700ce1853bca5b1862558fb62ed8c0f557ed7da9bd53cff579df",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/architecture/guided-capture.md",
+      "mediaType": "text/markdown",
+      "size": 9512,
+      "sha256": "c1ef943b69120a113faf9eaf359818eeee71ab972bab4b6827647c5793cada36",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15655,7 +16510,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1533770,
+      "size": 1580639,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +16528,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4296147,
-      "sha256": "8c25037421d6a24879c5abb06c3aa340c302d2b356abc7ca38d0b8168ca622ed",
+      "size": 4356568,
+      "sha256": "02a72889dc93b3a3e26c6615ff262a04a22906aa1a6a22efbf58f79e2e1a1376",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15682,8 +16537,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68041,
-      "sha256": "940028ea7fa1e0e8336f8d3ab2af932ae268181afddd660c6bdf111bfcdd28a9",
+      "size": 69422,
+      "sha256": "faade4f4694aa8f0f15e3f7385da1545df7e188220cf073fc338c606319b41f0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15808,8 +16663,8 @@
     {
       "path": "docs/operations/operator-actions.md",
       "mediaType": "text/markdown",
-      "size": 3437,
-      "sha256": "2d9fc0d213eba4011c5ed8371d434cd9e71b34728db7d0824ffa9eae3550f88e",
+      "size": 3991,
+      "sha256": "3f696f6b5251e48efe0dee0bce7d8c9a9605e5b59516467eabf339ae7b31f5ab",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16204,8 +17059,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49906,
-      "sha256": "a0d6198edbcf58e5c97b44163d352faf3961357c0f26184a592445c88b016df7",
+      "size": 51870,
+      "sha256": "9fd61388798239c9d39a6855064bc728b736219525d3c06257e048aaa616bdae",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16213,8 +17068,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52769,
-      "sha256": "c346581f3873cba3c24a09df1c10382ec74a54d437797e1dd7cdcbb8af992775",
+      "size": 54949,
+      "sha256": "ea18d4e87ee82a0b71c657d7386b8dc5e897ecfa4857fe6f75ce0969bc332fe7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18182,6 +19037,186 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/TKT-279-guided-capture-device-camera-matrix.md",
+      "mediaType": "text/markdown",
+      "size": 1978,
+      "sha256": "37fcf2ebf48b07212d34fb32a848b5a48352c15d3d130570adb7881d0cb1dc2d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/changes.md",
+      "mediaType": "text/markdown",
+      "size": 306,
+      "sha256": "e092654904d5c81f0eb4a240d2aafcb879bccf86c48c99a221ef795e18e45ad3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 434,
+      "sha256": "a6347c9e0732922af5176ba6c9d2b1d2bbc18ecf7ccacb4d3dbb200fc8d381dc",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-279-guided-capture-device-camera-matrix/verification.md",
+      "mediaType": "text/markdown",
+      "size": 595,
+      "sha256": "17130e4e705ee2f63c77001253a23d5f2c2443fa343c1e4991997d348e16be37",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/TKT-280-guided-capture-async-validation-and-derivatives.md",
+      "mediaType": "text/markdown",
+      "size": 2524,
+      "sha256": "d9689ef17a332278132e57dc3b68c97313b9b4f2863d0c0384cf6596d8277b04",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/changes.md",
+      "mediaType": "text/markdown",
+      "size": 514,
+      "sha256": "d0ed6bcb7f374fcb5b707b9e71221766866ddcc107aa624ce9cdb0c1b8153460",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 867,
+      "sha256": "d61973bb48f1e837dcb89b3d28fce7986b0a65e21b21e2ebd27cd18d8a3aa50d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/verification.md",
+      "mediaType": "text/markdown",
+      "size": 756,
+      "sha256": "deaf574c52b8edb4d02d20f14991981e370660ddcc12913d015f097681a3c26d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md",
+      "mediaType": "text/markdown",
+      "size": 2483,
+      "sha256": "5f27369eee36226c60b84d409cde021c3153077f0c339d47149a4582f87dd664",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/changes.md",
+      "mediaType": "text/markdown",
+      "size": 554,
+      "sha256": "8506624d6c798202d9ff65e365d4cf1bd9d26020fcd9f0da9d82c26228831c7d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 612,
+      "sha256": "ac6eb8bc4e57891d3f29e52502d3aa452fdb314cf63500cda7a3848b1201e6b6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/verification.md",
+      "mediaType": "text/markdown",
+      "size": 904,
+      "sha256": "5b4c330ab357c05572aa5b463389e0eca401ed879f416ba8a75025a1536190d0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md",
+      "mediaType": "text/markdown",
+      "size": 2075,
+      "sha256": "b65a0d3596e4a72d10ce98f2773f4c8e70a471386bfe528fbe65ab23b4509552",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/changes.md",
+      "mediaType": "text/markdown",
+      "size": 362,
+      "sha256": "39555587c02831f499cecb8f9033b3e9bc5357df756bd582dcc2fca89221acec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 450,
+      "sha256": "1f2e1e9ff7337e40c90ebb5dccd53e14b82e5aafbb13790668a86eac03d717a0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-284-guided-capture-security-corpus-and-runbook/verification.md",
+      "mediaType": "text/markdown",
+      "size": 722,
+      "sha256": "2332a103e3d9edc3e4243377845581347bad4f5c956d7464dbe3f5f6cde3eaee",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md",
+      "mediaType": "text/markdown",
+      "size": 1380,
+      "sha256": "499e00362c448b4838a7940b5b2421c1b1872e7e4dc2a3e5fa18efb7f4462cae",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/changes.md",
+      "mediaType": "text/markdown",
+      "size": 322,
+      "sha256": "846e6c0c109eb8dd7cd899c771d08023300c7b5501222212a2c8cb9336563466",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 257,
+      "sha256": "f746fab20699f86b144c04781f83a244cf113f2ac8ececdbe140aa637caed0b8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/verification.md",
+      "mediaType": "text/markdown",
+      "size": 302,
+      "sha256": "ad5351901203468750ddf856a785d8a25cf46801890134551ccc5205a015d3eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/blocked/TKT-004-case-po-generation/TKT-004-case-po-generation.md",
       "mediaType": "text/markdown",
       "size": 2742,
@@ -18483,6 +19518,42 @@
       "mediaType": "text/markdown",
       "size": 10101,
       "sha256": "9b96d72f273e6585e7e2928f23d7f87f816acef6e7eab7049c78ade859a84a9e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/TKT-286-guided-capture-advisory-pilot-launch.md",
+      "mediaType": "text/markdown",
+      "size": 2188,
+      "sha256": "e6ed311ac1acc162dd6d3c0cd84b4ffdc25795ab2b7cfc1c1ac0fa3f74ab3124",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/changes.md",
+      "mediaType": "text/markdown",
+      "size": 454,
+      "sha256": "f4b41ce0e7d9c9f39a7ff474f551b5a00e1cae2ae1ed5e6921ac1ccf87092467",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 450,
+      "sha256": "ac4953db0e4177206f5bad0201bc055ac358e22436878e767b891c75784d280f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/blocked/TKT-286-guided-capture-advisory-pilot-launch/verification.md",
+      "mediaType": "text/markdown",
+      "size": 613,
+      "sha256": "c28ef63d96818364c9555b3edd0f9e06c249d2f0bf46db4fe92621a747e9d606",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24644,6 +25715,78 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3620,
+      "sha256": "8885dd8321490dd28108e5e528db1e6beb4beac6903349f3b414af4a003fd8bd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 5513,
+      "sha256": "16a2efd5eec81d843d65e7fc87d9774e787370dc87bda4b9890c9f6d55d72060",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/evidence/merge-scope.md",
+      "mediaType": "text/markdown",
+      "size": 2978,
+      "sha256": "84694d68bc37a85f499eca41d122521393badcc27d74fc158d6797313675c3ec",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3029,
+      "sha256": "ad3149c95e6a8dee8046c80fbae89154388a2cbf7d9d7952346c39026203d2e5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md",
+      "mediaType": "text/markdown",
+      "size": 3473,
+      "sha256": "bd94777afe3fa17fe0336805ab15357ae225ee12a7c9ca6342513926121cb9ff",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1331,
+      "sha256": "983de563428b889a6100d438881fb83a0500d41801caba45e3ff9032933fb42e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 1185,
+      "sha256": "63bb05e238e936c5995a6cab5569b6860fa68b542479878fd98017412b8ab19e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1437,
+      "sha256": "477e3b0ca828ce476fcb2aaf3971db410ceb22bc0a2cadc31b1ae68f2b7a665e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -25429,8 +26572,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md",
       "mediaType": "text/markdown",
-      "size": 3799,
-      "sha256": "60b051d57c4e37ebb5f321c04d2420fc50bc5853a4ede9591787e415f8939028",
+      "size": 3817,
+      "sha256": "7b10d6240d381c13afbf2c2d61a0c540554e0b713d12808e3817038939805611",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25699,8 +26842,8 @@
     {
       "path": "docs/tickets/now/TKT-200-guided-capture-sessions/TKT-200-guided-capture-sessions.md",
       "mediaType": "text/markdown",
-      "size": 4357,
-      "sha256": "24fe68ce333c94cfe865b7bf300abe56740a044533a5015bb0c8e21235fccc00",
+      "size": 4384,
+      "sha256": "bee1f995ebaea463cac2af4b9956d4c6bc7ba41580e3465684de368139ae04ed",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26228,6 +27371,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md",
+      "mediaType": "text/markdown",
+      "size": 2334,
+      "sha256": "d48516dccfcda3944490d34733fa6f9e27ededc8e617fbbb7072abccbff85c25",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/changes.md",
+      "mediaType": "text/markdown",
+      "size": 451,
+      "sha256": "10f698f7c92689ba3415c8c8a4625587f3509f12215b71e8035ddef7ae34582d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 776,
+      "sha256": "c903a089af20705c9752d938e38cc43d7e55b843642462ecdc50356f0bb378fb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/verification.md",
+      "mediaType": "text/markdown",
+      "size": 839,
+      "sha256": "7251c458a74ca2302921e1abfde2426761979bd8b078047787d05e0f5b6701e8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -26349,6 +27528,15 @@
       "mediaType": "text/markdown",
       "size": 8225,
       "sha256": "0eeeabbe3ef503da276eb9c943d908cd388945cb25967e607725ef1831e82bb3",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-013-guided-capture-vision-programme.md",
+      "mediaType": "text/markdown",
+      "size": 3394,
+      "sha256": "778600163cd122372b9c7fcc0e370ca03bcb712195ebc51a24943b6d94b5e20e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29731,8 +30919,8 @@
     {
       "path": "infrastructure/config-capture/README.md",
       "mediaType": "text/markdown",
-      "size": 1324,
-      "sha256": "587306e0b48049ce92d9642a87050b19aa2a8abba51e95f9deb25f12c52ba7ef",
+      "size": 1434,
+      "sha256": "0e21387b59c9a2ccab17d6ac7cab4c955b5f3d086be38241d782b89a34736d6a",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -29742,6 +30930,15 @@
       "mediaType": "application/octet-stream",
       "size": 7622,
       "sha256": "7a0d87232546ca9b50f49bce84457963b19a13b2cae3908a5bf298bddd8ef702",
+      "category": "infrastructure",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "infrastructure/config-capture/capture-spa.bicep",
+      "mediaType": "application/octet-stream",
+      "size": 2663,
+      "sha256": "20ffd96142bf25619bfcab269e860f55a7d3a0a3f47efe7bbbd6f1a49d6a2eaa",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -29857,8 +31054,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 208320,
-      "sha256": "66f9d78d971cb1fc0f44f69ac95bbd60996f757a5250d0e0a8cd76fd8ea55301",
+      "size": 235669,
+      "sha256": "419be1de0d86e7a2eb2c7914659a4e8cda00d9073c946a846eecda3fc2415032",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -29866,8 +31063,224 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5746,
-      "sha256": "0c9ee48f42e49f757dca506ebc9c8e19e86c32ac17b50176e19a4dd9df9e6ffd",
+      "size": 6391,
+      "sha256": "301054db5657a2ad8ff356f3a20fc42f583c6a55bd5bbea335dbb6de69d96947",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-contracts/package.json",
+      "mediaType": "application/json",
+      "size": 545,
+      "sha256": "7b3d5b3e402d758d7bf9dbb23deec8e977012c224342f39d07f25156f1a3a388",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-contracts/src/generated.ts",
+      "mediaType": "text/typescript",
+      "size": 29168,
+      "sha256": "42f146d59cffcbbe15693caa58c6b193ea5e355f15ef1723bb4d36ef4fb30bd9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-contracts/src/index.ts",
+      "mediaType": "text/typescript",
+      "size": 2336,
+      "sha256": "f406184afbb4ac4651072736164504549fdd3b1beabb952a622ebdda4910180f",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-contracts/tsconfig.json",
+      "mediaType": "application/json",
+      "size": 733,
+      "sha256": "642df7b2c1d07107301b6eb77f2daed20fc0b8d41cf7255c0682085008c3ca95",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/package.json",
+      "mediaType": "application/json",
+      "size": 490,
+      "sha256": "a127b326e7537aecaf97625667cf27ea647bbc58c582e392be1a136ea83ad568",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/capture-machine.test.ts",
+      "mediaType": "text/typescript",
+      "size": 14599,
+      "sha256": "a467159370f1512af9c30816802b2ec17cc3b74c13c748960aef0dbb54bf4f85",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/capture-machine.ts",
+      "mediaType": "text/typescript",
+      "size": 14004,
+      "sha256": "8dcfad31512667749438b870463103878ddb066a637c322f77df5aef37cfe25b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/checklist.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1039,
+      "sha256": "7bb75f2aaceeecd9de25e1ffde3bbf999acdaa8902210a1ec9d3336db37aad21",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/checklist.ts",
+      "mediaType": "text/typescript",
+      "size": 4160,
+      "sha256": "2edb3b7d5489d7ad345380033ff7a0daf28be4ee7a753eb0d0a5f0736026ac8d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/framing.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2310,
+      "sha256": "490b8c10c715106e999b48f72248c8507569e18b047c58d95071b10f654d7af1",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/framing.ts",
+      "mediaType": "text/typescript",
+      "size": 2934,
+      "sha256": "b190bde92865715c6130a5a5243fe55f7854bae6e0350d4f08499476937004af",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/geometry.test.ts",
+      "mediaType": "text/typescript",
+      "size": 969,
+      "sha256": "066977593d5984cc6524b87fcb28ba0ee68f16388c55e7a7aa7630b9a8f8cc2a",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/geometry.ts",
+      "mediaType": "text/typescript",
+      "size": 1340,
+      "sha256": "4abf652aff09fb00dc7e446c850c348b86e95ae3d4fdebd21a46b993fe8980a1",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/guidance.test.ts",
+      "mediaType": "text/typescript",
+      "size": 8302,
+      "sha256": "3c7daf86e6a9a111ad8a6a382b450b488b0b0a0ad98b3ab16c501fca02b6bc97",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/guidance.ts",
+      "mediaType": "text/typescript",
+      "size": 7652,
+      "sha256": "9ccd419fc954fa7c9b48120e1c271b1fd93f471a77a0e0284923ae2fa31bf369",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/index.ts",
+      "mediaType": "text/typescript",
+      "size": 209,
+      "sha256": "8368c1f0036b46b3c394f67783767d8002c1f78292ceddd44c736b9beb98793b",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/mock-session.ts",
+      "mediaType": "text/typescript",
+      "size": 829,
+      "sha256": "9ccf834e4232f55e24e5948654cddded99df6740d2c867f1668b04e1af5b7ca6",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/validation.test.ts",
+      "mediaType": "text/typescript",
+      "size": 882,
+      "sha256": "2a2d8fe2ed93be985d27ff4e76b7048dc5eeb2735c12db40d8c4b5166637b730",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/src/validation.ts",
+      "mediaType": "text/typescript",
+      "size": 1015,
+      "sha256": "9e2d02874a3595b1b8b5dab04c0b58abfaa7ac22e451c9dcc38c231de038e7f8",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/tsconfig.json",
+      "mediaType": "application/json",
+      "size": 886,
+      "sha256": "5981a03618ee42816707fe98a1039e31199ae775f698903c3509fd18df12d812",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-core/vitest.config.ts",
+      "mediaType": "text/typescript",
+      "size": 145,
+      "sha256": "96e0ea5b343b5358c5e729414e3e92ea82d5cb2466bb5cb1569db38c6ef1dd92",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-testkit/package.json",
+      "mediaType": "application/json",
+      "size": 448,
+      "sha256": "17ebb80ea2e65caada5cc367bfd49e9174524f1495bf4924eafc0763482ebcad",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-testkit/src/index.ts",
+      "mediaType": "text/typescript",
+      "size": 275,
+      "sha256": "03c2185821e4ce210aac26a851c755239816a6b0f09630d61354df986f1e3fbe",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "packages/capture-testkit/tsconfig.json",
+      "mediaType": "application/json",
+      "size": 981,
+      "sha256": "ea320de8aee0582f30d70fb95545fb8a8ee527e2d0dbbd5e57e7fea641d56f02",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30964,8 +32377,8 @@
     {
       "path": "scripts/checks/check-capture-contract.mjs",
       "mediaType": "text/javascript",
-      "size": 865,
-      "sha256": "b4ecf88dc15a0a9be1515a3c3234c462dff4d4abe3c8906c830a40b54638afd7",
+      "size": 1214,
+      "sha256": "5fdc1586a7da74002ef56a4fcd9a985ce33f3726c2096fbb61d4c588fd71fa5a",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -43204,8 +44617,8 @@
     {
       "path": "tsconfig.json",
       "mediaType": "application/json",
-      "size": 235,
-      "sha256": "272f7155510d2bbb906191a507f2ae32829cbd9e4ad8759447b71d9e2c34730b",
+      "size": 410,
+      "sha256": "0b0318ea018f9444c461574c67771dd729d1e10333551ffd40d484d2a0676348",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"

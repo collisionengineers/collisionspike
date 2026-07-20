@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.detect.outputs.code }}
+      capture: ${{ steps.detect.outputs.capture }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,6 +33,10 @@ jobs:
           # Fail safe: run the full heavy suite unless we can PROVE that every
           # changed file is documentation (markdown anywhere) or under docs/.
           run_heavy=true
+          # Fail safe: run the (expensive, browser-installing) capture e2e suite
+          # unless we can PROVE no changed file touches the capture-web app or its
+          # own workspace packages.
+          capture=true
           files=""
           have_diff=0
           if [ "$EVENT_NAME" = "pull_request" ]; then
@@ -56,10 +61,16 @@ jobs:
             else
               run_heavy=false
             fi
+            if printf '%s\n' "$files" | grep -qE '^(apps/capture-web/|packages/capture-core/|packages/capture-contracts/|packages/capture-testkit/)'; then
+              capture=true
+            else
+              capture=false
+            fi
           fi
 
           echo "code=${run_heavy}" >> "$GITHUB_OUTPUT"
-          echo "event=${EVENT_NAME} have_diff=${have_diff} run_heavy=${run_heavy}"
+          echo "capture=${capture}" >> "$GITHUB_OUTPUT"
+          echo "event=${EVENT_NAME} have_diff=${have_diff} run_heavy=${run_heavy} capture=${capture}"
           echo "changed files:"
           printf '%s\n' "$files"
 
@@ -93,6 +104,27 @@ jobs:
       - name: Docs-only skip notice
         if: ${{ needs.changes.outputs.code == 'false' }}
         run: echo "Docs/data-only change; skipping TypeScript build, test, and package."
+
+  capture-e2e:
+    name: Capture web e2e (Playwright)
+    runs-on: ubuntu-latest
+    needs: [changes]
+    # Fail-safe toward running (see the changes job): only skipped when we can
+    # prove no changed file touches capture-web or its own workspace packages.
+    # Genuinely new CI cost (browser install) scoped to this path specifically,
+    # not gated behind the broader code/docs-only split alone.
+    if: ${{ !cancelled() && needs.changes.outputs.capture != 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run capture-web e2e suite
+        run: npm run test:e2e --workspace @cs/capture-web
 
   python:
     name: Python ${{ matrix.service }}

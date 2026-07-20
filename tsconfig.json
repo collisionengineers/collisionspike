@@ -5,6 +5,10 @@
     { "path": "./packages/server-runtime" },
     { "path": "./services/data-api" },
     { "path": "./services/orchestration" },
-    { "path": "./apps/web" }
+    { "path": "./apps/web" },
+    { "path": "./packages/capture-contracts" },
+    { "path": "./packages/capture-core" },
+    { "path": "./packages/capture-testkit" },
+    { "path": "./apps/capture-web" }
   ]
 }
