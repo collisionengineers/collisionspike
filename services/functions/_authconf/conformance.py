@@ -24,7 +24,11 @@ from typing import Any, Callable
 
 import httpx
 import pytest
-import respx
+
+# respx is imported lazily inside each probe: it is a dev dependency of box-webhook / eva-sentry /
+# vehicle-enrichment but NOT location-assist, whose only use of this module is `claims_for` (its lone
+# client, ai_reasoning, claims nothing behavioural). A module-level import would break location-assist's
+# suite where respx is absent.
 
 BEHAVIOURS = ("expiry-aware-reuse", "one-time-refresh", "bounded-transient-retry", "retry-after")
 
@@ -78,6 +82,8 @@ def _mint(router: "respx.Router", spec: ClientSpec) -> "respx.Route | None":
 
 
 def assert_expiry_aware_reuse(spec: ClientSpec, monkeypatch) -> None:
+    import respx
+
     with respx.mock(assert_all_called=False) as router:
         mint = _mint(router, spec)
         spec.register_data(router, lambda _request: spec.data_ok())
@@ -94,6 +100,8 @@ def assert_expiry_aware_reuse(spec: ClientSpec, monkeypatch) -> None:
 
 
 def assert_one_time_refresh(spec: ClientSpec, monkeypatch) -> None:
+    import respx
+
     # A single 401 refreshes once and retries -> success, exactly two data attempts and one forced re-mint.
     with respx.mock(assert_all_called=False) as router:
         mint = _mint(router, spec)
@@ -126,6 +134,8 @@ def assert_one_time_refresh(spec: ClientSpec, monkeypatch) -> None:
 
 
 def assert_bounded_transient_retry(spec: ClientSpec, monkeypatch) -> None:
+    import respx
+
     spec.neutralise_backoff(monkeypatch)
 
     # A transient status then 200 recovers.
@@ -171,6 +181,8 @@ def assert_bounded_transient_retry(spec: ClientSpec, monkeypatch) -> None:
 
 
 def assert_retry_after(spec: ClientSpec, monkeypatch) -> None:
+    import respx
+
     assert spec.capture_sleep is not None, "a retry-after claim needs a capture_sleep hook"
     delays = spec.capture_sleep(monkeypatch)
     with respx.mock(assert_all_called=False) as router:

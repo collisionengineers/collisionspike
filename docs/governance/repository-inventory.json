@@ -17,7 +17,7 @@
     "files": 3749,
     "entries": 4872
   },
-  "totalFileBytes": 704123158,
+  "totalFileBytes": 704123555,
   "entries": [
     {
       "path": ".",
@@ -15656,7 +15656,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4287580,
-      "sha256": "b12bcebeb92735800e9dd2310981b3527c64e96a57bcccf5047bbf940872634e",
+      "sha256": "e7cf7b13d6be588d60bfa123ba582851fbccb78913d32187dc1c9ecc50ec1f39",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -34078,8 +34078,8 @@
     {
       "path": "services/functions/_authconf/conformance.py",
       "mediaType": "text/x-python",
-      "size": 8350,
-      "sha256": "3bf3b240e46635083e8f035dd63e25b34c0b7fc9422154a8cc081c0f942b4e90",
+      "size": 8747,
+      "sha256": "c8f2afe9d76742c151e35399cda62f10a2747505a068fb65c2598cc041a17527",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
