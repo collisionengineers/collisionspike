@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1163,
-    "files": 3888,
-    "entries": 5051
+    "directories": 1164,
+    "files": 3893,
+    "entries": 5057
   },
-  "totalFileBytes": 705182518,
+  "totalFileBytes": 705201635,
   "entries": [
     {
       "path": ".",
@@ -5826,6 +5826,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16510,7 +16519,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1580639,
+      "size": 1582606,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16528,8 +16537,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356568,
-      "sha256": "02a72889dc93b3a3e26c6615ff262a04a22906aa1a6a22efbf58f79e2e1a1376",
+      "size": 4359044,
+      "sha256": "ecf22d9e224712af928ed4f7cbe72b85980aecd927c59bdad7ef2830b3912ae5",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16537,8 +16546,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 69422,
-      "sha256": "faade4f4694aa8f0f15e3f7385da1545df7e188220cf073fc338c606319b41f0",
+      "size": 69489,
+      "sha256": "4e1e7bd3fd522454cd4c3e17ee455898bddc9447f08f59682c271f23dfcda7fd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17059,8 +17068,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 51870,
-      "sha256": "9fd61388798239c9d39a6855064bc728b736219525d3c06257e048aaa616bdae",
+      "size": 52082,
+      "sha256": "05cf4c3722cba8d8281830e99ae802b728ae3febb90bb588b40c28c664259637",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17068,8 +17077,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 54949,
-      "sha256": "ea18d4e87ee82a0b71c657d7386b8dc5e897ecfa4857fe6f75ce0969bc332fe7",
+      "size": 55166,
+      "sha256": "e3f57804bc5bf117dc73fa08fa4a12e2135694acc3e9fd77446daac091768bbc",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27402,6 +27411,33 @@
       "mediaType": "text/markdown",
       "size": 839,
       "sha256": "7251c458a74ca2302921e1abfde2426761979bd8b078047787d05e0f5b6701e8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md",
+      "mediaType": "text/markdown",
+      "size": 5055,
+      "sha256": "72fe15603576102eb7ee0a078a1ab90dbc301c266ae88306547a6db9a53f4e7f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1719,
+      "sha256": "19fbfd753e4abbb2d17fc7ed528e4144b1c7b5ee833b15c975811c2455c20d3a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1787,
+      "sha256": "cf6fe72b3d6f54fee065e4d3cc4e17dcbf4d99976a3219e0af7c68e67ef3cac9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -38198,6 +38234,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/intake/case-identity.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3236,
+      "sha256": "ce12c24c6c61c09e4437cb41b724b3fac7aa2b83960f35fc8865dc9297fe1888",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/case-identity.ts",
+      "mediaType": "text/typescript",
+      "size": 1853,
+      "sha256": "45ef28c04158d8a9ed8932814a6bbb5936165ba221f957955f6b919e9526f9ab",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/intake/caseResolve-replay.test.ts",
       "mediaType": "text/typescript",
       "size": 5168,
@@ -38209,8 +38263,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/caseResolve.ts",
       "mediaType": "text/typescript",
-      "size": 9886,
-      "sha256": "75b4d24cce474f9579503d8537d98b7294ef641b18bd8478b0677c1d4af11609",
+      "size": 10067,
+      "sha256": "d69c1240da4263d5e4479b0692273a32aa7b7d9a3439f292ac8efdeef8a92976",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -38335,8 +38389,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 41861,
-      "sha256": "0ea4b7e29ad5d394fb43bc63ab60cace611d6a83b75f0f4a3a74b2bb64ff36af",
+      "size": 42208,
+      "sha256": "acd83c7eeaccff94e4a5b831f24ab0317f3c5d5212123b43a1ba362edfa35645",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
