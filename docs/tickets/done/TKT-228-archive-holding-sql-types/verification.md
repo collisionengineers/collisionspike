@@ -2,8 +2,9 @@
 
 ## Verdict
 
-TESTED (offline) — SQL shape proven by unit tests and a source-level pin; live proof pends the
-data-api deploy.
+VERIFIED-LIVE — 2026-07-20T15:58Z redeploy of cespk-api-dev (commit e4cb663b, deployment ID
+cb33351f-f0e7-4eee-a584-dcf40f15ad51) resolved the regression; both routes confirmed 200 on the
+first organic post-deploy calls (below). Acceptance line 4 is met.
 
 ## Evidence
 
@@ -82,9 +83,56 @@ or `npm run build:api` wasn't rerun against fixed source before that specific pu
 blob directly to confirm would require Storage Blob Data Reader access not available to this read-only
 identity; account-key retrieval was deliberately not attempted to work around that.
 
-**Not fixed in this pass — operator chose "diagnose further, don't redeploy yet."** Recommended next step
-for whoever picks this up: rebuild `services/data-api` from current `main` and redeploy via the documented
-Windows `func` toolchain, confirm the deployed package actually contains `archive-holding.ts` at commit
-`3bb70249` or later, re-run the KQL in "How to re-verify" above, and bank a second live proof here. Verdict
-stays `TESTED (offline)` — do not treat the 2026-07-17 live proof above as current; it no longer reflects
-the live app.
+**Not fixed in that pass — operator chose "diagnose further, don't redeploy yet."** The 2026-07-17 live
+proof above did not reflect the live app at that point; the regression was real and ongoing (855/855 and
+67/67 calls failing 100% at the 2026-07-20 baseline, immediately before the redeploy below).
+
+## 2026-07-20T15:58Z — REDEPLOYED and RESOLVED, live-confirmed
+
+As part of a full backlog-deploy sweep (24+ commits across every service, planned and executed by
+parallel agents after a clean `node verify-all.mjs` pass — 43/43 checks green), `services/data-api` was
+rebuilt from current `main` (`npm run package:deploy`) and redeployed to `cespk-api-dev`:
+
+- Deployed commit: `e4cb663b090116ddc2e9ee1cb25494f04700bf16` (main, tree clean at deploy time).
+- Confirmed BEFORE publishing that the bundled `main.cjs` itself carries the fix: 3 occurrences of
+  `pg_input_is_valid`, 0 occurrences of the broken `coalesce(duplicate_keys,'{}'::jsonb)` pattern — this
+  directly rules out the "stale build" hypothesis raised in the regression entry above.
+- Deployment: `func azure functionapp publish cespk-api-dev --javascript` (Flex Consumption requires the
+  explicit language flag; the plain command fails client-side detection). Kudu deployment ID
+  `cb33351f-f0e7-4eee-a584-dcf40f15ad51`, `start_time 2026-07-20T15:57:27Z` → `end_time
+  2026-07-20T15:58:28Z`, `status: 4` (Success), `active: true`.
+- Health: state `Running`, availabilityState `Normal`, function count **146** (baseline 144, no drop),
+  zero new 5xx/exceptions in the ~5 minutes after deploy.
+- **Acceptance line 4, live**: first organic post-deploy calls to both routes —
+  `internalArchiveHoldingRegister` at 2026-07-20T16:02:50Z → **200**; `internalArchiveHoldingAdoptionCandidates`
+  at 2026-07-20T16:02:56Z → **200**. Post-deploy tally (window strictly after the deploy completed): both
+  endpoints 1/1 calls at 200, 0 at 500 — a direct reversal of the pre-deploy 100%-failure baseline.
+
+No further calls had accumulated by the time of this check (the register route runs roughly every ~20min
+per the historical rate), but both fired clean on first contact, which is the same signature the original
+2026-07-17 live proof used to certify the fix before it regressed. Given the regression's root cause was a
+stale build rather than a code defect, and the code is now independently confirmed byte-present in the
+deployed bundle before publish, this is treated as resolved rather than requiring a longer soak.
+
+## 2026-07-20T16:1x — sweep-wide PLAN-007 shared credential-path smoke test
+
+This deploy shipped as part of a larger sweep that also included commit `1762b4f9` ("PLAN-007:
+`@cs/server-runtime` foundation"), which consolidates every managed-identity/storage-token/HTTP-core path
+used by both `cespk-api-dev` and `cespk-orch-dev`. The sweep's own plan required a dedicated post-deploy
+smoke test of that shared path before considering the rollout complete. Result, not specific to this
+ticket's fix but recorded here since this is where the deploy evidence lives:
+
+- **No regression signal in either service** — zero `AuthenticationError`/`CredentialUnavailableError`/
+  401/403/MSI-tagged exceptions or traces since deploy.
+- **Positive proof on orchestration**: 8/8 successful managed-identity token mints (`GET /msi/token` via
+  IMDS) and 47/47 successful Azure Storage Queue sends, both post-deploy.
+- **Blob-specific proof is unproven, not failed**: no organic traffic exercised a blob-touching route in
+  either service in the ~90 minutes since deploy. `cespk-api-dev` additionally has a pre-existing
+  (unrelated to this deploy) gap in its App Insights dependency auto-collection — it currently emits no
+  dependency telemetry at all, which independently blocks certifying its outbound Storage/Postgres/
+  Cognitive Services calls from App Insights alone. Filed as its own observability follow-up, not a
+  PLAN-007 defect.
+
+Net: the credential-path consolidation itself is healthy on the evidence available; full certification
+against the plan's exact wording needs either organic blob traffic to accumulate or a deliberate low-risk
+evidence upload/download probe, which was not run (a real mutation, held back pending operator direction).
