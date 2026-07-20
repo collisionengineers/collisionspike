@@ -1,12 +1,12 @@
 /** service-support — cohesive Data API module. */
 
 import { type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
-import { TERMINAL_STATUSES, categoryMintsCase, readinessInputForCase, statusForReviewCase, type CaseStatus, type CaseWorkType, type InboundCategory } from '@cs/domain';
-import { caseStatusCodec, statusToInt } from '@cs/domain/codecs';
+import { TERMINAL_STATUSES, categoryMintsCase, readinessInputForCase, type CaseWorkType, type InboundCategory } from '@cs/domain';
+import { caseStatusCodec } from '@cs/domain/codecs';
 import { authenticate, toErrorResponse } from '../../../platform/auth/staff-auth.js';
-import { query, tx } from '../../../platform/db/client.js';
+import { query } from '../../../platform/db/client.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from '../../cases/inspection-prefill.js';
-import { maybeSuggestOverviewChase } from '../../cases/overview-chase.js';
+import { runStatusRecompute, type StatusRecomputeResult } from '../../cases/status-recompute-core.js';
 import { AUDIT_ACTION, writeAudit } from '../../../shared/audit.js';
 import { manualIntakeEvidenceState } from '../../cases/manual-intake-operation.js';
 import { CASE_SELECT, rowToCase, rowToEvidence, type Row } from '../../../shared/mapping/index.js';
@@ -109,96 +109,53 @@ export async function markOutstandingChasersResponded(
   }
 }
 
-interface StatusRecomputeResult {
-  found: boolean;
-  value: CaseStatus;
-  completed?: boolean;
-  pending?: boolean;
-}
-
 export async function recomputeStatus(
   caseId: string,
   acknowledgeGeneration?: number,
 ): Promise<StatusRecomputeResult> {
-  // Preserve the provider-policy prefill seam. It owns supplementary provenance and
-  // audit writes outside this module; the guarded fill completes before the stable
-  // status transaction re-reads and locks the case.
-  const previewRows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
-  const preview = previewRows[0];
-  if (preview && isPrefillApplicable(rowToCase(preview))) {
-    await prefillImageBasedInspection(caseId);
-  }
-
-  const result = await tx<StatusRecomputeResult>(async (q) => {
-    const rows = await q<Row>(
-      `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
-      [caseId],
-    );
-    const rec = rows[0];
-    if (!rec) return { found: false, value: 'error' };
-
-    const provenanceRows = await q<Row>(
-      'SELECT * FROM field_level_provenance WHERE case_id = $1',
-      [caseId],
-    );
-    const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
-    const evidence = evidenceRows.map(rowToEvidence);
-    const full = rowToCase(rec, { evidence, provenanceRows });
-    const sourceEvidence = await manualIntakeEvidenceState(q, caseId);
-    const next = statusForReviewCase({
-      ...readinessInputForCase(full),
-      sourceEvidencePending: sourceEvidence.pending || sourceEvidence.archiveFailed,
-      sourceEvidenceArchiveFailed: sourceEvidence.archiveFailed,
-    });
-
-    if (next !== full.status) {
-      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-        caseId,
-        statusToInt(next),
-      ]);
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId,
-        summary: `Status ${full.status} -> ${next} (internal recompute)`,
-        before: { status: full.status },
-        after: { status: next },
-      }, q);
-    }
-
-    if (acknowledgeGeneration != null) {
-      const ack = await q<{
-        status_recompute_requested_generation: string | number;
-        status_recompute_completed_generation: string | number;
-      }>(
-        `UPDATE case_
-            SET status_recompute_completed_generation = GREATEST(
-                  status_recompute_completed_generation,
-                  LEAST($2::bigint, status_recompute_requested_generation)
-                )
-          WHERE id = $1
-          RETURNING status_recompute_requested_generation,
-                    status_recompute_completed_generation`,
-        [caseId, acknowledgeGeneration],
+  // The internal (MSI) status recompute: the shared writer (TKT-276) with the internal prefill preview
+  // and FOR UPDATE loader that layers source-evidence readiness on top, the `(internal recompute)` audit
+  // suffix, no actor, and the durable generation ack routed through acknowledgeStatusRecompute.
+  return runStatusRecompute(caseId, {
+    acknowledgeGeneration,
+    auditSuffix: ' (internal recompute)',
+    prefill: async () => {
+      // Preserve the provider-policy prefill seam. It owns supplementary provenance and audit writes
+      // outside this module; the guarded fill completes before the stable status transaction re-reads
+      // and locks the case.
+      const previewRows = await query<Row>(`${CASE_SELECT} WHERE c.id = $1`, [caseId]);
+      const preview = previewRows[0];
+      if (preview && isPrefillApplicable(rowToCase(preview))) {
+        await prefillImageBasedInspection(caseId);
+      }
+      return { found: true };
+    },
+    load: async (q) => {
+      const rows = await q<Row>(
+        `${CASE_SELECT} WHERE c.id = $1 FOR UPDATE OF c`,
+        [caseId],
       );
-      const requested = Number(ack[0].status_recompute_requested_generation);
-      const completedGeneration = Number(ack[0].status_recompute_completed_generation);
+      const rec = rows[0];
+      if (!rec) return null;
+
+      const provenanceRows = await q<Row>(
+        'SELECT * FROM field_level_provenance WHERE case_id = $1',
+        [caseId],
+      );
+      const evidenceRows = await q<Row>('SELECT * FROM evidence WHERE case_id = $1', [caseId]);
+      const evidence = evidenceRows.map(rowToEvidence);
+      const full = rowToCase(rec, { evidence, provenanceRows });
+      const sourceEvidence = await manualIntakeEvidenceState(q, caseId);
       return {
-        found: true,
-        value: next,
-        completed: completedGeneration >= acknowledgeGeneration,
-        pending: completedGeneration < requested,
+        status: full.status,
+        readinessInput: {
+          ...readinessInputForCase(full),
+          sourceEvidencePending: sourceEvidence.pending || sourceEvidence.archiveFailed,
+          sourceEvidenceArchiveFailed: sourceEvidence.archiveFailed,
+        },
       };
-    }
-
-    return { found: true, value: next };
+    },
   });
-
-  if (result.found) {
-    // TKT-148: advisory and internally row-locking before it inserts, so it is safe
-    // after the status transaction commits and never widens the locked critical path.
-    await maybeSuggestOverviewChase(caseId, result.value);
-  }
-  return result;
 }
 
 export type ProviderResolutionSource =
