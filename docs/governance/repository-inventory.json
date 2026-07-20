@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1208,
-    "files": 4069,
-    "entries": 5277
+    "directories": 1209,
+    "files": 4073,
+    "entries": 5282
   },
-  "totalFileBytes": 709934617,
+  "totalFileBytes": 709955470,
   "entries": [
     {
       "path": ".",
@@ -5898,6 +5898,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16915,7 +16924,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1652682,
+      "size": 1654308,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16933,8 +16942,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4452431,
-      "sha256": "c0d9e373f3725e37fd622d71d5e67bda51ead60472fbb8004bb613f9866c830d",
+      "size": 4454483,
+      "sha256": "bde09a9ca4b23c018eb6790a0d177c457557a51c958a70eee4292906088972c5",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16942,8 +16951,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 70939,
-      "sha256": "ee0d841ead404af3ab07cdbdca5004071023d2d9652016d48be3e7ec9c3e9373",
+      "size": 71000,
+      "sha256": "0d264d93dd6d85fcee3abe89fb3cce5d56a6a6470c7d04ea8addde07d4893dbe",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17464,8 +17473,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52941,
-      "sha256": "9197027062eaaf633905b6d72106870465d5a4a6af1c9faca569fcf5b21f9753",
+      "size": 53180,
+      "sha256": "d03caf043a46c044a11295c79f11ce5ff9621dd166dcfcbfbb21b5b56e6c2b50",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17473,8 +17482,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 56205,
-      "sha256": "017fb67cd700776e92b7e2d22eb2ac0bfb13e2175625bcd8732988f338ad2f56",
+      "size": 56442,
+      "sha256": "324545e2176019211bb04236a01e220c58291a12151a71c3efbf65aefb6f5c36",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27974,6 +27983,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md",
+      "mediaType": "text/markdown",
+      "size": 2504,
+      "sha256": "90183b0f53b01e0b7ef7d65a5ad393607b7a6fb81456deb343c147bdfa568eaf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2413,
+      "sha256": "f38efa3667304c1e3035bab451bfa0e2ff585327841ef643b71c17a79dc6aaf4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1277,
+      "sha256": "416a8a3c9d9b476dc24087cc64167b6e2a070efbfd3a06b31933bb70b32f384f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28111,8 +28147,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 3701,
-      "sha256": "0421d2531ddf9df4ff54599c9f9fd7d91456efbffad28c7f05497aea7c4f5fec",
+      "size": 3928,
+      "sha256": "15ee419b52ae9bb51779c3659fbef883e1b2a359f15cba81d21872f9e214194d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -38893,8 +38929,8 @@
     {
       "path": "services/functions/parser/function_app.py",
       "mediaType": "text/x-python",
-      "size": 37712,
-      "sha256": "1bd95d333e980a743331772a10e951fc713e110242f65af552aae122bb5376ca",
+      "size": 40884,
+      "sha256": "28b880b5b4d2fcf0044d337d4e4cb3cc79bcc8e26fe71cfdbb68f917ba120ec5",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -39163,8 +39199,8 @@
     {
       "path": "services/functions/parser/tests/test_email_classifier_route.py",
       "mediaType": "text/x-python",
-      "size": 6611,
-      "sha256": "9d2bc0a0ff0e51ab083c1d9c69d884960060593d4c2a422c6c855407a6540e6a",
+      "size": 10914,
+      "sha256": "67efd3ff8a90c5f507593af76676c9fe9229c8fd9cc11e036f365721eae06489",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -39656,6 +39692,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/adapters/functions-client.classify-email.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1760,
+      "sha256": "5a383c1ad05a819c6bd7899448218f4652eba86791be774b59aac0f4c61aedc8",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/adapters/functions-client.deadexports.test.ts",
       "mediaType": "text/typescript",
       "size": 1253,
@@ -39667,8 +39712,8 @@
     {
       "path": "services/orchestration/src/adapters/functions-client.ts",
       "mediaType": "text/typescript",
-      "size": 16166,
-      "sha256": "f8c086e5a76cdbfc4dffeff3da83f7a56664d3652c475d6422a9d5b13147e1d4",
+      "size": 17148,
+      "sha256": "f1e98a2abe693ee18359e5f6e4dc21a317b4127b806da72d4d34a52ec3e8eba1",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
