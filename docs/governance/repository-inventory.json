@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1163,
-    "files": 3888,
-    "entries": 5051
+    "directories": 1164,
+    "files": 3893,
+    "entries": 5057
   },
-  "totalFileBytes": 705182518,
+  "totalFileBytes": 705210350,
   "entries": [
     {
       "path": ".",
@@ -5826,6 +5826,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16510,7 +16519,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1580639,
+      "size": 1582617,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16528,8 +16537,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356568,
-      "sha256": "02a72889dc93b3a3e26c6615ff262a04a22906aa1a6a22efbf58f79e2e1a1376",
+      "size": 4359059,
+      "sha256": "23be34786c6969701f17a87be14aa815314b9fc6eedccd895fed57789b52bfa2",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16537,8 +16546,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 69422,
-      "sha256": "faade4f4694aa8f0f15e3f7385da1545df7e188220cf073fc338c606319b41f0",
+      "size": 69486,
+      "sha256": "a767a7993e19310f89c52a79fa97a5944c726d24c2a2240f3f93c0d1a65deeba",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17059,8 +17068,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 51870,
-      "sha256": "9fd61388798239c9d39a6855064bc728b736219525d3c06257e048aaa616bdae",
+      "size": 52078,
+      "sha256": "8f20789ac3062e7b1c6afcf40aeafaa7759ded4aafe960e1bc6ddd208c273497",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17068,8 +17077,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 54949,
-      "sha256": "ea18d4e87ee82a0b71c657d7386b8dc5e897ecfa4857fe6f75ce0969bc332fe7",
+      "size": 55162,
+      "sha256": "4ff1c6cdfa563d2053ba3f9b7c710d1b450c912bae2c9fd652565425f7386be7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27407,6 +27416,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md",
+      "mediaType": "text/markdown",
+      "size": 4838,
+      "sha256": "0b8ffe3695ba53800e8d7e17d6389d7be2fa021562ac780e90808d8f23f82889",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1965,
+      "sha256": "fbe01dc560411eabe3abc89a1896190be6ab41a2213eb42b52123fb19f48e78f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1812,
+      "sha256": "ffa3aeea63720b448c1921a858e0e6824d4b4ddd680597f94598c8805d1e15d2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -31747,8 +31783,8 @@
     {
       "path": "packages/domain/src/domain/classification.ts",
       "mediaType": "text/typescript",
-      "size": 7766,
-      "sha256": "78e5fe929f1b530babfac00350c39a4235d24f976bf98af4b7e92e5643de8d63",
+      "size": 8535,
+      "sha256": "f81815a02f87b00bc5df4afbeb47c8e47ff3360e7319932c034eb04cdb585cf7",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -36508,8 +36544,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
       "mediaType": "text/markdown",
-      "size": 2113,
-      "sha256": "34167c05ca7c3b266a345880a2b106da1d4bcb862f4c1ab0041c26a3487512dc",
+      "size": 3417,
+      "sha256": "51974a300b6c6df8e776522f4202911b59493e9fd2ce6de22863f5e9849e1428",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -36518,7 +36554,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/VENDOR_LOCK.json",
       "mediaType": "application/json",
       "size": 850,
-      "sha256": "210887fd2a11b55a5a613773d4e07e1117ae044251068422ee7c9126d8907c50",
+      "sha256": "56aa3ce9d07db87d346d632f8448b060b6ce72828b05a4fad32eb480e5fa1e74",
       "category": "vendored-source",
       "owner": "document-parsing",
       "lifecycle": "vendored"
@@ -36805,8 +36841,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 98694,
-      "sha256": "e90a9c2818690183a83d8ecd66c26b428433960a99e8348731d1a5cd85acbaf9",
+      "size": 100375,
+      "sha256": "44af373d2b31dd18eb77f5083a9d2ee45840f4f134508e8e2e7d63117c3d3ef6",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -37127,6 +37163,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/parser/tests/test_email_classifier_content_typings.py",
+      "mediaType": "text/x-python",
+      "size": 6289,
+      "sha256": "fd6f2a6bd910f91105e55bde86013ccbfb0745cf9a4430a01029dec2996cb8aa",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/parser/tests/test_email_classifier_regressions.py",
       "mediaType": "text/x-python",
       "size": 32193,
@@ -37158,6 +37203,15 @@
       "mediaType": "text/x-python",
       "size": 20658,
       "sha256": "775fa9c0f30ccd1dd77356e1dd83689783dfe02497bf9451e634dea680a52f57",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/parser/tests/test_email_classifier_tkt288_overlap_tripwires.py",
+      "mediaType": "text/x-python",
+      "size": 4220,
+      "sha256": "ded2616357e483e9930e0db8f16102aa51893d4e54fa69664cc5b614b1d56fdf",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"

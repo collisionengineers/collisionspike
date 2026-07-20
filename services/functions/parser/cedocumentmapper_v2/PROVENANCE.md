@@ -26,6 +26,23 @@ source/worktree drift set to equal that list, and compares Python ASTs after
 removing docstrings. Any executable, decorator, annotation, default-value, or
 non-docstring literal change fails the check.
 
+## Known exception: `rules/email_classifier.py` (PLAN-014 D4, TKT-291)
+
+`rules/email_classifier.py` carries one deliberate, real executable change beyond wording
+normalisation: an additive `attachment_content_typings` parameter and its refinement rule
+(content-typed `report`/`junk`/`unknown` corroborating or withdrawing the filename-derived
+instruction/report signals — see the function's own inline comment at the change site).
+This is a direct, in-repo edit, **not** authored in `cedocumentmapper_v2.0` first — the
+authoring repository is archived (read-only) independent of the still-open
+engine-repository-consolidation PR that would otherwise retire this vendor-then-tag
+mechanism entirely. `VENDOR_LOCK.json`'s `contentSha256` reflects this edit; `ref`/`commit`/
+`sourceContentSha256` remain at the last real sync point (`engine-v2.25`) since no new tag
+was cut. A `--sibling` run of `verify_vendor_pin.py` against the archived repo's tag will
+now correctly FAIL this file's AST-equality check — that is expected and intentional, not a
+regression: this file has genuinely diverged from wording-only, and the always-on offline
+lock (which CI actually runs) is the load-bearing check going forward. The change is
+parity-tested (absent/empty input is byte-for-bit identical to prior output).
+
 ## Deployment boundary
 
 The parser service deploys this package with `providers.json`. Desktop entry
