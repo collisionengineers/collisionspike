@@ -109,7 +109,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (151)
+## Done (152)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -264,13 +264,14 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-276](./done/TKT-276-status-recompute-authority-unification/TKT-276-status-recompute-authority-unification.md) | Unify the two case status-recompute authorities and the generation-counter ack | P2 | platform | — |
 | [TKT-277](./done/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md) | Widen cross-language parity coverage and reconcile the evidence-kind MIME divergence | P2 | platform | — |
 | [TKT-278](./done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 | integration | — |
+| [TKT-281](./done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 | web | — |
 
 ## Next (0)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (55)
+## Backlog (54)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -325,7 +326,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 | platform | PLAN-009 |
 | [TKT-279](./backlog/TKT-279-guided-capture-device-camera-matrix/TKT-279-guided-capture-device-camera-matrix.md) | Guided capture — real-device camera matrix | P2 | integration | — |
 | [TKT-280](./backlog/TKT-280-guided-capture-async-validation-and-derivatives/TKT-280-guided-capture-async-validation-and-derivatives.md) | Guided capture — async validation worker, advisory OCR, and display derivatives | P2 | integration | — |
-| [TKT-281](./backlog/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 | web | — |
 | [TKT-283](./backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md) | Guided capture — SPA CI deploy pipeline, CSP headers, and custom domain | P2 | infra | — |
 | [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 | integration | — |
 | [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 | integration | — |

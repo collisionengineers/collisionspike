@@ -17,7 +17,7 @@
     "files": 3888,
     "entries": 5051
   },
-  "totalFileBytes": 705180376,
+  "totalFileBytes": 705182518,
   "entries": [
     {
       "path": ".",
@@ -2388,24 +2388,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-280-guided-capture-async-validation-and-derivatives/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5169,6 +5151,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-278-collisioncapture-repository-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16510,7 +16510,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1580655,
+      "size": 1580639,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16528,8 +16528,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356584,
-      "sha256": "8775c71c57ccb2cc8f202a2d7121006670cebafcb9997b27404817f19e5927b7",
+      "size": 4356568,
+      "sha256": "02a72889dc93b3a3e26c6615ff262a04a22906aa1a6a22efbf58f79e2e1a1376",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16538,7 +16538,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 69422,
-      "sha256": "d10bc72c87cfb0d17ed8acbbfa84e6079752edfd0947f185e8ff1381ee3f93c4",
+      "sha256": "faade4f4694aa8f0f15e3f7385da1545df7e188220cf073fc338c606319b41f0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17059,8 +17059,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 51873,
-      "sha256": "177fbbb04ef57f716187f80231bf1dcc36bfadbd61d3158df4c2f60fd0071e5e",
+      "size": 51870,
+      "sha256": "9fd61388798239c9d39a6855064bc728b736219525d3c06257e048aaa616bdae",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17068,8 +17068,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 54952,
-      "sha256": "cdae0920aed022d95075bc8afd2efb3668ac5ce984706c5dd1b871b3155e65b0",
+      "size": 54949,
+      "sha256": "ea18d4e87ee82a0b71c657d7386b8dc5e897ecfa4857fe6f75ce0969bc332fe7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19104,42 +19104,6 @@
       "mediaType": "text/markdown",
       "size": 756,
       "sha256": "deaf574c52b8edb4d02d20f14991981e370660ddcc12913d015f097681a3c26d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md",
-      "mediaType": "text/markdown",
-      "size": 2559,
-      "sha256": "bbd93d9d361661dc29d5a1e12be5141e11a1b1f6aa6278d28d07abddeb28d1b2",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/changes.md",
-      "mediaType": "text/markdown",
-      "size": 613,
-      "sha256": "3a7fb468cd4c3721a76936f1e8db703fc39e20d7da3d8368245ae1fedba44696",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/evidence/scope.md",
-      "mediaType": "text/markdown",
-      "size": 1185,
-      "sha256": "63bb05e238e936c5995a6cab5569b6860fa68b542479878fd98017412b8ab19e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-281-guided-capture-staff-panel-not-mounted/verification.md",
-      "mediaType": "text/markdown",
-      "size": 889,
-      "sha256": "1cde1ed6a08299aaffcffd80e9fb3e5f1f350a8576280cd6d1d085fd8d607b91",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -25782,6 +25746,42 @@
       "mediaType": "text/markdown",
       "size": 3029,
       "sha256": "ad3149c95e6a8dee8046c80fbae89154388a2cbf7d9d7952346c39026203d2e5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md",
+      "mediaType": "text/markdown",
+      "size": 3473,
+      "sha256": "bd94777afe3fa17fe0336805ab15357ae225ee12a7c9ca6342513926121cb9ff",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1331,
+      "sha256": "983de563428b889a6100d438881fb83a0500d41801caba45e3ff9032933fb42e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/evidence/scope.md",
+      "mediaType": "text/markdown",
+      "size": 1185,
+      "sha256": "63bb05e238e936c5995a6cab5569b6860fa68b542479878fd98017412b8ab19e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-281-guided-capture-staff-panel-not-mounted/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1437,
+      "sha256": "477e3b0ca828ce476fcb2aaf3971db410ceb22bc0a2cadc31b1ae68f2b7a665e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
