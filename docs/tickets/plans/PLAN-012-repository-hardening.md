@@ -99,22 +99,22 @@ check. No member performs a live write.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**2/5 done (40%).**
+**3/5 done (60%).**
 
 | Status | Count |
 |---|---:|
 | Now | 0 |
 | Verify | 0 |
-| Done | 2 |
+| Done | 3 |
 | Next | 0 |
-| Backlog | 3 |
+| Backlog | 2 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
 | [TKT-270](../done/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md) | done | Run the hardcore repository duplication and drift audit |
 | [TKT-271](../done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md) | done | Establish the anti-drift guard doctrine and meta-guard |
-| [TKT-272](../backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | backlog | Record and enforce the repository-structure and package-boundary rules |
+| [TKT-272](../done/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md) | done | Record and enforce the repository-structure and package-boundary rules |
 | [TKT-273](../backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md) | backlog | Add the LIVE_FACTS and ledger integrity standing check |
 | [TKT-274](../backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md) | backlog | Restore distillation-boundary reviewability and record the rule-of-three |
 <!-- /GENERATED:PROGRESS -->

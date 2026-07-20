@@ -151,6 +151,107 @@ test("permits a server-only package that the browser production graph does not r
   assert.equal(result.violations.filter((finding) => finding.kind === "server-only-boundary").length, 0);
 });
 
+const domainPackage = [{ name: "@cs/domain", root: "packages/domain" }];
+
+test("A3: rejects a direct cloud-SDK import in @cs/domain even when the SPA does not import it", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", dependencies: { zod: "^3" } }));
+  write(
+    "packages/domain/src/index.ts",
+    "import { DefaultAzureCredential } from '@azure/identity';\nexport const cred = DefaultAzureCredential;\n",
+  );
+
+  // No TypeScript target imports the package: the browser-safe audit is independent of SPA reach.
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [],
+    pythonTargets: [],
+    browserSafePackages: domainPackage,
+  });
+
+  assert.ok(result.violations.some((finding) =>
+    finding.owner === "@cs/domain"
+    && finding.kind === "browser-unsafe-import"
+    && finding.marker === "cloud-sdk"
+    && finding.source === "packages/domain/src/index.ts"));
+});
+
+test("A3: rejects a transitive runtime-adapter import in @cs/domain", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", dependencies: {} }));
+  write("packages/domain/src/index.ts", "import './bridge.js';\nexport const ready = true;\n");
+  write("packages/domain/src/bridge.ts", "import '@cs/server-runtime';\nexport const bridged = true;\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [],
+    pythonTargets: [],
+    browserSafePackages: domainPackage,
+  });
+
+  assert.ok(result.violations.some((finding) =>
+    finding.kind === "browser-unsafe-import"
+    && finding.marker === "server-runtime"
+    && finding.source === "packages/domain/src/bridge.ts"));
+});
+
+test("A3: rejects a database-client production dependency in the @cs/domain manifest", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", dependencies: { zod: "^3", pg: "^8" } }));
+  write("packages/domain/src/index.ts", "export const ready = true;\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [],
+    pythonTargets: [],
+    browserSafePackages: domainPackage,
+  });
+
+  assert.ok(result.violations.some((finding) =>
+    finding.kind === "browser-unsafe-dependency"
+    && finding.marker === "database-client"
+    && finding.dependency === "pg"
+    && finding.source === "packages/domain/package.json"));
+});
+
+test("A3: rejects a Node-only builtin import in @cs/domain", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", dependencies: {} }));
+  write("packages/domain/src/index.ts", "import { createHash } from 'node:crypto';\nexport const h = createHash;\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [],
+    pythonTargets: [],
+    browserSafePackages: domainPackage,
+  });
+
+  assert.ok(result.violations.some((finding) =>
+    finding.kind === "browser-unsafe-import" && finding.marker === "node-builtin"));
+});
+
+test("A3: permits a browser-safe @cs/domain (zod + relative imports, test files ignored)", (t) => {
+  const { root, write } = temporaryRepository(t);
+  write("packages/domain/package.json", JSON.stringify({ name: "@cs/domain", dependencies: { zod: "^3" } }));
+  write("packages/domain/src/index.ts", "import { z } from 'zod';\nimport './rules.js';\nexport const schema = z.string();\n");
+  write("packages/domain/src/rules.ts", "export const rule = true;\n");
+  // A test file may use Node builtins; it must not be audited as production source.
+  write("packages/domain/src/rules.test.ts", "import 'node:fs';\nexport const t = true;\n");
+
+  const result = scanProductionDependencies({
+    root,
+    typescriptTargets: [],
+    pythonTargets: [],
+    browserSafePackages: domainPackage,
+  });
+
+  assert.equal(
+    result.violations.filter((finding) => String(finding.kind).startsWith("browser-")).length,
+    0,
+    JSON.stringify(result.violations),
+  );
+});
+
 test("rejects a dynamic module expression that cannot be resolved statically", (t) => {
   const { root, write } = temporaryRepository(t);
   write("apps/web/src/main.ts", "const moduleName = window.location.hash;\nvoid import(moduleName);\n");

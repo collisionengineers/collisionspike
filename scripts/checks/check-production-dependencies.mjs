@@ -8,6 +8,7 @@
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -39,8 +40,22 @@ const DEFAULT_TYPESCRIPT_TARGETS = [
 // Workspace packages that are server-only by contract (ADR-0031): they may import cloud
 // SDKs and depend on the Node runtime, so they must never enter a browser (SPA) production
 // graph — doing so would poison the bundle. Enforced as a negative assertion for every
-// target flagged `browser`; `@cs/domain` stays SDK-free and is deliberately NOT listed here.
+// target flagged `browser`; `@cs/domain` stays SDK-free and is enforced from the other
+// direction by the browser-safe scan below.
 const DEFAULT_SERVER_ONLY_PACKAGES = ["packages/server-runtime"];
+
+// Browser-safe packages (ADR-0031): `@cs/domain` is bundled into the SPA, so its own production
+// code and manifest must not reach a runtime adapter, database client, Node-only package, or cloud
+// SDK — independently of whether the SPA happens to import a given module today. This is the
+// complement of the server-only boundary above: the SPA-cannot-reach-server-runtime assertion does
+// not stop `@cs/domain` itself from importing one.
+const DEFAULT_BROWSER_SAFE_PACKAGES = [{ name: "@cs/domain", root: "packages/domain" }];
+
+const CLOUD_SDK_SPECIFIER = /^(?:@azure\/|@aws-sdk\/|@google-cloud\/)|^aws-sdk(?:\/|$)|^firebase-admin(?:\/|$)/;
+const DATABASE_CLIENT_SPECIFIER =
+  /^(?:pg|pg-[a-z-]+|mysql|mysql2|mssql|tedious|mongodb|mongoose|sqlite3|better-sqlite3|ioredis|redis|knex|typeorm|sequelize|drizzle-orm)(?:\/|$)/;
+const SERVER_RUNTIME_SPECIFIER = /^@cs\/server-runtime(?:\/|$)/;
+const TEST_FILE = /(?:\.test|\.spec)\.[cm]?[jt]sx?$/;
 
 function posixPath(value) {
   return value.split(path.sep).join("/");
@@ -475,6 +490,105 @@ export function scanPythonTargets({ root, targets }) {
   return JSON.parse(result.stdout).targets;
 }
 
+/**
+ * Classify a module specifier that a browser-safe package must never reach. Returns a marker string
+ * (`node-builtin` | `server-runtime` | `cloud-sdk` | `database-client`) or null when it is allowed.
+ */
+export function browserUnsafeSpecifier(specifier) {
+  if (specifier.startsWith("node:")) return "node-builtin";
+  if (builtinModules.includes(specifier)) return "node-builtin";
+  if (SERVER_RUNTIME_SPECIFIER.test(specifier)) return "server-runtime";
+  if (CLOUD_SDK_SPECIFIER.test(specifier)) return "cloud-sdk";
+  if (DATABASE_CLIENT_SPECIFIER.test(specifier)) return "database-client";
+  return null;
+}
+
+function collectPackageSourceFiles(directory) {
+  if (!fs.existsSync(directory)) return [];
+  const files = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "__tests__") continue;
+      files.push(...collectPackageSourceFiles(absolute));
+    } else if (
+      CODE_EXTENSIONS.has(path.extname(entry.name).toLowerCase())
+      && !TEST_FILE.test(entry.name)
+    ) {
+      files.push(absolute);
+    }
+  }
+  return files;
+}
+
+function isInside(parent, child) {
+  const resolvedParent = path.resolve(parent) + path.sep;
+  return path.resolve(child).startsWith(resolvedParent);
+}
+
+/**
+ * Independently audit each browser-safe package's production surface: its manifest production
+ * dependencies and every non-test source file's imports must stay browser-safe, and its source must
+ * not reach outside its own package. This runs regardless of whether the SPA imports the package.
+ */
+export function scanBrowserSafePackages({ root, packages }) {
+  const violations = [];
+  for (const pkg of packages) {
+    const packageRoot = path.resolve(root, pkg.root);
+    const add = (finding) => violations.push({ owner: pkg.name, language: "typescript", ...finding });
+
+    const manifestPath = path.join(packageRoot, "package.json");
+    if (fs.existsSync(manifestPath)) {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      for (const dependency of Object.keys(manifest.dependencies ?? {})) {
+        const marker = browserUnsafeSpecifier(dependency);
+        if (marker) {
+          add({
+            kind: "browser-unsafe-dependency",
+            line: 1,
+            source: repositoryPath(root, manifestPath),
+            dependency,
+            marker,
+            detail: `Browser-safe package '${pkg.name}' declares a ${marker} production dependency`,
+          });
+        }
+      }
+    }
+
+    for (const file of collectPackageSourceFiles(path.join(packageRoot, "src"))) {
+      const parsed = collectTypeScriptDependencies(file, fs.readFileSync(file, "utf8"));
+      for (const dependency of parsed.dependencies) {
+        const marker = browserUnsafeSpecifier(dependency.specifier);
+        if (marker) {
+          add({
+            kind: "browser-unsafe-import",
+            line: dependency.line,
+            source: repositoryPath(root, file),
+            dependency: dependency.specifier,
+            marker,
+            detail: `Browser-safe package '${pkg.name}' imports a ${marker}`,
+          });
+          continue;
+        }
+        if (dependency.specifier.startsWith(".") || dependency.specifier.startsWith("/")) {
+          const resolved = resolveExistingPath(path.resolve(path.dirname(file), dependency.specifier));
+          if (resolved && !isInside(packageRoot, resolved)) {
+            add({
+              kind: "browser-safe-escape",
+              line: dependency.line,
+              source: repositoryPath(root, file),
+              dependency: dependency.specifier,
+              resolvedPath: repositoryPath(root, resolved),
+              detail: `Browser-safe package '${pkg.name}' imports a module outside its own package`,
+            });
+          }
+        }
+      }
+    }
+  }
+  return violations;
+}
+
 export function scanProductionDependencies(options = {}) {
   const root = path.resolve(options.root ?? REPOSITORY_ROOT);
   const typescriptTargets = options.typescriptTargets ?? DEFAULT_TYPESCRIPT_TARGETS;
@@ -486,11 +600,14 @@ export function scanProductionDependencies(options = {}) {
     serverOnlyPackages: options.serverOnlyPackages ?? DEFAULT_SERVER_ONLY_PACKAGES,
   });
   const python = scanPythonTargets({ root, targets: pythonTargets });
+  const browserSafePackages = options.browserSafePackages ?? DEFAULT_BROWSER_SAFE_PACKAGES;
+  const browserSafeViolations = scanBrowserSafePackages({ root, packages: browserSafePackages });
   const targets = [...typescript, ...python];
-  const violations = targets.flatMap((target) => target.violations);
+  const violations = [...targets.flatMap((target) => target.violations), ...browserSafeViolations];
   return {
     root,
     targets,
+    browserSafePackages: browserSafePackages.length,
     violations: violations.sort((left, right) =>
       left.source.localeCompare(right.source) || left.line - right.line || left.kind.localeCompare(right.kind)),
     modules: targets.reduce((total, target) => total + target.visited, 0),
@@ -504,7 +621,7 @@ function report(result, json) {
     return;
   }
   if (!result.violations.length) {
-    console.log(`Production dependency boundary: PASS (${result.targets.length} entrypoint graphs, ${result.modules} modules, ${result.edges} dependency edges).`);
+    console.log(`Production dependency boundary: PASS (${result.targets.length} entrypoint graphs, ${result.modules} modules, ${result.edges} dependency edges, ${result.browserSafePackages} browser-safe package(s) audited).`);
     return;
   }
   console.error(`Production dependency boundary: FAIL (${result.violations.length} violation(s)).`);
