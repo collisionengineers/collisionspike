@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1163,
-    "files": 3888,
-    "entries": 5051
+    "directories": 1165,
+    "files": 3892,
+    "entries": 5057
   },
-  "totalFileBytes": 705182518,
+  "totalFileBytes": 705195336,
   "entries": [
     {
       "path": ".",
@@ -2442,6 +2442,24 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-285-guided-capture-device-gate-calibration/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16510,7 +16528,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1580639,
+      "size": 1582558,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16528,8 +16546,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356568,
-      "sha256": "02a72889dc93b3a3e26c6615ff262a04a22906aa1a6a22efbf58f79e2e1a1376",
+      "size": 4359003,
+      "sha256": "2c29bc50ee987338c56f6bdd1e8a92adc082618c134bebc88c88c1ff3340b9fa",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16537,8 +16555,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 69422,
-      "sha256": "faade4f4694aa8f0f15e3f7385da1545df7e188220cf073fc338c606319b41f0",
+      "size": 69510,
+      "sha256": "2a12edaf3bb84941574f5e7009153c701cae53db9ef6a6cb55443f8d1aa84d76",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17059,8 +17077,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 51870,
-      "sha256": "9fd61388798239c9d39a6855064bc728b736219525d3c06257e048aaa616bdae",
+      "size": 52066,
+      "sha256": "6c37f7aaa710feea5f5518f10e4ff67287dd40023d9e45d05ed92b6cdad6029c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17068,8 +17086,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 54949,
-      "sha256": "ea18d4e87ee82a0b71c657d7386b8dc5e897ecfa4857fe6f75ce0969bc332fe7",
+      "size": 55150,
+      "sha256": "fc3ad54891124197d318ca278aa9dd86cd9b63e3c150a2c8b260459369d1cb30",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19212,6 +19230,42 @@
       "mediaType": "text/markdown",
       "size": 302,
       "sha256": "ad5351901203468750ddf856a785d8a25cf46801890134551ccc5205a015d3eb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md",
+      "mediaType": "text/markdown",
+      "size": 4910,
+      "sha256": "e5431705d24b4ea3e5690b2e1af403fefe8f96fc95b6ff0326e2be8c28ca7801",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/changes.md",
+      "mediaType": "text/markdown",
+      "size": 117,
+      "sha256": "954fff42177f6377bdf6c52ff885dbec314f94bf0c14c93ed55ded928fdcc519",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/evidence/operator-note.md",
+      "mediaType": "text/markdown",
+      "size": 2004,
+      "sha256": "5a71d1cebcfe19622a907d219a8fe4b56f635485926ff235d5d7379a4891c779",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/verification.md",
+      "mediaType": "text/markdown",
+      "size": 948,
+      "sha256": "bfd2cf923e34dee79a7beddaf1543a843f29cff8bb59a859e6f7713dd18d3e8f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

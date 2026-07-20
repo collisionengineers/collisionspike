@@ -238,7 +238,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (54)
+## Backlog (55)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -296,6 +296,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-283](./backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md) | Guided capture — SPA CI deploy pipeline, CSP headers, and custom domain | P2 · infra |
 | [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 · integration |
 | [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 · integration |
+| [TKT-289](./backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md) | Investigate whether Document Intelligence is a safe plate-OCR fallback | P2 · ai |
 
 ## Blocked (9)
 
