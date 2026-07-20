@@ -9,6 +9,8 @@ on:
       - database/migrations/**
       - services/data-api/package.json
       - services/data-api/tsconfig.json
+      - packages/capture-contracts/**
+      - apps/capture-web/**
       - package.json
       - package-lock.json
       - scripts/checks/check-capture-contract.mjs
@@ -22,6 +24,8 @@ on:
       - database/migrations/**
       - services/data-api/package.json
       - services/data-api/tsconfig.json
+      - packages/capture-contracts/**
+      - apps/capture-web/**
       - package.json
       - package-lock.json
       - scripts/checks/check-capture-contract.mjs
@@ -42,9 +46,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Validate the canonical contract and generated types
+      - name: Validate the canonical contract and generated types (server + browser)
         run: npm run contract:capture:check
       - name: Build the Data API
         run: npm run build:api
       - name: Test the Data API
         run: npm run test --workspace @cs/api
+      - name: Build the capture browser contract + app
+        run: npm run build:capture-contracts && npm run build:capture-web
+      - name: Test the capture browser app
+        run: npm run test --workspace @cs/capture-web
