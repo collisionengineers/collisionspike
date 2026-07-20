@@ -57,5 +57,67 @@
       "ts": "audit",
       "allowedDivergence": "D4 — a bare marker with no body: Python returns no marker; TS's prefix match yields the case type."
     }
+  ],
+  "vrmEnrichmentVectors": [
+    { "name": "spaced", "input": "yt13 utv", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "hyphen", "input": "YT13-UTV", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "dotted", "input": "YT13.UTV", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "compact", "input": "yt13utv", "python": "YT13UTV", "ts": "YT13UTV" },
+    { "name": "empty", "input": "", "python": "", "ts": "" }
+  ],
+  "evidenceKindVectors": [
+    { "name": "jpg", "filename": "photo.jpg", "python": "image", "ts": "image" },
+    { "name": "png", "filename": "pic.png", "python": "image", "ts": "image" },
+    { "name": "pdf", "filename": "doc.pdf", "python": "instruction", "ts": "instruction" },
+    { "name": "docx", "filename": "l.docx", "python": "instruction", "ts": "instruction" },
+    { "name": "eml", "filename": "m.eml", "python": "email", "ts": "email" },
+    { "name": "tiff-mime", "filename": "scan", "contentType": "image/tiff", "python": "image", "ts": "image" },
+    { "name": "heic-mime", "filename": "scan", "contentType": "image/heic", "python": "image", "ts": "image" },
+    { "name": "webp-mime", "filename": "s", "contentType": "image/webp", "python": "image", "ts": "image" },
+    { "name": "pdf-mime", "filename": "f", "contentType": "application/pdf", "python": "instruction", "ts": "instruction" },
+    { "name": "rfc822-mime", "filename": "f", "contentType": "message/rfc822", "python": "email", "ts": "email" },
+    { "name": "text-mime", "filename": "f", "contentType": "text/plain", "python": "other", "ts": "other" },
+    { "name": "noext", "filename": "noext", "python": "other", "ts": "other" },
+    { "name": "unknown-ext", "filename": "weird.xyz", "python": "other", "ts": "other" }
+  ],
+  "casePoTokenVectors": [
+    { "name": "ll-form", "input": "AB12345", "python": "match", "ts": "match" },
+    { "name": "lll-form", "input": "PCH261269", "python": "match", "ts": "match" },
+    { "name": "unmarked", "input": "PCH26050", "python": "match", "ts": "match" },
+    { "name": "marked", "input": "A.PCH261269", "python": "match", "ts": "match" },
+    { "name": "total-loss", "input": "AP.QDOS261530", "python": "match", "ts": "match" },
+    { "name": "notacase", "input": "notacase", "python": "no-match", "ts": "no-match" },
+    { "name": "short", "input": "AB1234", "python": "no-match", "ts": "no-match" },
+    { "name": "solicitor-ref", "input": "RTA135983.001", "python": "no-match", "ts": "no-match" }
+  ],
+  "deliveredImagesOnlyVectors": [
+    { "name": "image-kind-jpg", "attachmentKinds": ["image"], "filenames": ["IMG_0421.jpg"], "python": true, "ts": true },
+    { "name": "no-kind-images", "attachmentKinds": [], "filenames": ["photo.jpg", "photo2.png"], "python": true, "ts": true },
+    { "name": "report-pdf", "attachmentKinds": ["image"], "filenames": ["report.pdf"], "python": false, "ts": false },
+    { "name": "plain-pdf", "attachmentKinds": [], "filenames": ["scan.pdf"], "python": false, "ts": false },
+    {
+      "name": "photo-kind-nonimage",
+      "attachmentKinds": ["photo"],
+      "filenames": ["doc.txt"],
+      "python": true,
+      "ts": false,
+      "allowedDivergence": "D5 — Python accepts any kind in {image,images,photo,photos}; the TS kind tier accepts only the literal 'image' kind and falls through to the filename tier, which rejects the non-image file."
+    },
+    {
+      "name": "photo-kind-nofiles",
+      "attachmentKinds": ["photo"],
+      "filenames": [],
+      "python": true,
+      "ts": false,
+      "allowedDivergence": "D6 — Python has a kinds-only branch (no filenames -> kind_set subset of image-kinds); the TS predicate returns false when no non-signature filenames are supplied."
+    },
+    {
+      "name": "image-kind-nofiles",
+      "attachmentKinds": ["image"],
+      "filenames": [],
+      "python": true,
+      "ts": false,
+      "allowedDivergence": "D6 — same kinds-only branch: Python accepts the 'image' kind with no filenames; TS requires at least one non-signature filename."
+    }
   ]
 }

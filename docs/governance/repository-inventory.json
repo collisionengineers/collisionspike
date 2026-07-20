@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3765,
-    "entries": 4888
+    "files": 3767,
+    "entries": 4890
   },
-  "totalFileBytes": 704247913,
+  "totalFileBytes": 704268392,
   "entries": [
     {
       "path": ".",
@@ -2208,15 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4854,15 @@
     },
     {
       "path": "docs/tickets/done/TKT-276-status-recompute-authority-unification",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-277-cross-language-parity-widening",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1531816,
+      "size": 1532448,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4293831,
-      "sha256": "1fa2b5faa1c1ed800f18f91b26da546b80f1cdb0d317685e7eccabbdb99e4d2c",
+      "size": 4294631,
+      "sha256": "9c65e6f6f8b497dd4a0af4563c83e1b8e42d0e88896be68d6fa13748e1bd2a8b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68040,
-      "sha256": "9d1a0cb16915278a47ed000ecc6ab84a6bd5604c49dcc54288d5a408b8006526",
+      "sha256": "56f3d116593bc73950c428d1ac60687da27f1f58bc8cae1da7cad3356a7d88fe",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16195,8 +16195,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49911,
-      "sha256": "6deb47968a6e9de45afa339884aba36cae7237f34160f0081c94537de583fe10",
+      "size": 49908,
+      "sha256": "ef25a4367ac914fc66b2a1df70010d8a662c643a48e8ddc1f8d9e303fa49fc94",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16204,8 +16204,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52774,
-      "sha256": "a0fbba5ad856cdda9373d4379eae6e9151dd3304e87c683b87d127a42da5816a",
+      "size": 52771,
+      "sha256": "ac88cbaac36a594ccec2ca48a89b2ba61ecd5bd3125511bc70e0de16d06bbfb2",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18168,33 +18168,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md",
-      "mediaType": "text/markdown",
-      "size": 3020,
-      "sha256": "df3d87b412c7c6f250e7d9b254607a4c3d9b4e1dbe3cc373e8a71e6d5cdff021",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/changes.md",
-      "mediaType": "text/markdown",
-      "size": 108,
-      "sha256": "e03e1c17f43a55495ea437cc71d7445494827d64aeb6d2af9eb24307ac468975",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/verification.md",
-      "mediaType": "text/markdown",
-      "size": 193,
-      "sha256": "b4baf744393813984b105d307a7b2b00f2e9eb9e5c5428de1c7086abe0b8367a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24599,6 +24572,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md",
+      "mediaType": "text/markdown",
+      "size": 3017,
+      "sha256": "8b7e5e66aedc986392afefd9770077b6da381fdbe338f15702df53ea71b1b58a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-277-cross-language-parity-widening/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2699,
+      "sha256": "18a063794617cc058a3caefa3deee6ae20eed76e080db19e6f090aef772a7158",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-277-cross-language-parity-widening/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1840,
+      "sha256": "db5810286dbb0c429ee41b183050f21770ba3e7c108ed03712e1f44b5afb3e54",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -30316,8 +30316,8 @@
     {
       "path": "packages/domain/src/domain/classification.ts",
       "mediaType": "text/typescript",
-      "size": 7159,
-      "sha256": "c6e3ed6b78055d9d8505935b98ba74e3083ca95d7919b7a8978d375fa4bcbf8e",
+      "size": 7766,
+      "sha256": "78e5fe929f1b530babfac00350c39a4235d24f976bf98af4b7e92e5643de8d63",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -30424,8 +30424,8 @@
     {
       "path": "packages/domain/src/domain/parser-parity.test.ts",
       "mediaType": "text/typescript",
-      "size": 5160,
-      "sha256": "e4f8969af6f9cb2262ba7d946ac03a387fe32bb93e7e0b0d5b6938237eada581",
+      "size": 6380,
+      "sha256": "30c28599229641909e8a11569366efc929507d6901eb962bbb5640463262a60f",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -31351,8 +31351,8 @@
     {
       "path": "scripts/checks/parser-domain-parity-vectors.json",
       "mediaType": "application/json",
-      "size": 3254,
-      "sha256": "4b6024d4fc30abd7f16ab1433e149c67a3059d7ab64337164851d9f2f249d9ec",
+      "size": 7267,
+      "sha256": "1df40de2f93b943f216b407b3e985e88fa18922e952de2ad61ce5278f13fc9be",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31360,8 +31360,8 @@
     {
       "path": "scripts/checks/parser-domain-parity.md",
       "mediaType": "text/markdown",
-      "size": 3612,
-      "sha256": "8f2c472684f2d85dd8bea0ce6e3494bdb1dd5eba2394fc488d2c70b7c662024b",
+      "size": 5402,
+      "sha256": "91b9327ce2b0cfb02211a78d2915c17ab14ef39952c5fa305fc1b940501e9726",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31369,8 +31369,8 @@
     {
       "path": "scripts/checks/parser_parity_emitter.py",
       "mediaType": "text/x-python",
-      "size": 2158,
-      "sha256": "951893a06c9e435dc1613fa0245ded2a8d9b78642b7ef403145bb2c1fb8eee68",
+      "size": 3432,
+      "sha256": "fbf65916968bb3106694723e072b940504adc6a84a5ba4145b431f49cbd34a18",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -34330,8 +34330,8 @@
     {
       "path": "services/functions/box-webhook/evidence_kind.py",
       "mediaType": "text/x-python",
-      "size": 3389,
-      "sha256": "6563b80ee82c0added08df637ee6456a9619526202bb6162a338c810ee2d245d",
+      "size": 3744,
+      "sha256": "fd9cb9b2afa2e5310c4aa143a6ca1a1105ab469d1beb676666aa69439216c136",
       "category": "source",
       "owner": "archive-integration",
       "lifecycle": "active"
@@ -34683,6 +34683,15 @@
       "mediaType": "text/x-python",
       "size": 27829,
       "sha256": "cc924e4da1efd49db11b1d9770cdd5b43d02c9614cec98d805d18f9f11d9b6a0",
+      "category": "test",
+      "owner": "eva-integration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/eva-sentry/tests/test_schema_parity.py",
+      "mediaType": "text/x-python",
+      "size": 2014,
+      "sha256": "d599bcce05ac3aaa29d4334a78cc167f31dfefeaa2307ca4e8c891a533543c5d",
       "category": "test",
       "owner": "eva-integration",
       "lifecycle": "active"
@@ -36992,6 +37001,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/intake/triage-parity.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3538,
+      "sha256": "e9ee8e29804fbeb6d9be7f751e6e6304c44297b6fa36f00c91df7f0acbf5678a",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/intake/triagePolicy.test.ts",
       "mediaType": "text/typescript",
       "size": 6597,
@@ -37003,8 +37021,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triagePolicy.ts",
       "mediaType": "text/typescript",
-      "size": 16739,
-      "sha256": "9287e34542d7c86c625aae2f47acb465be0a751eb303565f07f971f75e227446",
+      "size": 16746,
+      "sha256": "623bb0931ac72255aa62291db7a3d924dc3f8192d70995b3105f0654f5bfe1ad",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

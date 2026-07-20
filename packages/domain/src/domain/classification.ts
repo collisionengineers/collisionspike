@@ -44,8 +44,10 @@ const EXTENSION_TABLE: Readonly<Record<string, EvidenceClass>> = {
 };
 
 /* ----------  MIME table (corroborating signal)  ----------
-   Used only when the extension is absent/unknown. Mirrors the extension table
-   so the two never disagree on a known type. */
+   Used only when the extension is absent/unknown. Explicit non-image types plus an
+   `image/*` wildcard (see classifyAttachment): the box-webhook classifier and the
+   TKT-124 re-kind migration both treat any honest `image/*` MIME as an image, so a
+   `.tiff`/`.heic` scan with an off-table extension is still an image. */
 
 /** Lower-cased MIME content-type -> evidence class. */
 const MIME_TABLE: Readonly<Record<string, EvidenceClass>> = {
@@ -125,8 +127,14 @@ export function classifyAttachment(
   const byExt = EXTENSION_TABLE[ext];
   if (byExt) return byExt;
 
-  const byMime = MIME_TABLE[normaliseMime(contentType)];
+  const mime = normaliseMime(contentType);
+  const byMime = MIME_TABLE[mime];
   if (byMime) return byMime;
+  // An honest `image/*` MIME beats a missing extension-table entry — a `.tiff`/`.heic`/`.webp`
+  // scan is still an image. This mirrors box-webhook `classify_evidence_kind` and the TKT-124
+  // re-kind migration (database/migrations/2026-07-09-tkt124-rekind-box-evidence.sql), which the
+  // cross-language parity guard pins (TKT-277).
+  if (mime.startsWith('image/')) return 'image';
 
   return 'other';
 }

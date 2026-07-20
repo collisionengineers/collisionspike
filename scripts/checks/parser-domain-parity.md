@@ -1,16 +1,21 @@
-# Parser ↔ `@cs/domain` cross-language parity (TKT-269 / PLAN-011)
+# Cross-language parity (TKT-269 / PLAN-011, widened by TKT-277 / PLAN-012)
 
-The vendored parser and browser-safe `@cs/domain` each independently implement VRM canonicalisation and
-Case/PO-marker recognition. They are deliberately kept as two implementations (ADR-0032 — Python services
-stay independently packaged; ADR-0018 — the parser stays vendored and drift-locked), so a behavioural
-**parity guard** replaces a shared module.
+The Python function services and browser-safe `@cs/domain` (and the orchestration triage policy) each
+independently implement rules that also live on the other side. They are deliberately kept as separate
+implementations (ADR-0032 — Python services stay independently packaged; ADR-0018 — the parser stays
+vendored and drift-locked), so a behavioural **parity guard** on a shared corpus replaces a shared module.
 
-## The two seams
+## The seams
 
-| Concern | Python (vendored parser) | TypeScript (`@cs/domain`) |
+| Concern | Python | TypeScript |
 | --- | --- | --- |
-| VRM canonicalisation | `normalize_vrm` — `cedocumentmapper_v2/normalization/normalizers.py` | `canonicalizeVrm` — `packages/domain/src/domain/vrm-canon.ts` |
-| Case/PO marker → case type | `case_type_for_reference` (via `marker_for_reference`) — `cedocumentmapper_v2/detection/case_type.py` | `markerToCaseType(parseCasePoMarker(...).marker)` — `packages/domain/src/domain/retro-case.ts` |
+| VRM canonicalisation | `normalize_vrm` — `parser cedocumentmapper_v2/normalization/normalizers.py` | `canonicalizeVrm` — `packages/domain/src/domain/vrm-canon.ts` |
+| Case/PO marker → case type | `case_type_for_reference` — `parser cedocumentmapper_v2/detection/case_type.py` | `markerToCaseType(parseCasePoMarker(...).marker)` — `packages/domain/src/domain/retro-case.ts` |
+| VRM enrichment canonicaliser (C2) | `canonicalize_registration` — `vehicle-enrichment vehicle_data/registration.py` | `canonicalizeVrm` — `packages/domain/src/domain/vrm-canon.ts` |
+| Evidence-kind MIME classifier (C3) | `classify_evidence_kind` — `box-webhook evidence_kind.py` | `classifyAttachment` — `packages/domain/src/domain/classification.ts` |
+| Case/PO token shape (C5) | `CASEREF_RE` (whole-token) — `parser …/rules/email_classifier.py` | `CASE_PO_SHAPE_RE` — `packages/domain/src/domain/retro-case.ts` |
+| Delivered-images-only predicate (C1) | `_delivered_images_only` — `parser …/rules/email_classifier.py` | `deliveredImagesOnly` — `services/orchestration/src/workflows/intake/triagePolicy.ts` |
+| EVA 12-field format validation (C4) | `validate_core_payload` — `eva-sentry payload.py` | `contracts/eva-payload.schema.json` (the schema itself) |
 
 Python's `case_type_for_reference` returns `None` for an unmarked/guarded reference; that is written in its
 normalised form `"standard"` (the TS `markerToCaseType` default) in the corpus so both columns are case
@@ -39,6 +44,16 @@ types.
   (`A.4 → audit`).
 - **D4 — bare marker, no body:** `A.`/`AP.`/`D.` → Python no marker (`standard`); TS prefix match yields
   the case type.
+- **D5/D6 — delivered-images-only kind vocabulary (C1):** Python accepts any kind in
+  `{image,images,photo,photos}` and has a kinds-only branch (no filenames); the TS predicate accepts only
+  the literal `image` kind and returns `false` when no non-signature filename is supplied. Both agree on
+  the live inputs (`attachmentKindsOf` only ever emits `image`).
+
+**C2, C3, C5 carry no divergences** — the vehicle-enrichment canonicaliser matches `canonicalizeVrm`, the
+Case/PO token shapes agree as whole-token validators, and **C3 was reconciled** (TKT-277): `classifyAttachment`
+was widened to the `image/*` MIME wildcard so it matches `classify_evidence_kind` and the TKT-124 re-kind
+migration (an honest `image/*` beats a missing extension-table entry). The C1 seam runs in the orchestration
+suite (`triage-parity.test.ts`); C4 runs in the eva-sentry pytest (`test_schema_parity.py`).
 
 These are recorded as **allowed** divergences, not defects. Whether to reconcile a pair (change one
 implementation) or keep the allowance is a future decision; either way the corpus is the contract.
