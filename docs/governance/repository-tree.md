@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1149 directories, 3885 files.
+Grand total: 1149 directories, 3884 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1763,11 +1763,11 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
-### scripts — 19 directories, 114 files
+### scripts — 19 directories, 115 files
 
 ```text
 scripts/  (6 files)
-  build/  (3 files)
+  build/  (4 files)
   checks/  (54 files)
     fixtures/  (0 files)
       auth-inventory/  (1 file)
@@ -1787,7 +1787,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 91 directories, 722 files
+### services — 91 directories, 720 files
 
 ```text
 services/  (0 files)
@@ -1850,7 +1850,7 @@ services/  (0 files)
     ocr/  (12 files)
       tests/  (5 files)
     parser/  (10 files)
-      cedocumentmapper_v2/  (4 files)
+      cedocumentmapper_v2/  (3 files)
         application/  (2 files)
         config/  (2 files)
         detection/  (4 files)
@@ -1863,7 +1863,7 @@ services/  (0 files)
         ui/  (2 files)
       contracts/  (1 file)
       scripts/  (1 file)
-      tests/  (20 files)
+      tests/  (19 files)
         fixtures/  (5 files)
           expected/  (11 files)
     vehicle-enrichment/  (10 files)
@@ -2181,9 +2181,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3885 | 3885 | PASS |
+| Proposed tree files == ledger final files | 3884 | 3884 | PASS |
 | Proposed tree directories == ledger final directories | 1149 | 1149 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3887 | 3887 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3886 | 3886 | PASS |
 | Proposed directories == inventory directories | 1149 | 1149 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the

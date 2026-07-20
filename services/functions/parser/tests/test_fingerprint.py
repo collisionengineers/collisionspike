@@ -1,4 +1,4 @@
-"""Immutable deployed-parser fingerprint route (TKT-150)."""
+"""Deployed-parser content-identity fingerprint route."""
 
 from __future__ import annotations
 
@@ -18,25 +18,23 @@ def _request() -> func.HttpRequest:
     )
 
 
-def test_fingerprint_matches_the_committed_vendor_lock():
-    lock = json.loads(function_app._VENDOR_LOCK_PATH.read_text(encoding="utf-8"))
+def test_fingerprint_matches_the_committed_engine_fingerprint():
+    fingerprint_data = json.loads(
+        function_app._ENGINE_FINGERPRINT_PATH.read_text(encoding="utf-8")
+    )
     response = function_app.fingerprint(_request())
 
     assert response.status_code == 200
     assert json.loads(response.get_body()) == {
         "contract": "ce-parser-fingerprint-v1",
-        "repository": lock["repository"],
-        "ref": lock["ref"],
-        "commit": lock["commit"],
-        "vendored_file_count": lock["vendoredFileCount"],
-        "content_sha256": lock["contentSha256"],
-        "providers_sha256": lock["providersSha256"],
+        "vendored_file_count": fingerprint_data["vendoredFileCount"],
+        "content_sha256": fingerprint_data["contentSha256"],
     }
 
 
-def test_fingerprint_fails_closed_when_the_lock_is_unreadable(monkeypatch, tmp_path):
-    missing = tmp_path / "missing-vendor-lock.json"
-    monkeypatch.setattr(function_app, "_VENDOR_LOCK_PATH", missing)
+def test_fingerprint_fails_closed_when_unavailable(monkeypatch, tmp_path):
+    missing = tmp_path / "missing-engine-fingerprint.json"
+    monkeypatch.setattr(function_app, "_ENGINE_FINGERPRINT_PATH", missing)
 
     response = function_app.fingerprint(_request())
 

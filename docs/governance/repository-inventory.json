@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1149,
-    "files": 3887,
-    "entries": 5036
+    "files": 3886,
+    "entries": 5035
   },
-  "totalFileBytes": 708451449,
+  "totalFileBytes": 708450006,
   "entries": [
     {
       "path": ".",
@@ -15889,7 +15889,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1579291,
+      "size": 1578939,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15907,8 +15907,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4356621,
-      "sha256": "671087091bd5841d93bdf147bf13649ffeed86c42a6b86d58968333b2961078b",
+      "size": 4356214,
+      "sha256": "c314fd4a106d862634c23bb51225d57567c2a9f20af6b503f6b1b74177ed2c6b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15917,7 +15917,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68817,
-      "sha256": "5a63d8facc98011fb64970138e55f5ae198a7a17e224b70e3173953742e81abf",
+      "sha256": "506d4bfaf4df4aa52d8cb3d33a4acec46b93b53d48aff08ebf8463a2d8ffa0d5",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -31160,6 +31160,15 @@
       "lifecycle": "generated"
     },
     {
+      "path": "scripts/build/sync-engine.py",
+      "mediaType": "text/x-python",
+      "size": 4126,
+      "sha256": "6e825231d7f34d4c98ebf2760d96d77a697e62865ec9e94d0a6dda4408f86c9f",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "generated"
+    },
+    {
       "path": "scripts/checks/build-determinism.test.mjs",
       "mediaType": "text/javascript",
       "size": 807,
@@ -36389,22 +36398,13 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
-      "mediaType": "text/markdown",
-      "size": 2113,
-      "sha256": "34167c05ca7c3b266a345880a2b106da1d4bcb862f4c1ab0041c26a3487512dc",
-      "category": "documentation",
+      "path": "services/functions/parser/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
+      "mediaType": "application/json",
+      "size": 159,
+      "sha256": "becba6a56dc8c9d062cb72633e28a84e79949e53a54233e3284ebd04e2011d57",
+      "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/parser/cedocumentmapper_v2/VENDOR_LOCK.json",
-      "mediaType": "application/json",
-      "size": 850,
-      "sha256": "210887fd2a11b55a5a613773d4e07e1117ae044251068422ee7c9126d8907c50",
-      "category": "vendored-source",
-      "owner": "document-parsing",
-      "lifecycle": "vendored"
     },
     {
       "path": "services/functions/parser/cedocumentmapper_v2/__init__.py",
@@ -36742,8 +36742,8 @@
     {
       "path": "services/functions/parser/function_app.py",
       "mediaType": "text/x-python",
-      "size": 37526,
-      "sha256": "e415541b98f21967527cace4a380761058417286537e0045199d51d95051a994",
+      "size": 37712,
+      "sha256": "1bd95d333e980a743331772a10e951fc713e110242f65af552aae122bb5376ca",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -37055,15 +37055,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/parser/tests/test_engine_vendored_in_sync.py",
-      "mediaType": "text/x-python",
-      "size": 2099,
-      "sha256": "f951aeeeed605476ca9bc3d04342d9767ad1291d09d9ff065aef1f6241b16d2f",
-      "category": "test",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/parser/tests/test_eva_export.py",
       "mediaType": "text/x-python",
       "size": 5852,
@@ -37102,8 +37093,8 @@
     {
       "path": "services/functions/parser/tests/test_fingerprint.py",
       "mediaType": "text/x-python",
-      "size": 1328,
-      "sha256": "78b990a24a12320c39eca312c2df9a8dc6c030d6500d7838fd226141f54730a7",
+      "size": 1235,
+      "sha256": "5d15cf52ab96fe6ceae7d5e329d28d8b5c5a4ec5e5ac65f1196dd048195a627f",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
