@@ -27,6 +27,14 @@ some governed subscription and function-registration fields in the tracked regis
 state and the verification timestamp remain in `LIVE_FACTS.json`. The existing ledger checks must remain
 canonical rather than being reimplemented inside another guard.
 
+The TKT-270 audit ([report](../../done/TKT-270-hardcore-repository-drift-audit/evidence/audit-report-2026-07-20.md),
+findings R1–R3) names three concrete instances this check owns: `LIVE_FACTS.parser.functionCount=4` vs the
+committed evidence snapshot and `function_app.py` (both 5); `LIVE_FACTS.dataApi.functionCount=144` vs the
+snapshot's 146 (the "over-count" resolution was never written back and its provenance is internally
+contradictory); and `live-environment.md`'s header "last verified 2026-07-16" vs `LIVE_FACTS.lastVerified`
+(2026-07-19). Remediation re-mints or corrects the counts from a fresh read-only read, writes the resolution
+back into the snapshot, and derives the doc's verified-date from the registry.
+
 ## Proposed change
 After TKT-257 and TKT-258 are `done`, define a secret-free machine-readable evidence snapshot and field map:
 each governed `LIVE_FACTS.json` JSON path maps to a snapshot path, evidence source/probe, capture time, and

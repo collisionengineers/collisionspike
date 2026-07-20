@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1119,
-    "files": 3729,
-    "entries": 4848
+    "directories": 1122,
+    "files": 3739,
+    "entries": 4861
   },
-  "totalFileBytes": 704054248,
+  "totalFileBytes": 704088227,
   "entries": [
     {
       "path": ".",
@@ -2216,24 +2216,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2298,6 +2280,33 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-275-runtime-shared-mechanism-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4818,6 +4827,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-269-vendored-parser-cross-language-parity-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15601,7 +15628,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1519277,
+      "size": 1523542,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15619,8 +15646,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4277885,
-      "sha256": "1de83be024c2f19f399dace84cec93883648bea1055f7c607cd946f01797ef21",
+      "size": 4283264,
+      "sha256": "9c1669d35036f10b8b97c3549665cec6496311fde6f9e790503ca02105034cb9",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15628,8 +15655,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67824,
-      "sha256": "6e0f07f30bec129e7d2c5a987af2346c3f9b797e7ead87b90bea7efbe8c04732",
+      "size": 68012,
+      "sha256": "e739bd985b87f6382bc80afe619ef354138e4cecf2c8d2c9319097ff8e5f5716",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16132,8 +16159,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49272,
-      "sha256": "1cc8c8c6f47e410c2d2f89819e243ffd83f3dca51ef04a9a1b558cf9bf41586d",
+      "size": 49928,
+      "sha256": "7b260a2f2de6e60502161dee4bdc51cdfdcde53dca411f2f50dd000ac674a857",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16141,8 +16168,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52117,
-      "sha256": "1ff32be932f5ba40037679c92707771a885cb9c240f031b1e330dee2ca13f6a9",
+      "size": 52789,
+      "sha256": "794d6c1781141e40348855c03a2419e6f527c4ec76f808c75c03d76e6301121a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18110,42 +18137,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md",
-      "mediaType": "text/markdown",
-      "size": 3539,
-      "sha256": "004934347ab277b9574017e731d33a87dba8eb8d7d4828e4d68c2e207b2a16a5",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/changes.md",
-      "mediaType": "text/markdown",
-      "size": 104,
-      "sha256": "3669f41a9c2652d7f432938d3b10dc8b2d9743f73bf3d4d05c003871f7452df3",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1747,
-      "sha256": "4e514c8fb64612c99a494940d61d696946df60c6e5f28a86477fe599dbf84c95",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-270-hardcore-repository-drift-audit/verification.md",
-      "mediaType": "text/markdown",
-      "size": 189,
-      "sha256": "5ce55a5571e55e259cd3c0cfcea5baa4549614e8849703b6ddf8f576b68734eb",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/backlog/TKT-271-anti-drift-guard-doctrine-and-meta-guard/TKT-271-anti-drift-guard-doctrine-and-meta-guard.md",
       "mediaType": "text/markdown",
       "size": 3569,
@@ -18220,8 +18211,8 @@
     {
       "path": "docs/tickets/backlog/TKT-273-live-facts-and-ledger-integrity-check/TKT-273-live-facts-and-ledger-integrity-check.md",
       "mediaType": "text/markdown",
-      "size": 4555,
-      "sha256": "2c22226be763c5ec8973a4e6ed357387f20fa78b5b1d4810bfa83fe5948167a7",
+      "size": 5283,
+      "sha256": "a7750477d1e35cf38ec3203a101a97a164d9e5cac063cba4cffa153947672ec3",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18285,6 +18276,87 @@
       "mediaType": "text/markdown",
       "size": 206,
       "sha256": "ad17c150712fb68508b83e42055e2a3ca5eb0f7451aa2cadbd333353d6650665",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-275-runtime-shared-mechanism-consolidation/TKT-275-runtime-shared-mechanism-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 2752,
+      "sha256": "ff8d627d4973f68ff47a7870332381673945f03db58b4ce7e8611781b3ba5203",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-275-runtime-shared-mechanism-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 108,
+      "sha256": "e2b1f7e0983861cb2cb3917943164a81f0b2b94c6345e6fc019ec0d653925dc7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-275-runtime-shared-mechanism-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 193,
+      "sha256": "4a8c2f70658479dc38b9845c8eb0f474b72e91bba71cd285253da559e0dadb60",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/TKT-276-status-recompute-authority-unification.md",
+      "mediaType": "text/markdown",
+      "size": 2651,
+      "sha256": "c61c6821765afea352df959005e9a819ef930435997a6a3285090e7798795510",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/changes.md",
+      "mediaType": "text/markdown",
+      "size": 108,
+      "sha256": "b0419dc64da1f9a241bf2ae101bf5d81b50ebf5a8eebf9f9ac4a133593348382",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/verification.md",
+      "mediaType": "text/markdown",
+      "size": 193,
+      "sha256": "07a1cc55101f49bd2e5472499a3466abcf7011868ba1baccd6d09fc8517b561b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md",
+      "mediaType": "text/markdown",
+      "size": 3020,
+      "sha256": "df3d87b412c7c6f250e7d9b254607a4c3d9b4e1dbe3cc373e8a71e6d5cdff021",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/changes.md",
+      "mediaType": "text/markdown",
+      "size": 108,
+      "sha256": "e03e1c17f43a55495ea437cc71d7445494827d64aeb6d2af9eb24307ac468975",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-277-cross-language-parity-widening/verification.md",
+      "mediaType": "text/markdown",
+      "size": 193,
+      "sha256": "b4baf744393813984b105d307a7b2b00f2e9eb9e5c5428de1c7086abe0b8367a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24410,6 +24482,51 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/TKT-270-hardcore-repository-drift-audit.md",
+      "mediaType": "text/markdown",
+      "size": 3533,
+      "sha256": "2f1381ed863e2c8b74a68f8e50cb562a167262c0825ee7da3621d4e6546067de",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2007,
+      "sha256": "97aa2f958d30d639276b6107ac8d6b6d56655138f725dddc2b5a7dfab1a61c6e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/evidence/audit-report-2026-07-20.md",
+      "mediaType": "text/markdown",
+      "size": 9431,
+      "sha256": "554e8f58845f975dc2dff95bafb6ea1f152972f3d69715e51e05645e668df2b5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1747,
+      "sha256": "4e514c8fb64612c99a494940d61d696946df60c6e5f28a86477fe599dbf84c95",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-270-hardcore-repository-drift-audit/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1631,
+      "sha256": "39ffe6388800f2aff38e7e40780129880d9f5bc40bf55b66ea52a436c53401a5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26122,8 +26239,8 @@
     {
       "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
       "mediaType": "text/markdown",
-      "size": 7671,
-      "sha256": "eaeb5667ec60c90a0519951ea0c35443ba0120234689010013dea10a380c31be",
+      "size": 7666,
+      "sha256": "78b5cf72fde2238f77713ace4b9bd5a2346dd12ca2d7dabb12a8e36fa3e70f1d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
