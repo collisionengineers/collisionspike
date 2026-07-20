@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1118,
-    "files": 3725,
-    "entries": 4843
+    "directories": 1119,
+    "files": 3729,
+    "entries": 4848
   },
-  "totalFileBytes": 704028882,
+  "totalFileBytes": 704054248,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5483,6 +5465,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/plans",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6942,6 +6942,15 @@
     },
     {
       "path": "scripts/checks/fixtures",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository-governance",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "scripts/checks/fixtures/auth-inventory",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15403,8 +15412,8 @@
     {
       "path": "docs/adr/0032-python-independent-packaging.md",
       "mediaType": "text/markdown",
-      "size": 4715,
-      "sha256": "2c565c94e5a4968b9a2f7571b03ef9c6ca8d3b9528e746324ba807519f8f2d37",
+      "size": 4711,
+      "sha256": "11e7777f139797d54c8ee55e44d4e48420e910af7887032a916a1eeb7e4db667",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15592,7 +15601,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1517775,
+      "size": 1519277,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15610,8 +15619,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4275962,
-      "sha256": "c7dbf83683c4e747afb5db9054a6a2b36ca5d4a17a5aea4e5e11fd5bad8a2a69",
+      "size": 4277885,
+      "sha256": "1de83be024c2f19f399dace84cec93883648bea1055f7c607cd946f01797ef21",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15619,8 +15628,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 67791,
-      "sha256": "87e1a4ad9c95591f68578e162cdd198e31be8ad65f8534044b25befe4ff596ad",
+      "size": 67824,
+      "sha256": "6e0f07f30bec129e7d2c5a987af2346c3f9b797e7ead87b90bea7efbe8c04732",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16123,8 +16132,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49276,
-      "sha256": "cb3c169f396db5ab88423261d274c8346e7d128e4c6cd53557c10f5bec7a4a06",
+      "size": 49272,
+      "sha256": "1cc8c8c6f47e410c2d2f89819e243ffd83f3dca51ef04a9a1b558cf9bf41586d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16132,8 +16141,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52121,
-      "sha256": "1706e5f1074b942e49e23a37506a5d44c2f1f23b2e24ecf589fba2b735107e5e",
+      "size": 52117,
+      "sha256": "1ff32be932f5ba40037679c92707771a885cb9c240f031b1e330dee2ca13f6a9",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18096,42 +18105,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md",
-      "mediaType": "text/markdown",
-      "size": 3677,
-      "sha256": "4dcefeb05313449f0bee06ffc69d6d3c080c12769a944e1aa6d6329266850885",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/changes.md",
-      "mediaType": "text/markdown",
-      "size": 111,
-      "sha256": "1f8d2a140170c8005f966c57a1ca1a3e7f2a67fd0517c50d594e718ae0d30eee",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1340,
-      "sha256": "75071de45ec888690f1ec5826f4e576a650839589c42ab228b25847ca086a867",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-268-python-token-backoff-conformance-suite/verification.md",
-      "mediaType": "text/markdown",
-      "size": 196,
-      "sha256": "bc684b11e851473c1e17a91958250abba66350a1d64e08f16f8f932d453819be",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26003,6 +25976,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md",
+      "mediaType": "text/markdown",
+      "size": 3669,
+      "sha256": "6ca9d9d2ed384937ca9e5417e840b2811adac4fb3c6adec1e8395ff66774e529",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3584,
+      "sha256": "4d28136ea0face0c7f10d088074953365bdad4ce93aa31b49900a180436448fd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1340,
+      "sha256": "75071de45ec888690f1ec5826f4e576a650839589c42ab228b25847ca086a867",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-268-python-token-backoff-conformance-suite/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1860,
+      "sha256": "30bbab0bc592bc292b519b3166f22f1efef6be9402f71582c1b37c0c1f4b1af4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4510,
@@ -26104,8 +26113,8 @@
     {
       "path": "docs/tickets/plans/PLAN-011-python-doctrine-and-parity.md",
       "mediaType": "text/markdown",
-      "size": 4861,
-      "sha256": "b4570d9678dd4e744029594d484752f58d4a4209d6ffea67101de621a2216fd2",
+      "size": 4853,
+      "sha256": "225d01787f06d90e76203e23cd0ae409c0df939a8d126e8155ab63fe5c6cae60",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29686,8 +29695,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5294,
-      "sha256": "04ab3eb1fcd1f3533fc9d606c03ddc3bf215105b975bb03bc0f8e12590b8c797",
+      "size": 5370,
+      "sha256": "84527540e3cd2c799ff769a5a45b0d11bbfa49d385a122ded8a48cb3de828867",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30728,6 +30737,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/checks/check-auth-inventory.mjs",
+      "mediaType": "text/javascript",
+      "size": 8037,
+      "sha256": "a2ee20b53465dbd27227a5016752b48b93629fb92a5ade50ce8100ee2cb898c5",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-auth-inventory.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 2562,
+      "sha256": "69f9d49f767728bb8305942e7cbf61e150de42c675c07e22c01d19e97b6814b0",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/checks/check-binary-content.py",
       "mediaType": "text/x-python",
       "size": 8752,
@@ -30940,6 +30967,15 @@
       "size": 3579,
       "sha256": "a268c021d5f14ef2759b98274661a567490254de5d955f7cacc4b5fd5dbce13f",
       "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/fixtures/auth-inventory/new-unlisted-client.fixture.py",
+      "mediaType": "text/x-python",
+      "size": 1327,
+      "sha256": "4cb5bb9832a7e657f8c86473d007fded7a43f15c4c89d150adb0c620da0495fb",
+      "category": "fixture",
       "owner": "repository-governance",
       "lifecycle": "active"
     },
@@ -33901,6 +33937,15 @@
       "size": 1099,
       "sha256": "423369cbde18f094fc6eaef51de1342d144c0aade0d48f2910070e8d61f43194",
       "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/functions/auth-conformance-inventory.json",
+      "mediaType": "application/json",
+      "size": 4715,
+      "sha256": "85823e353fc61847b2302fbaa65d45eea91d0a97ace8da256da01a7ee97c1936",
+      "category": "source",
       "owner": "repository",
       "lifecycle": "active"
     },
@@ -42754,8 +42799,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 5967,
-      "sha256": "ace5c6ccd4e040f42b9b80b1e0a40034ac12d729cc69b71870785ed1b077bf1d",
+      "size": 6049,
+      "sha256": "a7cce45f63a81321e8a9002ac43bfff9f851b3f4d91c022b8386178febffc154",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

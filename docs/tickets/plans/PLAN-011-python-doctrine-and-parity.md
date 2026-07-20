@@ -71,16 +71,16 @@ a live write.
 
 | Status | Count |
 |---|---:|
-| Now | 0 |
+| Now | 1 |
 | Verify | 0 |
 | Done | 2 |
 | Next | 0 |
-| Backlog | 1 |
+| Backlog | 0 |
 | Blocked | 0 |
 
 | Ticket | Status | Title |
 |---|---|---|
 | [TKT-267](../done/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | done | Decide and record the Python packaging doctrine |
-| [TKT-268](../backlog/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | backlog | Implement the Python authentication and retry doctrine outcome |
+| [TKT-268](../now/TKT-268-python-token-backoff-conformance-suite/TKT-268-python-token-backoff-conformance-suite.md) | now | Implement the Python authentication and retry doctrine outcome |
 | [TKT-269](../done/TKT-269-vendored-parser-cross-language-parity-guard/TKT-269-vendored-parser-cross-language-parity-guard.md) | done | Guard independently duplicated parser and domain rules |
 <!-- /GENERATED:PROGRESS -->

@@ -64,6 +64,7 @@ const checks = [
   ['Production dependency boundary', 'node scripts/checks/check-production-dependencies.mjs'],
   ['Managed-identity mint boundary', 'node scripts/checks/check-managed-identity-mint.mjs'],
   ['Route and authority inventory', 'node scripts/checks/check-route-authority.mjs'],
+  ['Auth-conformance inventory', 'node scripts/checks/check-auth-inventory.mjs'],
   ['Scripts single-source drift', 'node scripts/checks/check-scripts-dedup.mjs'],
   ['Owned source size', 'node scripts/checks/check-source-size.mjs'],
   ['Repository inventory', 'node scripts/maintenance/generate-repository-inventory.mjs --check'],

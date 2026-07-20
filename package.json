@@ -44,6 +44,7 @@
     "check:production-dependencies": "node scripts/checks/check-production-dependencies.mjs",
     "check:managed-identity-mint": "node scripts/checks/check-managed-identity-mint.mjs",
     "check:route-authority": "node scripts/checks/check-route-authority.mjs",
+    "check:auth-inventory": "node scripts/checks/check-auth-inventory.mjs",
     "check:scripts-dedup": "node scripts/checks/check-scripts-dedup.mjs",
     "check:source-size": "node scripts/checks/check-source-size.mjs",
     "check:inventory": "node scripts/maintenance/generate-repository-inventory.mjs --check",
