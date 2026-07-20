@@ -1,21 +1,12 @@
-import { createHash } from 'node:crypto';
+import { requestDigest } from '@cs/server-runtime';
 import type { TxQuery } from '../../platform/db/client.js';
 
 export const PROVIDER_INTAKE_OPERATION_KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 
-function stableJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    const encoded = JSON.stringify(value);
-    return encoded === undefined ? 'undefined' : encoded;
-  }
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record).sort().map((key) =>
-    `${JSON.stringify(key)}:${stableJson(record[key])}`).join(',')}}`;
-}
-
+// Shares the canonical @cs/server-runtime requestDigest (TKT-275) — byte-identical to the prior
+// local serializer, so this persisted idempotency key is unchanged.
 export function providerIntakeRequestHash(value: unknown): string {
-  return createHash('sha256').update(stableJson(value), 'utf8').digest('hex');
+  return requestDigest(value);
 }
 
 export class ProviderIntakeOperationConflict extends Error {}

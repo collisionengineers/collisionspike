@@ -66,7 +66,20 @@ const lookupStatusSchema = z.enum(VEHICLE_LOOKUP_STATUSES);
 const nonNegativeInteger = z.number().int().nonnegative();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const dateTimeSchema = z.string().datetime({ offset: true });
-const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+
+/**
+ * The single browser-safe lower-case hex SHA-256 validator (TKT-275 / PLAN-012), beside the existing
+ * `sha256Schema`. The evidence content producers only ever emit lower-case hex, so the one accepted
+ * alphabet is strict lower-case; callers that must accept an upper-case supplied value lower-case it
+ * before matching. Consolidates eight inline `/^[0-9a-f]{64}$/` copies (two of them `/i`).
+ */
+export const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+
+export function isSha256Hex(value: string): boolean {
+  return SHA256_HEX_RE.test(value);
+}
+
+const sha256Schema = z.string().regex(SHA256_HEX_RE);
 
 export const vehicleDataWarningSchema = z
   .object({

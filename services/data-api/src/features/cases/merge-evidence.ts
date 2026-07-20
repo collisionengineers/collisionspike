@@ -3,8 +3,7 @@
 import type { TxQuery } from '../../platform/db/client.js';
 import { requestArchiveMirrorIfEligible, type ArchiveMirrorCandidate } from '../archive/mirror-outbox.js';
 import type { Row } from '../../shared/mapping/index.js';
-
-const MERGE_SHA256_RE = /^[0-9a-f]{64}$/i;
+import { SHA256_HEX_RE } from '@cs/domain';
 
 interface MergeEvidenceLockRow extends Record<string, unknown> {
   id: string;
@@ -54,7 +53,9 @@ export async function mergeEvidenceRows(
   }
   const canonicalSha = (value: string | null): string | null => {
     const trimmed = (value ?? '').trim();
-    return MERGE_SHA256_RE.test(trimmed) ? trimmed.toLowerCase() : null;
+    // The single validator is strict lower-case; preserve the prior /i behaviour by lower-casing first.
+    const lower = trimmed.toLowerCase();
+    return SHA256_HEX_RE.test(lower) ? lower : null;
   };
 
   // The oldest target row is the deterministic survivor if historic target-side

@@ -1,23 +1,13 @@
-import { createHash } from 'node:crypto';
+import { requestDigest } from '@cs/server-runtime';
 import type { TxQuery } from '../../platform/db/client.js';
 
 export const MANUAL_INTAKE_OPERATION_KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/;
 
-function stableJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    const encoded = JSON.stringify(value);
-    return encoded === undefined ? 'undefined' : encoded;
-  }
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableJson(record[key])}`)
-    .join(',')}}`;
-}
-
+// The stable-JSON key-order + primitive policy lives once in @cs/server-runtime's requestDigest
+// (TKT-275). Its default (code-unit key order, undefined -> 'undefined') is byte-identical to the
+// prior local serializer, so this persisted idempotency key is unchanged.
 export function manualIntakeRequestHash(value: unknown): string {
-  return createHash('sha256').update(stableJson(value), 'utf8').digest('hex');
+  return requestDigest(value);
 }
 
 export class ManualIntakeOperationConflict extends Error {}

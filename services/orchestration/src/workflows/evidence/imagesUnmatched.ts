@@ -1,7 +1,8 @@
 /** Registration-keyed image holding intake (TKT-034). */
 import * as df from 'durable-functions';
-import { createHash, randomUUID } from 'node:crypto';
-import { describeEvidence } from '@cs/domain';
+import { randomUUID } from 'node:crypto';
+import { contentSha256 } from '@cs/server-runtime';
+import { describeEvidence, SHA256_HEX_RE } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../adapters/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../platform/blob.js';
@@ -40,7 +41,7 @@ async function expandImageDocument(document:UnmatchedImageAttachment,vrm:string,
     const filename=`${stem}__${image.filename}`;
     const landed=await uploadEvidenceBytes(sourceMessageId,filename,content,image.content_type);
     images.push({filename,contentType:image.content_type,blobPath:landed.blobPath,size:landed.size,
-      sha256:createHash('sha256').update(content).digest('hex')});
+      sha256:contentSha256(content)});
   }
   return images;
 }
@@ -48,7 +49,7 @@ async function expandImageDocument(document:UnmatchedImageAttachment,vrm:string,
 const realDeps: ImagesUnmatchedDeps = {
   markAttention: (sourceMessageId) => dataApi.markInboundAttention({ sourceMessageId, reason: 'images_no_match' }),
   createFolder: (name, parentId) => box.createFolder(name, parentId),
-  hash: async (blobPath) => createHash('sha256').update(await downloadEvidenceBytes(blobPath)).digest('hex'),
+  hash: async (blobPath) => contentSha256(await downloadEvidenceBytes(blobPath)),
   // Graph already applies this byte/dimension verdict before blob landing. Keep the
   // same content-based check here as replay/import defence; never discard a genuine
   // vehicle photo merely because Outlook called it image001.jpg.
@@ -100,7 +101,7 @@ export async function holdUnmatchedImages(input: {
   const files=[];
   for(const image of images){
     const supplied=(image.sha256??'').toLowerCase();
-    const sha256=/^[0-9a-f]{64}$/.test(supplied)?supplied:await deps.hash(image.blobPath);
+    const sha256=SHA256_HEX_RE.test(supplied)?supplied:await deps.hash(image.blobPath);
     files.push({...image,sha256});
   }
   const claimToken=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.claimToken??'')

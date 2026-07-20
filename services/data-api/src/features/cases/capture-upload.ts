@@ -9,7 +9,9 @@
  */
 
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
+import { contentSha256 } from '@cs/server-runtime';
+import { SHA256_HEX_RE } from '@cs/domain';
 import {
   captureStagingBlobPath,
   createCaptureUploadSas,
@@ -56,7 +58,6 @@ import {
   type CaptureAssetReservationRow,
 } from './capture-session-store.js';
 
-const SHA256_RE = /^[0-9a-f]{64}$/;
 const VALIDATION_LEASE_SECONDS = 5 * 60;
 const MAX_UPLOAD_RESERVATIONS_PER_SHOT = 8;
 const MAX_UPLOAD_RESERVATIONS_PER_SESSION = 60;
@@ -85,7 +86,7 @@ export const createCaptureUploadHandler = async (
     || typeof body.fileName !== 'string' || body.fileName.length < 1 || body.fileName.length > 255
     || typeof body.contentType !== 'string' || typeof body.sizeBytes !== 'number'
     || !Number.isInteger(body.sizeBytes) || body.sizeBytes < 1
-    || typeof body.sha256 !== 'string' || !SHA256_RE.test(body.sha256)
+    || typeof body.sha256 !== 'string' || !SHA256_HEX_RE.test(body.sha256)
   ) throw new CaptureProblem(400, 'capture_validation', 'Check the selected photo and try again.');
   if (body.sizeBytes > MAX_UPLOAD_BYTES) {
     throw new CaptureProblem(413, 'capture_validation', 'This photo is too large. Choose a smaller photo.');
@@ -301,7 +302,7 @@ export const completeCaptureUploadHandler = async (
   if (
     typeof body.sizeBytes !== 'number' || !Number.isInteger(body.sizeBytes)
     || body.sizeBytes < 1 || body.sizeBytes > MAX_UPLOAD_BYTES
-    || typeof body.sha256 !== 'string' || !SHA256_RE.test(body.sha256)
+    || typeof body.sha256 !== 'string' || !SHA256_HEX_RE.test(body.sha256)
   ) {
     throw new CaptureProblem(400, 'capture_validation', 'The uploaded photo details are invalid.');
   }
@@ -399,7 +400,7 @@ export const completeCaptureUploadHandler = async (
   let inspected;
   try {
     const bytes = await downloadCaptureBlobBytes(claimed.blob_path, MAX_UPLOAD_BYTES);
-    const serverHash = createHash('sha256').update(bytes).digest('hex');
+    const serverHash = contentSha256(bytes);
     const expected = classifyUpload(
       claimed.declared_content_type,
       Number(claimed.declared_size_bytes),

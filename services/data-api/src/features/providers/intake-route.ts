@@ -17,7 +17,7 @@
  */
 
 import { app, type HttpResponseInit, type InvocationContext } from '@azure/functions';
-import { createHash } from 'node:crypto';
+import { contentSha256 } from '@cs/server-runtime';
 import {
   EVA_FIELD_ORDER,
   statusForReviewCase,
@@ -97,7 +97,7 @@ async function persistEvidence(
   try {
     const bytes = Buffer.from(att.base64Data, 'base64');
     if (bytes.length === 0) return false; // undecodable / empty — nothing to store
-    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    const sha256 = contentSha256(bytes);
     // Include the stable attachment position and kind in the object name. Providers may send
     // two different files with the same filename; without this prefix the later upload would
     // overwrite bytes referenced by the earlier evidence row. Exact request retries still

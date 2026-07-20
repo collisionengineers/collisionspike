@@ -9,9 +9,8 @@
  * Local fallback: EVIDENCE_BLOB_CONNECTION when no account name is configured.
  */
 
-import { createHash } from 'node:crypto';
 import { BlobServiceClient } from '@azure/storage-blob';
-import { STORAGE_RESOURCE_TRAILING_SLASH, storageManagedIdentityCredential } from '@cs/server-runtime';
+import { contentSha256, STORAGE_RESOURCE_TRAILING_SLASH, storageManagedIdentityCredential } from '@cs/server-runtime';
 
 let cachedClient: BlobServiceClient | null = null;
 
@@ -63,7 +62,7 @@ export async function uploadEvidenceBytes(
   const blobPath = `${sanitize(messageId)}/${sanitize(filename)}`;
   const block = container.getBlockBlobClient(blobPath);
   await block.uploadData(bytes, { blobHTTPHeaders: { blobContentType: contentType } });
-  return { blobPath, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+  return { blobPath, size: bytes.length, sha256: contentSha256(bytes) };
 }
 
 /**

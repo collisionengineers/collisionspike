@@ -1,7 +1,7 @@
 /** internal-persist-routes — cohesive Data API module. */
 
 import { app } from '@azure/functions';
-import { describeEvidence, type EvidenceDescriptor, type ImageRole } from '@cs/domain';
+import { describeEvidence, SHA256_HEX_RE, type EvidenceDescriptor, type ImageRole } from '@cs/domain';
 import { evidenceKindCodec, imageRoleCodec } from '@cs/domain/codecs';
 import { query, tx, type TxQuery } from '../../platform/db/client.js';
 import { withResolvedEvidenceBackfillTarget } from './backfill-target.js';
@@ -62,8 +62,6 @@ app.http('internalInboundAttention', {
       return { status: 200, jsonBody: { stamped: Boolean(rows[0]) } };
     }),
 });
-
-const SHA256_HEX_RE = /^[0-9a-f]{64}$/i;
 
 app.http('internalCasesEvidence', {
   methods: ['POST'],
@@ -204,7 +202,7 @@ app.http('internalCasesEvidence', {
         // Keyed STRICTLY on (case_id, sha256): identical bytes on a DIFFERENT case are
         // never deduped. Only runs when the caller supplied a plausible 64-hex sha256;
         // rows without one take exactly the pre-TKT-133 path.
-        if (sha256 && SHA256_HEX_RE.test(sha256)) {
+        if (sha256 && SHA256_HEX_RE.test(sha256.toLowerCase())) {
           const twin = await q<{
             id: string;
             box_file_id: string | null;

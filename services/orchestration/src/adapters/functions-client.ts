@@ -16,6 +16,7 @@ import {
   type FocusedFnErrorMapper,
   type PlateOcrResult,
 } from '@cs/server-runtime/focused-function-client';
+import { safeErrorText } from '@cs/server-runtime';
 
 /** Re-exported so existing importers keep the same type name after TKT-262 shared it. */
 export type { PlateOcrResult };
@@ -34,7 +35,7 @@ const OCR: FnTarget = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' };
 // throw so the Durable retry policy retries the calling activity (plan 22 §B). `label` is the
 // short route (no `/api/`) so the thrown message stays byte-identical to the pre-TKT-262 client.
 const includeBodyErrorMapper: FocusedFnErrorMapper = async (res, { method, label, path }) =>
-  new Error(`fn ${method} ${label ?? path} → ${res.status}: ${await safeText(res)}`);
+  new Error(`fn ${method} ${label ?? path} → ${res.status}: ${await safeErrorText(res)}`);
 
 async function callFunction<T = unknown>(
   target: FnTarget,
@@ -429,11 +430,3 @@ export const box = {
     return callFunction(BOX, 'GET', `box/files/${fileId}/content`);
   },
 };
-
-async function safeText(res: Response): Promise<string> {
-  try {
-    return (await res.text()).slice(0, 500);
-  } catch {
-    return '<no body>';
-  }
-}

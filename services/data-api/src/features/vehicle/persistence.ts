@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { requestDigest } from '@cs/server-runtime';
 import {
   isValidEvaMileage,
   parseVehicleDataEnrichmentResponse,
@@ -29,19 +29,11 @@ export interface VehicleDataRequestContext {
   request_sha256: string;
 }
 
-function stableJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value) ?? 'null';
-}
-
+// The vehicle-data digest keeps its own key-order + primitive policy (locale-collated keys, a
+// primitive undefined -> 'null'); it is expressed as the canonical requestDigest with those options
+// (TKT-275) and is byte-identical to the prior local serializer, so this persisted digest is unchanged.
 export function vehicleDataDigest(value: unknown): string {
-  return createHash('sha256').update(stableJson(value)).digest('hex');
+  return requestDigest(value, { localeSort: true, undefinedToken: 'null' });
 }
 
 const LOOKUP_MESSAGES: Record<VehicleDataEnrichmentResponse['lookup']['status'], string> = {
