@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   decideTriage,
+  distinctByCaseId,
   type TriagePolicyClassification,
   type TriagePolicyContext,
   type TriagePolicyGates,
@@ -861,5 +862,39 @@ describe('decideTriage — determinism', () => {
     const ctx = context({ openCaseMatches: [match()] });
     const g = gates({ refGate: true });
     expect(decideTriage(c, ctx, g)).toEqual(decideTriage(c, ctx, g));
+  });
+});
+
+/* ----------  distinctByCaseId (simplify pass Action C — now shared with
+   imagesReceivedVrmMatch.ts's resolveVrmMatches, not just this module's own
+   bestMatchTier/cancellationEligibleMatches)  ---------- */
+
+describe('distinctByCaseId — shared case-match dedup primitive', () => {
+  it('collapses two rows naming the same case to the first-seen entry', () => {
+    const a = match({ caseId: 'case-1', casePo: 'QDOS26001', matchedOn: 'case_po' });
+    const b = match({ caseId: 'case-1', casePo: 'QDOS26001', matchedOn: 'vrm' });
+    expect(distinctByCaseId([a, b])).toEqual([a]);
+  });
+
+  it('keeps distinct cases, in first-seen order', () => {
+    const a = match({ caseId: 'case-1', casePo: 'QDOS26001' });
+    const b = match({ caseId: 'case-2', casePo: 'CCPY26050' });
+    expect(distinctByCaseId([a, b])).toEqual([a, b]);
+  });
+
+  it('empty input -> empty output', () => {
+    expect(distinctByCaseId([])).toEqual([]);
+  });
+
+  it('works over a narrower shape than OpenCaseRefMatch (generic, not match-specific)', () => {
+    const rows = [
+      { caseId: 'case-1', casePo: 'QDOS26001' },
+      { caseId: 'case-1', casePo: 'QDOS26001' },
+      { caseId: 'case-2', casePo: 'CCPY26050' },
+    ];
+    expect(distinctByCaseId(rows)).toEqual([
+      { caseId: 'case-1', casePo: 'QDOS26001' },
+      { caseId: 'case-2', casePo: 'CCPY26050' },
+    ]);
   });
 });

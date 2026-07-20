@@ -7,6 +7,7 @@
  */
 
 import * as df from 'durable-functions';
+import type { OrchestrationContext, RetryOptions, Task } from 'durable-functions';
 import { supplementClaimantNameFromBody } from '../../platform/supplement-parse.js';
 import { buildParserEvaFields } from './parser-eva-fields.js';
 import type { InboundClassification } from './classifyInbound.js';
@@ -22,7 +23,154 @@ const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*
 retry.backoffCoefficient = 2;
 retry.maxRetryIntervalInMilliseconds = 60_000;
 
-df.app.orchestration('intakeOrchestrator', function* (ctx) {
+/**
+ * Shared classifyPersist → extractImages → boxArchiveEvidence → statusEvaluate sequence run
+ * by every lane that persists evidence onto a case (attach_case, linked-reply, receiving_work).
+ * `yield*` delegation preserves the Durable replay order exactly — mirrors
+ * retro-reconstruct.ts's `finishPersisted` (TKT-210). Returns the resolved status value;
+ * callers append their own return shape / continuation (receiving_work continues into
+ * `enrich`). `classifyPersistExtra`/`extractImagesExtra` are each call site's own
+ * caseVrm/workProviderId/typings bag, computed exactly as before this extraction — this
+ * helper never recomputes them, so each site's existing key-presence semantics are
+ * preserved unchanged.
+ */
+export function* persistEvidenceAndArchive(
+  ctx: OrchestrationContext,
+  retry: RetryOptions,
+  args: {
+    caseId: string;
+    inbound: unknown;
+    principalCode?: string;
+    classifyPersistExtra: Record<string, unknown>;
+    extractImagesExtra: Record<string, unknown>;
+    imageExtractionFailedMessage: string;
+    archiveFailedMessage: string;
+  },
+): Generator<Task, string, never> {
+  const {
+    caseId,
+    inbound,
+    principalCode,
+    classifyPersistExtra,
+    extractImagesExtra,
+    imageExtractionFailedMessage,
+    archiveFailedMessage,
+  } = args;
+  yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
+    caseId,
+    inbound,
+    ...classifyPersistExtra,
+  });
+  try {
+    yield ctx.df.callActivityWithRetry('extractImages', retry, {
+      caseId,
+      messageId: (inbound as { messageId?: string }).messageId,
+      attachments: (inbound as { attachments?: unknown }).attachments,
+      ...extractImagesExtra,
+      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
+      ...(principalCode ? { providerPrincipal: principalCode } : {}),
+    });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`${imageExtractionFailedMessage}: ${String(e)}`);
+    }
+  }
+  try {
+    yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
+  } catch (e) {
+    if (!ctx.df.isReplaying) {
+      ctx.log(`${archiveFailedMessage}: ${String(e)}`);
+    }
+  }
+  const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId })) as {
+    value: string;
+  };
+  return status.value;
+}
+
+/**
+ * Shared decideRetro → refusal log → retry-wrapped retroCaseOrchestrator call, run by both
+ * the reply lane (an unmatched reply) and the non-reply lane. The two call sites are
+ * mutually exclusive per arrival (shouldLinkReplyToCase decides which one runs) — `yield*`
+ * delegation preserves the Durable replay order exactly, mirroring the helper above.
+ */
+export function* runRetroFallback(
+  ctx: OrchestrationContext,
+  retry: RetryOptions,
+  args: {
+    inbound: unknown;
+    classification: Pick<InboundClassification, 'category' | 'subtype' | 'bodyCaseref' | 'bodyJobref' | 'bodyVrm'>;
+    workProviderId?: string;
+    principalCode?: string;
+    intermediaryImageSourceId?: string;
+    intermediaryCandidateProviderIds?: string[];
+    isReply: boolean;
+    linkReplyOutcome?: 'linked' | 'ambiguous' | 'no_match';
+    lane: 'reply' | 'non_reply';
+    candidateRef?: string;
+    candidateVrm?: string;
+  },
+): Generator<Task, string | undefined, never> {
+  const claimant = supplementClaimantNameFromBody(
+    String((args.inbound as { body?: string }).body ?? ''),
+  );
+  const retroDecision = decideRetro({
+    category: args.classification.category,
+    subtype: args.classification.subtype,
+    bodyCaseref: args.classification.bodyCaseref,
+    bodyJobref: args.classification.bodyJobref,
+    bodyVrm: args.classification.bodyVrm,
+    bodyClaimant: claimant.status === 'matched' ? claimant.value : '',
+    candidateRef: args.candidateRef,
+    candidateVrm: args.candidateVrm,
+    isReply: args.isReply,
+    ...(args.isReply ? { linkReplyOutcome: args.linkReplyOutcome } : {}),
+  });
+  // TKT-119: a refusal must not be a SILENT nothing — log the reasons so "why did retro
+  // never run for this email" is answerable from telemetry.
+  if (!retroDecision.attempt && !ctx.df.isReplaying) {
+    ctx.log(
+      JSON.stringify({
+        evt: 'retroDecision',
+        attempt: false,
+        lane: args.lane,
+        reasons: retroDecision.reasons,
+      }),
+    );
+  }
+  let retroOutcome: string | undefined;
+  if (retroDecision.attempt) {
+    try {
+      const retro = (yield ctx.df.callSubOrchestratorWithRetry('retroCaseOrchestrator', retry, {
+        trigger: args.inbound,
+        category: args.classification.category,
+        subtype: args.classification.subtype,
+        keys: retroDecision.keys,
+        providerId: args.workProviderId,
+        providerPrincipal: args.principalCode,
+        // TKT-219 — thread the sender's intermediary match so a reconstruction gets the
+        // same content-corroboration / single-candidate fallback as a live create.
+        ...(args.intermediaryImageSourceId
+          ? {
+              intermediary: {
+                imageSourceId: args.intermediaryImageSourceId,
+                candidateProviderIds: args.intermediaryCandidateProviderIds ?? [],
+              },
+            }
+          : {}),
+      })) as { outcome?: string };
+      retroOutcome = retro?.outcome;
+    } catch (e) {
+      retroOutcome = 'error';
+      if (!ctx.df.isReplaying) {
+        ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
+      }
+    }
+  }
+  return retroOutcome;
+}
+
+df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unknown, never> {
   // `resource` (users/<mailbox>/…) is enqueued by graph-webhook so fetchMessage can derive the mailbox.
   const input = ctx.df.getInput() as { messageId: string; resource?: string; receivedAt?: string };
 
@@ -105,41 +253,25 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
   if (triage.action === 'attach_case' && triage.targetCaseId) {
     const caseId = triage.targetCaseId;
     const caseVrm = ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim();
-    yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
-      caseId,
-      inbound,
+    const evidenceExtra = {
       ...(caseVrm ? { caseVrm } : {}),
       ...(workProviderId ? { workProviderId } : {}),
+    };
+    const statusValue = yield* persistEvidenceAndArchive(ctx, retry, {
+      caseId,
+      inbound,
+      principalCode,
+      classifyPersistExtra: evidenceExtra,
+      extractImagesExtra: evidenceExtra,
+      imageExtractionFailedMessage: `[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking)`,
+      archiveFailedMessage: `[intake] archive failed for attach_case ${caseId} (additive, non-blocking)`,
     });
-    try {
-      yield ctx.df.callActivityWithRetry('extractImages', retry, {
-        caseId,
-        messageId: (inbound as { messageId?: string }).messageId,
-        attachments: (inbound as { attachments?: unknown }).attachments,
-        ...(caseVrm ? { caseVrm } : {}),
-        ...(workProviderId ? { workProviderId } : {}),
-        // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-        ...(principalCode ? { providerPrincipal: principalCode } : {}),
-      });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] image extraction failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-    try {
-      yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, { caseId });
-    } catch (e) {
-      if (!ctx.df.isReplaying) {
-        ctx.log(`[intake] archive failed for attach_case ${caseId} (additive, non-blocking): ${String(e)}`);
-      }
-    }
-    const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, { caseId })) as { value: string };
     return {
       triaged: triage.finalCategory,
       subtype: triage.finalSubtype,
       attach: triage.action,
       caseId,
-      status: status.value,
+      status: statusValue,
     };
   }
 
@@ -257,48 +389,25 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
         jobref,
       })) as { outcome: string; caseId?: string };
       if (link.outcome === 'linked' && link.caseId) {
-        yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
-          caseId: link.caseId,
-          inbound,
+        const evidenceExtra = {
           caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
           ...(workProviderId ? { workProviderId } : {}),
-        });
-
-        try {
-          yield ctx.df.callActivityWithRetry('extractImages', retry, {
-            caseId: link.caseId,
-            messageId: (inbound as { messageId?: string }).messageId,
-            attachments: (inbound as { attachments?: unknown }).attachments,
-            caseVrm: vrm || (inbound as { candidateVrm?: string }).candidateVrm,
-            ...(workProviderId ? { workProviderId } : {}),
-            // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-            ...(principalCode ? { providerPrincipal: principalCode } : {}),
-          });
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
-          }
-        }
-
-        try {
-          yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
-            caseId: link.caseId,
-          });
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking): ${String(e)}`);
-          }
-        }
-
-        const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, {
+        };
+        const statusValue = yield* persistEvidenceAndArchive(ctx, retry, {
           caseId: link.caseId,
-        })) as { value: string };
+          inbound,
+          principalCode,
+          classifyPersistExtra: evidenceExtra,
+          extractImagesExtra: evidenceExtra,
+          imageExtractionFailedMessage: `[intake] image extraction failed for linked reply case ${link.caseId} (additive, non-blocking)`,
+          archiveFailedMessage: `[intake] archive failed for linked reply case ${link.caseId} (additive, non-blocking)`,
+        });
         return {
           triaged: classification.category,
           subtype: classification.subtype,
           replyLink: link.outcome,
           caseId: link.caseId,
-          status: status.value,
+          status: statusValue,
         };
       }
       // Retro fallback (ADR-0022, ADDITIVE + LAST in this lane): an unmatched reply about a
@@ -309,57 +418,19 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
       // so the primary return below is never blocked or changed — `retro` is an added key.
       // TKT-219 — claimant name (weakest search key), pure over the checkpointed body.
       // Only an unambiguous 'matched' supplement may become a key (never guess a conflict).
-      const replyClaimant = supplementClaimantNameFromBody(
-        String((inbound as { body?: string }).body ?? ''),
-      );
-      const retroReply = decideRetro({
-        category: classification.category,
-        subtype: classification.subtype,
-        bodyCaseref: classification.bodyCaseref,
-        bodyJobref: classification.bodyJobref,
-        bodyVrm: classification.bodyVrm,
-        bodyClaimant: replyClaimant.status === 'matched' ? replyClaimant.value : '',
-        candidateRef: inb.candidateRef,
-        candidateVrm: inb.candidateVrm,
+      const retroReplyOutcome = yield* runRetroFallback(ctx, retry, {
+        inbound,
+        classification,
+        workProviderId,
+        principalCode,
+        intermediaryImageSourceId,
+        intermediaryCandidateProviderIds,
         isReply: true,
         linkReplyOutcome: link.outcome as 'linked' | 'ambiguous' | 'no_match',
+        lane: 'reply',
+        candidateRef: inb.candidateRef,
+        candidateVrm: inb.candidateVrm,
       });
-      // TKT-119: a refusal must not be a SILENT nothing — log the reasons so "why did
-      // retro never run for this email" is answerable from telemetry.
-      if (!retroReply.attempt && !ctx.df.isReplaying) {
-        ctx.log(
-          JSON.stringify({ evt: 'retroDecision', attempt: false, lane: 'reply', reasons: retroReply.reasons }),
-        );
-      }
-      let retroReplyOutcome: string | undefined;
-      if (retroReply.attempt) {
-        try {
-          const retro = (yield ctx.df.callSubOrchestratorWithRetry('retroCaseOrchestrator', retry, {
-            trigger: inbound,
-            category: classification.category,
-            subtype: classification.subtype,
-            keys: retroReply.keys,
-            providerId: workProviderId,
-            providerPrincipal: principalCode,
-            // TKT-219 — thread the sender's intermediary match so a reconstruction gets the
-            // same content-corroboration / single-candidate fallback as a live create.
-            ...(intermediaryImageSourceId
-              ? {
-                  intermediary: {
-                    imageSourceId: intermediaryImageSourceId,
-                    candidateProviderIds: intermediaryCandidateProviderIds ?? [],
-                  },
-                }
-              : {}),
-          })) as { outcome?: string };
-          retroReplyOutcome = retro?.outcome;
-        } catch (e) {
-          retroReplyOutcome = 'error';
-          if (!ctx.df.isReplaying) {
-            ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
-          }
-        }
-      }
       return {
         triaged: classification.category,
         subtype: classification.subtype,
@@ -435,54 +506,19 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     const inbNonReply = inbound as { candidateRef?: string; candidateVrm?: string };
     // TKT-219 — claimant name (weakest search key), pure over the checkpointed body.
     // Only an unambiguous 'matched' supplement may become a key (never guess a conflict).
-    const nonReplyClaimant = supplementClaimantNameFromBody(
-      String((inbound as { body?: string }).body ?? ''),
-    );
-    const retroNonReply = decideRetro({
-      category: classification.category,
-      subtype: classification.subtype,
-      bodyCaseref: classification.bodyCaseref,
-      bodyJobref: classification.bodyJobref,
-      bodyVrm: classification.bodyVrm,
-      bodyClaimant: nonReplyClaimant.status === 'matched' ? nonReplyClaimant.value : '',
+    // TKT-119: a refusal must not be a SILENT nothing (see the reply-lane twin above).
+    const retroOutcome = yield* runRetroFallback(ctx, retry, {
+      inbound,
+      classification,
+      workProviderId,
+      principalCode,
+      intermediaryImageSourceId,
+      intermediaryCandidateProviderIds,
+      isReply: false,
+      lane: 'non_reply',
       candidateRef: inbNonReply.candidateRef,
       candidateVrm: inbNonReply.candidateVrm,
-      isReply: false,
     });
-    // TKT-119: a refusal must not be a SILENT nothing (see the reply-lane twin above).
-    if (!retroNonReply.attempt && !ctx.df.isReplaying) {
-      ctx.log(
-        JSON.stringify({ evt: 'retroDecision', attempt: false, lane: 'non_reply', reasons: retroNonReply.reasons }),
-      );
-    }
-    let retroOutcome: string | undefined;
-    if (retroNonReply.attempt) {
-      try {
-        const retro = (yield ctx.df.callSubOrchestratorWithRetry('retroCaseOrchestrator', retry, {
-          trigger: inbound,
-          category: classification.category,
-          subtype: classification.subtype,
-          keys: retroNonReply.keys,
-          providerId: workProviderId,
-          providerPrincipal: principalCode,
-          // TKT-219 — thread the sender's intermediary match (see the reply-lane twin).
-          ...(intermediaryImageSourceId
-            ? {
-                intermediary: {
-                  imageSourceId: intermediaryImageSourceId,
-                  candidateProviderIds: intermediaryCandidateProviderIds ?? [],
-                },
-              }
-            : {}),
-        })) as { outcome?: string };
-        retroOutcome = retro?.outcome;
-      } catch (e) {
-        retroOutcome = 'error';
-        if (!ctx.df.isReplaying) {
-          ctx.log(`[intake] retro fallback failed (additive, non-blocking): ${String(e)}`);
-        }
-      }
-    }
     return {
       triaged: classification.category,
       subtype: classification.subtype,
@@ -719,57 +755,30 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
     );
   }
 
-  // 3 — classify + persist evidence rows (always — recording evidence is not "advancing").
-  // attachmentTypings (parse activity, ADR-0014/ADR-0021) lets a report-typed attachment
-  // persist as engineer_report evidence; the AUDIT_CASES_ENABLED gate lives INSIDE the
-  // activity (orchestrator determinism), so forwarding is unconditional.
-  yield ctx.df.callActivityWithRetry('classifyPersist', retry, {
-    caseId: resolved.caseId,
-    inbound,
-    typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+  // 3 (classifyPersist) / 3.5 (extractImages) / 3.6 (boxArchiveEvidence) / 5 (statusEvaluate):
+  // the shared evidence-persistence sequence (see persistEvidenceAndArchive's doc above).
+  // classifyPersist runs always (recording evidence is not "advancing"); extractImages
+  // persists embedded PDF/EML images as evidence rows (RECORD-KEEPING — runs regardless of
+  // automation mode, work-todo-spike "Both"); boxArchiveEvidence mirrors everything into the
+  // case Box folder once all evidence generation is done; statusEvaluate recomputes
+  // EVA-readiness. attachmentTypings (parse activity, ADR-0014/ADR-0021) lets a report-typed
+  // attachment persist as engineer_report evidence.
+  const receivingWorkEvidenceExtra = {
     caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
     ...(workProviderId ? { workProviderId } : {}),
-  });
-
-  // 3.5 — extract embedded images from instruction PDFs/EML into image evidence
-  // (#pdf-image-extraction). RECORD-KEEPING — runs regardless of automation mode
-  // (work-todo-spike "Both"); the BOX/image gates + best-effort handling live INSIDE the
-  // activity. Persists each image as an evidence row + flags an unsuitable set (no viewable
-  // registration). Runs after evidence persist so the case exists.
-  try {
-    yield ctx.df.callActivityWithRetry('extractImages', retry, {
-      caseId: resolved.caseId,
-      messageId: (inbound as { messageId?: string }).messageId,
-      attachments: (inbound as { attachments?: unknown }).attachments,
-      caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
-      ...(workProviderId ? { workProviderId } : {}),
-      // TKT-143 — resolved identity for the extraction filename stems (omit-when-unknown).
-      ...(principalCode ? { providerPrincipal: principalCode } : {}),
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-    }
-  }
-
-  // 3.6 — Box ARCHIVE (#box-sync): copy persisted blob-backed evidence rows INTO the
-  // case Box folder. Runs after all evidence generation so raw email, body text,
-  // attachments, and extracted images are covered. The activity skips cleanly when
-  // an attached/replied case has no archive folder yet.
-  try {
-    yield ctx.df.callActivityWithRetry('boxArchiveEvidence', retry, {
-      caseId: resolved.caseId,
-    });
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(`[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking): ${String(e)}`);
-    }
-  }
-
-  // 5 — status evaluate (EVA-readiness + status machine via Data API)
-  const status = (yield ctx.df.callActivityWithRetry('statusEvaluate', retry, {
+  };
+  const statusValue = yield* persistEvidenceAndArchive(ctx, retry, {
     caseId: resolved.caseId,
-  })) as { value: string };
+    inbound,
+    principalCode,
+    classifyPersistExtra: {
+      typings: (parseResult as { attachmentTypings?: unknown }).attachmentTypings,
+      ...receivingWorkEvidenceExtra,
+    },
+    extractImagesExtra: receivingWorkEvidenceExtra,
+    imageExtractionFailedMessage: `[intake] image extraction failed for case ${resolved.caseId} (additive, non-blocking)`,
+    archiveFailedMessage: `[intake] box archive failed for case ${resolved.caseId} (additive, non-blocking)`,
+  });
 
   // 6 — enrich (gate ENRICHMENT_ENABLED checked inside; no-op when off). Pass the best VRM
   // (parser PDF VRM preferred over the email sniff) + whether the doc already had mileage;
@@ -796,7 +805,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx) {
 
   return {
     caseId: resolved.caseId,
-    status: status.value,
+    status: statusValue,
     mode: automationMode,
     providerRecovery,
   };
