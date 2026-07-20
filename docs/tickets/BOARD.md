@@ -76,7 +76,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (135)
+## Done (136)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -213,6 +213,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-259](./done/TKT-259-repo-shape-guard-consolidation/TKT-259-repo-shape-guard-consolidation.md) | Consolidate repo-shape file-enumeration and the generated-directory set | P3 · platform · PLAN-010 |
 | [TKT-260](./done/TKT-260-shared-forbidden-signatures-data-file/TKT-260-shared-forbidden-signatures-data-file.md) | Pin cross-language forbidden-signature matcher parity | P3 · platform · PLAN-010 |
 | [TKT-261](./done/TKT-261-scripts-dedup-drift-guard/TKT-261-scripts-dedup-drift-guard.md) | Add the scripts-dedup single-source drift guard | P3 · platform · PLAN-010 |
+| [TKT-262](./done/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Consolidate the active focused-Function clients onto one | P1 · platform · PLAN-008 |
 | [TKT-263](./done/TKT-263-internal-msi-route-consolidation/TKT-263-internal-msi-route-consolidation.md) | Consolidate the internal MSI route surface behind the trust seam | P2 · platform · PLAN-008 |
 | [TKT-265](./done/TKT-265-bff-proxy-canonicalisation/TKT-265-bff-proxy-canonicalisation.md) | Retire dead orchestration parser and location client exports | P3 · platform · PLAN-008 |
 
@@ -221,7 +222,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (60)
+## Backlog (59)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -274,7 +275,6 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-252](./backlog/TKT-252-retire-eva-validation-app-and-storage/TKT-252-retire-eva-validation-app-and-storage.md) | Retire the EVA-validation app and its storage | P2 · platform · PLAN-009 |
 | [TKT-253](./backlog/TKT-253-dispose-ambiguous-image-and-app-registration/TKT-253-dispose-ambiguous-image-and-app-registration.md) | Confirm-then-dispose the ambiguous image and app registration | P2 · platform · PLAN-009 |
 | [TKT-254](./backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth.md) | Close credential hygiene on the EVA vault and helper-app SCM basic auth | P1 · platform · PLAN-009 |
-| [TKT-262](./backlog/TKT-262-one-python-function-client/TKT-262-one-python-function-client.md) | Consolidate the active focused-Function clients onto one | P1 · platform · PLAN-008 |
 | [TKT-264](./backlog/TKT-264-outbox-drain-generalisation/TKT-264-outbox-drain-generalisation.md) | Share the outbox monitor lifecycle without flattening lane protocols | P2 · platform · PLAN-008 |
 | [TKT-266](./backlog/TKT-266-route-authority-inventory-guard/TKT-266-route-authority-inventory-guard.md) | Add the route and authority inventory guard | P2 · platform · PLAN-008 |
 | [TKT-267](./backlog/TKT-267-python-packaging-doctrine-decision/TKT-267-python-packaging-doctrine-decision.md) | Decide and record the Python packaging doctrine | P2 · platform · PLAN-011 |

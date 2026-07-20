@@ -7,6 +7,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./dist/index.js"
+    },
+    "./focused-function-client": {
+      "types": "./src/focused-function-client/index.ts",
+      "import": "./dist/focused-function-client/index.js"
     }
   },
   "scripts": {

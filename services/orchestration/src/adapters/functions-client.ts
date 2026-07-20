@@ -11,6 +11,15 @@
  * advisory retry/error semantics.
  */
 
+import {
+  focusedFnRequest,
+  type FocusedFnErrorMapper,
+  type PlateOcrResult,
+} from '@cs/server-runtime/focused-function-client';
+
+/** Re-exported so existing importers keep the same type name after TKT-262 shared it. */
+export type { PlateOcrResult };
+
 interface FnTarget {
   urlEnv: string;
   keyEnv: string;
@@ -21,6 +30,12 @@ const BOX: FnTarget = { urlEnv: 'BOXWEBHOOK_FN_URL', keyEnv: 'BOXWEBHOOK_FN_KEY'
 const EVA: FnTarget = { urlEnv: 'EVASENTRY_FN_URL', keyEnv: 'EVASENTRY_FN_KEY' };
 const OCR: FnTarget = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' };
 
+// Orchestration's non-2xx contract: RETAIN the upstream body (truncated) in a plain Error and
+// throw so the Durable retry policy retries the calling activity (plan 22 §B). `label` is the
+// short route (no `/api/`) so the thrown message stays byte-identical to the pre-TKT-262 client.
+const includeBodyErrorMapper: FocusedFnErrorMapper = async (res, { method, label, path }) =>
+  new Error(`fn ${method} ${label ?? path} → ${res.status}: ${await safeText(res)}`);
+
 async function callFunction<T = unknown>(
   target: FnTarget,
   method: string,
@@ -30,21 +45,16 @@ async function callFunction<T = unknown>(
   const base = process.env[target.urlEnv];
   const key = process.env[target.keyEnv];
   if (!base) throw new Error(`missing app-setting ${target.urlEnv}`);
-  const url = `${base.replace(/\/$/, '')}/api/${route.replace(/^\//, '')}`;
-  const res = await fetch(url, {
+  return focusedFnRequest<T>({
+    baseUrl: base.replace(/\/$/, ''),
+    functionKey: key,
     method,
-    headers: {
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(key ? { 'x-functions-key': key } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    path: `/api/${route.replace(/^\//, '')}`,
+    body,
+    emptyOn204: true,
+    label: route,
+    mapError: includeBodyErrorMapper,
   });
-  if (!res.ok) {
-    // Throw so the Durable retry policy retries the calling activity (plan 22 §B).
-    throw new Error(`fn ${method} ${route} → ${res.status}: ${await safeText(res)}`);
-  }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
 }
 
 /* ---------- parser ---------- */
@@ -141,14 +151,6 @@ export function callExtractImages(input: {
 }
 
 /* ---------- plate OCR (registration-visible detection, ADR-0009 M1) ---------- */
-
-export interface PlateOcrResult {
-  plate_text: string;
-  confidence?: number | null;
-  /** True when the OCR read a plate (and, when case_vrm supplied, it matched). */
-  registration_visible: boolean;
-  vrm_match?: string | null;
-}
 
 /**
  * Read a UK registration plate from a vehicle photo via the OCR Function `/plate-ocr`

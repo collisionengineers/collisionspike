@@ -23,23 +23,34 @@ import {
   parseVehicleDataEnrichmentResponse,
   type VehicleDataEnrichmentResponse,
 } from '@cs/domain';
+import {
+  focusedFnRequest,
+  FunctionCallError,
+  FN_STAGE_TIMEOUT_MS,
+  type FocusedFnErrorMapper,
+  type PlateOcrResult,
+} from '@cs/server-runtime/focused-function-client';
 
-/** Default bound for the latency-sensitive image-analysis stage calls (OCR / location-suggest) —
- *  matches the AOAI adapter timeout so every image-analysis stage degrades on a slow/stuck host
- *  instead of holding the HTTP invocation open until the Functions host timeout. */
-export const FN_STAGE_TIMEOUT_MS = 30_000;
+// FN_STAGE_TIMEOUT_MS, FunctionCallError, and PlateOcrResult were shared into @cs/server-runtime by
+// TKT-262; re-export them so existing importers (image-analysis-adapters, feature routes, and the
+// service-client tests) keep the same import path.
+export { FunctionCallError, FN_STAGE_TIMEOUT_MS };
+export type { PlateOcrResult };
 
-/** A dependency response failed after transport retries. Carries status only; the
- * upstream body can contain customer data and is deliberately not retained. */
-export class FunctionCallError extends Error {
-  constructor(
-    message: string,
-    public readonly status?: number,
-  ) {
-    super(message);
-    this.name = 'FunctionCallError';
-  }
-}
+// Data-API non-2xx contract: consume the response so the connection can be reused, but never put
+// its body in an exception (Box/API errors can echo names and identifiers). Throw the typed
+// FunctionCallError carrying status only.
+const statusOnlyErrorMapper: FocusedFnErrorMapper = async (res, { method, path }) => {
+  await res.text().catch(() => '');
+  return new FunctionCallError(
+    `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
+    res.status,
+  );
+};
+
+// Reproduce the pre-TKT-262 abort message byte-for-byte for the bounded callers.
+const timedOutError = (context: { method: string; path: string; timeoutMs: number }): Error =>
+  new Error(`[functions-client] ${context.method} ${context.path} → timed out after ${context.timeoutMs}ms`);
 
 export async function callVehicleData(input: {
   registration: string;
@@ -80,38 +91,19 @@ async function callFn(
 ): Promise<unknown> {
   // Opt-in timeout: undefined => no AbortController (unchanged behaviour for the parser/enrichment/
   // Box callers whose work can legitimately run long). A bounded caller (OCR/location) aborts the
-  // fetch on the deadline so a stuck upstream can't pin the request open.
-  const timeoutMs = opts?.timeoutMs;
-  const controller = timeoutMs != null ? new AbortController() : undefined;
-  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
-  try {
-    const res = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'x-functions-key': fnKey,
-      },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-      ...(controller ? { signal: controller.signal } : {}),
-    });
-    if (!res.ok) {
-      // Consume the response so the connection can be reused, but never put its
-      // body in an exception (Box/API errors can echo names and identifiers).
-      await res.text().catch(() => '');
-      throw new FunctionCallError(
-        `[functions-client] ${method} ${path} returned HTTP ${res.status}`,
-        res.status,
-      );
-    }
-    return res.json();
-  } catch (e) {
-    if (controller?.signal.aborted) {
-      throw new Error(`[functions-client] ${method} ${path} → timed out after ${timeoutMs}ms`);
-    }
-    throw e;
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+  // fetch on the deadline so a stuck upstream can't pin the request open. The transport, header,
+  // ok-check, and abort plumbing live in the shared focused-Function client (TKT-262); this service
+  // keeps its own env resolution, its status-only error contract, and its bounded-timeout message.
+  return focusedFnRequest<unknown>({
+    baseUrl,
+    functionKey: fnKey,
+    method,
+    path,
+    body,
+    timeoutMs: opts?.timeoutMs,
+    mapError: statusOnlyErrorMapper,
+    onTimeout: timedOutError,
+  });
 }
 
 // --- Parser Function ---
@@ -150,14 +142,8 @@ export async function callLocationSuggest(
 // already speaks this contract (services/orchestration/src/adapters/functions-client.ts::callPlateOcr); this is
 // the Data-API-side twin so the image-analysis producer can read a plate without routing the crop
 // through the GlobalStandard VLM. Configured via OCR_FN_URL / OCR_FN_KEY (same names orch uses);
-// absent => the caller degrades to "reg-OCR not run".
-export interface PlateOcrResult {
-  plate_text: string;
-  confidence?: number | null;
-  /** True when a plate was read (and, when case_vrm was supplied, it matched). */
-  registration_visible: boolean;
-  vrm_match?: string | null;
-}
+// absent => the caller degrades to "reg-OCR not run". PlateOcrResult is the shared TKT-262 type,
+// imported and re-exported above.
 
 export async function callPlateOcr(input: {
   imageBase64: string;
