@@ -54,6 +54,7 @@ const requiredPaths = [
   "docs/governance/repository-reconciliation.json",
   "infrastructure/README.md",
   "packages/domain/package.json",
+  "packages/server-runtime/package.json",
   "scripts/build/build-api.cjs",
   "scripts/build/build-orchestration.cjs",
   "scripts/checks/check-runtime-contract.mjs",

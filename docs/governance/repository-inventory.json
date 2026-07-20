@@ -17,7 +17,7 @@
     "files": 3753,
     "entries": 4876
   },
-  "totalFileBytes": 704159578,
+  "totalFileBytes": 704174559,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4845,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-271-anti-drift-guard-doctrine-and-meta-guard/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1528121,
+      "size": 1528106,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15664,8 +15664,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 7545,
-      "sha256": "34a867952163b04ff221ae73f629e1da50cfd32f6625935e8898ba6b3aa65c97",
+      "size": 9147,
+      "sha256": "c0b878b8b161317ef241a55d45d5a084059a3e978c9f23a94bd49d5bd9620349",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4289141,
-      "sha256": "0dab0d13e7574a983260c190a49db6321dd6be64aa8eeb8adadb7ab570fae0d0",
+      "size": 4289126,
+      "sha256": "bafb35a3b754c3d0e7362ebd8643005983e26146b0872c07a09c9aa1868d40e3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68039,
-      "sha256": "96c58bd23c95824980ae4869a8db0a7070f4ed137be027d3aaca623ad0c67120",
+      "sha256": "7f4d691982862b4dea7dddfe80fd3d64a19f558638f7711d37ea2598c55e4829",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16186,8 +16186,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49926,
-      "sha256": "7241ef923bdb37232dd593d08a6c0e9acb5be57d949fbca197b09934e97e1eb6",
+      "size": 49923,
+      "sha256": "97050fdfaf0cb08107d9f8f2ffe483e517c9a40e8fa42e499755287b1e5f377f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16195,8 +16195,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52788,
-      "sha256": "d2dddac80692ebc5b65dd11d0eca63d6a3663ca75c498a45efebd8c071d88792",
+      "size": 52785,
+      "sha256": "1a8949dbf95ccabb940bfee78c1ec63e8b335967201b88140e8439345370318e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18159,42 +18159,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md",
-      "mediaType": "text/markdown",
-      "size": 3530,
-      "sha256": "0362f29d87667d81ff57f651b6be61ceb4045b5693eaad92b712f7c1c2993a12",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/changes.md",
-      "mediaType": "text/markdown",
-      "size": 119,
-      "sha256": "25193188aaa2a86a0d3b4f4ccb28d373c856b14a1e4a42a70dde5327c2a1ceb7",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1550,
-      "sha256": "49ea4c0c13a2da2ddb4b082747a34b92b118bfedcf68754c2a3c480eb3b4d411",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-272-repository-structure-and-package-boundary-rules/verification.md",
-      "mediaType": "text/markdown",
-      "size": 204,
-      "sha256": "e9ed234509d1ce6d9ca6657814e07358165fb6c95be6ac05ca4f2d0090015c69",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24590,6 +24554,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/TKT-272-repository-structure-and-package-boundary-rules.md",
+      "mediaType": "text/markdown",
+      "size": 3524,
+      "sha256": "c715c6efca5d55f011f8f7ba5e54e8c6d3d90dba3804d9025806377953d8d7c0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2342,
+      "sha256": "99d296d4e9ddab0f4372f64dd7796196ddb3afa4bd6a20f906c9dfddeb583070",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1550,
+      "sha256": "49ea4c0c13a2da2ddb4b082747a34b92b118bfedcf68754c2a3c480eb3b4d411",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-272-repository-structure-and-package-boundary-rules/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1942,
+      "sha256": "af09d4e4a02dbe1007ad6ba33b8d24457fb168a6d6aab60ce3f0c7050cd49dca",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26266,8 +26266,8 @@
     {
       "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
       "mediaType": "text/markdown",
-      "size": 7660,
-      "sha256": "856e638cf6dc05ff263a171f0a86b2b5f487860c110629b7bcba8e5c7b5491ba",
+      "size": 7654,
+      "sha256": "e17e1cbe9d5692585f0ff38a5c65a2ac4e98ee97a269f05aabcbaa6416c68501",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30982,8 +30982,8 @@
     {
       "path": "scripts/checks/check-production-dependencies.mjs",
       "mediaType": "text/javascript",
-      "size": 23364,
-      "sha256": "d1b377c0ce346d28bac5fd26858851f392ea1557c5edfc99d5fb9d1bccc66fca",
+      "size": 28649,
+      "sha256": "ea0731fac6807f641682501ef8f414806a1c52428c0a97749c2e72d20fa08713",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -30991,8 +30991,8 @@
     {
       "path": "scripts/checks/check-production-dependencies.test.mjs",
       "mediaType": "text/javascript",
-      "size": 7277,
-      "sha256": "f75be4d8cc41d2f31eb40d3ad8513133dbac6e73cdfbda0327bbadb8f07fe6a7",
+      "size": 11374,
+      "sha256": "01b2bc5e1200ba2c6b6b24df3c97fc2b2ebb2925400ed6415eca0d374ccaf437",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31018,8 +31018,8 @@
     {
       "path": "scripts/checks/check-repository-layout.mjs",
       "mediaType": "text/javascript",
-      "size": 3032,
-      "sha256": "962ce43428111eced6a07b7eacce802c5ac4aa32385226a5da95c33f35373043",
+      "size": 3074,
+      "sha256": "1152d900aa633abe76a53f168f845394cdae70dc4dff75392b80c0d4a60ce774",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -31027,8 +31027,8 @@
     {
       "path": "scripts/checks/check-repository-layout.test.mjs",
       "mediaType": "text/javascript",
-      "size": 2700,
-      "sha256": "014f562fa6cb281b081cb257dedc6c15321eb371049ca51038dc405e9494d9d3",
+      "size": 2742,
+      "sha256": "a8256436c7d6ccc5375e153163f0cba7b68a10d9e19b79c97f318691df0ccc26",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"

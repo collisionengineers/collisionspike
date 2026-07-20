@@ -8,10 +8,34 @@
 | `services/data-api` | REST routes, authorization, database access, and synchronous capabilities |
 | `services/orchestration` | Mail intake, durable workflows, and asynchronous coordination |
 | `services/functions/*` | Bounded Python processing or integration services |
-| `packages/domain` | Environment-free domain contracts, schemas, and pure rules |
+| `packages/domain` | Browser-safe, SDK-free domain contracts, schemas, and pure rules |
+| `packages/server-runtime` | Server-only shared runtime plumbing (SDK-allowed, Node-only) |
 | `contracts` | External wire contracts and shared schema artifacts |
 | `database` | Baseline, ordered changes, seeds, tests, and operational SQL |
 | `infrastructure` | Azure resource definitions and deployment configuration |
+
+## Package boundary and repository shape
+
+The two shared TypeScript packages are split by execution environment and are **never merged**
+([ADR-0031](../adr/0031-server-runtime-boundary.md)):
+
+- **`packages/domain` (`@cs/domain`) — browser-safe, SDK-free.** The web app bundles it, so its own
+  production code and manifest must not reach a runtime adapter, database client, Node-only package, or
+  cloud SDK.
+- **`packages/server-runtime` (`@cs/server-runtime`) — server-only, SDK-allowed.** It may import cloud
+  SDKs and depend on the Node runtime. Only `services/data-api` and `services/orchestration` may depend
+  on it; the SPA must not.
+
+Both directions are machine-enforced by [`check:production-dependencies`](../../scripts/checks/check-production-dependencies.mjs):
+the SPA production graph may never reach `@cs/server-runtime`, and `@cs/domain`'s source imports and
+manifest production dependencies are audited against the browser-safe policy independently of whether the
+SPA imports a given module. [`check:layout`](../../scripts/checks/check-repository-layout.mjs) requires
+both package manifests.
+
+The **repository-shape policy** (the generated-directory set and the tracked-file enumerator) has a single
+definition in [`scripts/checks/repository-files.mjs`](../../scripts/checks/repository-files.mjs) (PLAN-010).
+`check:layout` and `check:tracked-outputs` import that one definition; a second copy is rejected by
+[`check:scripts-dedup`](../../scripts/checks/check-scripts-dedup.mjs).
 
 ## Verification and knowledge
 
