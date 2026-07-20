@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3769,
-    "entries": 4892
+    "files": 3771,
+    "entries": 4894
   },
-  "totalFileBytes": 704360922,
+  "totalFileBytes": 704380004,
   "entries": [
     {
       "path": ".",
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1533099,
+      "size": 1533770,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4295310,
-      "sha256": "2156fd9712ab090fa0e7e242367b1c6ee0c11087c51256d13968f542e508bcc0",
+      "size": 4296147,
+      "sha256": "8c25037421d6a24879c5abb06c3aa340c302d2b356abc7ca38d0b8168ca622ed",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68041,
-      "sha256": "ba84a0a1fd729c5407972b469f2a0dff430fc837cc529b54df74652fa2b2ffbd",
+      "sha256": "940028ea7fa1e0e8336f8d3ab2af932ae268181afddd660c6bdf111bfcdd28a9",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30523,8 +30523,8 @@
     {
       "path": "packages/domain/src/domain/triage-policy.test.ts",
       "mediaType": "text/typescript",
-      "size": 33397,
-      "sha256": "56337253965e9b2413b525a8053eaec3c2510f5cbaaccb5c627e686cdc019a84",
+      "size": 34788,
+      "sha256": "2076ab1bc2c0d97614ac215efc73cb448693bcd04f2e7256bccf79626cb2f904",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -30532,8 +30532,8 @@
     {
       "path": "packages/domain/src/domain/triage-policy.ts",
       "mediaType": "text/typescript",
-      "size": 23533,
-      "sha256": "84d85d64ad6af32b1661f37f811174116ceb9be5b73e0786f67b50fc5128e0d9",
+      "size": 23800,
+      "sha256": "3d298ebaa71113bb445cf61b3194a8aaa0b07b2d104b66850788feb4bfb206ac",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -31459,8 +31459,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 37,
-      "sha256": "710ca532b1441da078095eb49f7cd493c6f5f947e683b26d7318b4de15d6ddbd",
+      "size": 100,
+      "sha256": "cac4a1c1fb176f7ead8d9062ab8c12a19c73e6f0871c8e26c808bd85029d1976",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -36742,8 +36742,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/imagesReceivedVrmMatch.ts",
       "mediaType": "text/typescript",
-      "size": 10848,
-      "sha256": "9a51711d5b4a26dfbfc1dfd77a7162590c0e7eaa417499bccb746f8782bfef8d",
+      "size": 10963,
+      "sha256": "ddcc81c8621c85fe0aa639b900416a4a466bffa8bd1d59f77bd8329362aac355",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -36875,10 +36875,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/intake/intake-evidence-persist.test.ts",
+      "mediaType": "text/typescript",
+      "size": 8368,
+      "sha256": "7d3ab7611b6722b7db599c130ca3941b22457163ac081e853b5defc97b21918e",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/intake/intake-provider-recovery.test.ts",
       "mediaType": "text/typescript",
       "size": 1846,
       "sha256": "e729cd766926fe834c73d38962038ccc7c987458ccd6f298592bb9ed9c97894c",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/intake-retro-fallback.test.ts",
+      "mediaType": "text/typescript",
+      "size": 7836,
+      "sha256": "f7b603544c135914b8823cb39a39876af63f553babac5d22c5cd905dd6d84b23",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -36904,8 +36922,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 42327,
-      "sha256": "bcd71960d277da1ec9705a64a09378c252ae9f686e54be4e44153ad99e7d2b63",
+      "size": 41861,
+      "sha256": "0ea4b7e29ad5d394fb43bc63ab60cace611d6a83b75f0f4a3a74b2bb64ff36af",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

@@ -218,9 +218,12 @@ function matchLabel(matchedOn: OpenCaseRefMatch['matchedOn']): string {
 
 /** Collapse matches that name the SAME case (e.g. matched by both its Case/PO and its
  *  registration) to one entry, so the exactly-one-match cardinality checks below are
- *  never fooled by an upstream signal producing two rows for the one case. */
-function distinctByCaseId(matches: readonly OpenCaseRefMatch[]): OpenCaseRefMatch[] {
-  const seen = new Map<string, OpenCaseRefMatch>();
+ *  never fooled by an upstream signal producing two rows for the one case. Generic (not
+ *  `OpenCaseRefMatch`-specific) so other case-match cardinality checks — e.g.
+ *  `imagesReceivedVrmMatch.ts`'s `resolveVrmMatches` — can share the same dedup primitive
+ *  instead of hand-rolling it; each caller's own decision logic on top stays separate. */
+export function distinctByCaseId<T extends { caseId: string }>(matches: readonly T[]): T[] {
+  const seen = new Map<string, T>();
   for (const m of matches) {
     if (!seen.has(m.caseId)) seen.set(m.caseId, m);
   }
