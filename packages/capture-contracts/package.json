@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "contract:generate": "openapi-typescript openapi/capture.v1.yaml -o src/generated.ts",
+    "contract:generate": "openapi-typescript ../../contracts/capture.v1.yaml -o src/generated.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

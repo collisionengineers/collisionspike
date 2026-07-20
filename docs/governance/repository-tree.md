@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1147 directories, 3847 files.
+Grand total: 1145 directories, 3844 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1759,13 +1759,11 @@ infrastructure/  (1 file)
     vehicle-enrichment/  (1 file)
 ```
 
-### packages — 23 directories, 140 files
+### packages — 21 directories, 137 files
 
 ```text
 packages/  (0 files)
   capture-contracts/  (2 files)
-    openapi/  (2 files)
-    scripts/  (1 file)
     src/  (2 files)
   capture-core/  (3 files)
     src/  (14 files)
@@ -2179,10 +2177,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3847 | 3847 | PASS |
-| Proposed tree directories == ledger final directories | 1147 | 1147 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3849 | 3849 | PASS |
-| Proposed directories == inventory directories | 1147 | 1147 | PASS |
+| Proposed tree files == ledger final files | 3844 | 3844 | PASS |
+| Proposed tree directories == ledger final directories | 1145 | 1145 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3846 | 3846 | PASS |
+| Proposed directories == inventory directories | 1145 | 1145 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

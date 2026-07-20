@@ -20,7 +20,7 @@
     "build:capture-testkit": "npm run build --workspace @cs/capture-testkit",
     "build:capture-web": "npm run build --workspace @cs/capture-web",
     "contract:capture:lint": "redocly lint contracts/capture.v1.yaml",
-    "contract:capture:generate": "openapi-typescript contracts/capture.v1.yaml -o services/data-api/src/generated/capture-api.ts",
+    "contract:capture:generate": "openapi-typescript contracts/capture.v1.yaml -o services/data-api/src/generated/capture-api.ts && npm run contract:generate --workspace @cs/capture-contracts",
     "contract:capture:check": "npm run contract:capture:lint && node scripts/checks/check-capture-contract.mjs",
     "bundle": "npm run bundle:api && npm run bundle:orchestration",
     "bundle:api": "node scripts/build/build-api.cjs",

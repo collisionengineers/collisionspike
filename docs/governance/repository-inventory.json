@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1147,
-    "files": 3849,
-    "entries": 4996
+    "directories": 1145,
+    "files": 3846,
+    "entries": 4991
   },
-  "totalFileBytes": 705067742,
+  "totalFileBytes": 705033465,
   "entries": [
     {
       "path": ".",
@@ -6960,24 +6960,6 @@
     },
     {
       "path": "packages/capture-contracts",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "repository",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "packages/capture-contracts/openapi",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "repository",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "packages/capture-contracts/scripts",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16348,7 +16330,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1562580,
+      "size": 1561175,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16366,8 +16348,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4333793,
-      "sha256": "e2b381b6c44508a880d2e2b67a81dd22be6035b04fde3cb9b6fe7a11570d7d6f",
+      "size": 4331965,
+      "sha256": "0775fd8550cf6341be2e2b68da034b23a2f19f1dcb2780f8e8bd23ed6e325da4",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16375,8 +16357,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 68622,
-      "sha256": "465d44b8463709cbcda1d479237a1fcd9b5de107bdf2266c8939ce3b2458b9b6",
+      "size": 68575,
+      "sha256": "00f691b4de1918c940f16a2734617abdf94cf8730839c01827343893d3968613",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -30559,45 +30541,18 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 6328,
-      "sha256": "fdd2edab869b96d55015c116760aa4e274d7fe6587fffef2657a9e97acd86be0",
+      "size": 6391,
+      "sha256": "301054db5657a2ad8ff356f3a20fc42f583c6a55bd5bbea335dbb6de69d96947",
       "category": "configuration",
-      "owner": "repository",
-      "lifecycle": "active"
-    },
-    {
-      "path": "packages/capture-contracts/openapi/capture.v1.yaml",
-      "mediaType": "application/yaml",
-      "size": 28955,
-      "sha256": "f01e94fb84094a12dba5001ad4d4c60d1f77799d60b950a8aed99ee0019c03bc",
-      "category": "source",
-      "owner": "repository",
-      "lifecycle": "active"
-    },
-    {
-      "path": "packages/capture-contracts/openapi/source-lock.json",
-      "mediaType": "application/json",
-      "size": 253,
-      "sha256": "8feb5c2cd9b0d0ea5ce532c5dcff7c650790ff48db9889550fa5d2855adba43b",
-      "category": "source",
       "owner": "repository",
       "lifecycle": "active"
     },
     {
       "path": "packages/capture-contracts/package.json",
       "mediaType": "application/json",
-      "size": 537,
-      "sha256": "08ffedbe1a5d28b831fb983a89288bee3cb937e386dba29da15339b0e6a3a843",
+      "size": 545,
+      "sha256": "7b3d5b3e402d758d7bf9dbb23deec8e977012c224342f39d07f25156f1a3a388",
       "category": "configuration",
-      "owner": "repository",
-      "lifecycle": "active"
-    },
-    {
-      "path": "packages/capture-contracts/scripts/check-capture-contract.mjs",
-      "mediaType": "text/javascript",
-      "size": 2209,
-      "sha256": "19a542ff87725eb502e9507241f54aac9f3a489a228a1c0a7323f9fbdb74e9c5",
-      "category": "source",
       "owner": "repository",
       "lifecycle": "active"
     },
@@ -31900,8 +31855,8 @@
     {
       "path": "scripts/checks/check-capture-contract.mjs",
       "mediaType": "text/javascript",
-      "size": 865,
-      "sha256": "b4ecf88dc15a0a9be1515a3c3234c462dff4d4abe3c8906c830a40b54638afd7",
+      "size": 1214,
+      "sha256": "5fdc1586a7da74002ef56a4fcd9a985ce33f3726c2096fbb61d4c588fd71fa5a",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
