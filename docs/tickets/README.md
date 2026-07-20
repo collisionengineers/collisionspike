@@ -35,7 +35,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 
 [Open the generated board](./BOARD.md).
 
-## Now (33)
+## Now (32)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -70,7 +70,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-231](./now/TKT-231-retro-ambiguous-case-link-suggestions/TKT-231-retro-ambiguous-case-link-suggestions.md) | Surface ambiguous retro matches as case_link suggestions on the Attach-to-case banner | P3 | email | — |
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
-| [TKT-278](./now/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 | integration | — |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 | integration | — |
 
 ## Verify (32)
@@ -110,7 +109,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 | intake | PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 | intake | PLAN-004 |
 
-## Done (150)
+## Done (151)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -264,6 +263,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-275](./done/TKT-275-runtime-shared-mechanism-consolidation/TKT-275-runtime-shared-mechanism-consolidation.md) | Consolidate residual runtime shared mechanisms (content-hash, request-digest, safeText) | P2 | platform | — |
 | [TKT-276](./done/TKT-276-status-recompute-authority-unification/TKT-276-status-recompute-authority-unification.md) | Unify the two case status-recompute authorities and the generation-counter ack | P2 | platform | — |
 | [TKT-277](./done/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md) | Widen cross-language parity coverage and reconcile the evidence-kind MIME divergence | P2 | platform | — |
+| [TKT-278](./done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 | integration | — |
 
 ## Next (0)
 

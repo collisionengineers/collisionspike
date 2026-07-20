@@ -1,6 +1,6 @@
 # ADR-0034 — The guided-capture browser client is merged into this repository
 
-**Status:** Accepted 2026-07-20 per [TKT-278](../tickets/now/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md).
+**Status:** Accepted 2026-07-20 per [TKT-278](../tickets/done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md).
 
 ## Decision
 
@@ -26,7 +26,7 @@ re-porting to stay in sync; a documented near-miss where two sessions nearly re-
 already-deployed server because the client repo's own docs weren't reconciled after this repo's
 repository reset; parallel unpushed work landing on matching branch names in both repos in the same
 session; and an already-shared Azure resource group (`rg-collisionspike-dev`). See
-[the merge-scope evidence](../tickets/now/TKT-278-collisioncapture-repository-consolidation/evidence/merge-scope.md)
+[the merge-scope evidence](../tickets/done/TKT-278-collisioncapture-repository-consolidation/evidence/merge-scope.md)
 for the specific incidents.
 
 This bucks the suite's own 2026-06-23/24 precedent of splitting a monorepo into independent per-project
