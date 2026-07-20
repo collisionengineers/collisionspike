@@ -1,0 +1,80 @@
+{
+  "$comment": "TKT-268 / PLAN-011 checked auth/retry client inventory. Single source of truth for BOTH the shared Python behavioural conformance harness (services/functions/_authconf/conformance.py, via each service's tests/test_auth_conformance.py) and the node drift guard (scripts/checks/check-auth-inventory.mjs). 'claims' is the subset of the four observable behaviours each client actually pins; the harness asserts each claimed behaviour AND the complement where observable. 'excluded' rows are auth-bearing callers that deliberately implement none of the four (or a non-retry poll) — recorded so a future retry/refresh cannot slip in unpinned. See ADR-0032.",
+  "behaviours": ["expiry-aware-reuse", "one-time-refresh", "bounded-transient-retry", "retry-after"],
+  "clients": [
+    {
+      "path": "services/functions/box-webhook/box_client.py",
+      "service": "box-webhook",
+      "symbol": "BoxClient",
+      "authMechanism": "Box JWT (Server Authentication) assertion exchanged at /oauth2/token",
+      "claims": ["expiry-aware-reuse", "one-time-refresh", "bounded-transient-retry"],
+      "note": "Also retries the token MINT on transient status (distinct from blob_source)."
+    },
+    {
+      "path": "services/functions/box-webhook/blob_source.py",
+      "service": "box-webhook",
+      "symbol": "mint_storage_token / fetch_blob_to_spool",
+      "authMechanism": "Azure managed-identity storage bearer via the Functions MSI REST endpoint",
+      "claims": ["expiry-aware-reuse", "one-time-refresh"],
+      "note": "Wall-clock (time.time vs expires_on) expiry, NOT a monotonic deadline; no transient-retry on the blob GET or the mint."
+    },
+    {
+      "path": "services/functions/box-webhook/data_api_client.py",
+      "service": "box-webhook",
+      "symbol": "DataApiClient",
+      "authMechanism": "Managed-identity client-credentials bearer for the Data API audience (azure-identity)",
+      "claims": ["bounded-transient-retry", "retry-after"],
+      "note": "Expiry awareness is internal to azure-identity and NOT observable here, so expiry-aware-reuse is deliberately NOT claimed. The only client that honours Retry-After (delta-seconds, capped)."
+    },
+    {
+      "path": "services/functions/eva-sentry/eva_client.py",
+      "service": "eva-sentry",
+      "symbol": "EvaClient",
+      "authMechanism": "EVA Sentry /Connect/token credential exchange",
+      "claims": ["expiry-aware-reuse", "one-time-refresh"],
+      "note": "Monotonic deadline; expires_in is in MINUTES."
+    },
+    {
+      "path": "services/functions/vehicle-enrichment/dvsa_client.py",
+      "service": "vehicle-enrichment",
+      "symbol": "DvsaClient",
+      "authMechanism": "Microsoft Entra client-credentials bearer + X-API-Key",
+      "claims": ["expiry-aware-reuse", "one-time-refresh", "bounded-transient-retry"],
+      "note": "Retry is triggered by transient HTTP status OR a documented retryable errorCode."
+    },
+    {
+      "path": "services/functions/vehicle-enrichment/dvla_client.py",
+      "service": "vehicle-enrichment",
+      "symbol": "DvlaClient",
+      "authMechanism": "Static API key (x-api-key); no token acquisition",
+      "claims": ["bounded-transient-retry"],
+      "note": "No token, so no expiry/refresh; 400/404 short-circuit before the retry check."
+    },
+    {
+      "path": "services/functions/location-assist/ai_reasoning.py",
+      "service": "location-assist",
+      "symbol": "AiLocationReasoner",
+      "authMechanism": "Keyless managed-identity Cognitive-Services token minted once at build time",
+      "claims": [],
+      "note": "RETAINED-BUT-NOT-EXPIRY-AWARE bearer (flagged): mints once, reuses for the object's lifetime, never tracks expiry, never refreshes, never retries — any non-200 degrades to []. claims:[] pins the ABSENCE of all four."
+    }
+  ],
+  "excluded": [
+    {
+      "path": "services/functions/box-webhook/tools/check_box_credentials.py",
+      "reason": "Offline diagnostic tool (not a runtime client). Duplicates the Box JWT mint shape but has no token cache, 401-refresh, or transient retry."
+    },
+    {
+      "path": "services/functions/location-assist/vision_client.py",
+      "reason": "API-key REST caller (Ocp-Apim-Subscription-Key); no token, no expiry cache, no refresh, no transient retry."
+    },
+    {
+      "path": "services/functions/location-assist/maps_client.py",
+      "reason": "API-key REST caller (subscription-key); no token, no expiry cache, no refresh, no transient retry."
+    },
+    {
+      "path": "services/functions/ocr/ocr_pdf_adapter.py",
+      "reason": "Document Intelligence LRO status-poll (202 -> Operation-Location -> poll), which is not a token/401-refresh or a transient (429/5xx) retry."
+    }
+  ]
+}
