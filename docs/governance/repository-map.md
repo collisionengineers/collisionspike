@@ -37,6 +37,27 @@ definition in [`scripts/checks/repository-files.mjs`](../../scripts/checks/repos
 `check:layout` and `check:tracked-outputs` import that one definition; a second copy is rejected by
 [`check:scripts-dedup`](../../scripts/checks/check-scripts-dedup.mjs).
 
+## Distillation and consolidation discipline
+
+Plans in the architecture-simplification series distil user-owned drafts under `workingspace/`, which are
+byte-stable and often unchanged in the pull request that distils them. A diff cannot make an unchanged
+draft reviewable, and editing a draft merely to produce a diff is forbidden. Instead:
+
+- **Derivation summary.** Every plan from PLAN-012 onward declares a repository-tracked `derivation-summary`
+  recording its source paths and immutable commit/blob references, the adopted/changed/dropped decisions,
+  the rationale, and the revalidation of volatile claims — whether or not the source draft changed.
+  [`check:derivation`](../../scripts/checks/check-derivation-summaries.mjs) validates the summary's
+  structure and never reads the content-addressed source paths; `workingspace/` files and `.gitattributes`
+  are never edited. (PLAN-001–011 predate the doctrine; their distillation is recorded in PLAN-012's
+  summary.)
+- **Rule of three (equivalence-qualified).** Three structurally equivalent implementations trigger a
+  consolidation *review*, not automatic sharing. Sharing one home requires compatible contract, owner,
+  lifecycle, security policy, and failure semantics; intentional differences are recorded, not flattened.
+- **Structural delta as decision evidence.** A completed consolidation lane and its aggregate plan report
+  before/after owned-file and nonblank-line deltas. The completed result is net-negative overall or records
+  an explicit operator-approved exception with semantic rationale; an intermediate scaffold pull request is
+  not rejected solely because its local delta is positive.
+
 ## Verification and knowledge
 
 | Path | Purpose |

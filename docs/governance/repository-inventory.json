@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3758,
-    "entries": 4881
+    "files": 3760,
+    "entries": 4883
   },
-  "totalFileBytes": 704208972,
+  "totalFileBytes": 704224661,
   "entries": [
     {
       "path": ".",
@@ -2208,24 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4845,24 @@
     },
     {
       "path": "docs/tickets/done/TKT-273-live-facts-and-ledger-integrity-check/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1529657,
+      "size": 1530283,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15664,8 +15664,8 @@
     {
       "path": "docs/governance/repository-map.md",
       "mediaType": "text/markdown",
-      "size": 9147,
-      "sha256": "c0b878b8b161317ef241a55d45d5a084059a3e978c9f23a94bd49d5bd9620349",
+      "size": 10820,
+      "sha256": "3f40a440be245953a4055a9463a244c7ffd71d3556dac91233459d68fb2965f6",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4291091,
-      "sha256": "c161205511c50aa8ccbf6dce250dd4556e72f442f3230c1a6a76d7801c68e030",
+      "size": 4291883,
+      "sha256": "2b8f6031c560f1f20835495455059b003d6e09e711c77dcaf7937392c9805542",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68039,
-      "sha256": "1ab811d5b1abd89a244f83a25ac144d0e8ecbfdbdf89159c8959dfb7019c6d3a",
+      "sha256": "247bba3579b66beb7fffe9388337454394e3587b80197a35771492e0e22f4dcd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16195,8 +16195,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49920,
-      "sha256": "cc583dcf6211f1da9fc207846171a563bf0738119080084810500198594ced85",
+      "size": 49917,
+      "sha256": "66998017498511de267bcca0bd8099eba3c619605fbd4069fde8e9252c2d37cd",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16204,8 +16204,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52782,
-      "sha256": "c873a6172701b6f443a183807467718828eac298f4fdb212d35edcaa515d8a58",
+      "size": 52780,
+      "sha256": "3bc6d8960fe05b31fababbc903556b815d193d2021cf7df68104155258785580",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18168,42 +18168,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md",
-      "mediaType": "text/markdown",
-      "size": 4162,
-      "sha256": "34ea1db19e0a7a5757736bc1453d27c23c25d8f955ca046b96deff7281643bdf",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/changes.md",
-      "mediaType": "text/markdown",
-      "size": 121,
-      "sha256": "be0634056dd592990e73df9bdfef9ebb259257be60ec2074463641382b3d04a5",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/evidence/distillation-note.md",
-      "mediaType": "text/markdown",
-      "size": 1412,
-      "sha256": "1a3ac02927f48c6d0660b51b0a97d8c420b59783c4f024976d50cb7143be0b98",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-274-distillation-reviewability-and-rule-of-three/verification.md",
-      "mediaType": "text/markdown",
-      "size": 206,
-      "sha256": "ad17c150712fb68508b83e42055e2a3ca5eb0f7451aa2cadbd333353d6650665",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24599,6 +24563,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three/TKT-274-distillation-reviewability-and-rule-of-three.md",
+      "mediaType": "text/markdown",
+      "size": 4156,
+      "sha256": "9468cc88ab6d4edff87bd912aac0c5adb22b378969dd825568204d0f3d445c0c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2007,
+      "sha256": "f812a21692b22535ca30c7d9eb19c2cb2ac1dea14227b112c18247a8db9da779",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three/evidence/distillation-note.md",
+      "mediaType": "text/markdown",
+      "size": 1412,
+      "sha256": "1a3ac02927f48c6d0660b51b0a97d8c420b59783c4f024976d50cb7143be0b98",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-274-distillation-reviewability-and-rule-of-three/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1836,
+      "sha256": "a380e206fdefdbe8126fa5308ae6bb481b757dc9e6b4df42274921bd445b7c02",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -26275,8 +26275,8 @@
     {
       "path": "docs/tickets/plans/PLAN-012-repository-hardening.md",
       "mediaType": "text/markdown",
-      "size": 7648,
-      "sha256": "bbb8cdc718801bdb310ed9ff60d9540537c55888d38335add4877b0ca81f9283",
+      "size": 7643,
+      "sha256": "4df2f81a4369dcf3dc7c6ef87645224489cae6a0c4aace369fc1fab84dd8a34e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29848,8 +29848,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 5668,
-      "sha256": "d51031546b4469aaea179bdcaa050282dfd5f8caeaa01d6cc9eabb759abb7b35",
+      "size": 5746,
+      "sha256": "0c9ee48f42e49f757dca506ebc9c8e19e86c32ac17b50176e19a4dd9df9e6ffd",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -30921,6 +30921,24 @@
       "mediaType": "text/javascript",
       "size": 865,
       "sha256": "b4ecf88dc15a0a9be1515a3c3234c462dff4d4abe3c8906c830a40b54638afd7",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-derivation-summaries.mjs",
+      "mediaType": "text/javascript",
+      "size": 4830,
+      "sha256": "8010fe0b746562e5adde569a5677f0bd53aed8fc892cb92a1d098d6aabde7981",
+      "category": "automation",
+      "owner": "repository-governance",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/checks/check-derivation-summaries.test.mjs",
+      "mediaType": "text/javascript",
+      "size": 4096,
+      "sha256": "9b34022404a1a834c329c68e5f68ab0ebbd9f59c761f45c0145be6eacbaf1ac0",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -43096,8 +43114,8 @@
     {
       "path": "verify-all.mjs",
       "mediaType": "text/javascript",
-      "size": 6309,
-      "sha256": "5f9e69891450e83468648bd6b4356e57366e1a5b10ac34e25b321a93954a7e3d",
+      "size": 6403,
+      "sha256": "d08f35380c9da2e1bfa3745b42cbc6b9f2e59d329249e0d3c6b5bcbc66244852",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"

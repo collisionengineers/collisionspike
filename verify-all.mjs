@@ -69,6 +69,7 @@ const checks = [
   ['Cross-language parser/domain parity', 'npm run test --workspace @cs/domain -- parser-parity'],
   ['Anti-drift guard register', 'node scripts/checks/check-guard-register.mjs'],
   ['LIVE_FACTS offline integrity', 'node scripts/checks/check-live-facts.mjs'],
+  ['Derivation-summary reviewability', 'node scripts/checks/check-derivation-summaries.mjs'],
   ['Owned source size', 'node scripts/checks/check-source-size.mjs'],
   ['Repository inventory', 'node scripts/maintenance/generate-repository-inventory.mjs --check'],
   ['Repository reset reconciliation', 'node scripts/maintenance/reconcile-repository-reset.mjs'],
