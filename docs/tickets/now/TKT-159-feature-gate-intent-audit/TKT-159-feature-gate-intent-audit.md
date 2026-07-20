@@ -42,3 +42,7 @@ Distilled 2026-07-12 from the operator request and observed ticket/registry drif
 - [Changes made](./changes.md)
 - [Verification](./verification.md)
 - [Operator note](./evidence/operator-note.md)
+- [Code-derived gate inventory, 2026-07-20](./evidence/code-derived-gate-inventory-2026-07-20.md) —
+  superseded same-day by a live readback; kept for its code citations. See its updated banner.
+- [Feature gates, plain language](../../../operations/feature-gates.md) — every gate defined in depth,
+  live state as of 2026-07-20, and the implications of enabled/disabled for a non-engineer.

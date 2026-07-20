@@ -103,3 +103,11 @@ Review-hardening evidence included in the full-suite totals above:
 Follow `docs/architecture/mcp-image-ingestion.md` in deploy order. Preserve role/app-setting readbacks,
 standard-client HTTP evidence, SQL readback, Box ancestry/file evidence, classifier/readiness state and
 the duplicate-retry proof. Only then can an independent verifier move this ticket from verify to done.
+
+## 2026-07-20 addendum
+
+`MCP_IMAGE_INGEST_ENABLED=true` and `MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105` were flipped live on
+`cespk-api-dev` by explicit operator direction during the TKT-159 gate audit (see `changes.md`). Confirmed
+this still fails closed for every real caller — no principal holds the required `CollisionSpike.ImageIngest`
+Entra app role. The first "Pending / gaps" item (create/read back that role) is unchanged and still
+outstanding; verdict stays `PENDING`.

@@ -34,7 +34,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 
 [Open the generated board](./BOARD.md).
 
-## Now (31)
+## Now (32)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -49,6 +49,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-107](./now/TKT-107-readonly-archive-assist/TKT-107-readonly-archive-assist.md) | Read-only Box archive assist (suggest-only) — decouple from the sequence-blocked reconstruction | P2 | intake | PLAN-001 |
 | [TKT-130](./now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md) | Review contains only cases that are ready for EVA | P1 | intake | PLAN-003 |
 | [TKT-150](./now/TKT-150-claimant-extraction-held-audit/TKT-150-claimant-extraction-held-audit.md) | Restore claimant-name extraction and remediate affected held cases | P1 | parsing | PLAN-005 |
+| [TKT-152](./now/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | P1 | enrichment | PLAN-004 |
 | [TKT-154](./now/TKT-154-mcp-image-ingestion/TKT-154-mcp-image-ingestion.md) | Add a constrained MCP path for registration-based image ingestion | P1 | integration | PLAN-004 |
 | [TKT-159](./now/TKT-159-feature-gate-intent-audit/TKT-159-feature-gate-intent-audit.md) | Reconcile every live feature gate with intended production behavior | P1 | platform | PLAN-004 |
 | [TKT-160](./now/TKT-160-delete-case-image/TKT-160-delete-case-image.md) | Delete an individual case image from every active store | P2 | evidence | PLAN-004 |
@@ -70,7 +71,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 
-## Verify (33)
+## Verify (32)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -95,7 +96,6 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-145](./verify/TKT-145-caselink-evidence-backfill/TKT-145-caselink-evidence-backfill.md) | Accepted case_link on a previously-uncased email must backfill its evidence to the case | P2 | intake | PLAN-003 |
 | [TKT-146](./verify/TKT-146-box-upload-event-classify/TKT-146-box-upload-event-classify.md) | Classify images at Box-upload event time (the FILE.UPLOADED lane has no classify path) | P2 | evidence | PLAN-003 |
 | [TKT-151](./verify/TKT-151-vehicle-enrichment-completeness/TKT-151-vehicle-enrichment-completeness.md) | Complete vehicle enrichment and warn when a registration cannot be resolved | P1 | enrichment | PLAN-004 |
-| [TKT-152](./verify/TKT-152-canonical-mileage-estimator/TKT-152-canonical-mileage-estimator.md) | Consolidate vehicle lookups and harden the MOT mileage estimator | P1 | enrichment | PLAN-004 |
 | [TKT-153](./verify/TKT-153-explicit-case-save/TKT-153-explicit-case-save.md) | Save case edits explicitly as one reviewed change | P1 | ui | PLAN-004 |
 | [TKT-155](./verify/TKT-155-dashboard-three-state-layout/TKT-155-dashboard-three-state-layout.md) | Simplify the dashboard around Not Ready, Review and Held | P2 | dashboard | PLAN-004 |
 | [TKT-156](./verify/TKT-156-chaser-file-request/TKT-156-chaser-file-request.md) | Put an active archive upload link in every image chaser | P1 | box | PLAN-004 |

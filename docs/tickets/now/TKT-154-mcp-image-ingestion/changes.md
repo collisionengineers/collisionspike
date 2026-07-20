@@ -127,3 +127,19 @@ observability change to existing staff uploads, not scoped narrowly.
 - No real authenticated standard-client/Box/classification/readiness proof. Those remain the live
   verification gate and are recorded in `verification.md`.
 - No live-model prompt-injection proof; only the deterministic raster/seam regression was run offline.
+
+## 2026-07-20 — gate flipped live by explicit operator direction (TKT-159 audit)
+
+- `MCP_IMAGE_INGEST_ENABLED=true` and `MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105` were set on
+  `cespk-api-dev` (settings backed up first; app confirmed `Running`, 144 functions, no new 5xx after the
+  recycle). `BOX_FOLDER_ROOT_ID` was already `392761581105` live, so `mcpImageIngestConfigured()`
+  (`services/data-api/src/features/cases/mcp-image-ingestion.ts:101-107`) now evaluates true.
+- **Confirmed still safe/inert for any real caller**: the write lane is additionally gated by
+  `principal === 'image_ingest_agent'` in `services/data-api/src/features/assistant/mcp-routes.ts`, which
+  requires a token carrying the dedicated `CollisionSpike.ImageIngest` Entra app role
+  (`services/data-api/src/platform/auth/staff-auth.ts:168`). Per this ticket's own "Deliberately not done
+  here" above, that role has never been created or assigned to any principal, so the env-var flip alone
+  does not open the lane to any actual client — every caller still fails closed on principal resolution.
+- This flip does **not** complete TKT-154's acceptance. The "Pending / gaps" list in `verification.md`
+  (dedicated role creation, standard-client end-to-end proof, live classifier/OCR proof) is unchanged and
+  the verdict stays `PENDING`. `LIVE_FACTS.json.safetyGates.mcpImageIngestion` updated with a dated note.

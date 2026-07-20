@@ -1,5 +1,16 @@
 # Verification — TKT-034: Inbound images: match to case / create Box folder by reg / flag
 
+## 2026-07-20 — step-2 gate confirmed deliberately live (TKT-159 audit)
+
+A fresh `az functionapp config appsettings list -n cespk-orch-dev -g rg-collisionspike-dev` readback
+found `BOX_REG_FOLDER_ENABLED=true` — contradicting every "dark, absent live, pending operator approval"
+statement elsewhere in this file. Asked directly, the operator confirmed **this is deliberate** — the
+non-Case/PO (registration-plate) folder-naming semantic has been approved. This does not by itself
+constitute the post-flip live proof this file's "Residuals" and "Close path" sections still call for (one
+reg-keyed folder create under `BOX_FOLDER_ROOT_ID`, contents proven, Box 409-reuse on repeat) — that
+proof has not been run/recorded. `LIVE_FACTS.json` and `docs/operations/feature-gates.md` updated to
+reflect the live value and the operator's confirmation.
+
 ## Reopened lifecycle verification — 2026-07-13
 
 **PENDING LIVE PROOF.** The earlier VERIFIED-LIVE ruling below covered classification, the visible flag and an empty gated registration-folder create. It does not verify the reopened 2026-07-12 lifecycle acceptance.
