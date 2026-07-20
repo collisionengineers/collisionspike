@@ -7,10 +7,15 @@ cause). The API-side TKT-124 writer guard re-derives an 'image'-claimed row
 server-side and STAYS as belt-and-braces; THIS makes the client honest at
 source.
 
-Mirrors the api's shared domain mapping EXACTLY (packages/domain/src/domain/
-classification.ts ``classifyAttachment`` + the TKT-124 re-kind delta
-database/migrations/2026-07-09-tkt124-rekind-box-evidence.sql):
-extension PRIMARY, MIME fallback only when the extension is absent/unknown.
+Mirrors the shared domain mapping (packages/domain/src/domain/classification.ts
+``classifyAttachment``) and the TKT-124 re-kind delta
+(database/migrations/2026-07-09-tkt124-rekind-box-evidence.sql): extension PRIMARY,
+MIME fallback only when the extension is absent/unknown, with an ``image/*`` wildcard
+in the fallback. TKT-277 reconciled the domain classifier to that wildcard (it
+previously matched only ``image/{jpeg,jpg,png}``) and pins the two with a shared
+cross-language parity corpus (scripts/checks/parser-domain-parity-vectors.json,
+``evidenceKindVectors``), so this docstring's "mirrors" claim is now guarded, not
+just asserted.
 
     .jpg / .jpeg / .png                  -> image
     .pdf / .docx / .doc                  -> instruction

@@ -161,7 +161,7 @@ function _isImageEvidenceFilename(name: string): boolean {
 /** True when the NEW EVIDENCE delivered is photos and nothing else — by KIND (every
  *  attachment an image) OR by FILENAME (every non-signature attachment is image evidence,
  *  none a report). Mirrors the classifier's `_delivered_images_only`. */
-function deliveredImagesOnly(attachmentKinds: readonly string[], filenames: readonly string[]): boolean {
+export function deliveredImagesOnly(attachmentKinds: readonly string[], filenames: readonly string[]): boolean {
   // Drop signature/logo images (imageNNN.png) FIRST. A reply carrying ONLY a signature logo
   // must not read as delivered photo evidence — even though its KIND is `image`, which used to
   // let the all-image kind fast-path short-circuit to true before the filename filter ran
