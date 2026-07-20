@@ -1,11 +1,11 @@
 ---
 id: TKT-287
 title: cedocumentmapper engine repository consolidation
-status: now
+status: done
 priority: P1
 area: parsing
 tickets-it-relates-to: []
-research-link: docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence/merge-notes.md
+research-link: docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence/merge-notes.md
 ---
 
 # cedocumentmapper engine repository consolidation

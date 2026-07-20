@@ -27,7 +27,10 @@ as a sequence of phase commits (mirroring the plan's own phasing):
    vendor-lock claim; rewrote vendoring prose in `AGENTS.md`, `.cursor/rules/collisionspike-core.mdc`,
    `docs/governance/repository-map.md`, `services/functions/parser/README.md`, and
    `scripts/checks/parser-domain-parity.md`; filed this ticket.
-6. **Sibling repository remainder** — see verification.md for the outcome.
+6. **Sibling repository remainder** — reconciled the real local desktop install's provider catalog
+   against the canonical seed (found no unique customisation to preserve), ported the sibling's one
+   open tracking issue to TKT-288, confirmed zero live deploy dependencies, then pushed a retirement
+   banner and archived `cedocumentmapper_v2.0` via `gh repo archive`.
 
 No functional/behavioral change to parsing, classification, or extraction logic anywhere in this
 ticket — every phase's diff was verified byte-identical or test-covered where new integration

@@ -1,6 +1,6 @@
 # ADR-0035 — The parser engine is merged into this repository, superseding ADR-0018
 
-**Status:** Accepted 2026-07-20 per [TKT-287](../tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md).
+**Status:** Accepted 2026-07-20 per [TKT-287](../tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md).
 Supersedes [ADR-0018](./0018-cedocumentmapper-dual-target-vendored-engine.md).
 
 ## Decision
@@ -60,10 +60,9 @@ divergent per-client auth/retry policies) is unaffected.
   routes) no longer reports a cross-repo repository/ref/commit identity — that concept doesn't exist
   post-merge. It now reports a content hash and file count computed at materialization time
   (`ENGINE_FINGERPRINT.json`), still a real, live proof that the expected engine bytes are deployed.
-- The former `cedocumentmapper_v2.0` repository is archived (not deleted) once any final frozen desktop
-  build question is resolved with whoever runs it locally — see TKT-287's evidence for the concrete
-  finding that at least one real, in-use desktop installation exists. No further tags are cut there;
-  it stops being a runtime dependency of anything.
+- The former `cedocumentmapper_v2.0` repository is archived (not deleted) — see TKT-287's evidence for
+  the reconciliation check run first, given the concrete finding that at least one real, in-use desktop
+  installation exists. No further tags are cut there; it is no longer a runtime dependency of anything.
 - A future in-repo simplify pass over `classify_email()`'s dispatch logic in
   `services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/email_classifier.py` becomes
   possible now that it's authored-repo, not vendored, code — not part of this change's scope, a trigger

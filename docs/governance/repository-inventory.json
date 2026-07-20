@@ -17,7 +17,7 @@
     "files": 4052,
     "entries": 5256
   },
-  "totalFileBytes": 709845844,
+  "totalFileBytes": 709846492,
   "entries": [
     {
       "path": ".",
@@ -5195,6 +5195,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/next",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5844,24 +5862,6 @@
     },
     {
       "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16672,8 +16672,8 @@
     {
       "path": "docs/adr/0035-cedocumentmapper-engine-repository-consolidation.md",
       "mediaType": "text/markdown",
-      "size": 5241,
-      "sha256": "c00e1125ac9837797a1036e32c1243891b6669519d43f2a50e4ff4399ab048fc",
+      "size": 5197,
+      "sha256": "0f7fbf6b513f8e0a878446acd2c64389b69bc31b7dcb73af6c0a6de480d5cbdd",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16879,7 +16879,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1645845,
+      "size": 1645851,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16897,8 +16897,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4443801,
-      "sha256": "00df98aba485d30f200c345e83f7dea3b01b3defb3a17cb8072baca046744aeb",
+      "size": 4443807,
+      "sha256": "d6af8dcbd405f2b0827b8bfa172714af6a5926c502766ebd328f0239dad71566",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16907,7 +16907,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 70722,
-      "sha256": "e0e94b9095d0a6931b9c35d438a5d9d80a4feeea1780c8f5a64a476d14b9acf6",
+      "sha256": "a374a58d285c07424d7fe13075edafe829d9e91343b23437d4a98f226a32263d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17428,8 +17428,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52295,
-      "sha256": "db77eb1739b127a74b308eb41c1b3aac0eed7cd81e61b99fa00fabd584807b34",
+      "size": 52296,
+      "sha256": "f19013b9e80d6da3281ccf186a7eebfb39e4569de504dce5a832a642acdb95db",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17437,8 +17437,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 55384,
-      "sha256": "550f3741e10df20eb76e33eb3c992bdf9e034c20da1dccb6985c28001ca66118",
+      "size": 55385,
+      "sha256": "6420658142f2f0540b77ee375029ca7bc8dfc82a99403655b37ce2a983ee28fb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26192,6 +26192,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 3636,
+      "sha256": "0cbf12c80e1b70826f91c55dd6c973f55cbbf2f08507935f1fcaf56274da1ab9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2877,
+      "sha256": "e2549a4519d120b8f0c40a6c1147f8715ad52636ca7c2dafa74d4ff7cb5ae4a6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence/merge-notes.md",
+      "mediaType": "text/markdown",
+      "size": 4820,
+      "sha256": "7b4a3a344bae213dfb1b4df77cdac4c94045e9bfae08c4dc3ec9608529db1d2b",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-287-cedocumentmapper-engine-repository-consolidation/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3822,
+      "sha256": "3ef64a9b7cd4c702217af1bbadf77c33001ffde6f437455163b8cb692668ec74",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/next/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 0,
@@ -27807,42 +27843,6 @@
       "mediaType": "text/markdown",
       "size": 839,
       "sha256": "7251c458a74ca2302921e1abfde2426761979bd8b078047787d05e0f5b6701e8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md",
-      "mediaType": "text/markdown",
-      "size": 3634,
-      "sha256": "ca15ee5c6ed61d002ed71a628df56b7e148234399d1002b1a80e13c42f80974e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2582,
-      "sha256": "ea342c56419b1c71bd534be932ec4d19451fcddd0bf2a0e1911a712718b82984",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/evidence/merge-notes.md",
-      "mediaType": "text/markdown",
-      "size": 4820,
-      "sha256": "7b4a3a344bae213dfb1b4df77cdac4c94045e9bfae08c4dc3ec9608529db1d2b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-287-cedocumentmapper-engine-repository-consolidation/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3441,
-      "sha256": "1b1af8567601d827921a43d2b60d648525dd826056dd6506ec0c7b16ba929ffd",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

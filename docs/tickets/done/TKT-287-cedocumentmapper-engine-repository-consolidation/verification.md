@@ -2,8 +2,7 @@
 
 ## Verdict
 
-**TESTED (offline) — Phases 1–5 complete and verified; Phase 6 (sibling repository remainder)
-pending an operator decision before this ticket moves to done.**
+**DONE (2026-07-20) — all 6 phases complete and verified.**
 
 ## Phase 1 — filter-repo extraction + reconciliation
 
@@ -50,9 +49,15 @@ pending an operator decision before this ticket moves to done.**
   registration (it isn't tied to a `plan-kind: consolidation` plan), so ADR-0033 was correctly left
   untouched rather than having a guard mode force-fitted onto it.
 
-## Phase 6 — pending
+## Phase 6 — sibling repository remainder
 
-Not yet executed. Requires resolving, with whoever runs the real local CE Document Mapper desktop
-install found on this machine (see evidence/merge-notes.md), whether a final frozen build should be cut
-before the sibling repository is archived. This ticket moves to `done` once that resolves and the
-archival (or an explicit decision not to archive yet) is recorded here.
+- Diffed the real local desktop install's `providers.json` against the canonical seed before
+  archiving: all 29 providers present in both, no unique local customisation found, only provider-config
+  schema evolution with byte-identical underlying detection content — see evidence/merge-notes.md. No
+  reconciliation was actually needed.
+- Ported `cedocumentmapper_v2.0`#6 (16 open, non-blocking classifier/reader precedence findings)
+  verbatim to TKT-288 before archiving; commented on and closed the sibling issue.
+- Confirmed zero live deploy dependencies: `gh secret list`, `.../environments`, `.../deployments`,
+  `.../hooks` all empty; zero open PRs.
+- Pushed a retirement banner (`AGENTS.md`, `README.md`) directly to the sibling repository's `main`,
+  then archived it via `gh repo archive`; confirmed `isArchived: true`.
