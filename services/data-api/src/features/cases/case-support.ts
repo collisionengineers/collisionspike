@@ -1,13 +1,12 @@
 /** case-support — cohesive Data API module. */
 
 import type { HttpRequest } from '@azure/functions';
-import { canSubmitCaseToEva, readinessInputForCase, statusForReviewCase, type Case, type Chaser } from '@cs/domain';
-import { reviewStateCodec, sourceTypeCodec, statusToInt } from '@cs/domain/codecs';
+import { canSubmitCaseToEva, readinessInputForCase, type Case, type Chaser } from '@cs/domain';
+import { reviewStateCodec, sourceTypeCodec } from '@cs/domain/codecs';
 import { query, tx, type TxQuery } from '../../platform/db/client.js';
 import { isPrefillApplicable, prefillImageBasedInspection } from './inspection-prefill.js';
-import { maybeSuggestOverviewChase } from './overview-chase.js';
+import { runStatusRecompute } from './status-recompute-core.js';
 import { versionToken } from '../../platform/http/concurrency.js';
-import { AUDIT_ACTION, writeAudit } from '../../shared/audit.js';
 import { manualIntakeEvidenceState } from './manual-intake-operation.js';
 import { markEvaSubmittedUsing } from './terminal-transition.js';
 import { CASE_SELECT, CASE_SELECT_WITH_ACTIVITY, rowToCase, rowToEvidence, type Row } from '../../shared/mapping/index.js';
@@ -203,44 +202,31 @@ export async function mergeClaimantProvenance(
 }
 
 export async function recomputeStatus(caseId: string, actor?: string): Promise<boolean> {
-  // The provider-policy pre-fill owns its own guarded write. Run it before taking
-  // the status lock, then re-read all decision inputs inside the transaction below.
-  // Calling it while holding the case row would deadlock on its separate pool query.
-  const prefillProbe = await loadCaseFull(caseId, new Date());
-  if (!prefillProbe) return false;
-  if (isPrefillApplicable(prefillProbe)) {
-    await prefillImageBasedInspection(caseId, actor);
-  }
-
-  const next = await tx(async (q) => {
-    // Every terminal/merge writer updates this same case row. Holding it through
-    // the re-read, evaluation, and optional update makes the domain terminal lock
-    // real at the database boundary instead of relying on an earlier snapshot.
-    const full = await loadCaseFullUsing(q, caseId, new Date(), true);
-    if (!full) return null;
-    const evaluated = statusForReviewCase(readinessInputForCase(full));
-    if (evaluated !== full.status) {
-      await q('UPDATE case_ SET status_code = $2, updated_at = now() WHERE id = $1', [
-        caseId,
-        statusToInt(evaluated),
-      ]);
-      await writeAudit({
-        action: AUDIT_ACTION.status_changed,
-        caseId,
-        summary: `Status ${full.status} -> ${evaluated}`,
-        before: { status: full.status },
-        after: { status: evaluated },
-        ...(actor ? { actor } : {}),
-      }, q);
-    }
-    return evaluated;
+  // The staff status recompute: the shared writer (TKT-276) with the case-support prefill probe and
+  // FOR UPDATE loader. The overview-chase runs on every evaluation inside runStatusRecompute.
+  const result = await runStatusRecompute(caseId, {
+    actor,
+    prefill: async () => {
+      // The provider-policy pre-fill owns its own guarded write. Run it before taking the status lock,
+      // then re-read all decision inputs inside the transaction below. Calling it while holding the case
+      // row would deadlock on its separate pool query.
+      const prefillProbe = await loadCaseFull(caseId, new Date());
+      if (!prefillProbe) return { found: false };
+      if (isPrefillApplicable(prefillProbe)) {
+        await prefillImageBasedInspection(caseId, actor);
+      }
+      return { found: true };
+    },
+    load: async (q) => {
+      // Every terminal/merge writer updates this same case row. Holding it through the re-read,
+      // evaluation, and optional update makes the domain terminal lock real at the database boundary
+      // instead of relying on an earlier snapshot.
+      const full = await loadCaseFullUsing(q, caseId, new Date(), true);
+      if (!full) return null;
+      return { status: full.status, readinessInput: readinessInputForCase(full) };
+    },
   });
-  if (!next) return false;
-  // TKT-148: runs on EVERY evaluation (changed or not — a merge can add photos while
-  // the status stays missing_images). It independently locks/rechecks the current
-  // case state immediately before minting, so the post-commit gap is safe.
-  await maybeSuggestOverviewChase(caseId, next, actor);
-  return true;
+  return result.found;
 }
 
 export async function markEvaSubmittedIfReady(

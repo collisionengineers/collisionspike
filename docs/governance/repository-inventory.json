@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1123,
-    "files": 3763,
-    "entries": 4886
+    "files": 3765,
+    "entries": 4888
   },
-  "totalFileBytes": 704236940,
+  "totalFileBytes": 704247913,
   "entries": [
     {
       "path": ".",
@@ -2208,15 +2208,6 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -4863,6 +4854,15 @@
     },
     {
       "path": "docs/tickets/done/TKT-275-runtime-shared-mechanism-consolidation",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/done/TKT-276-status-recompute-authority-unification",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -15655,7 +15655,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1531187,
+      "size": 1531816,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -15673,8 +15673,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4293036,
-      "sha256": "670ac58cfa32977d248379ac97af7880081f8a64256cd9f532c8a862ec1645a9",
+      "size": 4293831,
+      "sha256": "1fa2b5faa1c1ed800f18f91b26da546b80f1cdb0d317685e7eccabbdb99e4d2c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -15683,7 +15683,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 68040,
-      "sha256": "4277ce068a34f49b3a0cf11ea6986393500b714f509bc9e992fff6c284aa6521",
+      "sha256": "9d1a0cb16915278a47ed000ecc6ab84a6bd5604c49dcc54288d5a408b8006526",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16195,8 +16195,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 49914,
-      "sha256": "362b5da641e4e251162ca444e4f3fef87d395521fc023a5c6ee235ad8ddfb10b",
+      "size": 49911,
+      "sha256": "6deb47968a6e9de45afa339884aba36cae7237f34160f0081c94537de583fe10",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -16204,8 +16204,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 52777,
-      "sha256": "6577a66af8c30bcae28b42838908685bf2ac0aaa4e2803967c389241e4a5b648",
+      "size": 52774,
+      "sha256": "a0fbba5ad856cdda9373d4379eae6e9151dd3304e87c683b87d127a42da5816a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -18168,33 +18168,6 @@
       "mediaType": "text/markdown",
       "size": 262,
       "sha256": "9925c2c14438d0e3aa095cc065dd695122847b3fc491da288120186f6226f27a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/TKT-276-status-recompute-authority-unification.md",
-      "mediaType": "text/markdown",
-      "size": 2651,
-      "sha256": "c61c6821765afea352df959005e9a819ef930435997a6a3285090e7798795510",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/changes.md",
-      "mediaType": "text/markdown",
-      "size": 108,
-      "sha256": "b0419dc64da1f9a241bf2ae101bf5d81b50ebf5a8eebf9f9ac4a133593348382",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/backlog/TKT-276-status-recompute-authority-unification/verification.md",
-      "mediaType": "text/markdown",
-      "size": 193,
-      "sha256": "07a1cc55101f49bd2e5472499a3466abcf7011868ba1baccd6d09fc8517b561b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -24594,6 +24567,33 @@
       "mediaType": "text/markdown",
       "size": 1913,
       "sha256": "9c348f4979f2af642fdf4f1d42c926470e9b30379907998b8a9208caa4cadc18",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-276-status-recompute-authority-unification/TKT-276-status-recompute-authority-unification.md",
+      "mediaType": "text/markdown",
+      "size": 2648,
+      "sha256": "5141131a99986472080edd2f1e7285aeea3ef182269ed1b1db56e80bd3a2025a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-276-status-recompute-authority-unification/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2512,
+      "sha256": "d63144eab9592e519e5791cb44ed060af80cc5b96f09d5670692f0b1d3c3612e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/done/TKT-276-status-recompute-authority-unification/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1719,
+      "sha256": "b1c9a3bbcb1c87068c3d75d413a983098216f32bfe4ccc2db86a786f1873810c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32611,8 +32611,8 @@
     {
       "path": "services/data-api/src/features/cases/case-support.ts",
       "mediaType": "text/typescript",
-      "size": 13150,
-      "sha256": "5ebbd2fca259d011a68b41d78755ba7eb73c952539e0f8e2d3ef8dadd13f83ae",
+      "size": 12624,
+      "sha256": "20ab26cffca35ef69c8148bf9ba6b585e8e0d9cb3880fafe8eb35b10bf7a660e",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -33086,6 +33086,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/data-api/src/features/cases/status-recompute-core.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4737,
+      "sha256": "698409a335647158e345d21ac5212ab29d1d5da12443f8246447e52936ff5f54",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/status-recompute-core.ts",
+      "mediaType": "text/typescript",
+      "size": 2767,
+      "sha256": "86930f9e408dddf814042a1279b04ef5648c64779d751df6b98f1df2bd345904",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/data-api/src/features/cases/status-recompute.test.ts",
       "mediaType": "text/typescript",
       "size": 1792,
@@ -33448,8 +33466,8 @@
     {
       "path": "services/data-api/src/features/inbound/internal/service-support.ts",
       "mediaType": "text/typescript",
-      "size": 8713,
-      "sha256": "129d454653f91e33e87965f4ed20853a6ed64e758a3a6d9f3070cc1894b241cd",
+      "size": 7363,
+      "sha256": "1b6f5f870c0d4ca8677164e88a5cbaab1a2da930c05db762548dbd58fad1c3a4",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"

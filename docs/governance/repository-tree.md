@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1123 directories, 3761 files.
+Grand total: 1123 directories, 3763 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1221,7 +1221,6 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-254-credential-hygiene-eva-vault-and-scm-basic-auth/  (3 files)
         evidence/  (1 file)
-      TKT-276-status-recompute-authority-unification/  (3 files)
       TKT-277-cross-language-parity-widening/  (3 files)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
@@ -1516,6 +1515,7 @@ docs/  (1 file)
       TKT-274-distillation-reviewability-and-rule-of-three/  (3 files)
         evidence/  (1 file)
       TKT-275-runtime-shared-mechanism-consolidation/  (3 files)
+      TKT-276-status-recompute-authority-unification/  (3 files)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1787,7 +1787,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 65 directories, 600 files
+### services — 65 directories, 602 files
 
 ```text
 services/  (0 files)
@@ -1796,7 +1796,7 @@ services/  (0 files)
       features/  (0 files)
         archive/  (18 files)
         assistant/  (25 files)
-        cases/  (90 files)
+        cases/  (92 files)
         evidence/  (24 files)
         inbound/  (29 files)
           internal/  (7 files)
@@ -2155,9 +2155,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3761 | 3761 | PASS |
+| Proposed tree files == ledger final files | 3763 | 3763 | PASS |
 | Proposed tree directories == ledger final directories | 1123 | 1123 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3763 | 3763 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 3765 | 3765 | PASS |
 | Proposed directories == inventory directories | 1123 | 1123 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
