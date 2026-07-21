@@ -26,7 +26,7 @@ def test_fingerprint_matches_the_committed_engine_fingerprint():
 
     assert response.status_code == 200
     assert json.loads(response.get_body()) == {
-        "contract": "ce-parser-fingerprint-v1",
+        "contract": "ce-parser-fingerprint-v2",
         "vendored_file_count": fingerprint_data["vendoredFileCount"],
         "content_sha256": fingerprint_data["contentSha256"],
     }

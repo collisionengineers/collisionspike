@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, secret-free machine-readable evidence snapshot + field map for the machine-governed LIVE_FACTS.json fields (TKT-273 / PLAN-012). Each entry maps a LIVE_FACTS JSON path to its evidenced value, the dated read-only evidence source, the read-only probe that reproduces it, and the comparison rule. Replace only from dated read-only evidence; never infer live state from source. LIVE_FACTS.json records this file's path and sha256 under authority.machineEvidence; scripts/checks/check-live-facts.mjs compares the two offline, and scripts/checks/live-facts-azure-compare.mjs re-mints it read-only against Azure when credentials are present. No secrets, tokens, connection strings, or private identifiers appear here.",
   "capturedAt": "2026-07-21T04:45:00Z",
-  "evidenceBasis": "Read-only ARM resource inventory of rg-collisionspike-dev (2026-07-19, TKT-257), the banked PLAN-009 read-only dossier and docs/operations/cloud-inventory-2026-07-17.md, and the tracked route count in services/functions/parser/function_app.py.",
+  "evidenceBasis": "All six ARM-derived function counts were re-probed live read-only on 2026-07-21 (TKT-296 post-deploy, az functionapp function list per app) and every one matches the recorded value: cespk-api-dev 146 raw (reconciled to 144 registered application functions per TKT-257's documented host/admin over-count exclusion, unchanged), cespk-orch-dev 106, cespike-parser-dev-x7xt3d5ovhi7y 5, cespkbox-fn-v76a47 16, cespkeva-fn-ufa3ci 1, cespkeval-fn-6c6fxd 1 — so capturedAt 2026-07-21 is a genuine re-attestation of the ARM counts, not a partial refresh. The one field NOT re-probed on 2026-07-21 is database.baseTableCount (requires a read-only DB connection, not ARM); it is unchanged from the 2026-07-17 baseline and is independently governed by the offline check:database gate. Prior basis carried forward: read-only ARM inventory (2026-07-19, TKT-257), the banked PLAN-009 dossier and docs/operations/cloud-inventory-2026-07-17.md.",
   "resourceGroup": "rg-collisionspike-dev",
   "fields": [
     {
@@ -10,7 +10,7 @@
       "value": 144,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespk-api-dev -g rg-collisionspike-dev -o json",
-      "evidenceSource": "The 2026-07-17 inventory captured 146 raw function endpoints for cespk-api-dev; TKT-257 reconciled that to 144 registered application functions (the 146 markdown figure over-counts host/admin endpoints). live-environment.md's 2026-07-19 re-verification confirms 144."
+      "evidenceSource": "The 2026-07-17 inventory captured 146 raw function endpoints for cespk-api-dev; TKT-257 reconciled that to 144 registered application functions (the 146 markdown figure over-counts host/admin endpoints). live-environment.md's 2026-07-19 re-verification confirms 144. Re-probed live 2026-07-21 (TKT-296): still 146 raw endpoints -> 144 reconciled, unchanged."
     },
     {
       "path": "deployables.orchestration.functionCount",
@@ -26,7 +26,7 @@
       "value": 5,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespike-parser-dev-x7xt3d5ovhi7y -g rg-collisionspike-dev -o json",
-      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1 lists five parser functions (classify, explode .eml, extract images, fingerprint, parse); services/functions/parser/function_app.py declares five @app.route handlers. Corrects the prior registry undercount of 4 (which no dated evidence supported)."
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1 lists five parser functions (classify, explode .eml, extract images, fingerprint, parse); services/functions/parser/function_app.py declares five @app.route handlers. Corrects the prior registry undercount of 4 (which no dated evidence supported). Re-probed live 2026-07-21 (TKT-296, post parse-fed redeploy): still 5, unchanged."
     },
     {
       "path": "deployables.archiveEvents.functionCount",
@@ -34,7 +34,7 @@
       "value": 16,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespkbox-fn-v76a47 -g rg-collisionspike-dev -o json",
-      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1."
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1. Re-probed live 2026-07-21 (TKT-296): unchanged."
     },
     {
       "path": "deployables.evaSentry.functionCount",
@@ -42,7 +42,7 @@
       "value": 1,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespkeva-fn-ufa3ci -g rg-collisionspike-dev -o json",
-      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1."
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md §6.1. Re-probed live 2026-07-21 (TKT-296): unchanged."
     },
     {
       "path": "deployables.evaValidation.functionCount",
@@ -50,7 +50,7 @@
       "value": 1,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespkeval-fn-6c6fxd -g rg-collisionspike-dev -o json",
-      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md; retained as the rollback guard (live retirement operator-gated, TKT-252)."
+      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md; retained as the rollback guard (live retirement operator-gated, TKT-252). Re-probed live 2026-07-21 (TKT-296): still present, count 1, unchanged."
     },
     {
       "path": "deployables.database.baseTableCount",
@@ -58,7 +58,7 @@
       "value": 78,
       "comparison": "exact",
       "probe": "read-only SQL against collisionspike: SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
-      "evidenceSource": "Database baseline plus the 2026-07-17 read-only inventory. Not reproducible from ARM alone (requires a read-only database connection); the offline check:database gate governs the schema itself."
+      "evidenceSource": "Database baseline plus the 2026-07-17 read-only inventory. Not reproducible from ARM alone (requires a read-only database connection); the offline check:database gate governs the schema itself. NOT re-probed on 2026-07-21 (the TKT-296 re-attestation covered the ARM function counts only, not the DB); unchanged from the baseline and governed by check:database rather than this snapshot's capturedAt."
     }
   ],
   "docAuthority": {

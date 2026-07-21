@@ -37,12 +37,15 @@ runtime behaviour. They are deferred here so the consolidation can land without 
 
 ## Pre-redeploy gate (not deferrable past the parser/OCR redeploy)
 
-6. **`function_app.py` parser-fingerprint response still self-identifies as `ce-parser-fingerprint-v1`**
-   while dropping the v1 `repository`/`ref`/`commit`/`providers_sha256` fields (retired with vendoring).
-   A deployment verifier keyed on the v1 contract id would accept a nominal-v1 response and then fail on
-   the missing fields. **Bump the fingerprint contract id (e.g. `ce-parser-fingerprint-v2` /
-   `ce-engine-fingerprint-v1`) and update any consumer BEFORE the parser Function is redeployed** as
-   part of this workstream's deploy phase.
+6. **RESOLVED 2026-07-21 (via TKT-296 / PR #154).** `function_app.py`'s parser-fingerprint response
+   still self-identified as `ce-parser-fingerprint-v1` while dropping the v1
+   `repository`/`ref`/`commit`/`providers_sha256` fields (retired with vendoring). A deployment verifier
+   keyed on the v1 contract id would accept a nominal-v1 response and then fail on the missing fields —
+   though a repo-wide grep confirmed **zero live consumers** of the `/fingerprint` route or those fields,
+   so it was a latent trap rather than a live break. Bumped to `ce-parser-fingerprint-v2` in
+   `function_app.py` + `services/functions/parser/tests/test_fingerprint.py` and redeployed the parser;
+   live `GET /api/fingerprint` readback returns `{"contract":"ce-parser-fingerprint-v2",…}` (HTTP 200).
+   No consumer update was required (none exist). See TKT-296's `verification.md` step 2.
 
 ## Out of scope
 

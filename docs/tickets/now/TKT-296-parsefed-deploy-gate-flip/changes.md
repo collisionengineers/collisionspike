@@ -1,7 +1,17 @@
 # Changes — TKT-296: parse-fed deploy + gate flip (PLAN-014 Slice 5)
 
 ## Status
-deploy + flip DONE + verified live (2026-07-21); see verification.md. VERIFIED-LIVE with the parse-fed-telemetry follow-up noted.
+Deploy + flip DONE and health-verified live (2026-07-21); gate `TRIAGE_PARSE_FED_ENABLED=true`. Verdict is
+**DEPLOYED-LIVE + HEALTH-VERIFIED**, with behavioural `VERIFIED-LIVE` deliberately withheld until the first
+live post-flip arrival is banked (see verification.md); ticket stays in `now` until then.
+
+PR-review remediation (PR #154, Codex bot): bumped the parser `/fingerprint` contract id to
+`ce-parser-fingerprint-v2` and redeployed (finding 6 — v1 fields were retired by the engine merge;
+verified live `v2`); verified the OCR route + caller wiring present/healthy (finding 3); synced
+`feature-gates.md` to the flipped-ON state (finding 2); re-probed all ARM function counts live so the
+`live-facts.evidence.json` `capturedAt` is a genuine 2026-07-21 re-attestation (finding 4); restored the
+105 count in live-environment.md's dated 2026-07-19 section and recorded the 105→106 transition in its own
+2026-07-21 section (finding 5); softened the verdict from an over-strong `VERIFIED-LIVE` (finding 1).
 
 ## What changed (in this PR — the deploy-prep docs)
 

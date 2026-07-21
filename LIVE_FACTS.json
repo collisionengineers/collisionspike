@@ -205,7 +205,7 @@
     "humanReadableEnvironment": "docs/operations/live-environment.md",
     "machineEvidence": {
       "path": "docs/operations/live-facts.evidence.json",
-      "sha256": "1cdc13aa023206a44185baee7d6c7e381d2a8659622f798d96436ec32e2c5250"
+      "sha256": "24b77fc1036d1f630654db9b26e54bea5f1db822a11dd9e7363fb213bde6aa0d"
     },
     "rule": "Replace this snapshot only with dated read-only evidence; never infer live state from source code."
   }

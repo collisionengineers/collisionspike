@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710111968,
+  "totalFileBytes": 710118960,
   "entries": [
     {
       "path": ".",
@@ -13109,7 +13109,7 @@
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
       "size": 14337,
-      "sha256": "4d0d5c22616ce39fdb36a3322d20fd1ea5e5ce0653d5827bc3b3b43083c3f89d",
+      "sha256": "8dbb138f0286cee23564f6cc6d2adb25d8c3aa7f05e1551e0f2e2258ece6247e",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17015,7 +17015,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4466903,
-      "sha256": "af5e3cab99fb061dd736f4c76977b108d3699ae47a4bb6de5e19beddca5ad5aa",
+      "sha256": "eb2ebd10352f058944047361dbe765cb0a335298e3ed68a1f84aa211c74d6b4e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17104,8 +17104,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 27271,
-      "sha256": "069f92dd17181f1ce1c81e279af3fcff487899aef842d254445e859c93bd1900",
+      "size": 27506,
+      "sha256": "5c366f9689f99cebecdb40bd1f530d4268f9a43f25d2e1ac50a211181eab74c7",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17131,8 +17131,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 6389,
-      "sha256": "8032b03d756fa348b59273126a3e7fcac623e721b9d600efd784982d49b43cc3",
+      "size": 7614,
+      "sha256": "5210bee193ff5d62ee09735336ef0dd6f650470570c788ea484cbe5b7b18ae18",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17140,8 +17140,8 @@
     {
       "path": "docs/operations/live-facts.evidence.json",
       "mediaType": "application/json",
-      "size": 4682,
-      "sha256": "1cdc13aa023206a44185baee7d6c7e381d2a8659622f798d96436ec32e2c5250",
+      "size": 5915,
+      "sha256": "24b77fc1036d1f630654db9b26e54bea5f1db822a11dd9e7363fb213bde6aa0d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -19777,8 +19777,8 @@
     {
       "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md",
       "mediaType": "text/markdown",
-      "size": 2970,
-      "sha256": "f6d0e2561481633ac6b7ef8c41f63af6d82a9b78bb95b4a14f8c087ddeded445",
+      "size": 3304,
+      "sha256": "c0d1c56b57dd7b13260357bc379cc7cf28141ec055cfea467162ce939ff6e909",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19795,8 +19795,8 @@
     {
       "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/evidence/codex-review-findings.md",
       "mediaType": "text/markdown",
-      "size": 1366,
-      "sha256": "f2c821ed722a1b3a1cdef4e61aa25661ea169ea699365da78632b8507a031406",
+      "size": 1634,
+      "sha256": "a714e952cf1637722314cc2c6512e45a0151a3bdcb7301243fbd77f1885187f6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28219,8 +28219,8 @@
     {
       "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/changes.md",
       "mediaType": "text/markdown",
-      "size": 1653,
-      "sha256": "17830e0e2b9973cc17ddb0a65f8986f8e75f44a0ca0ee72688c5646f9acc0c52",
+      "size": 2536,
+      "sha256": "26c7d1e4a43bcf79998c24222c944a7db82b66758ba1b6010001c12a14cdfb8c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28228,8 +28228,8 @@
     {
       "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/verification.md",
       "mediaType": "text/markdown",
-      "size": 3579,
-      "sha256": "79c4460e57e6d2862067f07857d42318a5bf8a4392068ae294a761d38c8973e6",
+      "size": 6033,
+      "sha256": "fe273ba6ef07e8cc883d0fad070a5f52624ee0afab30659bb72fa129889fb388",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -39172,8 +39172,8 @@
     {
       "path": "services/functions/parser/function_app.py",
       "mediaType": "text/x-python",
-      "size": 40884,
-      "sha256": "28b880b5b4d2fcf0044d337d4e4cb3cc79bcc8e26fe71cfdbb68f917ba120ec5",
+      "size": 41244,
+      "sha256": "abfaf51d343962cdc3ead63161b9c593a48b9dafde2cb40fdee8a9fda9919b45",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -39515,7 +39515,7 @@
       "path": "services/functions/parser/tests/test_fingerprint.py",
       "mediaType": "text/x-python",
       "size": 1235,
-      "sha256": "5d15cf52ab96fe6ceae7d5e329d28d8b5c5a4ec5e5ac65f1196dd048195a627f",
+      "sha256": "69d09408261ee9ce58dcde86036eacce8364101274037cd5c11d4a42fbcad292",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"
