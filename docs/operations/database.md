@@ -37,11 +37,21 @@ Destructive, operator-executed procedure (PLAN-015 Phase 3–4; see
 explicitly-authorized reset window with intake quiesced; never run it against a system still
 receiving mail.
 
-**Admin session.** Connect from WSL as the Entra administrator with an OSS-RDBMS access token as
-the password (`az account get-access-token --resource-type oss-rdbms`), then `SET ROLE csadmin`
-(the schema owner — bypasses forced RLS). The Key Vault `pg-admin-password` is stale; the Entra
-token path is the working one. A transient client-IP firewall rule is needed — add it at the
-start, delete it at the end, and treat the delete as part of the procedure.
+**Admin session.** Run the client wherever `psql`/`pg_dump` are installed — on the current
+operator workstation that is WSL (the Windows side has neither tool); WSL is a tooling detail,
+not a network requirement. Authenticate as the Entra administrator with an OSS-RDBMS access
+token as the password (`az account get-access-token --resource-type oss-rdbms`), then
+`SET ROLE csadmin` (the schema owner — bypasses forced RLS). The Key Vault `pg-admin-password`
+is stale; the Entra token path is the working one.
+
+**Firewall.** Server firewall rules are by public IP, and WSL egresses through the host
+machine's IP — one rule covers both environments. The operator workstation already has a
+standing rule (`dev-machine-1-2026-07-20`, verified 2026-07-21); do **not** delete it as part of
+this procedure. Before starting, confirm it still matches the machine's current public IP
+(`az postgres flexible-server firewall-rule list -g rg-collisionspike-dev --server-name
+cespk-pg-dev` — an ISP-reassigned IP breaks it silently). Only when working from a different
+machine, add a transient rule for that machine's IP and delete **that transient rule** when
+done.
 
 **1. Backup (RLS-complete).**
 
@@ -92,7 +102,8 @@ database.
 protected tables (spot-check with `SELECT relname, relrowsecurity, relforcerowsecurity …`);
 `work_provider` count matching the seed corpus with QDOS active; `case_` and `inbound_email`
 empty; `case_po_floor` populated. Offline, `node database/tests/code-table-parity.mjs` must stay
-green. Delete the transient firewall rule.
+green. If a transient firewall rule was added for a non-standard machine, delete it (the
+standing workstation rule stays).
 
 **Restore path.** `pg_restore` of the `-Fc` dump into a freshly created database (or after the
 same wipe), then re-run step 6's probes. The dump is complete (taken as `csadmin`), so no
