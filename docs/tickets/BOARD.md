@@ -76,7 +76,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (152)
+## Done (153)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -232,13 +232,14 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-277](./done/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md) | Widen cross-language parity coverage and reconcile the evidence-kind MIME divergence | P2 · platform |
 | [TKT-278](./done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 · integration |
 | [TKT-281](./done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 · web |
+| [TKT-287](./done/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md) | cedocumentmapper engine repository consolidation | P1 · parsing |
 
 ## Next (0)
 
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (55)
+## Backlog (57)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -296,7 +297,9 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-283](./backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md) | Guided capture — SPA CI deploy pipeline, CSP headers, and custom domain | P2 · infra |
 | [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 · integration |
 | [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 · integration |
+| [TKT-288](./backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md) | Engine email-classifier precedence findings ported from the archived sibling repo | P3 · parsing |
 | [TKT-289](./backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md) | Investigate whether Document Intelligence is a safe plate-OCR fallback | P2 · ai |
+| [TKT-297](./backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md) | Engine-merge post-consolidation hardening (deferred Codex review findings) | P2 · parsing |
 
 ## Blocked (9)
 

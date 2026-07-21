@@ -82,9 +82,11 @@ must name that content explicitly before an agent may change it.
   numeric mapping is unchanged.
 - The parser's redundant-base64 tolerance is deliberate defensive input handling. Keep the behaviour
   and explain it without tying it to a particular transport.
-- The parser engine is vendored from its authoring repository. Make functional changes in the authoring
-  source first, then re-vendor and run the drift guard. Repository-vocabulary normalisation may be
-  applied locally only when the vendor-lock and syntax-tree checks prove behaviour is unchanged.
+- The parser engine is authored directly in this repository at `services/engine/cedocumentmapper_v2/`.
+  Make functional changes there, then re-run `python scripts/build/sync-engine.py` to update the
+  materialized copies under `services/functions/parser/` and `services/functions/ocr/` — never hand-edit
+  a materialized copy directly; `scripts/checks/check-engine-materialized.py` gates that they stay in
+  sync.
 
 ## User-interface language
 

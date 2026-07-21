@@ -1,6 +1,6 @@
 # Document parser function
 
-Hosts the vendored `cedocumentmapper_v2` engine and exposes the current parser routes:
+Hosts a materialized copy of the `cedocumentmapper_v2` engine and exposes the current parser routes:
 
 - `GET /api/fingerprint`
 - `POST /api/parse`
@@ -13,12 +13,14 @@ are stable public contracts.
 
 ## Source and behavior
 
-The engine source is pinned and verified by `scripts/verify_vendor_pin.py`. Domain rules,
-the EVA schema, deterministic email classification, and provider matching stay in that
-engine. Defensive document decoding accepts one redundant base64 wrapper without tying
-the behavior to any particular transport.
+The engine is authored in `services/engine/cedocumentmapper_v2/`; this directory's copy is
+materialized from that canonical source by `scripts/build/sync-engine.py` and must never be
+hand-edited directly. Domain rules, the EVA schema, deterministic email classification, and
+provider matching stay in the canonical engine. Defensive document decoding accepts one
+redundant base64 wrapper without tying the behavior to any particular transport.
 
 ## Tests and deployment
 
-Run `pytest` from this directory and run the vendor-pin verifier from the repository
-root. Infrastructure is defined in `infra/main.bicep`; deployment is outside PLAN-006.
+Run `pytest` from this directory and run `python scripts/checks/check-engine-materialized.py`
+from the repository root to confirm this copy still matches the canonical source. Infrastructure
+is defined in `infra/main.bicep`; deployment is outside PLAN-006.
