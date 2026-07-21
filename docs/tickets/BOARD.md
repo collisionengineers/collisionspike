@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (39)
+## Now (32)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -38,15 +38,8 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 · integration |
-| [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
-| [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing · PLAN-014 |
-| [TKT-292](./now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) | P2 · parsing · PLAN-014 |
-| [TKT-293](./now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) | P1 · parsing · PLAN-014 |
-| [TKT-294](./now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 · intake · PLAN-014 |
-| [TKT-295](./now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) | P1 · intake · PLAN-014 |
-| [TKT-296](./now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) | P1 · intake · PLAN-014 |
 
-## Verify (32)
+## Verify (39)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -82,6 +75,13 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-220](./verify/TKT-220-retro-intake-parity/TKT-220-retro-intake-parity.md) | Close the remaining retro-vs-intake parity gaps (evidence, provider forwarding, dedup hashes) | P2 · intake |
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
+| [TKT-290](./verify/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
+| [TKT-291](./verify/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing · PLAN-014 |
+| [TKT-292](./verify/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) | P2 · parsing · PLAN-014 |
+| [TKT-293](./verify/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) | P1 · parsing · PLAN-014 |
+| [TKT-294](./verify/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 · intake · PLAN-014 |
+| [TKT-295](./verify/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) | P1 · intake · PLAN-014 |
+| [TKT-296](./verify/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) | P1 · intake · PLAN-014 |
 
 ## Done (153)
 

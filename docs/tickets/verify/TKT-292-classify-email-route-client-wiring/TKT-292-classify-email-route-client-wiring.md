@@ -1,7 +1,7 @@
 ---
 id: TKT-292
 title: Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2)
-status: now
+status: verify
 priority: P2
 area: parsing
 tickets-it-relates-to: [TKT-291]

@@ -1,7 +1,7 @@
 ---
 id: TKT-290
 title: Centralize the intake orchestrator's duplicated VRM/ref precedence logic
-status: now
+status: verify
 priority: P2
 area: intake
 tickets-it-relates-to: [TKT-043, TKT-102]

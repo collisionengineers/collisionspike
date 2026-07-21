@@ -63,8 +63,8 @@ filing time.
 
 | Status | Count |
 |---|---:|
-| Now | 7 |
-| Verify | 0 |
+| Now | 0 |
+| Verify | 7 |
 | Done | 0 |
 | Next | 0 |
 | Backlog | 0 |
@@ -72,11 +72,11 @@ filing time.
 
 | Ticket | Status | Title |
 |---|---|---|
-| [TKT-290](../now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | now | Centralize the intake orchestrator's duplicated VRM/ref precedence logic |
-| [TKT-291](../now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | now | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) |
-| [TKT-292](../now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | now | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) |
-| [TKT-293](../now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | now | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) |
-| [TKT-294](../now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | now | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) |
-| [TKT-295](../now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | now | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) |
-| [TKT-296](../now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | now | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) |
+| [TKT-290](../verify/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | verify | Centralize the intake orchestrator's duplicated VRM/ref precedence logic |
+| [TKT-291](../verify/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | verify | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) |
+| [TKT-292](../verify/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | verify | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) |
+| [TKT-293](../verify/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | verify | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) |
+| [TKT-294](../verify/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | verify | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) |
+| [TKT-295](../verify/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | verify | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) |
+| [TKT-296](../verify/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | verify | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) |
 <!-- /GENERATED:PROGRESS -->

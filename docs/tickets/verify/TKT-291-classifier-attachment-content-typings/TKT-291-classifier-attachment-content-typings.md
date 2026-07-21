@@ -1,7 +1,7 @@
 ---
 id: TKT-291
 title: classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4)
-status: now
+status: verify
 priority: P2
 area: parsing
 tickets-it-relates-to: [TKT-290, TKT-288, TKT-043, TKT-287]
