@@ -141,3 +141,49 @@ newly-flipped gates got a post-change health check, not a functional smoke test)
 MCP/Box/Outlook read-only sweep was run. `LIVE_FACTS.json` was updated with dated notes for the changed
 `safetyGates` fields only (not a full re-verification pass — `lastVerified` intentionally left unchanged
 since the governed numeric fields were not re-checked today).
+
+## 2026-07-21 — AI-family live readback (closes open question #1) + assistant surfaces switched off
+
+The gate inventory's own "single biggest open question" — whether the AI-family gates were really on
+live, and whether the model endpoint was configured — was answered by a real readback. Full record,
+including the App Insights counts, in
+[`evidence/ai-gates-flip-2026-07-21.md`](./evidence/ai-gates-flip-2026-07-21.md).
+
+**Answer: all on, and the model IS configured.** Live on `cespk-api-dev`: `AI_ASSIST_ENABLED=true`,
+`AI_CHAT_ENABLED=true`, `IMAGE_ANALYSIS_ENABLED=true`, `MCP_SERVER_ENABLED=true`,
+`ASSISTANT_TOOLSET_V2=true`, `ASSISTANT_WRITE_TIER_ENABLED=true`, `AI_MODEL_ENDPOINT` set,
+`AI_MODEL_DEPLOYMENT=gpt-5`.
+
+**This falsified a load-bearing source comment.** `packages/domain/src/gates.ts` claimed the model
+settings were absent live and that every AI-dependent gate was therefore an honest no-op regardless of
+its boolean. Wrong: the suggestion route was making real model calls. The comment is corrected, as is
+the same stale claim in `docs/operations/feature-gates.md`. This is exactly the code-vs-live drift
+TKT-159 exists to catch, and it argues for the CI drift check the ticket still hasn't built.
+
+**Then, by explicit operator direction** ("disable the AI assistant"), `AI_ASSIST_ENABLED` and
+`AI_CHAT_ENABLED` were set `false` at 11:32:55Z. No code change and no deploy: both surfaces are
+honest-off, so the case-page Assistant panel and the header assistant button/drawer render nothing.
+Health across the restart was clean — 329 requests / 0 failed / 0 exceptions, confirmed by a second
+pass at 283 / 0 / 0, with the config write pinned to 11:32:54.519Z–11:32:55.441Z.
+
+Updated: `docs/operations/feature-gates.md` (both rows to OFF, plus the `ASSISTANT_TOOLSET_V2` /
+`ASSISTANT_WRITE_TIER_ENABLED` / `IMAGE_ANALYSIS_ENABLED` / `MCP_SERVER_ENABLED` rows annotated with
+their 2026-07-21 re-read and consequences), `LIVE_FACTS.json` (new `safetyGates.aiAssistantSurfaces`
+entry; `enabledCapabilities` and `deliberatelyUnavailable` corrected), `packages/domain/src/gates.ts`.
+
+**Three findings surfaced, none actioned** — each needs its own operator decision and belongs to another
+ticket:
+
+1. "The assistant is off" does **not** mean AI is off. `IMAGE_ANALYSIS_ENABLED` and
+   `MCP_SERVER_ENABLED` are independent leaves, both still on. Image analysis still runs; external AI
+   tools can still read case data over MCP.
+2. Image-analysis output is now **written but unreviewable** — the Assistant panel was its only
+   case-page surface. Rows accumulate invisibly and pending ones can no longer be accepted or rejected.
+   Nothing is deleted. (TKT-016 owns that gate.)
+3. `ASSISTANT_WRITE_TIER_ENABLED` still reads `true` but is **unreachable**, since the chat drawer is
+   its only entry point. The registry now overstates live capability.
+
+**Not done this pass:** no signed-in SPA confirmation that the two surfaces are visually gone (both gate
+routes sit behind `withRole`, so an unauthenticated probe proves nothing); `IMAGE_ROLE_CLASSIFY_ENABLED`
+(on `cespk-orch-dev`) and `MCP_IMAGE_INGEST_ENABLED` still unread; no CI drift check built.
+`lastVerified` deliberately left unchanged — the governed numeric fields were not re-checked.

@@ -29,9 +29,20 @@ West Europe.
 - The Data API validates the bearer audience and enforces `CollisionSpike.User` or
   `CollisionSpike.Superuser` before setting PostgreSQL request context.
 - Mail intake is live for `info@`, `engineers@`, and `desk@` using Microsoft Graph push notifications.
-- The Graph application has no tenant-wide Microsoft Graph application role or delegated grant. Mail reads
-  use the existing Exchange-scoped application boundary. Outlook mutation is disabled in both the Data API
-  and orchestration.
+- The Graph application has no tenant-wide Microsoft Graph application role or delegated grant, and no
+  delegated consent. Its entire mailbox permission comes from Exchange Online RBAC for Applications.
+  **Corrected 2026-07-21 — this bullet previously said the boundary was read-only; it is not.** The app
+  holds both `Application Mail.Read` **and `Application Mail.ReadWrite`**, each assigned under two custom
+  recipient scopes (`CollisionSpike-Intake-Prod` → `info@`/`engineers@`/`desk@`; `CS-Intake-EngDigital` →
+  `engineers@`). `Test-ServicePrincipalAuthorization` reports `Mail.ReadWrite` `InScope=true` for all three
+  intake mailboxes. Because the Entra side is empty, `az`/Graph queries of the app registration return
+  nothing and imply read-only — verify with `Test-ServicePrincipalAuthorization`, not with `az`.
+- Outlook mutation is disabled in both the Data API and orchestration by `OUTLOOK_MOVE_ENABLED=false`.
+  That gate, plus the absence of any delete/purge/send code, is what protects the mailboxes — **not** the
+  permission grant. The only mutating mail calls in the repository are `moveMessage` and
+  `ensureInboxChildFolder` (`services/orchestration/src/adapters/graph.ts:585,600`), reachable solely from
+  `services/orchestration/src/workflows/mailbox/outlook-move.ts` behind that gate. The write grant
+  currently has no consumer; removing it is a live mailbox-permission write and needs operator authority.
 - A durable monitor renews mail subscriptions.
 - PostgreSQL uses the non-owner `cespk_app` login with row-level security enabled and forced.
 - Document parsing, vehicle enrichment, OCR, Archive filing, location assistance, mail triage, and the

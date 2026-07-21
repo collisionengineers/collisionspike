@@ -13,6 +13,15 @@
 > `DELETE_CASE_IMAGE_ENABLED`, `MCP_IMAGE_INGEST_ENABLED`). **The table below is now historical —
 > superseded by `feature-gates.md` — and is kept for its code citations, not as current live state.**
 >
+> ❌ **Factual correction (2026-07-21).** The `OUTLOOK_MOVE_ENABLED` row below says
+> *"needs `Mail.ReadWrite` Exchange re-consent"*. That is **wrong** — the grant already exists and did
+> when this file was written. Live `Test-ServicePrincipalAuthorization` against the Graph Intake app
+> shows `Application Mail.ReadWrite` `InScope=true` for `info@`, `engineers@` and `desk@`, via Exchange
+> Online RBAC scopes `CollisionSpike-Intake-Prod` and `CS-Intake-EngDigital`. The gate is off-and-
+> intentional, but it is off **by gate alone** — no permission blocks the move. The error is
+> understandable: the Entra side is empty, so `az`/Graph queries of the app registration show no roles
+> at all. Use `Test-ServicePrincipalAuthorization`, never `az`, to settle mailbox permission questions.
+>
 > ⚠️ **NEEDS VERIFICATION / FACT-CHECK BEFORE USE.** This inventory was assembled by reading the
 > repository (`packages/domain/src/gates.ts`, service source, `LIVE_FACTS.json`, ADRs, and ticket
 > specs) plus the *committed* `LIVE_FACTS.json` snapshot (`lastVerified: 2026-07-19T22:40:05Z`). It
@@ -178,6 +187,23 @@ prerequisite in place — see the risk note in `feature-gates.md` and `TKT-200/c
    The 2026-07-14 partial readback in `changes.md`/`verification.md` (which found
    `ASSISTANT_WRITE_TIER_ENABLED=true` and `AI_CHAT_ENABLED=true`) is six days stale relative to this
    pass and does not cover the rest of the list.
+
+   > ✅ **RESOLVED 2026-07-21 — the readback was run.** Full result and telemetry in
+   > [`ai-gates-flip-2026-07-21.md`](./ai-gates-flip-2026-07-21.md). Live on `cespk-api-dev`:
+   > `AI_ASSIST_ENABLED=true`, `AI_CHAT_ENABLED=true`, `IMAGE_ANALYSIS_ENABLED=true`,
+   > `MCP_SERVER_ENABLED=true`, `ASSISTANT_TOOLSET_V2=true`, `ASSISTANT_WRITE_TIER_ENABLED=true`,
+   > `AI_MODEL_ENDPOINT` set, `AI_MODEL_DEPLOYMENT=gpt-5`.
+   >
+   > **The `gates.ts` claim was WRONG.** The model endpoint and deployment are present, so the
+   > AI-dependent gates were *not* honest no-ops — the suggestion route was making real model calls.
+   > That comment is corrected at `packages/domain/src/gates.ts`.
+   >
+   > `AI_ASSIST_ENABLED` and `AI_CHAT_ENABLED` were then flipped to `false` by explicit operator
+   > direction (11:32:55Z). The other six were read only and left untouched.
+   >
+   > Two names from the requested list remain unread: `IMAGE_ROLE_CLASSIFY_ENABLED` (it lives on
+   > `cespk-orch-dev`, not `cespk-api-dev`, so this pass could not have covered it) and
+   > `MCP_IMAGE_INGEST_ENABLED`. Both still need their own read.
 2. **`RETRO_ADOPT_ARCHIVE_PO_ENABLED`** has no `orchestration` key in `LIVE_FACTS.safetyGates`
    (only `dataApi`) — confirm whether orchestration reads this flag at all, or whether the key is
    simply omitted because it's data-api-only.

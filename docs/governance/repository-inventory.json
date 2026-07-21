@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1216,
-    "files": 4097,
-    "entries": 5313
+    "files": 4098,
+    "entries": 5314
   },
-  "totalFileBytes": 710121990,
+  "totalFileBytes": 710141933,
   "entries": [
     {
       "path": ".",
@@ -13108,8 +13108,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 14337,
-      "sha256": "8dbb138f0286cee23564f6cc6d2adb25d8c3aa7f05e1551e0f2e2258ece6247e",
+      "size": 17364,
+      "sha256": "9f9639fd69d152d1cd37b1fa00754b4190eaa4941856125730ba78218d67068b",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -16996,7 +16996,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1664131,
+      "size": 1664477,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17014,8 +17014,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4466994,
-      "sha256": "cf3b88c6fffbc64926bcdd64516d23f71eb2bf0537c24ec6816229d1d0424485",
+      "size": 4467425,
+      "sha256": "8e212807b13187f6fc9054cc50e0b1d11b74ce6422fdd4e3326f1ea0dfaed8be",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17024,7 +17024,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 71320,
-      "sha256": "e1d8e232927f1f039f99829459a6ad6d0d38ced9f9b5e7ae32f6e38535ce284b",
+      "sha256": "5940769f6477e8fb8fe85b9a68cc8ec1e4b1270ae1ae5f05b687ac1eece29522",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17104,8 +17104,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 27506,
-      "sha256": "5c366f9689f99cebecdb40bd1f530d4268f9a43f25d2e1ac50a211181eab74c7",
+      "size": 30906,
+      "sha256": "38df944bea8aa1d4ffcf745e2a1097ce8c3396e47afb69b8e3e166874d390d2b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17131,8 +17131,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 7614,
-      "sha256": "5210bee193ff5d62ee09735336ef0dd6f650470570c788ea484cbe5b7b18ae18",
+      "size": 8827,
+      "sha256": "c4f5034b93ee1f2946a9e90def63f19f221ae5fa08110d85860df4d3bd8d9351",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -27211,8 +27211,17 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/changes.md",
       "mediaType": "text/markdown",
-      "size": 11218,
-      "sha256": "e3da0bdd1242cf739c89abbc3772cadb77ed63ec61a4ba115ce4a94461e2a1f8",
+      "size": 14498,
+      "sha256": "58a50426c494543b4745c79cf894b26983d09c886c8b7110e818853dc45a071e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence/ai-gates-flip-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 5824,
+      "sha256": "5af0b96330b857b01b58c1bcfa769fbb3b15da92dc36be2918ffef0c3de2c0df",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27220,8 +27229,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence/code-derived-gate-inventory-2026-07-20.md",
       "mediaType": "text/markdown",
-      "size": 21155,
-      "sha256": "59073154a843be3f707d2c2251f5647d4153c5f2b48003c2fa4b34689036abbe",
+      "size": 23082,
+      "sha256": "d7d1125381dc555c01fa1b4176d7755f09d1964095ee8e30ca1c291f8d227dc7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32863,8 +32872,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 20383,
-      "sha256": "944486fd76d1bb3c94e4c45ce575bbc69d817a281ab1589177e66a168a1d5133",
+      "size": 20560,
+      "sha256": "6ea545a4228e0d08ac282ffc15c0ecc6d05102b56268a7034e1aee38b39a2d0e",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -40954,8 +40963,8 @@
     {
       "path": "services/orchestration/src/workflows/mailbox/outlook-move.ts",
       "mediaType": "text/typescript",
-      "size": 5021,
-      "sha256": "9b555dabc21065188723aaff1a01b6b9e32127cf85924cc7e02699bfa6f889f5",
+      "size": 5339,
+      "sha256": "6232459915cc6d114e8fa46699d36ffde60c752fe384304daf765307273d1f79",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
