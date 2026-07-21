@@ -40,8 +40,9 @@ import './workflows/mailbox/archiveHolding.js';
 import './workflows/mailbox/archive-holding-monitor.js';
 import './workflows/intake/fetchMessage.js';
 import './workflows/intake/providerMatch.js';
-import './workflows/intake/classifyInbound.js';
-import './workflows/intake/triagePolicy.js'; // Stage B triage policy (ADR-0019 / rules-engine-v2 Phase 2)
+import './workflows/intake/classifyInbound.js'; // superseded by triageUnified.js — kept registered for in-flight Durable replay safety, see its own module doc
+import './workflows/intake/triagePolicy.js'; // superseded by triageUnified.js — kept registered for in-flight Durable replay safety, see its own module doc
+import './workflows/intake/triageUnified.js'; // PLAN-014 Slice 4a/4b — composes the above two into one activity
 import './workflows/intake/correlatePreInstruction.js'; // TKT-084 pre-instruction correlation (TRIAGE_PRE_INSTRUCTION_ENABLED)
 import './workflows/intake/linkReply.js';
 import './workflows/intake/caseResolve.js';

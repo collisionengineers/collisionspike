@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1209,
-    "files": 4073,
-    "entries": 5282
+    "directories": 1210,
+    "files": 4078,
+    "entries": 5288
   },
-  "totalFileBytes": 709955470,
+  "totalFileBytes": 709998643,
   "entries": [
     {
       "path": ".",
@@ -5907,6 +5907,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-294-triageunified-activity",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16924,7 +16933,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1654308,
+      "size": 1656185,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16942,8 +16951,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4454483,
-      "sha256": "bde09a9ca4b23c018eb6790a0d177c457557a51c958a70eee4292906088972c5",
+      "size": 4456869,
+      "sha256": "1a8b82a18fbeb067ec996256e43ffc025e965c7087d0e07b699727a78cc14653",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16951,8 +16960,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71000,
-      "sha256": "0d264d93dd6d85fcee3abe89fb3cce5d56a6a6470c7d04ea8addde07d4893dbe",
+      "size": 71049,
+      "sha256": "02508edb6387e67e7981d8cb5fc8c24ba296733cdc5f1238bd243523367595b8",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17473,8 +17482,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 53180,
-      "sha256": "d03caf043a46c044a11295c79f11ce5ff9621dd166dcfcbfbb21b5b56e6c2b50",
+      "size": 53385,
+      "sha256": "3160839b61310640ed3474c80e1fb48790916e32c758ca1bea5cb7062835d737",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17482,8 +17491,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 56442,
-      "sha256": "324545e2176019211bb04236a01e220c58291a12151a71c3efbf65aefb6f5c36",
+      "size": 56645,
+      "sha256": "0bdaca21d968d5e69e1b92154e30e261a6762ebf329f01295738b7acd799f648",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28010,6 +28019,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md",
+      "mediaType": "text/markdown",
+      "size": 3586,
+      "sha256": "381c542035ca1a507f74c59b657f57fafb7f448cee6c1ce920f8075a2f54a973",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-294-triageunified-activity/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3493,
+      "sha256": "94b871edc33eac6943042f6a365872db15f843247b318e2aa1cfba6c25b3dcf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-294-triageunified-activity/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1691,
+      "sha256": "3e1c2869cf0a78327390d0316dac2f443d4324a6bf818ca3dea2324070150e63",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28147,8 +28183,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 3928,
-      "sha256": "15ee419b52ae9bb51779c3659fbef883e1b2a359f15cba81d21872f9e214194d",
+      "size": 4122,
+      "sha256": "01416a3046d5f5d3eed66737ec3f94710521a665062865be8783de452722de2b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32638,8 +32674,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 19858,
-      "sha256": "47846c375d78f2473fe2476ac1c39664d96f5f43275200b2d59a487a67492966",
+      "size": 20383,
+      "sha256": "944486fd76d1bb3c94e4c45ce575bbc69d817a281ab1589177e66a168a1d5133",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -39748,8 +39784,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 4763,
-      "sha256": "364b9cfd8ebffc06a46baed218aea16fc1c48c46f6de6c4227ab9d8eed2fd2f7",
+      "size": 5044,
+      "sha256": "3a0a75c0ff54233f062c9ac7bf7692be95e8e6066167f7075fa208356409bfac",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40551,6 +40587,24 @@
       "mediaType": "text/typescript",
       "size": 16746,
       "sha256": "623bb0931ac72255aa62291db7a3d924dc3f8192d70995b3105f0654f5bfe1ad",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/triageUnified.test.ts",
+      "mediaType": "text/typescript",
+      "size": 9990,
+      "sha256": "fc757b157814e19df23636d0a49d5e567ac09c48ae702925f8e6afb417792be2",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/triageUnified.ts",
+      "mediaType": "text/typescript",
+      "size": 18693,
+      "sha256": "682ba1c35b44f135ac9dc90e262106176fedf865dc01fa94f93d27a4ef649126",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
