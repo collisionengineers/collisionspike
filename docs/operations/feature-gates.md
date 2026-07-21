@@ -73,6 +73,7 @@ All six of these only take effect together, and only on the orchestration servic
 | `TRIAGE_CASE_UPDATE_ENABLED` | Automatically apply routine case-update information from an email. | **ON** |
 | `TRIAGE_AUTO_ATTACH_ENABLED` | If there's exactly one obvious matching case (an exact reference match), skip the "are you sure?" step and attach automatically instead of just suggesting it. Has no effect unless the ref-gate rule above is also on. | **ON** |
 | `TRIAGE_PRE_INSTRUCTION_ENABLED` | Recognize a specific category of early-stage instruction emails and route them through their own lane. | **ON** |
+| `TRIAGE_PARSE_FED_ENABLED` | Lets what the parser reads INSIDE an attached document (its registration/reference and what kind of document it is) inform how the inbound email is triaged — so an email whose only case-reference lives inside the PDF can still be matched, and a photos-only PDF with a generic name is recognised. The document is read BEFORE triage decides (PLAN-014). | **OFF** (default; ships dark per ADR-0027 — the parse→triage reorder is live but its result is only consumed when this is on, so with it off the triage decision is byte-identical to before) |
 
 ## Location, vehicle data and document reading
 

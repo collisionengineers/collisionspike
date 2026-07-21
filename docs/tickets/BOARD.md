@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (37)
+## Now (38)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -43,6 +43,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-292](./now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) | P2 · parsing · PLAN-014 |
 | [TKT-293](./now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) | P1 · parsing · PLAN-014 |
 | [TKT-294](./now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 · intake · PLAN-014 |
+| [TKT-296](./now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) | P1 · intake · PLAN-014 |
 
 ## Verify (32)
 

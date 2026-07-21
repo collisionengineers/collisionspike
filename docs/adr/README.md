@@ -23,7 +23,7 @@ progress, branch history, or incident diaries.
 | [0016](./0016-inspection-address-corpus-eva-export.md) | Address suggestions use validated full-address exports | Amended 2026-07-16 |
 | 0017 | Withdrawn 2026-07-16 (Review 160726) — retention architecture removed with TKT-206; the Archive no-automated-deletion rule lives in ADR-0012 | Withdrawn |
 | [0018](./0018-cedocumentmapper-dual-target-vendored-engine.md) | Parser core is pinned and vendored | Superseded by ADR-0035 |
-| [0019](./0019-triage-policy-stage-split.md) | Triage separates signals, policy, and suggestions | Accepted |
+| [0019](./0019-triage-policy-stage-split.md) | Triage separates signals, policy, and suggestions | Accepted (amended by ADR-0036) |
 | [0020](./0020-provider-api-intake-channel.md) | Provider machine-to-machine intake | Accepted |
 | [0021](./0021-case-po-marker-taxonomy.md) | Case/PO markers have independent sequences | Accepted |
 | [0022](./0022-retroactive-case-reconstruction.md) | Retroactive reconstruction uses a conservative ladder | Amended 2026-07-16 |
@@ -40,6 +40,7 @@ progress, branch history, or incident diaries.
 | [0033](./0033-anti-drift-guard-doctrine.md) | Standing drift is caught by a modality-appropriate terminal guard, registered from plan metadata | Accepted |
 | [0034](./0034-guided-capture-repository-consolidation.md) | The guided-capture browser client is merged into this repository | Accepted |
 | [0035](./0035-cedocumentmapper-engine-repository-consolidation.md) | The parser engine is merged into this repository, superseding ADR-0018 | Accepted |
+| [0036](./0036-parse-fed-unified-triage.md) | Parse precedes triage; Stage A+B compose under triageUnified; corpus-backtest validation (amends ADR-0019) | Accepted |
 
 Changing an accepted decision requires a new ADR or an explicit superseding amendment. Exact live state
 belongs in [LIVE_FACTS.json](../../LIVE_FACTS.json).

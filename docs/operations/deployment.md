@@ -32,6 +32,39 @@ an approved live-write step. Then deploy focused Python services, Data API, orch
 in the ticket's tested order. A component not changed by the reviewed commit is not redeployed merely for
 convenience.
 
+## OCR Function App (container deploy) — `cespkocr-fn-dev-glju3v`
+
+The OCR host is a **container** Function on Azure Container Apps (it exists to carry the `tesseract`
+binary Flex Consumption cannot provide, lighting up the parser engine's OCR fallback + fast-alpr
+plate OCR). The Python `func azure functionapp publish` recipe above does NOT apply to it. Deploy is
+`[DEPLOY-WITH-LOGIN]` (interactive `az`), IaC under `infrastructure/functions/ocr/`:
+
+1. **Build + push the image to ACR** (no secret is baked in):
+   `az acr build --registry cespkocracraeee76 --image ce-ocr:latest services/functions/ocr`
+   (rebuild whenever the materialized engine copy `services/functions/ocr/cedocumentmapper_v2/` or the
+   Dockerfile changes).
+2. **Pre-grant AcrPull** to the pull identity FIRST (its own template, so the role has propagated
+   before the app is created — this is the fix for the RBAC race that expired the deploy):
+   `az deployment group create -g rg-collisionspike-dev -f infrastructure/functions/ocr/acrpull-role.bicep`.
+3. **Deploy the Function App:**
+   `az deployment group create -g rg-collisionspike-dev -f infrastructure/functions/ocr/main.bicep
+   -p existingAcrName=cespkocracraeee76 imageName=ce-ocr:latest acrPullIdentityId=<cespkocr-acrpull-id
+   resourceId> sharedLogAnalyticsName=<parser LAW> sharedAppInsightsConnectionString=<parser App
+   Insights conn str>`. Document Intelligence stays off (`deployDocIntel=false`,
+   `OCR_PROVIDER=tesseract`, `PLATE_PROVIDER=fast_alpr`) unless a `keyVaultName` + `docintel-read-key`
+   are supplied — see TKT-289.
+4. **Set scale-to-zero replicas:**
+   `az functionapp config container set -n cespkocr-fn-dev-glju3v -g rg-collisionspike-dev
+   --min-replicas 0 --max-replicas 5`.
+5. **Wire the caller:** the Data API reaches OCR via `OCR_FN_URL`/`OCR_FN_KEY` app settings on
+   `cespk-api-dev` — these are NOT declared in `infrastructure/config-capture/*.bicep` (a known gap),
+   so set them explicitly:
+   `az functionapp config appsettings set -n cespk-api-dev -g rg-collisionspike-dev --settings
+   OCR_FN_URL=https://cespkocr-fn-dev-glju3v.azurewebsites.net OCR_FN_KEY=<function key>`.
+
+Base image is pinned (`mcr.microsoft.com/azure-functions/python:4-python3.12`) and must be refreshed
+monthly for Microsoft's container security updates.
+
 ## Post-deployment proof
 
 - Confirm resource health, version/commit marker, HTTPS, and expected function registrations.
