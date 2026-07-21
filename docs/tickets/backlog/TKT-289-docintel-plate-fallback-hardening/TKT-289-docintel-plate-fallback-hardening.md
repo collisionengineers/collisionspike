@@ -67,11 +67,19 @@ PROPOSED (not built):
 ## Acceptance
 
 - `_looks_like_plate` rejects TKT-017's F1 counterexample (or an equivalent regression fixture), with a
-  passing test.
+  passing test. **Scope the stricter grammar to the `docintel` fallback path only** — do not tighten
+  the shared `_looks_like_plate` used by the `fast-alpr` primary, so the primary engine's behaviour is
+  untouched (guard the strict check behind the fallback call site or a fallback-only helper).
 - A recorded decision on whether the unused `_CURRENT_UK_RE` pattern is the right final shape (covers
   the plate formats this system actually needs to recognise) before wiring it in as-is.
-- Either the TIER B benchmark is run, or an explicit, reasoned decision to accept the fallback's
-  unverified real-world accuracy is recorded here.
+- **UK-plate grammar alone does NOT close F1.** Grammar rejects road-sign-shaped tokens but cannot
+  confirm the returned plate is the vehicle's own. Acceptance additionally requires proving, on a
+  representative case, that the whole-photo `docintel` OCR path surfaces the *case-specific* plate
+  (not merely a grammatically-valid token from elsewhere in the frame).
+- **The TIER B real-accuracy benchmark is REQUIRED before the fallback may be relied on** under real
+  failover — run the labelled UK overview-photo corpus through both engines (TKT-017 §7/§10). Repairing
+  and running that benchmark harness is in scope for this ticket, not a deferral; "accept unverified
+  accuracy" is not an acceptable exit while the fallback is live-reachable via `PLATE_PROVIDER`.
 - No change to the `fast-alpr` primary path or its live gate.
 
 ## Research

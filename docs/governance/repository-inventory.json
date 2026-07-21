@@ -17,7 +17,7 @@
     "files": 3892,
     "entries": 5057
   },
-  "totalFileBytes": 705195336,
+  "totalFileBytes": 705196247,
   "entries": [
     {
       "path": ".",
@@ -16547,7 +16547,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4359003,
-      "sha256": "2c29bc50ee987338c56f6bdd1e8a92adc082618c134bebc88c88c1ff3340b9fa",
+      "sha256": "0af9f573116fdd5f205df26f5226736a0515a6b6404b2289df296ddf47970079",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -19237,8 +19237,8 @@
     {
       "path": "docs/tickets/backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md",
       "mediaType": "text/markdown",
-      "size": 4910,
-      "sha256": "e5431705d24b4ea3e5690b2e1af403fefe8f96fc95b6ff0326e2be8c28ca7801",
+      "size": 5821,
+      "sha256": "24201c9c2f1dde6b0eb51a3a945d9330395c9446f9d4048dca62ac478f73c221",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
