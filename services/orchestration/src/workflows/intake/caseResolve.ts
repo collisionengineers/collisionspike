@@ -13,6 +13,7 @@ import * as df from 'durable-functions';
 import { resolveCase } from '@cs/domain';
 import { dataApi, ConflictError, type ParserEvaFields } from '../../adapters/data-api.js';
 import type { InboundEnvelope } from './fetchMessage.js';
+import { resolveCaseVrm } from './case-identity.js';
 
 interface CaseResolveInput {
   inbound: InboundEnvelope;
@@ -60,7 +61,8 @@ df.app.activity('caseResolve', {
   }> => {
     const { inbound, providerId, matchState } = input;
     // Best known VRM = parser PDF VRM (most reliable) over the email-body sniff; both filtered.
-    const bestVrm = ((input.parserVrm || inbound.candidateVrm) ?? '').trim();
+    // (case-identity.ts's resolveCaseVrm — PLAN-014 Slice 0; equivalent to the prior inline form.)
+    const bestVrm = resolveCaseVrm({ parserVrm: input.parserVrm, candidateVrm: inbound.candidateVrm });
     const sourceMessageId = inbound.internetMessageId || inbound.messageId;
 
     try {

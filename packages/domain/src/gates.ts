@@ -178,6 +178,12 @@ export const gates = {
   // either way), and a later instruction's case-mint correlates held rows onto the new
   // case, suggest-first (never auto-attach — the correlation key is typically VRM-only).
   triagePreInstruction: (): boolean => process.env.TRIAGE_PRE_INSTRUCTION_ENABLED === 'true',
+  // PLAN-014 (parse-fed unified triage reorder, Slice 4a/4b) — deploy kill-switch only;
+  // the offline A/B backtest (scripts/evaluation/email/run_ab_parsefed.py) already
+  // carried the burden of proof before this gate exists. Default off = triageUnified.ts's
+  // classify-email request/context lookups stay byte-identical to today's classifyInbound
+  // + triagePolicy two-call sequence (see that activity's own gate-off parity test).
+  triageParseFed: (): boolean => process.env.TRIAGE_PARSE_FED_ENABLED === 'true',
   // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
   // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
   // folders under the Box root is a NEW folder-naming semantic the operator must approve;

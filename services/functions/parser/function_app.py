@@ -417,6 +417,15 @@ def classify_email_route(req: func.HttpRequest) -> func.HttpResponse:
                                     reply signal; strengthens reply/query-on-existing
                                     detection beyond the "RE:" subject fallback
         references            str   RFC-5322 References header (optional) — as above
+        open_case_ref_match   str   one | none | ambiguous (optional) — orchestration's
+                                    OPEN-CASE lookup result for the named ref (PLAN-014 D1);
+                                    the classifier is TOLD, it never looks a Case up
+        attachment_content_typings [obj] sparse [{filename, doc_type}] (optional, PLAN-014
+                                    D4) — doc_type in instruction|report|junk|unknown, from
+                                    the parser's content-based attachment detector; reconciled
+                                    PER FILE — a content report/instruction overrides the
+                                    filename-derived kind for that file; junk withdraws a
+                                    promotion; unknown ABSTAINS (the filename kind stands)
 
     Response (200): the classifier result + ``contract_version`` (incl. ``is_reply``).
     Status codes: 200 classified · 400 bad request · 500 unexpected internal error.
@@ -448,6 +457,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
     has_attachments = body.get("has_attachments", False)
     in_reply_to = body.get("in_reply_to", "")
     references = body.get("references", "")
+    open_case_ref_match = body.get("open_case_ref_match", "")
+    attachment_content_typings = body.get("attachment_content_typings")
 
     for name, value in (
         ("subject", subject),
@@ -458,6 +469,7 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         ("provider_match_state", provider_match_state),
         ("in_reply_to", in_reply_to),
         ("references", references),
+        ("open_case_ref_match", open_case_ref_match),
     ):
         if value is not None and not isinstance(value, str):
             return _classify_error(400, "bad_field", f"'{name}' must be a string when provided.")
@@ -465,6 +477,47 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         return _classify_error(400, "bad_field", "'attachment_kinds' must be a list when provided.")
     if attachment_filenames is not None and not isinstance(attachment_filenames, list):
         return _classify_error(400, "bad_field", "'attachment_filenames' must be a list when provided.")
+    # open_case_ref_match is the classifier's own state vocabulary (one | none | ambiguous);
+    # reject the orchestration vocabulary (matched/unmatched) or a typo so a bad value can't be
+    # silently coerced to "no open case" and let an update mint a duplicate case.
+    if open_case_ref_match and open_case_ref_match not in {"one", "none", "ambiguous"}:
+        return _classify_error(
+            400,
+            "bad_field",
+            "'open_case_ref_match' must be one of 'one' | 'none' | 'ambiguous' when provided.",
+        )
+    if attachment_content_typings is not None:
+        if not isinstance(attachment_content_typings, list):
+            return _classify_error(
+                400, "bad_field", "'attachment_content_typings' must be a list when provided."
+            )
+        # Validate every entry: a malformed {} or an unsupported doc_type must 400, not be
+        # silently coerced into a content-type set that could suppress a genuine instruction.
+        for entry in attachment_content_typings:
+            if not isinstance(entry, dict):
+                return _classify_error(
+                    400, "bad_field", "each 'attachment_content_typings' entry must be an object."
+                )
+            fname = entry.get("filename")
+            dtype = entry.get("doc_type")
+            if not isinstance(fname, str) or not fname.strip():
+                return _classify_error(
+                    400,
+                    "bad_field",
+                    "each 'attachment_content_typings' entry needs a non-empty string 'filename'.",
+                )
+            if not isinstance(dtype, str) or dtype.strip().lower() not in {
+                "instruction",
+                "report",
+                "junk",
+                "unknown",
+            }:
+                return _classify_error(
+                    400,
+                    "bad_field",
+                    "each 'attachment_content_typings' 'doc_type' must be one of "
+                    "instruction | report | junk | unknown.",
+                )
 
     plain_body = _strip_html(raw_body)
 
@@ -480,6 +533,8 @@ def _classify_email(req: func.HttpRequest) -> func.HttpResponse:
         in_reply_to=in_reply_to,
         references=references,
         attachment_filenames=attachment_filenames,
+        open_case_ref_match=open_case_ref_match,
+        attachment_content_typings=attachment_content_typings,
     )
     return _json(200, result)
 

@@ -116,8 +116,7 @@ describe('intakeOrchestrator retro-fallback sequence (Action B extraction)', () 
     const { returnValue, activityCalls, subCalls } = driveOrchestrator({
       fetchMessage: { ...baseFetchMessage, internetMessageId: '<reply-unmatched@example.test>' },
       providerMatch: baseProviderMatch,
-      classifyInbound: { ...baseClassification, isReply: true },
-      triagePolicy: proceedDefault,
+      triageUnified: { classification: { ...baseClassification, isReply: true }, decision: proceedDefault, parseFedApplied: false },
       linkReply: { outcome: 'no_match' },
       retroCaseOrchestrator: { outcome: 'created' },
     });
@@ -125,8 +124,7 @@ describe('intakeOrchestrator retro-fallback sequence (Action B extraction)', () 
     expect(activityCalls).toEqual([
       'fetchMessage',
       'providerMatch',
-      'classifyInbound',
-      'triagePolicy',
+      'triageUnified',
       'linkReply',
     ]);
     expect(subCalls).toEqual(['retroCaseOrchestrator']);
@@ -148,16 +146,14 @@ describe('intakeOrchestrator retro-fallback sequence (Action B extraction)', () 
     const { returnValue, activityCalls, subCalls } = driveOrchestrator({
       fetchMessage: { ...baseFetchMessage, internetMessageId: '<reply-no-key@example.test>' },
       providerMatch: baseProviderMatch,
-      classifyInbound: { ...baseClassification, isReply: true },
-      triagePolicy: proceedDefault,
+      triageUnified: { classification: { ...baseClassification, isReply: true }, decision: proceedDefault, parseFedApplied: false },
       linkReply: { outcome: 'no_match' },
     });
 
     expect(activityCalls).toEqual([
       'fetchMessage',
       'providerMatch',
-      'classifyInbound',
-      'triagePolicy',
+      'triageUnified',
       'linkReply',
     ]);
     expect(subCalls).toEqual([]);
@@ -175,12 +171,15 @@ describe('intakeOrchestrator retro-fallback sequence (Action B extraction)', () 
     const { returnValue, activityCalls, subCalls } = driveOrchestrator({
       fetchMessage: { ...baseFetchMessage, internetMessageId: '<billing@example.test>' },
       providerMatch: baseProviderMatch,
-      classifyInbound: { ...baseClassification, category: 'billing', isReply: false },
-      triagePolicy: { action: 'proceed_default', finalCategory: 'billing', finalSubtype: 'query_existing_work' },
+      triageUnified: {
+        classification: { ...baseClassification, category: 'billing', isReply: false },
+        decision: { action: 'proceed_default', finalCategory: 'billing', finalSubtype: 'query_existing_work' },
+        parseFedApplied: false,
+      },
       retroCaseOrchestrator: { outcome: 'created' },
     });
 
-    expect(activityCalls).toEqual(['fetchMessage', 'providerMatch', 'classifyInbound', 'triagePolicy']);
+    expect(activityCalls).toEqual(['fetchMessage', 'providerMatch', 'triageUnified']);
     expect(subCalls).toEqual(['retroCaseOrchestrator']);
     expect(decideRetro).toHaveBeenCalledWith(expect.objectContaining({ isReply: false }));
     expect(decideRetro.mock.calls[0][0]).not.toHaveProperty('linkReplyOutcome');
@@ -198,11 +197,10 @@ describe('intakeOrchestrator retro-fallback sequence (Action B extraction)', () 
     const { returnValue, activityCalls, subCalls } = driveOrchestrator({
       fetchMessage: { ...baseFetchMessage, internetMessageId: '<query@example.test>' },
       providerMatch: baseProviderMatch,
-      classifyInbound: { ...baseClassification, isReply: false },
-      triagePolicy: proceedDefault,
+      triageUnified: { classification: { ...baseClassification, isReply: false }, decision: proceedDefault, parseFedApplied: false },
     });
 
-    expect(activityCalls).toEqual(['fetchMessage', 'providerMatch', 'classifyInbound', 'triagePolicy']);
+    expect(activityCalls).toEqual(['fetchMessage', 'providerMatch', 'triageUnified']);
     expect(subCalls).toEqual([]);
     expect(returnValue).toEqual({
       triaged: 'query',

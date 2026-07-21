@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1208 directories, 4059 files.
+Grand total: 1215 directories, 4091 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,7 +1096,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 597 directories, 1476 files
+### docs — 604 directories, 1496 files
 
 ```text
 docs/  (1 file)
@@ -1631,7 +1631,14 @@ docs/  (1 file)
         evidence/  (2 files)
       TKT-282-guided-capture-live-boundary-verification/  (3 files)
         evidence/  (1 file)
-    plans/  (15 files)
+      TKT-290-intake-vrm-ref-precedence-centralization/  (3 files)
+      TKT-291-classifier-attachment-content-typings/  (3 files)
+      TKT-292-classify-email-route-client-wiring/  (3 files)
+      TKT-293-parsefed-backtest-harness/  (3 files)
+        evidence/  (1 file)
+      TKT-294-triageunified-activity/  (3 files)
+      TKT-295-reorder-tkt102-collapse/  (3 files)
+    plans/  (16 files)
     verify/  (0 files)
       TKT-016-ai-image-analysis/  (3 files)
         evidence/  (3 files)
@@ -1811,7 +1818,7 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
-### scripts — 19 directories, 116 files
+### scripts — 19 directories, 118 files
 
 ```text
 scripts/  (6 files)
@@ -1826,8 +1833,8 @@ scripts/  (6 files)
     cutover/  (2 files)
     vehicle-enrichment/  (3 files)
   evaluation/  (0 files)
-    email/  (12 files)
-      tests/  (1 file)
+    email/  (13 files)
+      tests/  (2 files)
     inspection-corpus/  (3 files)
       reports/  (1 file)
   hooks/  (2 files)
@@ -1835,7 +1842,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 102 directories, 761 files
+### services — 102 directories, 771 files
 
 ```text
 services/  (0 files)
@@ -1878,7 +1885,7 @@ services/  (0 files)
           resources/  (4 files)
           rules/  (5 files)
           ui/  (2 files)
-      tests/  (24 files)
+      tests/  (27 files)
         contract/  (2 files)
         fixtures/  (1 file)
           expected/  (17 files)
@@ -1931,13 +1938,13 @@ services/  (0 files)
       vehicle_data/  (7 files)
   orchestration/  (6 files)
     src/  (1 file)
-      adapters/  (18 files)
+      adapters/  (19 files)
       platform/  (22 files)
         fixtures/  (1 file)
       workflows/  (0 files)
         archive/  (18 files)
         evidence/  (14 files)
-        intake/  (32 files)
+        intake/  (38 files)
         mailbox/  (16 files)
         retro/  (16 files)
 ```
@@ -2240,10 +2247,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4059 | 4059 | PASS |
-| Proposed tree directories == ledger final directories | 1208 | 1208 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4061 | 4061 | PASS |
-| Proposed directories == inventory directories | 1208 | 1208 | PASS |
+| Proposed tree files == ledger final files | 4091 | 4091 | PASS |
+| Proposed tree directories == ledger final directories | 1215 | 1215 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4093 | 4093 | PASS |
+| Proposed directories == inventory directories | 1215 | 1215 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

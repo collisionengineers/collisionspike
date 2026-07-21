@@ -16,8 +16,15 @@ import { shouldLinkReplyToCase } from './reply-link-eligibility.js';
 import { shouldAttemptTriageAssist } from './triage-classify.js';
 import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
 import { vehicleDataIntakeIdempotencyKey } from '../../platform/vehicle-data-intake.js';
-import type { TriagePolicyDecision } from '@cs/domain';
 import { providerRecoveryAfterArchive } from './intake-decisions.js';
+import { resolveCaseVrm, resolveCaseRef } from './case-identity.js';
+// PLAN-014 Slice 4b — `orderParseCandidates` gates the hoisted parse; imported from the
+// dependency-free parse-candidates.ts so the orchestrator's module graph never pulls parse.ts's
+// activity registration / blob / OCR clients. AttachmentTyping + TriageUnifiedResult are
+// type-only (erased at build — no runtime load of parse.ts / triageUnified.ts here).
+import { orderParseCandidates, type ParseAttachment } from './parse-candidates.js';
+import type { AttachmentTyping } from './parse.js';
+import type { TriageUnifiedResult } from './triageUnified.js';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
 retry.backoffCoefficient = 2;
@@ -189,35 +196,119 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   const intermediaryCandidateProviderIds = (provider as { candidateProviderIds?: string[] })
     .candidateProviderIds;
 
-  // 1.5 — triage classify (ADR-0015): records the classified inbound_email row and decides
-  // whether this email is RECEIVING WORK (→ a Case) or a QUERY / OTHER (→ no Case), and flags
-  // a reply about existing work (is_reply, #3).
-  const classification = (yield ctx.df.callActivityWithRetry('classifyInbound', retry, {
+  // 1.4 (PLAN-014 Slice 4b — parse-fed unified triage reorder) — parse the instruction
+  // document(s) NOW, immediately after providerMatch and BEFORE triage, so the extracted PDF
+  // VRM/reference + per-attachment content typings can feed the unified triage classify call
+  // (D1 open_case_ref_match + D4 attachment_content_typings) and every downstream lane reads
+  // ONE parse result. This repositioning is PERMANENT and is NOT gated by any TRIAGE_* flag —
+  // TRIAGE_PARSE_FED_ENABLED (read INSIDE triageUnified) controls only whether the RESULT is
+  // consumed, never whether parse runs. Gated here on "are there document candidates at all"
+  // (orderParseCandidates — the SAME predicate parse.ts skips on) so a no-document email never
+  // pays an activity round-trip that could only skip; parse.ts still reads PDF_MAPPER_ENABLED
+  // and degrades internally.
+  //
+  // ACCEPTED COST (Slice 4b, named explicitly): (1) parser latency/cold-start now hits every
+  // DOC-BEARING email, not just receiving_work — paired with the Slice 5 post-flip latency
+  // watch; (2) a drop_duplicate arrival now pays this parse cost, because parse runs before
+  // triage decides the arrival is a duplicate.
+  //
+  // BEST-EFFORT (resilience #95): parse.ts throws on a sustained 5xx/network outage AFTER its
+  // retries are exhausted. A throw here would sink the whole orchestration → NO Case is ever
+  // minted (a regression), so the call is wrapped: on total parser failure we log once
+  // (guarded by !isReplaying) and continue with an EMPTY parse result so case-create still
+  // proceeds on the email-sniff VRM.
+  let parseResult: {
+    vrm?: { value?: string };
+    reference?: { value?: string };
+    extraction?: Record<string, { value?: string } | undefined>;
+    // The instructing provider resolved across ALL parsed docs (parse.ts
+    // resolveWorkProviderAcrossDocs) — preferred over the chosen envelope's extraction so an
+    // audit email's PCH/QDOS provider survives when the EVA report is the selected envelope.
+    resolvedWorkProvider?: string;
+    attachmentTypings?: AttachmentTyping[];
+    skipped?: boolean;
+  } = {};
+  const hasDocCandidates =
+    orderParseCandidates((inbound as { attachments?: ParseAttachment[] }).attachments ?? []).length > 0;
+  if (hasDocCandidates) {
+    try {
+      parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
+        messageId: (inbound as { messageId?: string }).messageId,
+        attachments: (inbound as { attachments?: unknown }).attachments,
+        providerHint: principalCode,
+      })) as typeof parseResult;
+    } catch (e) {
+      if (!ctx.df.isReplaying) {
+        ctx.log(
+          `[intake] parse failed after retries (parser outage) — proceeding with empty parse result so case-create still runs: ${String(e)}`,
+        );
+      }
+    }
+  }
+  // Only the fields the parse-fed classify call (D1/D4) and the pre-triage lanes actually
+  // need are derived HERE. Mileage / parser-EVA fields / the claimant-conflict telemetry are
+  // receiving_work-ONLY, so they stay in that lane (computed from this same `parseResult`) —
+  // hoisting parse must NOT broaden their scope (or their telemetry) to non-minting doc-bearing
+  // mail that never reaches the receiving_work lane.
+  const parserVrm = (parseResult.vrm?.value ?? '').trim();
+  // #100 — a provider reference appearing ONLY in the instruction PDF (not the email subject/
+  // body) must still feed the ADR-0010 Case/PO-first dedup ladder AND persist as case_ref.
+  const parserRef = (parseResult.reference?.value ?? '').trim();
+  // D4 — per-attachment content typings mapped to the {filename, docType} wire shape, fed to
+  // triageUnified for the parse-fed classify call; [] when parse was skipped / typed nothing.
+  const parserContentTypings = (parseResult.attachmentTypings ?? []).map((t) => ({
+    filename: t.filename,
+    docType: t.docType,
+  }));
+
+  // 1.5 (PLAN-014 Slice 4b) — UNIFIED triage: ONE activity composing Stage A (classify) +
+  // Stage B (triage policy), replacing the former two-call classifyInbound + triagePolicy
+  // sequence in the INTAKE path. Fed the hoisted parse result so the classify call itself can
+  // see open_case_ref_match (D1) + attachment_content_typings (D4) — but ONLY when
+  // TRIAGE_PARSE_FED_ENABLED is on, decided INSIDE the activity (never here — an orchestrator
+  // must not read process.env).
+  //
+  // The old `triagePolicy` activity now has NO remaining caller and is dead-but-registered
+  // (removable one release after the flip). The old `classifyInbound` activity is NOT dead —
+  // retroCaseOrchestrator (retro-case.ts) still calls it independently — so it stays live and
+  // must NOT be removed; only the intake path stopped using it.
+  //
+  // DEPLOY SAFETY (operational, not a code invariant): this reorder changes the yielded
+  // activity SEQUENCE, so an intake instance recorded against the OLD generator will NOT replay
+  // cleanly against this one (Durable matches history positionally) — keeping the old
+  // activities registered does NOT rescue it. Slice 5 therefore DRAINS in-flight intake
+  // instances before/at deploy; that drain, not registration, is what makes the deploy safe.
+  //
+  // KILL-SWITCH INVARIANT (rewritten for Slice 4b — it is about VALUES + the gate, NOT code
+  // position, which the parse hoist deliberately changed): with TRIAGE_PARSE_FED_ENABLED off,
+  // triageUnified's classify request and both context lookups are byte-identical to the old
+  // classifyInbound + triagePolicy pair (proven by triageUnified.ts's gate-off parity tests),
+  // and with every TRIAGE_*_ENABLED routing gate absent `acting` is still 'proceed_default'
+  // (decideTriage's own construction). Parse now runs ABOVE this call unconditionally for
+  // doc-bearing mail — that repositioning is permanent and is NOT reverted by any gate being
+  // off; only the CONSUMPTION of the parse result (here via `parsed`, and in the lanes below
+  // via `parseFedGateOn`) is gated, so a gate-off deploy is decision- AND lane-identical to
+  // pre-Slice-4b behaviour.
+  const triageResult = (yield ctx.df.callActivityWithRetry('triageUnified', retry, {
     inbound,
     workProviderId,
     matchState,
-  })) as InboundClassification;
-
-  // 1.55 — triage policy (Stage B, ADR-0019 / rules-engine-v2 Phase 2): resolve the LIVE
-  // open-case/duplicate/thread context `decideTriage` needs and turn (classification x
-  // context) into ONE triage action. The activity ALWAYS runs (the context read + the
-  // always-on decision-telemetry event are both explicitly in-scope additions — see the
-  // activity's own module doc), computing a `shadow` decision (all four TRIAGE_* gates
-  // forced on — would-be decision, telemetry only) alongside the `acting` decision (the
-  // real gates) it returns.
-  //
-  // KILL-SWITCH INVARIANT: with every TRIAGE_*_ENABLED gate absent, `acting` is ALWAYS
-  // 'proceed_default' (decideTriage's own construction — not special-cased here), so with
-  // all four gates off the routing below is a no-op and the chain from here down is
-  // byte-for-byte identical to pre-Phase-2 behaviour.
-  const triage = (yield ctx.df.callActivityWithRetry('triagePolicy', retry, {
-    inbound,
-    classification,
-    matchState,
+    parsed: { parserVrm, parserRef, attachmentTypings: parserContentTypings },
     ...(intermediaryImageSourceId
       ? { intermediaryImageSourceId, intermediaryCandidateProviderIds }
       : {}),
-  })) as TriagePolicyDecision;
+  })) as TriageUnifiedResult;
+  const classification = triageResult.classification;
+  const triage = triageResult.decision;
+  // Lanes that did NOT previously have a parse result in scope (attach_case evidence VRM,
+  // route_images_unmatched VRM, reply-link ref/VRM) may use the hoisted parser VRM/ref ONLY
+  // when this arrival was actually parse-fed — a CHECKPOINTED activity value, so the
+  // orchestrator never reads process.env. Off → undefined → those lanes fall back to
+  // candidate/body exactly as today (byte-identical). The receiving_work lane and the TKT-102
+  // rung already consumed a parse result pre-Slice-4b, so they use parserVrm/parserRef UNGATED
+  // (behaviour-preserving).
+  const laneParserVrm = triageResult.parseFedGateOn ? parserVrm : undefined;
+  const laneParserRef = triageResult.parseFedGateOn ? parserRef : undefined;
 
   if (triage.action !== 'proceed_default' && !ctx.df.isReplaying) {
     ctx.log(
@@ -252,7 +343,14 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // Replay-safe: branches only on checkpointed triage values, never on process.env.
   if (triage.action === 'attach_case' && triage.targetCaseId) {
     const caseId = triage.targetCaseId;
-    const caseVrm = ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim();
+    // Slice 4b — prefer the hoisted PDF VRM for the evidence stamp when parse-fed (more
+    // accurate case-VRM on evidence than the email sniff); undefined when gate-off → identical
+    // to today. This stamps evidence only; the attach DECISION already happened in triage.
+    const caseVrm = resolveCaseVrm({
+      parserVrm: laneParserVrm,
+      candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm,
+      bodyVrm: classification.bodyVrm,
+    });
     const evidenceExtra = {
       ...(caseVrm ? { caseVrm } : {}),
       ...(workProviderId ? { workProviderId } : {}),
@@ -351,8 +449,13 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
     try {
       yield ctx.df.callActivityWithRetry('imagesUnmatched', retry, {
         internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
-        vrm:
-          ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
+        // Slice 4b — a mixed image+PDF email can now flag with the PDF-extracted VRM when
+        // parse-fed; undefined when gate-off → candidate/body only, exactly as today.
+        vrm: resolveCaseVrm({
+          parserVrm: laneParserVrm,
+          candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm,
+          bodyVrm: classification.bodyVrm,
+        }),
         attachments: (inbound as { attachments?: unknown }).attachments,
         claimToken: ctx.df.newGuid('images-unmatched-body'),
       });
@@ -374,8 +477,12 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   if (!categoryMintsCase(classification.category)) {
     if (shouldLinkReplyToCase(classification)) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
-      const ref = ((inb.candidateRef || classification.bodyCaseref) ?? '').trim();
-      const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? '').trim();
+      // Slice 4b — a reply whose Case-ref/VRM lives ONLY inside an attached PDF (not the
+      // subject/body) can now link, because parserRef/parserVrm are in scope before this lane
+      // for the first time. Gated on parse-fed via laneParserRef/laneParserVrm: undefined when
+      // off → candidate/body only, byte-identical to today.
+      const ref = resolveCaseRef({ parserRef: laneParserRef, candidateRef: inb.candidateRef, bodyCaseref: classification.bodyCaseref });
+      const vrm = resolveCaseVrm({ parserVrm: laneParserVrm, candidateVrm: inb.candidateVrm, bodyVrm: classification.bodyVrm });
       // rules-engine-v2 Phase 2 / TKT-023 — widen the match beyond Case/PO+VRM with the
       // engine's job-ref signal (capture-only field #2 alongside recordInboundEmail's
       // bodyJobref/conversationId — see data-api.ts): a follow-up bearing only e.g. "Our
@@ -460,35 +567,27 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
           .attachments,
       )
     ) {
+      // Slice 4b (TKT-102 collapse) — the dedicated inline `parse` call this lane used to make
+      // is GONE: parse now runs once, hoisted above triage, so this rung reads the SAME hoisted
+      // `parserVrm` instead of parsing the PDF a second time (which, across retries, could even
+      // fetch two disagreeing results). Ungated / parse-fed-independent: this lane already
+      // consumed a PDF parse before Slice 4b, so its behaviour is preserved, not newly enabled.
+      // `triedVrm` stays candidate||body WITHOUT parserVrm — it means "what the subject/body
+      // machinery already tried and failed on", never "the best current guess".
       try {
-        let laneParse: { vrm?: { value?: string }; skipped?: boolean } = {};
-        try {
-          laneParse = (yield ctx.df.callActivityWithRetry('parse', retry, {
-            messageId: (inbound as { messageId?: string }).messageId,
-            attachments: (inbound as { attachments?: unknown }).attachments,
-            providerHint: principalCode,
-          })) as { vrm?: { value?: string }; skipped?: boolean };
-        } catch (e) {
-          if (!ctx.df.isReplaying) {
-            ctx.log(
-              `[intake] images-received PDF parse failed (additive, non-blocking): ${String(e)}`,
-            );
-          }
-        }
         const vrmMatch = (yield ctx.df.callActivityWithRetry('imagesReceivedVrmMatch', retry, {
           internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
-          vrm: (laneParse.vrm?.value ?? '').trim(),
+          vrm: parserVrm,
           triedVrm:
             ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
         })) as { outcome: string };
         pdfVrmMatch = vrmMatch.outcome;
-        const parsedVrm=(laneParse.vrm?.value??'').trim();
-        if(parsedVrm && ['flagged:no_open_case','flagged:multiple_open_cases'].includes(vrmMatch.outcome)){
-          yield ctx.df.callActivityWithRetry('imagesUnmatched',retry,{
-            internetMessageId:(inbound as {internetMessageId?:string}).internetMessageId,
-            vrm:parsedVrm,
-            attachments:(inbound as {attachments?:unknown}).attachments,
-            claimToken:ctx.df.newGuid('images-unmatched-pdf'),
+        if (parserVrm && ['flagged:no_open_case', 'flagged:multiple_open_cases'].includes(vrmMatch.outcome)) {
+          yield ctx.df.callActivityWithRetry('imagesUnmatched', retry, {
+            internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
+            vrm: parserVrm,
+            attachments: (inbound as { attachments?: unknown }).attachments,
+            claimToken: ctx.df.newGuid('images-unmatched-pdf'),
           });
         }
       } catch (e) {
@@ -531,70 +630,26 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // VRM fallback — ADR-0015 §5) when the subject hadn't already yielded one.
   const inboundForCase = {
     ...(inbound as Record<string, unknown>),
-    candidateRef:
-      ((inbound as { candidateRef?: string }).candidateRef || classification.bodyCaseref) ?? '',
+    candidateRef: resolveCaseRef({
+      candidateRef: (inbound as { candidateRef?: string }).candidateRef,
+      bodyCaseref: classification.bodyCaseref,
+    }),
   };
 
-  // 4 (runs FIRST now) — parse the instruction document so its PDF VRM + mileage feed case
-  // creation (#7) and enrichment (#1). Gate PDF_MAPPER_ENABLED + skip-on-no-doc/4xx handled
-  // inside; result is the parser envelope or { skipped }. No caseId yet (case not created).
-  //
-  // BEST-EFFORT (resilience #95): parse.ts throws on a sustained 5xx/network outage AFTER its
-  // retries are exhausted. Because parse now runs FIRST, that throw would sink the whole
-  // orchestration → NO Case is ever minted for the email (a regression vs the old order). So the
-  // call is wrapped: on total parser failure we log (once, guarded by !isReplaying) and continue
-  // with an EMPTY parse result so case-create still proceeds on the email-sniff VRM. The retry
-  // policy still absorbs transient blips; only a total outage falls through here.
-  let parseResult: {
-    vrm?: { value?: string };
-    reference?: { value?: string };
-    extraction?: Record<string, { value?: string } | undefined>;
-    // The instructing provider resolved across ALL parsed docs (parse.ts
-    // resolveWorkProviderAcrossDocs) — preferred over the chosen envelope's extraction so an
-    // audit email's PCH/QDOS provider survives when the EVA report is the selected envelope.
-    resolvedWorkProvider?: string;
-    skipped?: boolean;
-  } = {};
-  try {
-    parseResult = (yield ctx.df.callActivityWithRetry('parse', retry, {
-      messageId: (inbound as { messageId?: string }).messageId,
-      attachments: (inbound as { attachments?: unknown }).attachments,
-      providerHint: principalCode,
-    })) as {
-      vrm?: { value?: string };
-      reference?: { value?: string };
-      extraction?: Record<string, { value?: string } | undefined>;
-      resolvedWorkProvider?: string;
-      skipped?: boolean;
-    };
-  } catch (e) {
-    if (!ctx.df.isReplaying) {
-      ctx.log(
-        `[intake] parse failed after retries (parser outage) — proceeding with empty parse result so case-create still runs: ${String(e)}`,
-      );
-    }
-  }
-  const parserVrm = (parseResult.vrm?.value ?? '').trim();
-  // The document is authoritative for mileage (ADR-0006): true only when the parser actually
-  // extracted a mileage value → enrichment then SKIPS the MOT estimate.
+  // 4 — parse already ran (hoisted above triage in Slice 4b); `parseResult`/`parserVrm`/
+  // `parserRef` are in scope. The remaining parser-derived fields are receiving_work-ONLY
+  // (mileage → caseResolve/enrich; parser-EVA fields + claimant-conflict telemetry →
+  // caseResolve), so they are derived HERE from the same `parseResult` rather than in the hoist
+  // — keeping their scope (and the claimant-conflict telemetry) exactly as pre-Slice-4b, since
+  // a non-minting doc-bearing email never reaches this lane.
   const documentHasMileage = Boolean(parseResult.extraction?.mileage?.value);
-  // #100 — a provider reference appearing ONLY in the instruction PDF (not the email subject/
-  // body) must still feed the ADR-0010 Case/PO-first dedup ladder AND persist as case_ref.
   // #107 — the document is authoritative for mileage (ADR-0006): when the parser extracted a
   // value, persist it fill-if-empty so the suppressed MOT estimate is not a silent data loss.
-  // caseResolve forwards all three to the Data API resolve-persist (fill-if-empty, provenance).
-  const parserRef = (parseResult.reference?.value ?? '').trim();
   const parserMileage = (parseResult.extraction?.mileage?.value ?? '').trim();
   const parserMileageUnit = (parseResult.extraction?.mileage_unit?.value ?? '').trim();
-
-  // Forward every parser-owned EVA field, not only VRM/reference/mileage,
-  // so an email-minted case showed just its registration + Case/PO. Forward parser-owned EVA
-  // fields (caseResolve → resolve-persist fills them fill-if-empty + constraint-guarded).
-  // inspection_address is omitted (corpus picker — ADR-0013). work_provider is forwarded
-  // when present; UNKNOWN is treated as empty and the Data API falls back to corpus display_name.
-  // Forward every parser-owned EVA field (incl. body-supplemented claimant name /
-  // accident circumstances) into the resolve-persist fill-if-empty write. Pure over
-  // the two checkpointed envelopes, so it stays replay-safe; see parser-eva-fields.ts.
+  // Forward every parser-owned EVA field (incl. body-supplemented claimant name / accident
+  // circumstances) into the resolve-persist fill-if-empty write. Pure over the checkpointed
+  // envelope + inbound, so it stays replay-safe; see parser-eva-fields.ts.
   const { parserEvaFields, claimantConflictCount } = buildParserEvaFields(
     parseResult,
     inbound as { body?: string; internetMessageId?: string; messageId?: string },
@@ -688,7 +743,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
     yield ctx.df.callActivityWithRetry('correlatePreInstruction', retry, {
       caseId: resolved.caseId,
       casePo: resolved.casePo ?? null,
-      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm || '',
+      vrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
       caseRef: resolved.casePo ?? '',
       jobRef: parserRef || classification.bodyJobref || '',
     });
@@ -764,7 +819,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // EVA-readiness. attachmentTypings (parse activity, ADR-0014/ADR-0021) lets a report-typed
   // attachment persist as engineer_report evidence.
   const receivingWorkEvidenceExtra = {
-    caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    caseVrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
     ...(workProviderId ? { workProviderId } : {}),
   };
   const statusValue = yield* persistEvidenceAndArchive(ctx, retry, {
@@ -787,7 +842,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   try {
     yield ctx.df.callActivityWithRetry('enrich', retry, {
       caseId: resolved.caseId,
-      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      vrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
       documentHasMileage,
       // Durable replays/retries of this intake instance must resolve to one
       // immutable lookup run and one audit/provenance write. Graph-backed

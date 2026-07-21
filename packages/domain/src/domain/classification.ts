@@ -16,6 +16,22 @@
    provider controls and what the Box/EVA pipeline keys on). NEVER call
    collisioncc at runtime.
 
+   PRECEDENCE NOTE (PLAN-014 D4): this extension-wins-over-MIME rule governs
+   evidence-KIND classification only — both signals here are equally-cheap
+   guesses about a file nobody has opened. It is a DIFFERENT, later-stage
+   concern from the parser's `email_classifier.py` `attachment_content_typings`
+   refinement, where — PER FILE — a content-detected `report` (with no sibling
+   content-typed `instruction`) redirects a filename-derived `instruction` toward
+   the report path, a content-detected `junk` WITHDRAWS the instruction promotion,
+   and a content-detected `instruction` promotes even under a generic filename.
+   A content-detected `unknown` is the detector's deliberate safe-abstain default
+   and changes nothing there (the filename-derived kind stands) — ONLY `junk`
+   withdraws. Content wins there because it is not a guess (parse already read the
+   document). Same
+   meta-rule ("the more reliable available signal wins"), opposite surface
+   answer, because the two signals' relative reliability differs by call site.
+   This function's own evidence-kind mapping is never touched by that rule.
+
    PURE + DETERMINISTIC + FRAMEWORK-FREE. No React, no I/O, no live calls.
    ============================================================ */
 

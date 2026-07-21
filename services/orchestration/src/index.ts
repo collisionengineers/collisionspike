@@ -40,8 +40,9 @@ import './workflows/mailbox/archiveHolding.js';
 import './workflows/mailbox/archive-holding-monitor.js';
 import './workflows/intake/fetchMessage.js';
 import './workflows/intake/providerMatch.js';
-import './workflows/intake/classifyInbound.js';
-import './workflows/intake/triagePolicy.js'; // Stage B triage policy (ADR-0019 / rules-engine-v2 Phase 2)
+import './workflows/intake/classifyInbound.js'; // intake path now uses triageUnified.js, but this activity is STILL LIVE — retroCaseOrchestrator (retro-case.ts) calls it independently; do NOT remove
+import './workflows/intake/triagePolicy.js'; // superseded by triageUnified.js — NO remaining caller; kept registered only for the in-flight replay window, remove one release after the TRIAGE_PARSE_FED flip
+import './workflows/intake/triageUnified.js'; // PLAN-014 Slice 4a/4b — composes classify + triage into one activity for the intake path
 import './workflows/intake/correlatePreInstruction.js'; // TKT-084 pre-instruction correlation (TRIAGE_PRE_INSTRUCTION_ENABLED)
 import './workflows/intake/linkReply.js';
 import './workflows/intake/caseResolve.js';
