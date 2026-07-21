@@ -117,6 +117,13 @@ All six of these only take effect together, and only on the orchestration servic
 | `AUDIT_CASES_ENABLED` | Turns on the case-auditing feature. | Auditing is active. | No case auditing. | **ON** |
 | `CASE_DISPOSITION_ENABLED` | *(see "Needs definition" below)* A nightly scheduled job that irreversibly blanks personal/claim data (name, VRM, claim/policy references, EVA fields) out of cases whose retention period has expired — a GDPR-style scheduled erasure, not a row delete. **Currently scheduled for full removal, not just left off** — see below. | The job would run nightly and erase eligible cases' PII — but it's also inert today for a second reason (see right). | Nothing happens; the job no-ops on its nightly tick. | **OFF** (`cespk-orch-dev`) — and would still be a no-op even if flipped on: the column that decides eligibility (`retention_expires_at`) is never written by any code today. |
 
+## Alpha testing (PLAN-015)
+
+| Gate | Plain-language meaning | On = | Off = | Live (2026-07-21) |
+|---|---|---|---|---|
+| `EVA_SHADOW_AUTOSUBMIT_ENABLED` | When staff complete the normal "Submit to EVA" export, the system ALSO sends the same case to EVA over the vendor's API in the background — a shadow submission for comparing the two routes. Which EVA environment receives it is decided by the stored credentials (the alpha uses the vendor's test credentials), and staff see nothing different either way. | Every completed export also queues one background API submission (needs `EVA_API_ENABLED` on the workflow side too, plus working vendor credentials). | Exports behave exactly as today; nothing is queued. | **OFF** (not set — ship-dark default; read by `cespk-api-dev` for the enqueue and `cespk-orch-dev` for the consumer). Flips only at the alpha cutover, see [alpha testing](./alpha-testing.md). |
+| `INTAKE_POLL_ENABLED` (+ `INTAKE_POLL_MAILBOXES`) | A pull-based mail check for a LOCAL shadow copy of the system: on a timer it asks each listed mailbox "anything new since last time?" and feeds arrivals through the normal intake pipeline. Exists because a local machine cannot receive the push notifications the live system uses. | The local instance polls the listed mailboxes on a schedule. **Never to be set on the live system** — it also requires its own separate mailbox list (`INTAKE_POLL_MAILBOXES`), precisely so a single accidental flip live does nothing. | No polling anywhere; live intake stays push-only. | **OFF** everywhere (not set — local-only by design; read by the orchestration app). |
+
 ## Two gates that currently do nothing (dead code)
 
 | Gate | What the name implies | Actual live effect |

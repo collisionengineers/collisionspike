@@ -25,6 +25,9 @@ import './workflows/mailbox/sent-items-processor.js';
 
 // Queue intake starter → Durable orchestrator + activities
 import './workflows/intake/intake-starter.js';
+// TKT-299 (PLAN-015 Slice B) — LOCAL-ONLY pull-based intake poller (INTAKE_POLL_ENABLED +
+// INTAKE_POLL_MAILBOXES, both dark live; feeds the same intake-messages queue)
+import './workflows/mailbox/intake-poll.js';
 // Gated Outlook filing mover (TKT-054 / 020726 E6; OUTLOOK_MOVE_ENABLED)
 import './workflows/mailbox/outlook-move.js';
 import './workflows/mailbox/outlook-link-resolve.js';
@@ -58,6 +61,9 @@ import './workflows/evidence/imagesReceivedVrmMatch.js'; // TKT-102 image-delive
 
 // The 9 gated orchestrations (plan 22 §C) — all wired off behind their gates, no-op when invoked
 import './workflows/archive/finalize-eva-box.js';
+// TKT-298 (PLAN-015 Slice A) — EVA shadow auto-submit queue consumer (EVA_SHADOW_AUTOSUBMIT_ENABLED
+// AND EVA_API_ENABLED; reuses finalize-eva-box's evaSubmit activity, never boxFolderAugment)
+import './workflows/archive/eva-shadow-submit.js';
 import './workflows/intake/chaser.js';
 import './workflows/intake/triage-classify.js';
 import './workflows/archive/box-folder-create.js';

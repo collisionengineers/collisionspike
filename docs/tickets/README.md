@@ -33,10 +33,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 5/5 (100%) |
 | [PLAN-013](./plans/PLAN-013-guided-capture-vision-programme.md) — On-device vision programme for guided capture — dataset to enforced guidance | active | 0/0 (0%) |
 | [PLAN-014](./plans/PLAN-014-parse-fed-unified-triage.md) — Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy | active | 0/7 (0%) |
+| [PLAN-015](./plans/PLAN-015-app-alpha-testing.md) — App alpha testing — QDOS single-provider cutover on a dedicated instructions mailbox | active | 0/5 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (32)
+## Now (37)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -72,6 +73,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 | integration | — |
+| [TKT-298](./now/TKT-298-eva-shadow-autosubmit/TKT-298-eva-shadow-autosubmit.md) | EVA shadow auto-submit behind the extract + finalize starter hardening (PLAN-015 Slice A) | P1 | integration | PLAN-015 |
+| [TKT-299](./now/TKT-299-local-intake-poller/TKT-299-local-intake-poller.md) | Local intake poller — pull-based mailbox drain for the shadow instance (PLAN-015 Slice B) | P1 | intake | PLAN-015 |
+| [TKT-300](./now/TKT-300-hide-guided-photos-panel/TKT-300-hide-guided-photos-panel.md) | Hide the guided-photos staff panel from the case page (PLAN-015 Slice C) | P1 | ui | PLAN-015 |
+| [TKT-301](./now/TKT-301-alpha-config-gate-parity/TKT-301-alpha-config-gate-parity.md) | Config-capture and gate-registry parity for the alpha gates (PLAN-015 Slice D) | P1 | platform | PLAN-015 |
+| [TKT-302](./now/TKT-302-alpha-runbook-and-guidance/TKT-302-alpha-runbook-and-guidance.md) | Alpha cutover runbook, backup/wipe/reseed procedure, staff forwarding guidance (PLAN-015 Slice E) | P1 | docs | PLAN-015 |
 
 ## Verify (39)
 

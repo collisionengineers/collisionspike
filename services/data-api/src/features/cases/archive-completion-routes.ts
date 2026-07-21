@@ -12,6 +12,7 @@ import { ensureActiveBoxFileRequest } from '../archive/file-request-outbox.js';
 import { associateOutstandingImageChasersWithFileRequest } from './image-chasers.js';
 import { CASE_SELECT, rowToCase, type Row } from '../../shared/mapping/index.js';
 import { markEvaSubmittedIfReady, nowParam } from './case-support.js';
+import { maybeEnqueueEvaShadowSubmit } from './eva-shadow-queue.js';
 
 async function readCaseBoxFolder(
   caseId: string,
@@ -164,10 +165,14 @@ app.http('markEvaSubmitted', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'cases/{id}/eva-submitted',
-  handler: withRole('CollisionSpike.User', async (req, _ctx, claims) => {
+  handler: withRole('CollisionSpike.User', async (req, ctx, claims) => {
     const id = (req.params.id ?? '').trim();
     if (!id) return { status: 400, jsonBody: { message: 'A case is required.' } };
     const updated = await markEvaSubmittedIfReady(id, actorFromClaims(claims));
+    // TKT-298 (gated, best-effort): a REAL transition also fires the background EVA
+    // shadow submission. Fire-and-forget by contract — the seam never throws, so the
+    // staff response below is byte-identical whether or not the shadow enqueued.
+    await maybeEnqueueEvaShadowSubmit(updated, id, (m) => ctx.warn(m));
     // updated:false covers both "already submitted" (benign idempotent no-op)
     // and "not ready yet" — the caller re-reads the case either way.
     return { status: 200, jsonBody: { updated } };

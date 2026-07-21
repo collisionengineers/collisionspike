@@ -60,6 +60,10 @@ param enrichmentEnabled bool = true
 param boxApiEnabled bool = true
 param boxFolderAtIntakeEnabled bool = true
 param boxFileRequestEnabled bool = true
+// PLAN-015 (TKT-298) — EVA shadow auto-submit enqueue gate. Captured at its ship-dark
+// default: not set live today (absent == off). The alpha cutover flips it true
+// (docs/operations/alpha-testing.md Phase 6); update this default from a dated readback then.
+param evaShadowAutosubmitEnabled bool = false
 
 // ---- Secret reference (NAME only; value injected out-of-band) ----
 @description('KV secret name holding the Postgres `cespk_app` password.')
@@ -116,6 +120,7 @@ var capturedAppSettings = {
   BOX_FOLDER_AT_INTAKE_ENABLED: string(boxFolderAtIntakeEnabled)
   BOX_FILEREQUEST_ENABLED: string(boxFileRequestEnabled)
   BOX_FOLDER_ROOT_ID: boxFolderRootId
+  EVA_SHADOW_AUTOSUBMIT_ENABLED: string(evaShadowAutosubmitEnabled)
 }
 
 // Apply path (guarded off by default). When applyAppSettings=true this WRITES
@@ -167,5 +172,6 @@ output capturedSettingNames array = [
   'BOX_FOLDER_AT_INTAKE_ENABLED'
   'BOX_FILEREQUEST_ENABLED'
   'BOX_FOLDER_ROOT_ID'
+  'EVA_SHADOW_AUTOSUBMIT_ENABLED'
 ]
 output functionAppPrincipalId string = functionApp.identity.principalId

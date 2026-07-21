@@ -6,6 +6,9 @@
  * Default off → the HTTP starter no-ops without launching the orchestration.
  *
  * Trigger today: manual (`When_submit_requested`) → preserved as an HTTP starter.
+ * Function-key auth (TKT-298 hardening): the starter was anonymous while both gates were
+ * dark; with the PLAN-015 alpha flipping EVA_API_ENABLED on, an anonymous route could
+ * drive real EVA submissions (+ UUID-named Box folders) from any internet caller.
  */
 
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
@@ -17,7 +20,7 @@ import { dataApi } from '../../adapters/data-api.js';
 /* ---- HTTP starter (manual trigger analogue) ---- */
 app.http('finalize-eva-box-start', {
   methods: ['POST'],
-  authLevel: 'anonymous',
+  authLevel: 'function',
   route: 'finalize-eva-box',
   extraInputs: [df.input.durableClient()],
   handler: async (req: HttpRequest, ctx: InvocationContext): Promise<HttpResponseInit> => {
