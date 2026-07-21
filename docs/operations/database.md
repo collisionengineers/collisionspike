@@ -82,9 +82,14 @@ grants come back from the baseline files themselves.
 
 **4. Rebuild.** Apply `database/baseline/*.sql` in filename order with `900_constraints.sql`
 LAST, all from current `main` (the constraints file must be the main-branch version). Then the
-seeds, in order and with the absolute CSV paths `database/seeds/README.md` requires:
-`910_seed_corpus.sql` → `915_corpus_email_address_match.sql` →
-`916_provider_domain_corrections.sql` → `920_replace_suggested_addresses.sql`.
+seeds in order: `910_seed_corpus.sql` (run psql with the repository root as the working
+directory — its `\copy` paths are repo-relative) → `915_corpus_email_address_match.sql` →
+`916_provider_domain_corrections.sql` → `920_replace_suggested_addresses.sql`. **920 caveat
+(found live 2026-07-21):** its documented `-v csvpath=…` invocation cannot work — psql performs
+NO variable interpolation inside `\copy` — so write a resolved copy first and run that:
+`sed "s|:'csvpath'|'<abs path>/database/seeds/data/inspection-suggestions.csv'|" database/seeds/920_replace_suggested_addresses.sql > /tmp/920-resolved.sql`.
+Note 920 creates a one-off backup table on its first run, so the post-rebuild base-table count
+is the baseline count **plus one**.
 
 **5. Re-seed Case/PO floors.** For every prefix captured in step 1:
 

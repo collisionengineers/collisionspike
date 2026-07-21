@@ -21,3 +21,15 @@ Ticket created from PLAN-015.
   value — the single-mailbox re-scope is a cutover-time edit recorded by the runbook
   (`docs/operations/alpha-testing.md` Phase 2/7).
 - No LIVE_FACTS change in this slice: nothing live has changed yet.
+
+## 2026-07-21 — Phase 7 cutover paperwork
+
+The cutover executed the same day, so the deferred value updates land now: `orch.bicep`'s
+`graphIntakeMailboxes` re-captured at the live single-mailbox value (cutover instant
+2026-07-21T14:01:05Z; the three-mailbox predecessor is preserved in git history and the runbook
+rollback); `feature-gates.md` live columns updated (capture ×3, `DELETE_CASE_IMAGE`,
+`MCP_IMAGE_INGEST`, `IMAGE_ANALYSIS` → OFF with dated notes; the 2026-07-20 capture risk note
+marked RESOLVED); `LIVE_FACTS.json` + `live-facts.evidence.json` re-minted from the cutover
+probes (orch 109, DB 66 tables, mail intake single-mailbox, gate states) with a fresh digest —
+`check:live-facts` green. `EVA_API_ENABLED` / `EVA_SHADOW_AUTOSUBMIT_ENABLED` stay captured at
+false (Phase 6 not yet executed).

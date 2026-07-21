@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1221,
-    "files": 4118,
-    "entries": 5339
+    "directories": 1222,
+    "files": 4119,
+    "entries": 5341
   },
-  "totalFileBytes": 710251451,
+  "totalFileBytes": 710270906,
   "entries": [
     {
       "path": ".",
@@ -5943,6 +5943,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -13153,8 +13162,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 17364,
-      "sha256": "9f9639fd69d152d1cd37b1fa00754b4190eaa4941856125730ba78218d67068b",
+      "size": 19510,
+      "sha256": "286e6883bc3b81e07387babb64c356dfcd8a5c99f647a5f5784784e636255d20",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17041,7 +17050,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1672184,
+      "size": 1672789,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17059,8 +17068,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4477446,
-      "sha256": "0776ec0eb8688f67257c90e3b42aac60e889ee036bd34dcfe75f09d23d7d5536",
+      "size": 4478224,
+      "sha256": "3e070fe4c5ca834a30601be569d128b2926dfb6e121445af8f632b90ba1ee9d0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17068,8 +17077,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71569,
-      "sha256": "fc18c9165836c6269101404891fa54ce13e62843af4bfd95794d080512c38b04",
+      "size": 71597,
+      "sha256": "cf28e8dc8e5f089dc4b8685c01d61d548094e420e2084abea2a612c1a0b58320",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17122,8 +17131,8 @@
     {
       "path": "docs/operations/database.md",
       "mediaType": "text/markdown",
-      "size": 5746,
-      "sha256": "8ba31ca8a573cc2ef8b80606ba99ea9960111725e35e384e9b9911e2b5f20f8b",
+      "size": 6270,
+      "sha256": "b2d53bcf816650b3c4f819b1e01e12e79bfe99cabaa78fa82f78a72cb9c71291",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17158,8 +17167,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 32535,
-      "sha256": "20ca16b1926fa37ac091472c4c6007a619bff72025a3e2ac802bbd41746116e0",
+      "size": 33046,
+      "sha256": "13bab10b29157f7414e93b924ef94f84cac77953ab5554030dd812787e4944ff",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17185,8 +17194,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 8827,
-      "sha256": "c4f5034b93ee1f2946a9e90def63f19f221ae5fa08110d85860df4d3bd8d9351",
+      "size": 11201,
+      "sha256": "a380986830166b77562189ede4b6e0fd46a49e35e97b25c321b3eb2e2b4dd2aa",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17194,8 +17203,8 @@
     {
       "path": "docs/operations/live-facts.evidence.json",
       "mediaType": "application/json",
-      "size": 5915,
-      "sha256": "24b77fc1036d1f630654db9b26e54bea5f1db822a11dd9e7363fb213bde6aa0d",
+      "size": 6355,
+      "sha256": "d4aeef0a92016dea7aaba0f5cb3cce26298e3b8b5dbeb14c0f3f704461b6a457",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28120,8 +28129,8 @@
     {
       "path": "docs/tickets/now/TKT-298-eva-shadow-autosubmit/changes.md",
       "mediaType": "text/markdown",
-      "size": 2508,
-      "sha256": "2ac2191c7963406278907fd4b83002f74eb3f30140d1a8f83df770ff207290dc",
+      "size": 3103,
+      "sha256": "798acd806276b4f089d099c62c88d7e52eb1869e21bdf55da3ff7963c297925e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28156,8 +28165,8 @@
     {
       "path": "docs/tickets/now/TKT-300-hide-guided-photos-panel/changes.md",
       "mediaType": "text/markdown",
-      "size": 1180,
-      "sha256": "ade1abdbb44655d9870876e1c53e8df4ec999df5ce887d510d717b9271d8d649",
+      "size": 1845,
+      "sha256": "9216011886b68b09c8a7c8d79b1b47b2b38f918bd688f6fefce8003a9c921039",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28174,8 +28183,8 @@
     {
       "path": "docs/tickets/now/TKT-301-alpha-config-gate-parity/changes.md",
       "mediaType": "text/markdown",
-      "size": 1382,
-      "sha256": "d464ae234ca5761cde081be3a984eb0ef33ea1c6e4d47f6bb6594bb7eef04576",
+      "size": 2199,
+      "sha256": "fb91c3b31a749a4b3603965258c1e657d0bc5611904d767727c5d77752113f84",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28192,8 +28201,17 @@
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/changes.md",
       "mediaType": "text/markdown",
-      "size": 2457,
-      "sha256": "a6d595704b81338e7f9a9bb2a1b8a9704cf3b0a370e9614507b0ee1500e25874",
+      "size": 3591,
+      "sha256": "585eddf54ab56c4e4ee000aa1182d65c6a465ccb2e1fc417f6ab491c78472ecb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/evidence/cutover-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 8781,
+      "sha256": "05c09ae4078e320caf4905d21c0ddab3259678cb7dbe82d93f1d3450789a3f5d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -31954,8 +31972,8 @@
     {
       "path": "infrastructure/config-capture/orch.bicep",
       "mediaType": "application/octet-stream",
-      "size": 10548,
-      "sha256": "84ce4fce09837b5beadd7da3619117d08402c2155261757edb59d1f9f70975c7",
+      "size": 10605,
+      "sha256": "746f21f4bcf4081b2e2bf61a341c838969fe0985c0be3df9be5ae2df14936e6f",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"

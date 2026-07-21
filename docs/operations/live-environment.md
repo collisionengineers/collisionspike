@@ -28,7 +28,11 @@ West Europe.
 - The web app authenticates staff with Microsoft Entra ID and calls the Data API over REST.
 - The Data API validates the bearer audience and enforces `CollisionSpike.User` or
   `CollisionSpike.Superuser` before setting PostgreSQL request context.
-- Mail intake is live for `info@`, `engineers@`, and `desk@` using Microsoft Graph push notifications.
+- Mail intake is re-scoped for the PLAN-015 alpha (2026-07-21) to the single dedicated mailbox
+  `instructions@collisionengineers.co.uk` (staff forward provider emails into it — see the
+  [staff forwarding guide](../product/staff-forwarding-guide.md)). The three legacy mailbox
+  subscriptions were pruned at cutover; the mailboxes stay Exchange-RBAC-readable for the local
+  shadow instance's poller. See [alpha testing](./alpha-testing.md).
 - The Graph application has no tenant-wide Microsoft Graph application role or delegated grant, and no
   delegated consent. Its entire mailbox permission comes from Exchange Online RBAC for Applications.
   **Corrected 2026-07-21 — this bullet previously said the boundary was read-only; it is not.** The app
@@ -48,8 +52,10 @@ West Europe.
 - Document parsing, vehicle enrichment, OCR, Archive filing, location assistance, mail triage, and the
   approved AI/assistant capabilities listed in `LIVE_FACTS.json` are enabled.
 - EVA REST submission and valuation lookup remain deliberately unavailable.
-- Guided public capture, individual image deletion, capture cleanup and MCP image ingestion are deployed but
-  remain deliberately dark until their ticket-specific security and designated-test evidence is complete.
+- Guided public capture, individual image deletion, capture cleanup, MCP image ingestion and on-demand
+  image analysis are deployed but dark — switched off (back off, for the gates found on during the
+  TKT-159 audit) at the 2026-07-21 PLAN-015 alpha cutover, which also closed the TKT-200 capture-ingress
+  exposure. The guided-photos staff panel is removed from the deployed web app for the alpha (TKT-300).
 - The EVA validation resource remains running but had no repository caller, caller configuration, or
   request telemetry in the focused 90-day read-only audit on 2026-07-15. Its duplicate repository
   implementation was removed; the shared domain readiness evaluator remains canonical.
@@ -77,6 +83,30 @@ West Europe.
   2026-07-17 `d6ee70de` deploy; the API remains 144. The current counts live in `LIVE_FACTS.json`.
 - The EVA-validation resources (`cespkeval-fn-6c6fxd` and its plan/storage) remain deployed. Their live
   retirement is operator-gated (TKT-252) and has not been performed; the app stays as the rollback guard.
+
+## PLAN-015 alpha cutover — 2026-07-21
+
+- Executed per [alpha testing](./alpha-testing.md) (~14:00–15:00Z; full dated record in TKT-302's
+  evidence). The Data API and orchestration hosts were redeployed dark from `main` — orchestration
+  now registers **109** functions (+3 ship-dark PLAN-015 functions); the API is unchanged (146 raw →
+  144 reconciled). The `eva-shadow-submit` queue was created.
+- The Exchange RBAC recipient scope was extended to the alpha mailbox (verified
+  `Test-ServicePrincipalAuthorization` InScope=true for all four mailboxes); the legacy
+  subscriptions were pruned at 14:02:42Z. The alpha mailbox's own subscription bootstrap was still
+  returning Graph 403 at the time of this record (RBAC propagation lag) with an automatic retry
+  running — see `LIVE_FACTS.mailIntake.status` for the definitive state.
+- Backups banked before any deletion: an RLS-complete `pg_dump --role=csadmin` (79 TABLE DATA
+  entries) plus a verified-complete blob download (12,930/12,930 blobs, case-collision and
+  post-scan stragglers reconciled to zero). The database was wiped and rebuilt from
+  `database/baseline` + seeds: **66** base tables, RLS enabled+forced spot-checked, 390 providers
+  (QDOS active), zero cases/emails, 27 Case/PO continuity floors (QDOS26 continues at 812). The
+  evidence blob container was then cleared.
+- Gate changes (all on `cespk-api-dev`): the three capture gates OFF (closing the TKT-200
+  exposure; verified 404 on the public routes), `DELETE_CASE_IMAGE_ENABLED` OFF,
+  `MCP_IMAGE_INGEST_ENABLED` OFF, `IMAGE_ANALYSIS_ENABLED` OFF. `MCP_SERVER_ENABLED` deliberately
+  stays on. The staff SPA was redeployed (guided-photos panel removed).
+- EVA shadow gates (`EVA_API_ENABLED`, `EVA_SHADOW_AUTOSUBMIT_ENABLED`) remain OFF pending the
+  vendor UAT credentials (runbook Phase 6).
 
 ## Parse-fed unified triage deploy — 2026-07-21
 

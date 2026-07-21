@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-21T04:45:00Z",
-  "verificationMode": "PLAN-014 (TKT-296) parse-fed unified triage deploy verified live 2026-07-21T04:45Z: parser (cespike-parser-dev-x7xt3d5ovhi7y, D4 + /classify-email validation — negative probe returned 400 error:bad_field), OCR (cespkocr-fn-dev-glju3v, new engine-materialized image ce-ocr@sha256:6e911f33, container Running), and orchestration (cespk-orch-dev, triageUnified cutover, parse hoisted before triage) all redeployed; TRIAGE_PARSE_FED_ENABLED flipped true @ 04:27:50Z; 0 exceptions / 0 sev>=3 traces (orch + parser, 12h) / 0 Failed+Terminated Durable instances; the one pre-flip intakeOrchestrator Completed. Layered on the 2026-07-19 (TKT-257) read-only ARM inventory that carried the app-tier function counts",
+  "lastVerified": "2026-07-21T14:55:00Z",
+  "verificationMode": "PLAN-015 alpha cutover executed 2026-07-21 ~14:00-15:00Z (TKT-302 evidence): api+orch redeployed dark from main (orch 109 fns incl. the three new ship-dark PLAN-015 functions; api 146 raw -> 144 reconciled, unchanged), the three legacy intake mailboxes' Graph subscriptions pruned 14:02:42Z, Exchange RBAC scope CollisionSpike-Intake-Prod extended to instructions@ (Test-ServicePrincipalAuthorization InScope=true all four mailboxes), full RLS-complete pg_dump + verified-complete blob backup (12,930/12,930) taken, database wiped and rebuilt from baseline+seeds with 27 continuity Case/PO floors, capture + alpha gate trims applied, staff SPA deployed. Layered on the same-day PLAN-014 (TKT-296) 04:45Z verification and the 2026-07-19 (TKT-257) ARM inventory",
   "environment": {
     "resourceGroup": "rg-collisionspike-dev",
     "primaryRegion": "uksouth",
@@ -10,7 +10,8 @@
   "deployables": {
     "web": {
       "resource": "cespk-spa-dev",
-      "source": "apps/web"
+      "source": "apps/web",
+      "note": "Redeployed 2026-07-21 (PLAN-015 Phase 5, swa deploy): ships TKT-300 (guided-photos staff panel removed from the case page) and PR #158 (Evidence-tab hint copy removal)."
     },
     "dataApi": {
       "resource": "cespk-api-dev",
@@ -20,15 +21,16 @@
     "orchestration": {
       "resource": "cespk-orch-dev",
       "source": "services/orchestration",
-      "functionCount": 106,
-      "note": "105 -> 106 on 2026-07-21: PLAN-014 Slice 4a added the triageUnified activity (the old classifyInbound + triagePolicy activities are retained but no longer called by the intake path; classifyInbound is still called by retroCaseOrchestrator, so it must not be removed)."
+      "functionCount": 109,
+      "note": "106 -> 109 on 2026-07-21 (PLAN-015 Phase 0 deploy, TKT-298/TKT-299): +eva-shadow-submit-starter, +evaShadowSubmitOrchestrator, +intake-poll — all ship-dark. Earlier same day 105 -> 106 (PLAN-014 triageUnified; classifyInbound is still called by retroCaseOrchestrator, so it must not be removed)."
     },
     "database": {
       "resource": "cespk-pg-dev",
       "database": "collisionspike",
-      "baseTableCount": 78,
+      "baseTableCount": 66,
       "applicationLogin": "cespk_app",
-      "rowLevelSecurity": "enabled and forced"
+      "rowLevelSecurity": "enabled and forced",
+      "note": "78 -> 66 on 2026-07-21 (PLAN-015 Phase 4 full wipe + baseline rebuild): 65 baseline tables + the 920 reseed-backup table. The removed tables were historical remediation-backup scratch tables never defined in the baseline; all pre-wipe data is preserved in the RLS-complete pg_dump (79 TABLE DATA entries) banked with the TKT-302 evidence. Case data restarts at zero; reference corpus reseeded (390 providers); 27 Case/PO continuity floors seeded (e.g. QDOS26=811)."
     },
     "parser": {
       "resource": "cespike-parser-dev-x7xt3d5ovhi7y",
@@ -75,15 +77,14 @@
     }
   },
   "mailIntake": {
-    "status": "live",
+    "status": "alpha cutover 2026-07-21 — re-scoped to the single instructions mailbox; subscription bootstrap pending Exchange RBAC propagation (Graph 403s despite InScope=true, auto-retrying every 5 minutes)",
     "transport": "Microsoft Graph push notifications",
     "mailboxes": [
-      "info@collisionengineers.co.uk",
-      "engineers@collisionengineers.co.uk",
-      "desk@collisionengineers.co.uk"
+      "instructions@collisionengineers.co.uk"
     ],
+    "mailboxesNote": "PLAN-015 alpha (2026-07-21): GRAPH_INTAKE_MAILBOXES re-scoped at 14:01:05Z to instructions@ only (minIntakeDate = the cutover instant); the six legacy subscriptions (info@/engineers@/desk@ Inbox + SentItems) were pruned by subscription maintenance at 14:02:42Z. The three legacy mailboxes remain Exchange-RBAC-readable by the app — deliberately, for the LOCAL shadow instance's pull-based poller (TKT-299, never enabled live).",
     "renewal": "durable subscription monitor running",
-    "permissionBoundary": "CORRECTED 2026-07-21 (was wrongly recorded as read-only): the Graph Intake app registration (5d37a155-2af8-4878-b96a-6faad5207137) holds Application Mail.ReadWrite AND Application Mail.Read over all three intake mailboxes, granted via Exchange Online RBAC for Applications under two custom recipient scopes (CollisionSpike-Intake-Prod covering info@/engineers@/desk@, and CS-Intake-EngDigital covering engineers@). Verified live by Test-ServicePrincipalAuthorization: Mail.ReadWrite InScope=true for info@, engineers@ and desk@. The Entra side is empty (zero appRoleAssignments, zero oauth2PermissionGrants, empty requiredResourceAccess), so az/Graph queries of the app registration show nothing and misleadingly imply read-only; only Test-ServicePrincipalAuthorization reveals the grant. Mailbox safety therefore rests on code and gates, NOT on permissions.",
+    "permissionBoundary": "CORRECTED 2026-07-21 (was wrongly recorded as read-only), EXTENDED same day (PLAN-015 Phase 1): the Graph Intake app registration (5d37a155-2af8-4878-b96a-6faad5207137) holds Application Mail.ReadWrite AND Application Mail.Read via Exchange Online RBAC for Applications under two custom recipient scopes — CollisionSpike-Intake-Prod, whose recipient filter was extended 2026-07-21 to cover info@/engineers@/desk@ AND instructions@ (old filter banked in TKT-302 evidence for rollback), and CS-Intake-EngDigital covering engineers@. Verified live by Test-ServicePrincipalAuthorization: Mail.Read and Mail.ReadWrite InScope=true for all four mailboxes. The Entra side is empty, so az/Graph queries of the app registration show nothing and misleadingly imply read-only; only Test-ServicePrincipalAuthorization reveals the grant. Mailbox safety therefore rests on code and gates, NOT on permissions.",
     "outlookMutation": "disabled by OUTLOOK_MOVE_ENABLED=false on the Data API and orchestration. NB this gate — not the permission grant — is what prevents mail mutation; the identity is write-capable (see permissionBoundary). No delete/purge/send code exists anywhere in the repo; the only mutating mail calls are moveMessage and ensureInboxChildFolder in services/orchestration/src/adapters/graph.ts:585,600."
   },
   "access": {
@@ -109,7 +110,7 @@
     "location assistance",
     "mail triage",
     "retroactive linking",
-    "AI image analysis (producer still live, but with NO staff-visible surface since AI_ASSIST_ENABLED went off 2026-07-21 — suggestions accumulate unreviewable)",
+    "AI image analysis: OFF since the 2026-07-21 PLAN-015 alpha trim (IMAGE_ANALYSIS_ENABLED=false) — closes the write-only-suggestions gap the assistant shutdown opened earlier the same day",
     "read-only MCP (unaffected by the 2026-07-21 assistant shutdown — external AI tools can still read case data)"
   ],
   "deliberatelyUnavailable": [
@@ -130,6 +131,8 @@
     "aiAssistantSurfaces": {
       "AI_ASSIST_ENABLED": false,
       "AI_CHAT_ENABLED": false,
+      "IMAGE_ANALYSIS_ENABLED": false,
+      "imageAnalysisSetAt": "2026-07-21 (PLAN-015 Phase 5 alpha trim): flipped false on cespk-api-dev — with the assistant panel off since 11:32Z its output had no review surface and was accumulating write-only ai_suggestion rows (the gap PR #159 flagged). MCP_SERVER_ENABLED deliberately stays true (operator choice).",
       "setAt": "2026-07-21T11:32:55Z",
       "note": "Both flipped true -> false on cespk-api-dev by explicit operator direction ('disable the AI assistant'). Both surfaces are honest-off in code, so the case-page Assistant panel and the header assistant button/drawer now render nothing; no SPA deploy was needed. Server-side, POST /api/cases/{id}/ai-suggestions/generate is an honest no-op and POST /api/assistant/chat refuses. NOT a cosmetic change: AI_MODEL_ENDPOINT and AI_MODEL_DEPLOYMENT (gpt-5) are configured live, so the suggestion route WAS making real model calls beforehand — the gates.ts comment claiming those settings were absent was wrong and is corrected in the same change. No ai_suggestion data is deleted and the list/review routes stay ungated, but staff lose the only UI from which to accept or reject pending rows. Scope: these two names only. IMAGE_ANALYSIS_ENABLED and MCP_SERVER_ENABLED were read in the same pass, confirmed true, and deliberately left on — so image-analysis suggestions keep being written with no surface, and external MCP read access is unaffected. Verification: independent appsettings readback both before and after; app state Running; App Insights over the restart showed 329 requests / 0 failed / 0 exceptions, confirmed by a second pass at 283 / 0 / 0, with the config write pinned by the activity log to 11:32:54.519Z-11:32:55.441Z. Rollback is one command, no deploy."
     },
@@ -184,21 +187,30 @@
       "note": "Flipped true on cespkenrich-fn-gi62sd 2026-07-20 by explicit operator direction during the TKT-159 gate audit (settings backed up first, health confirmed after — the dvsa_mot_enrich route was already called twice post-change, both 200). Operator was shown the unresolved gaps before approving: no production chronological holdout (>=1,000 rows, only a 24-row synthetic fixture with MAE 379mi exists), the source-precedence safeguard (real mileage must always outrank an MOT estimate) is unproven live, and provider-side prior credential rotation is unproved. This is only the gate flip, not resolution of those gaps. TKT-152 verdict stays PENDING; ticket moved verify->blocked->now to reflect the gaps are now live-risk items."
     },
     "evaSubmission": false,
+    "evaShadowAutosubmit": {
+      "dataApi": false,
+      "orchestration": false,
+      "note": "TKT-298 (PLAN-015 Slice A) shipped dark 2026-07-21: EVA_SHADOW_AUTOSUBMIT_ENABLED absent on both apps (confirmed by readback in the same deploy pass). Flips at runbook Phase 6 together with EVA_API_ENABLED once the vendor UAT credentials are in Key Vault cespkevakvufa3ci."
+    },
+    "intakePoll": {
+      "orchestration": false,
+      "note": "TKT-299 (PLAN-015 Slice B) shipped dark 2026-07-21 and is LOCAL-ONLY by design: INTAKE_POLL_ENABLED and INTAKE_POLL_MAILBOXES are never to be set on cespk-orch-dev (doubly dark — the poller also requires its own separate mailbox list)."
+    },
     "deleteCaseImage": {
-      "dataApi": true,
-      "note": "Flipped true on cespk-api-dev 2026-07-20 by explicit operator direction during the TKT-159 gate audit (settings backed up first, health confirmed after). This is ONLY the gate flip — the route is live for any CollisionSpike.User staff member against any real case (Blob/Postgres legs are not test-root-scoped; only the Box leg is, via BOX_ALLOWED_ROOT_ID). TKT-160's designated-test-folder live delete+readback proof (docs/operations/delete-case-image.md) has not been run; verdict stays PENDING."
+      "dataApi": false,
+      "note": "Flipped back false on cespk-api-dev 2026-07-21 (PLAN-015 Phase 5 alpha trim): the hard-delete route's designated-test proof (TKT-160) has never run and the alpha wants an untouched dataset. Previously flipped true 2026-07-20 by operator direction; the SPA hides the control via /api/gates/delete-case-image while off. TKT-160 verdict stays PENDING."
     },
     "publicCapture": {
-      "dataApi": true,
-      "captureSessions": true,
-      "captureDirectUpload": true,
-      "note": "Found live-ON 2026-07-20 during the TKT-159 audit — NOT a change made this session and NOT an approved cutover. Contradicts TKT-200's own PENDING verdict and this file's prior 2026-07-19 `false` reading. No Azure Front Door exists in the subscription, so the ingress lockdown TKT-200/changes.md requires before go-live (AzureFrontDoor.Backend + X-Azure-FDID) is unbuildable without new infra; access restrictions on cespk-api-dev are Allow-all. Operator decision 2026-07-20: leave exposed, document only, no mutation. Treat as an open risk, see TKT-200 evidence."
+      "dataApi": false,
+      "captureSessions": false,
+      "captureDirectUpload": false,
+      "note": "All three flipped false on cespk-api-dev 2026-07-21 (PLAN-015 Phase 5) — this CLOSES the standing TKT-200 unprotected-ingress exposure recorded here on 2026-07-20 (the gates had been found live-ON without the required ingress lockdown). Verified live post-flip: POST /api/public/capture/exchange returns 404 {error:capture_missing}. The capture SPA (cespk-capture-spa-dev) stays deployed but its API calls are honest-off; the staff guided-photos panel is removed by the same day's SPA deploy (TKT-300)."
     },
     "captureCleanup": false,
     "mcpImageIngestion": {
-      "dataApi": true,
+      "dataApi": false,
       "boxRootId": "392761581105",
-      "note": "Flipped true (+ MCP_IMAGE_INGEST_BOX_ROOT_ID=392761581105) on cespk-api-dev 2026-07-20 by explicit operator direction. Fails closed for every current caller: the write lane additionally requires the dedicated `CollisionSpike.ImageIngest` Entra app role, which has not been created or assigned to any principal (TKT-154 verification.md). TKT-154 verdict stays PENDING."
+      "note": "Flipped back false on cespk-api-dev 2026-07-21 (PLAN-015 Phase 5 alpha trim; it was a fail-closed no-op anyway — the dedicated CollisionSpike.ImageIngest app role has never been created, TKT-154). The Box root id setting remains in place, inert. TKT-154 verdict stays PENDING."
     },
     "liveCutoverPerformed": false
   },
@@ -212,7 +224,7 @@
     "humanReadableEnvironment": "docs/operations/live-environment.md",
     "machineEvidence": {
       "path": "docs/operations/live-facts.evidence.json",
-      "sha256": "24b77fc1036d1f630654db9b26e54bea5f1db822a11dd9e7363fb213bde6aa0d"
+      "sha256": "d4aeef0a92016dea7aaba0f5cb3cce26298e3b8b5dbeb14c0f3f704461b6a457"
     },
     "rule": "Replace this snapshot only with dated read-only evidence; never infer live state from source code."
   }

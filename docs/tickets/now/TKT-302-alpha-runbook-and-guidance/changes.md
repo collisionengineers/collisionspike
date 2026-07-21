@@ -24,6 +24,22 @@ Ticket created from PLAN-015.
   instructions and photo emails only, QDOS only, never bulk-copy history, staff sender is
   expected. Indexed from `docs/product/README.md`.
 
+## 2026-07-21 — cutover EXECUTED (Phases 0–5 + partial 7)
+
+The runbook was executed the same day under explicit operator direction; the full dated record
+is [evidence/cutover-2026-07-21.md](./evidence/cutover-2026-07-21.md). Outcome: deploy-dark done,
+Exchange scope extended (all four mailboxes InScope=true), legacy subscriptions pruned, backups
+banked (RLS-complete dump + 12,930/12,930 blob ledger), database wiped/rebuilt (66 tables,
+27 floors, QDOS26 continues at 812), blob container cleared to zero, capture + alpha trims off
+(TKT-200 exposure closed), SPA deployed. Residuals: the alpha mailbox subscription (Exchange
+RBAC propagation lag, auto-retrying), Phase 6 (vendor UAT credentials), and the
+real-arrival behavioural smokes.
+
+Execution corrections folded back into the docs this pass: the `func publish --javascript` flag;
+psql `\copy` performs no variable interpolation (920 needs a resolved-path copy — `database.md`
++ this ticket record the working route); 920 adds a one-off backup table (+1 on the post-rebuild
+count); blob backups on Windows must reconcile case-insensitive name collisions (104 hit here).
+
 ## 2026-07-21 — correction: database firewall/WSL wording (operator flag)
 
 The operator flagged the backup/wipe/reseed section's connection guidance as wrong. Verified
