@@ -1,7 +1,7 @@
 {
   "$comment": "Committed, secret-free machine-readable evidence snapshot + field map for the machine-governed LIVE_FACTS.json fields (TKT-273 / PLAN-012). Each entry maps a LIVE_FACTS JSON path to its evidenced value, the dated read-only evidence source, the read-only probe that reproduces it, and the comparison rule. Replace only from dated read-only evidence; never infer live state from source. LIVE_FACTS.json records this file's path and sha256 under authority.machineEvidence; scripts/checks/check-live-facts.mjs compares the two offline, and scripts/checks/live-facts-azure-compare.mjs re-mints it read-only against Azure when credentials are present. No secrets, tokens, connection strings, or private identifiers appear here.",
-  "capturedAt": "2026-07-21T04:45:00Z",
-  "evidenceBasis": "All six ARM-derived function counts were re-probed live read-only on 2026-07-21 (TKT-296 post-deploy, az functionapp function list per app) and every one matches the recorded value: cespk-api-dev 146 raw (reconciled to 144 registered application functions per TKT-257's documented host/admin over-count exclusion, unchanged), cespk-orch-dev 106, cespike-parser-dev-x7xt3d5ovhi7y 5, cespkbox-fn-v76a47 16, cespkeva-fn-ufa3ci 1, cespkeval-fn-6c6fxd 1 — so capturedAt 2026-07-21 is a genuine re-attestation of the ARM counts, not a partial refresh. The one field NOT re-probed on 2026-07-21 is database.baseTableCount (requires a read-only DB connection, not ARM); it is unchanged from the 2026-07-17 baseline and is independently governed by the offline check:database gate. Prior basis carried forward: read-only ARM inventory (2026-07-19, TKT-257), the banked PLAN-009 dossier and docs/operations/cloud-inventory-2026-07-17.md.",
+  "capturedAt": "2026-07-21T14:55:00Z",
+  "evidenceBasis": "PLAN-015 alpha-cutover re-attestation (TKT-302 evidence, 2026-07-21 ~14:00-15:00Z). Probed live this pass: cespk-api-dev 146 raw endpoints -> 144 reconciled (unchanged; TKT-257 host/admin over-count exclusion), cespk-orch-dev 109 (was 106 — the PLAN-015 Phase 0 deploy registered eva-shadow-submit-starter, evaShadowSubmitOrchestrator and intake-poll, all ship-dark), and database.baseTableCount 66 via the csadmin session immediately after the Phase 4 wipe/rebuild (65 baseline tables + the reseed-backup table 920_replace_suggested_addresses.sql creates on first run; the wipe dropped 14 historical remediation-backup tables that were never part of the baseline). Carried forward from the same-day 04:45Z TKT-296 re-attestation (not re-probed this pass, no deploy touched them): cespike-parser-dev-x7xt3d5ovhi7y 5, cespkbox-fn-v76a47 16, cespkeva-fn-ufa3ci 1, cespkeval-fn-6c6fxd 1. Prior basis carried forward: read-only ARM inventory (2026-07-19, TKT-257), the banked PLAN-009 dossier and docs/operations/cloud-inventory-2026-07-17.md.",
   "resourceGroup": "rg-collisionspike-dev",
   "fields": [
     {
@@ -15,10 +15,10 @@
     {
       "path": "deployables.orchestration.functionCount",
       "resource": "cespk-orch-dev",
-      "value": 106,
+      "value": 109,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespk-orch-dev -g rg-collisionspike-dev -o json",
-      "evidenceSource": "105 -> 106 on 2026-07-21 (PLAN-014/TKT-296): the parse-fed unified triage deploy added the triageUnified activity (+1); confirmed live post-deploy via az functionapp function show triageUnified + the azure-diagnostician's 04:45Z read-only verification. Prior 105 from the 2026-07-19 re-verification (up from 101 after the 2026-07-17 d6ee70de deploy)."
+      "evidenceSource": "106 -> 109 on 2026-07-21 (PLAN-015 Phase 0 deploy, TKT-298/TKT-299): +eva-shadow-submit-starter (queue trigger), +evaShadowSubmitOrchestrator (orchestration), +intake-poll (timer), all ship-dark behind EVA_SHADOW_AUTOSUBMIT_ENABLED/EVA_API_ENABLED/INTAKE_POLL_ENABLED which were confirmed absent in the same pass. Probed live post-deploy ~14:20Z (function list count + the two new entries listed by name). Prior 106 from the same-day TKT-296 re-attestation (triageUnified, 04:45Z)."
     },
     {
       "path": "deployables.parser.functionCount",
@@ -55,10 +55,10 @@
     {
       "path": "deployables.database.baseTableCount",
       "resource": "cespk-pg-dev",
-      "value": 78,
+      "value": 66,
       "comparison": "exact",
       "probe": "read-only SQL against collisionspike: SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
-      "evidenceSource": "Database baseline plus the 2026-07-17 read-only inventory. Not reproducible from ARM alone (requires a read-only database connection); the offline check:database gate governs the schema itself. NOT re-probed on 2026-07-21 (the TKT-296 re-attestation covered the ARM function counts only, not the DB); unchanged from the baseline and governed by check:database rather than this snapshot's capturedAt."
+      "evidenceSource": "78 -> 66 on 2026-07-21 (PLAN-015 Phase 4 full wipe + baseline rebuild, TKT-302): 65 baseline tables + the reseed-backup table 920_replace_suggested_addresses.sql creates on first run. The 12-14 removed tables were historical remediation-backup tables (backup_2026*, tkt081_backup_*, tkt129/tkt130 backups, inspection_address_reseed_backup) never defined in database/baseline; their contents are preserved in the pre-wipe pg_dump (--role=csadmin, RLS-complete, 79 TABLE DATA entries). Probed live immediately after the rebuild in the same csadmin session (probe output banked in TKT-302 evidence)."
     }
   ],
   "docAuthority": {

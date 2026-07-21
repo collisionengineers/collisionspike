@@ -37,8 +37,8 @@ param graphClientId string = '5d37a155-2af8-4878-b96a-6faad5207137'
 // token echoed back on every push). Captured as a KV REFERENCE (secret name only,
 // see graphClientStateSecretName below) — NEVER a literal, per the secret rule above.
 
-@description('Configured intake mailboxes.')
-param graphIntakeMailboxes string = '[{"mailbox":"info@collisionengineers.co.uk","minIntakeDate":"2026-06-29T00:00:00Z"},{"mailbox":"engineers@collisionengineers.co.uk","minIntakeDate":"2026-06-27T00:00:00Z"},{"mailbox":"desk@collisionengineers.co.uk","minIntakeDate":"2026-06-29T00:00:00Z"}]'
+@description('Configured intake mailboxes. PLAN-015 alpha cutover 2026-07-21: re-scoped to the single instructions mailbox (minIntakeDate = the cutover instant); the prior three-mailbox value is preserved in git history and in the alpha runbook rollback section.')
+param graphIntakeMailboxes string = '[{"mailbox":"instructions@collisionengineers.co.uk","minIntakeDate":"2026-07-21T14:01:05Z"}]'
 
 param missedResyncLookbackHours string = '48'
 param parserFnUrl string = 'https://cespike-parser-dev-x7xt3d5ovhi7y.azurewebsites.net'

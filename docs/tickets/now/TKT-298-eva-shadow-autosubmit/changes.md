@@ -35,3 +35,12 @@ Ticket created from PLAN-015.
   deliberate contract change this ticket makes. The runtime-contract check caught the drift in
   CI exactly as designed; the snapshot diff is the reviewable record (the approvals ledger only
   models removals).
+
+## 2026-07-21 — deployed dark (PLAN-015 Phase 0)
+
+Live on `cespk-api-dev` + `cespk-orch-dev` (orchestration 106 → 109 functions, the consumer +
+orchestrator listed by name post-deploy); the `eva-shadow-submit` queue created on
+`cespkorchstdev01`; both gates confirmed absent by readback (dark). The hardened
+`finalize-eva-box` starter is live, satisfying the Phase 6 ordering dependency in advance. Full
+record: TKT-302 `evidence/cutover-2026-07-21.md`. Remaining for this ticket: the Phase 6 gate
+flips (blocked on vendor UAT credentials) and the live extract → shadow-submission smoke.
