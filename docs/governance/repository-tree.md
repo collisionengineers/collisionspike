@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1231 directories, 4155 files.
+Grand total: 1246 directories, 4175 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,7 +1096,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 611 directories, 1515 files
+### docs — 626 directories, 1535 files
 
 ```text
 docs/  (1 file)
@@ -1253,6 +1253,11 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-297-engine-merge-hardening-findings/  (3 files)
         evidence/  (1 file)
+      TKT-311-inbound-triage-two-axis-taxonomy/  (1 file)
+      TKT-312-inbound-triage-signal-precedence-engine/  (1 file)
+      TKT-313-inbound-triage-forwards-first-class-route/  (1 file)
+      TKT-314-inbound-triage-taxonomy-migration/  (1 file)
+      TKT-315-inbound-triage-engine-consolidation/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
       TKT-009-clickable-case-and-email/  (4 files)
@@ -1559,6 +1564,8 @@ docs/  (1 file)
       TKT-287-cedocumentmapper-engine-repository-consolidation/  (3 files)
         evidence/  (1 file)
     next/  (1 file)
+      TKT-310-inbound-triage-ground-truth-corpus/  (1 file)
+        evidence/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
         evidence/  (3 files)
@@ -1637,7 +1644,15 @@ docs/  (1 file)
       TKT-301-alpha-config-gate-parity/  (2 files)
       TKT-302-alpha-runbook-and-guidance/  (2 files)
         evidence/  (1 file)
-    plans/  (17 files)
+      TKT-306-image-classify-content-filter-false-positive/  (2 files)
+        evidence/  (1 file)
+      TKT-307-signature-image-regex-digit-cap/  (2 files)
+        evidence/  (1 file)
+      TKT-308-retro-fallback-off-for-alpha/  (2 files)
+        evidence/  (1 file)
+      TKT-309-eva-image-rules-advisory/  (2 files)
+        evidence/  (1 file)
+    plans/  (18 files)
     verify/  (0 files)
       TKT-016-ai-image-analysis/  (3 files)
         evidence/  (3 files)
@@ -2263,10 +2278,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4155 | 4155 | PASS |
-| Proposed tree directories == ledger final directories | 1231 | 1231 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4157 | 4157 | PASS |
-| Proposed directories == inventory directories | 1231 | 1231 | PASS |
+| Proposed tree files == ledger final files | 4175 | 4175 | PASS |
+| Proposed tree directories == ledger final directories | 1246 | 1246 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4177 | 4177 | PASS |
+| Proposed directories == inventory directories | 1246 | 1246 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

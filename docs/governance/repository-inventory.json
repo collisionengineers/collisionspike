@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1231,
-    "files": 4157,
-    "entries": 5388
+    "directories": 1246,
+    "files": 4177,
+    "entries": 5423
   },
-  "totalFileBytes": 710412243,
+  "totalFileBytes": 710493488,
   "entries": [
     {
       "path": ".",
@@ -2496,6 +2496,51 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-311-inbound-triage-two-axis-taxonomy",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-312-inbound-triage-signal-precedence-engine",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-313-inbound-triage-forwards-first-class-route",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-314-inbound-triage-taxonomy-migration",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-315-inbound-triage-engine-consolidation",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -5258,6 +5303,24 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/tickets/next/TKT-310-inbound-triage-ground-truth-corpus",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/next/TKT-310-inbound-triage-ground-truth-corpus/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets/now",
       "mediaType": "inode/directory",
       "size": 0,
@@ -5952,6 +6015,78 @@
     },
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-306-image-classify-content-filter-false-positive",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-306-image-classify-content-filter-false-positive/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-307-signature-image-regex-digit-cap",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-307-signature-image-regex-digit-cap/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-309-eva-image-rules-advisory",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-309-eva-image-rules-advisory/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -17131,7 +17266,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1686824,
+      "size": 1697850,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17149,8 +17284,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4496236,
-      "sha256": "148fa0609d88519e245ada675ff1ccc85bbdc9efb49661b77f0fba3dbe6b2134",
+      "size": 4510282,
+      "sha256": "144119921bb6522eb04cd5af02f0f7709bb7dca6c228cf982177c403d8c2fb4c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17158,8 +17293,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71832,
-      "sha256": "1e04deec24e88af9abf4bca135711e7bd72d781fed4e5c4e59e935989c6aa2e3",
+      "size": 72577,
+      "sha256": "b02ec2e0888fc5113ee74a9d40ecfb11e306ee7d324b8a260fa79072232fbd92",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17698,8 +17833,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 55238,
-      "sha256": "a5f7934915ea2be738e248756116eed10d2e7db927fc30d95224d4f5bd82c6c5",
+      "size": 57476,
+      "sha256": "ad96666df15dc0a6710f956ac9602dd5eb3b53d99b9775e62c2bdbe286b4080a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17707,8 +17842,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 58652,
-      "sha256": "a3ad9af9aa84d17307db1c321f1e5b4e4b1cba17604b2f75a98c0a15b1a0c505",
+      "size": 61058,
+      "sha256": "0b9996351806c8296a8a6534fb861ac8e23f6e39f2fe5ddef25af91936774366",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19959,6 +20094,51 @@
       "mediaType": "text/markdown",
       "size": 445,
       "sha256": "c92bf7634208fef6b9015e0ac7cafc17a2bb88b186e9dd2b755da86ff9a3b14c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-311-inbound-triage-two-axis-taxonomy/TKT-311-inbound-triage-two-axis-taxonomy.md",
+      "mediaType": "text/markdown",
+      "size": 1957,
+      "sha256": "327a9efa08f32efb11e23420273f01ce9b8dbf07732a6ed7d86fb99ba028dd9d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-312-inbound-triage-signal-precedence-engine/TKT-312-inbound-triage-signal-precedence-engine.md",
+      "mediaType": "text/markdown",
+      "size": 2524,
+      "sha256": "7a423a8fc918b3108f26f8c9362982e31c8d8b500de4e845b33beedd335b445d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-313-inbound-triage-forwards-first-class-route/TKT-313-inbound-triage-forwards-first-class-route.md",
+      "mediaType": "text/markdown",
+      "size": 1681,
+      "sha256": "a6609721bf0beb27ba2e09bd5db8df59a45ddc31d0d50cce98542647fc5190e1",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-314-inbound-triage-taxonomy-migration/TKT-314-inbound-triage-taxonomy-migration.md",
+      "mediaType": "text/markdown",
+      "size": 2291,
+      "sha256": "56dfb8e75fb25c3d2d6871e5fa0f7a5babb491e8678a338a815abf0e5ff2d214",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-315-inbound-triage-engine-consolidation/TKT-315-inbound-triage-engine-consolidation.md",
+      "mediaType": "text/markdown",
+      "size": 2098,
+      "sha256": "c1b6b8f9905be251087f16b33b7e29e8b5ccd508802d00b3bdea8b6615f701d8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26579,6 +26759,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/next/TKT-310-inbound-triage-ground-truth-corpus/TKT-310-inbound-triage-ground-truth-corpus.md",
+      "mediaType": "text/markdown",
+      "size": 2578,
+      "sha256": "80e366e533bf386ce558b050e497ccef4aebf68fbd96975123d825959bafe77f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/next/TKT-310-inbound-triage-ground-truth-corpus/evidence/code-read-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 1290,
+      "sha256": "827da59ffd8c37281aa0cad27bbdde6b7e52eed8d5ee1928e275d5ab58a421f7",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/now/.gitkeep",
       "mediaType": "application/octet-stream",
       "size": 292,
@@ -27085,8 +27283,8 @@
     {
       "path": "docs/tickets/now/TKT-130-review-queue-readiness/TKT-130-review-queue-readiness.md",
       "mediaType": "text/markdown",
-      "size": 6462,
-      "sha256": "f588cd5fb0b54db08e67e60b58afe06d1759fc279981af5cfefc35981b1bc864",
+      "size": 7146,
+      "sha256": "b954577cd994dc73a3d3fc090f4c2e42befb2dde7c11ce8cd4b3d47b222303a7",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28298,6 +28496,114 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-306-image-classify-content-filter-false-positive/TKT-306-image-classify-content-filter-false-positive.md",
+      "mediaType": "text/markdown",
+      "size": 3993,
+      "sha256": "a9d4342b511f2d1999dc416521b7d7cbab553d5f3d8da247c1184cdc31279357",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-306-image-classify-content-filter-false-positive/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1538,
+      "sha256": "ef2a398740a1968b7f96ce320a4e23ccec48920b6438408c47a6683a25bd2788",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-306-image-classify-content-filter-false-positive/evidence/code-read-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 2531,
+      "sha256": "d94ce7f4f05938b4c1c13ac31009f9676ff1122a613e77e0f0e21745394e4879",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-307-signature-image-regex-digit-cap/TKT-307-signature-image-regex-digit-cap.md",
+      "mediaType": "text/markdown",
+      "size": 2739,
+      "sha256": "57a0781923fa18d32ab4fb4bf06940bff58d5276032cb2dbaba7e7248cdef667",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-307-signature-image-regex-digit-cap/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1064,
+      "sha256": "e838cbbaf5e5afdfad42693b339b7688e84ab516010c13908d4ecc19d2fdae3c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-307-signature-image-regex-digit-cap/evidence/code-read-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 1394,
+      "sha256": "275f07e61ff46ec21994897301a5b0bd3614471c3e85cbd140a6545bff13db9d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/TKT-308-retro-fallback-off-for-alpha.md",
+      "mediaType": "text/markdown",
+      "size": 2638,
+      "sha256": "ac77608b91e4c6b8c2aa35139ff93fd8d268becfdbacff3e6609a729a0d4512f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/changes.md",
+      "mediaType": "text/markdown",
+      "size": 663,
+      "sha256": "b4f1a3e8500a70af99af97dbab52128372053ea5a0e67f6bf3258193bf443eac",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/evidence/gate-read-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 1402,
+      "sha256": "2cb0e9096f4f1315a785dd34043ebd9d04800e2e085775738d603d9166aa6489",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-309-eva-image-rules-advisory/TKT-309-eva-image-rules-advisory.md",
+      "mediaType": "text/markdown",
+      "size": 3288,
+      "sha256": "9727b992400dad5708fa82b7e486f89f12865253423d58f04834d21266b42019",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-309-eva-image-rules-advisory/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2368,
+      "sha256": "0b68f75380c12be5f65411be5131400805e6f06fb26ec78eb073d4d031602376",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-309-eva-image-rules-advisory/evidence/code-read-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 2056,
+      "sha256": "3b874cb13a24a38337ae38a87e35a81025a973e22f61eeb1414e0c198cde856c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28446,6 +28752,15 @@
       "mediaType": "text/markdown",
       "size": 5058,
       "sha256": "51757f8be85064bf435f7157a861c83c15c39049558cc206be55f87ca3d16405",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-016-inbound-triage-taxonomy-rewrite.md",
+      "mediaType": "text/markdown",
+      "size": 6860,
+      "sha256": "2c648418d396e4936360e109d17919326028a8c5f1134b2193fd8e5a95164a28",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -40603,8 +40918,8 @@
     {
       "path": "services/orchestration/src/platform/image-classify.test.ts",
       "mediaType": "text/typescript",
-      "size": 16357,
-      "sha256": "f2e1dbd0819059d5bbb3aa4ba801fa51a5fd945d096de31dc2179d976072c65b",
+      "size": 17709,
+      "sha256": "29e8e23385f881799e2687507b6f8c9467a0d68cc1aaff29f7497efda3b2ea24",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40612,8 +40927,8 @@
     {
       "path": "services/orchestration/src/platform/image-classify.ts",
       "mediaType": "text/typescript",
-      "size": 14040,
-      "sha256": "242c476c4864294b75452d94f16cf8425156361305672552f144c7f7f41dfa4b",
+      "size": 14195,
+      "sha256": "385dcd832635fba0c7edee4dc7ec49060c38f4ad2e8631ea241ad202f336e287",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41035,8 +41350,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/extractImages.test.ts",
       "mediaType": "text/typescript",
-      "size": 10117,
-      "sha256": "3dd2b5dffca9d28f482c9cba37fa2fffa5055dbfa7d108e73492553b624c9685",
+      "size": 11082,
+      "sha256": "eab2087ecd0b59d42d27f931a11e3d77fab1d4686e935260ddb796757123098b",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41044,8 +41359,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/extractImages.ts",
       "mediaType": "text/typescript",
-      "size": 12220,
-      "sha256": "c235e9f928918e4dd2072abcdb66874ebbd17e465f61ab709a565c555f0ac349",
+      "size": 12895,
+      "sha256": "e008b65608a56cd2c463d08b2b58788bda9726f8c9928f3ddb33e21610c1f825",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
