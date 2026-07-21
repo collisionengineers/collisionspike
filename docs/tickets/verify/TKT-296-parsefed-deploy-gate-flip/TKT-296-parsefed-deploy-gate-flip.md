@@ -1,7 +1,7 @@
 ---
 id: TKT-296
 title: Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5)
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-290, TKT-291, TKT-292, TKT-293, TKT-294, TKT-295, TKT-297, TKT-056, TKT-159]

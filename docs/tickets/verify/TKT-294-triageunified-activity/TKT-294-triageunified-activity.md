@@ -1,7 +1,7 @@
 ---
 id: TKT-294
 title: triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a)
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-290, TKT-291, TKT-292, TKT-293]

@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710121876,
+  "totalFileBytes": 710122161,
   "entries": [
     {
       "path": ".",
@@ -5906,78 +5906,6 @@
       "lifecycle": "structural"
     },
     {
-      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/evidence",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-294-triageunified-activity",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
-      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip",
-      "mediaType": "inode/directory",
-      "size": 0,
-      "sha256": null,
-      "category": "directory",
-      "owner": "ticket-system",
-      "lifecycle": "structural"
-    },
-    {
       "path": "docs/tickets/plans",
       "mediaType": "inode/directory",
       "size": 0,
@@ -6555,6 +6483,78 @@
     },
     {
       "path": "docs/tickets/verify/TKT-223-retro-force-rerun",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-290-intake-vrm-ref-precedence-centralization",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-291-classifier-attachment-content-typings",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-292-classify-email-route-client-wiring",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-294-triageunified-activity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-295-reorder-tkt102-collapse",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-296-parsefed-deploy-gate-flip",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16996,7 +16996,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1664041,
+      "size": 1664131,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17014,8 +17014,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4466904,
-      "sha256": "8a20e0eedc926ceb3850fa1aff18c083d5fdd21ce03e619614979a0c15715a40",
+      "size": 4466994,
+      "sha256": "11ddb9ea45380d9adc8e804ad6a88445aaaade20e394448a0a53f994d5262633",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17024,7 +17024,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 71320,
-      "sha256": "9a8e96425b0fb030585749e3162dd58009e3888e201a5df52f7f378a72c09459",
+      "sha256": "e1d8e232927f1f039f99829459a6ad6d0d38ced9f9b5e7ae32f6e38535ce284b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17545,8 +17545,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 54201,
-      "sha256": "e97e8dd19fb1e869e893a7b0b5a36d900f9d98cdcc451902a595c3f2c7f1aa25",
+      "size": 54222,
+      "sha256": "f00ad6caa5a3ec63a0dbbdb603bacd557278921755482d5e4f7d16012c9e8668",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17554,8 +17554,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 57460,
-      "sha256": "f92ec0f8320a272402eb548b7b42e75ba828b78aace25877c42f5039d263abe1",
+      "size": 57481,
+      "sha256": "4f0630d45cd1890536bc023c8b2d31bb70f00fdd58d606296ac839fac7fc8c08",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28037,204 +28037,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md",
-      "mediaType": "text/markdown",
-      "size": 5070,
-      "sha256": "bce665968c0730fd75bb7c597f036151eb01fa2f5caafbe70c3a7ea13ca4078b",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/changes.md",
-      "mediaType": "text/markdown",
-      "size": 1719,
-      "sha256": "19fbfd753e4abbb2d17fc7ed528e4144b1c7b5ee833b15c975811c2455c20d3a",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1787,
-      "sha256": "cf6fe72b3d6f54fee065e4d3cc4e17dcbf4d99976a3219e0af7c68e67ef3cac9",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md",
-      "mediaType": "text/markdown",
-      "size": 5216,
-      "sha256": "cec8aa22e8732fd570b7dc1805d7cfccd2040f5d8549bafacd3741f5a5d3dde0",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/changes.md",
-      "mediaType": "text/markdown",
-      "size": 4649,
-      "sha256": "adafa12aea20743f871b6fac9edaa6274d56a5fa8ad426dd265c0579dfcd1c85",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/verification.md",
-      "mediaType": "text/markdown",
-      "size": 2479,
-      "sha256": "f8e1f078df11561262813abac54e4f26d59d9bf0dfed5e22b1ddc442842caf47",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md",
-      "mediaType": "text/markdown",
-      "size": 2504,
-      "sha256": "90183b0f53b01e0b7ef7d65a5ad393607b7a6fb81456deb343c147bdfa568eaf",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2413,
-      "sha256": "f38efa3667304c1e3035bab451bfa0e2ff585327841ef643b71c17a79dc6aaf4",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1277,
-      "sha256": "416a8a3c9d9b476dc24087cc64167b6e2a070efbfd3a06b31933bb70b32f384f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md",
-      "mediaType": "text/markdown",
-      "size": 4307,
-      "sha256": "74a336148a1ba2107ffd9d186282d1fc5cb57c3f5a74ca640a1386dd11bf7e25",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2832,
-      "sha256": "c42ed00cbe4f3dc63af54dc1ee1c6fc72d094f9a85c502d57b48435b10ba903f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/evidence/parsefed-backtest-report.md",
-      "mediaType": "text/markdown",
-      "size": 842,
-      "sha256": "1d4d629bee40f5893ef33d7266db64586ce8bc62301deba74148209e04214a1e",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1819,
-      "sha256": "dffa93d688a68d0184b1ca6d3d55981883448b01a59a68a8b0e6a1f89a5d4399",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md",
-      "mediaType": "text/markdown",
-      "size": 3586,
-      "sha256": "381c542035ca1a507f74c59b657f57fafb7f448cee6c1ce920f8075a2f54a973",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-294-triageunified-activity/changes.md",
-      "mediaType": "text/markdown",
-      "size": 3493,
-      "sha256": "94b871edc33eac6943042f6a365872db15f843247b318e2aa1cfba6c25b3dcf5",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-294-triageunified-activity/verification.md",
-      "mediaType": "text/markdown",
-      "size": 1691,
-      "sha256": "3e1c2869cf0a78327390d0316dac2f443d4324a6bf818ca3dea2324070150e63",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md",
-      "mediaType": "text/markdown",
-      "size": 6249,
-      "sha256": "5002422694cb941cb58269c2b8851024582d02373b1f7f3fc5964f95ddbc5622",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/changes.md",
-      "mediaType": "text/markdown",
-      "size": 6419,
-      "sha256": "3c6b02d7338e7c837225d2cdf7469f7a1cb8b6c006411d8b1d354b6834d5bf1f",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/verification.md",
-      "mediaType": "text/markdown",
-      "size": 3896,
-      "sha256": "4f77b9c988901390f73f87b4644bc4499653078e27775b0ac5cf09c24db614b8",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md",
-      "mediaType": "text/markdown",
-      "size": 3993,
-      "sha256": "31d1434d77c8c59e9ef5810447839b4750a46809da5390a9a1c0a3479530b03d",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/changes.md",
-      "mediaType": "text/markdown",
-      "size": 2536,
-      "sha256": "26c7d1e4a43bcf79998c24222c944a7db82b66758ba1b6010001c12a14cdfb8c",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
-      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/verification.md",
-      "mediaType": "text/markdown",
-      "size": 6033,
-      "sha256": "fe273ba6ef07e8cc883d0fad070a5f52624ee0afab30659bb72fa129889fb388",
-      "category": "ticket",
-      "owner": "ticket-system",
-      "lifecycle": "active"
-    },
-    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28372,8 +28174,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 4708,
-      "sha256": "73395eb5c5b346c078ec0d027a4d45141d133f0f0bae8a71360a3a4cf9126d59",
+      "size": 4750,
+      "sha256": "3fdd7b14adb293f5a1bcd1c2d3a515d5917cf44a41100721843c36bcf4797383",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -29985,6 +29787,204 @@
       "mediaType": "text/markdown",
       "size": 1753,
       "sha256": "5831652286deef7df9674e625c8df7d34673b7b0c1847b43b75e94d161141010",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md",
+      "mediaType": "text/markdown",
+      "size": 5073,
+      "sha256": "b39c118bb611e046dea4bdd8145aa47bceeb7f37af09d89b2df2de9b05737271",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-290-intake-vrm-ref-precedence-centralization/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1719,
+      "sha256": "19fbfd753e4abbb2d17fc7ed528e4144b1c7b5ee833b15c975811c2455c20d3a",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-290-intake-vrm-ref-precedence-centralization/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1787,
+      "sha256": "cf6fe72b3d6f54fee065e4d3cc4e17dcbf4d99976a3219e0af7c68e67ef3cac9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md",
+      "mediaType": "text/markdown",
+      "size": 5219,
+      "sha256": "89816547380ea89650fbf0c0b95f757ae5efe4a35337d8371cbadc03870a84c2",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-291-classifier-attachment-content-typings/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4649,
+      "sha256": "adafa12aea20743f871b6fac9edaa6274d56a5fa8ad426dd265c0579dfcd1c85",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-291-classifier-attachment-content-typings/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2479,
+      "sha256": "f8e1f078df11561262813abac54e4f26d59d9bf0dfed5e22b1ddc442842caf47",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md",
+      "mediaType": "text/markdown",
+      "size": 2507,
+      "sha256": "8af7f08ead59603d9f292acdc82a5872acb4196c22e261d7a673c177f2b4ab45",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-292-classify-email-route-client-wiring/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2413,
+      "sha256": "f38efa3667304c1e3035bab451bfa0e2ff585327841ef643b71c17a79dc6aaf4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-292-classify-email-route-client-wiring/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1277,
+      "sha256": "416a8a3c9d9b476dc24087cc64167b6e2a070efbfd3a06b31933bb70b32f384f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md",
+      "mediaType": "text/markdown",
+      "size": 4310,
+      "sha256": "1923cc18216a72ba233cb96acb595c0163f1b6c53365596dc22aaf57e0dace3d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2832,
+      "sha256": "c42ed00cbe4f3dc63af54dc1ee1c6fc72d094f9a85c502d57b48435b10ba903f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness/evidence/parsefed-backtest-report.md",
+      "mediaType": "text/markdown",
+      "size": 842,
+      "sha256": "1d4d629bee40f5893ef33d7266db64586ce8bc62301deba74148209e04214a1e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-293-parsefed-backtest-harness/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1819,
+      "sha256": "dffa93d688a68d0184b1ca6d3d55981883448b01a59a68a8b0e6a1f89a5d4399",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md",
+      "mediaType": "text/markdown",
+      "size": 3589,
+      "sha256": "945e558c7e1807b75896e4073ace0216d8c82d6baa6196b74d304d2deed15f34",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-294-triageunified-activity/changes.md",
+      "mediaType": "text/markdown",
+      "size": 3493,
+      "sha256": "94b871edc33eac6943042f6a365872db15f843247b318e2aa1cfba6c25b3dcf5",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-294-triageunified-activity/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1691,
+      "sha256": "3e1c2869cf0a78327390d0316dac2f443d4324a6bf818ca3dea2324070150e63",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md",
+      "mediaType": "text/markdown",
+      "size": 6252,
+      "sha256": "eade55fce1e266d0d1899d2ed450ef98b826edf97c73738345ad531725672fda",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-295-reorder-tkt102-collapse/changes.md",
+      "mediaType": "text/markdown",
+      "size": 6419,
+      "sha256": "3c6b02d7338e7c837225d2cdf7469f7a1cb8b6c006411d8b1d354b6834d5bf1f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-295-reorder-tkt102-collapse/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3896,
+      "sha256": "4f77b9c988901390f73f87b4644bc4499653078e27775b0ac5cf09c24db614b8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md",
+      "mediaType": "text/markdown",
+      "size": 3996,
+      "sha256": "24b7d0359c235779be7e90ddd7ac919964d129d24119978e37e74eadafcafada",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-296-parsefed-deploy-gate-flip/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2536,
+      "sha256": "26c7d1e4a43bcf79998c24222c944a7db82b66758ba1b6010001c12a14cdfb8c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-296-parsefed-deploy-gate-flip/verification.md",
+      "mediaType": "text/markdown",
+      "size": 6033,
+      "sha256": "fe273ba6ef07e8cc883d0fad070a5f52624ee0afab30659bb72fa129889fb388",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

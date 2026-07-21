@@ -1,7 +1,7 @@
 ---
 id: TKT-295
 title: Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b)
-status: now
+status: verify
 priority: P1
 area: intake
 tickets-it-relates-to: [TKT-290, TKT-291, TKT-292, TKT-293, TKT-294, TKT-102, TKT-277, TKT-145]

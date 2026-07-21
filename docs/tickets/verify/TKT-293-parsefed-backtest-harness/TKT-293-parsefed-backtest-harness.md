@@ -1,7 +1,7 @@
 ---
 id: TKT-293
 title: Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3)
-status: now
+status: verify
 priority: P1
 area: parsing
 tickets-it-relates-to: [TKT-291, TKT-043, TKT-041, TKT-034]
