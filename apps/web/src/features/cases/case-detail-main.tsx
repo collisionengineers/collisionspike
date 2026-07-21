@@ -1,6 +1,6 @@
 
 import { Badge, Button, Caption1, Divider, Field, Input, Link, MessageBar, MessageBarBody, Spinner, Tab, TabList, Text, Textarea, Toast, ToastBody, ToastTitle, type SelectTabData, type SelectTabEvent } from '@fluentui/react-components';
-import { AlertTriangle, ArrowUpRight, Archive, FileText, ImageOff, Mail, Lightbulb, Search } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, FileText, ImageOff, Mail, Lightbulb, Search } from 'lucide-react';
 import { ChaserPanel, EvaFieldRow, FIELD_CLUSTERS, GuidedPhotoRequestPanel, LABEL_FOR, ImageOrderList, Panel, ProvenanceBadge, ThumbGridSkeleton } from '../../shared/ui';
 import { activeCopyFileRequestTransport, type Note } from '../../data';
 import { sourceReadinessRecoverySnapshot } from '@cs/domain';
@@ -58,9 +58,6 @@ export function CaseDetailMain(props: CaseDetailViewModel) {
 
               {tab === 'evidence' && (
                 <div className={styles.stack}>
-                  <Caption1 className={styles.hint}>
-                    Photo choices save as you make them. Use Save changes for case fields and the inspection choice.
-                  </Caption1>
                   <ManualSourceArchiveRecovery
                     caseValue={c}
                     onRecovered={(fresh) => {
@@ -78,12 +75,7 @@ export function CaseDetailMain(props: CaseDetailViewModel) {
                   {/* Case archive — prefer the stored folder link, then offer the
                       generated Archive action when only Archive access is available. */}
                   {(c.boxFolderUrl || archiveEnabled) && (
-                    <div className={styles.thumbRowBetween}>
-                      <Caption1 className={styles.hint}>
-                        <span className={styles.inlineIconText}>
-                          <Archive size={14} /> Case archive — the email, instructions and photos are mirrored here.
-                        </span>
-                      </Caption1>
+                    <div className={styles.thumbRowStart}>
                       {c.boxFolderUrl ? (
                         <Link inline href={c.boxFolderUrl} target="_blank" rel="noopener noreferrer">
                           <span className={styles.inlineIconText}>
