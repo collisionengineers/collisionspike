@@ -27,6 +27,15 @@
    on the Evidence tab as advisory copy (`Evidence.reviewRequired`, which the SPA
    reads) — it simply no longer decides readiness. Do not reintroduce it.
 
+   SUPERSEDED (P1-E, operator ruling 2026-07-21, same day): the three rules
+   themselves are now ALSO advisory. `evaluateEvaImageRules` below is unchanged —
+   it still computes the same three-rule pass/fail — but its consumer,
+   `evaluateCaseReadiness` (case-status.ts), marks the resulting checklist item
+   `advisory: true`: a failing image contract still shows on the Case Detail
+   checklist, it no longer withholds `ready_for_eva` or blocks
+   `canSubmitCaseToEva`. This function's return value and this file's contract
+   are unchanged; only how the caller weighs the result changed.
+
    PURE + DETERMINISTIC + FRAMEWORK-FREE.
    ============================================================ */
 

@@ -294,15 +294,19 @@ describe('statusForReviewCase — missing_required_fields branch (FIX-3: reserve
   });
 });
 
-describe('statusForReviewCase — missing_images branch', () => {
-  it('returns missing_images when required fields are present but images fail', () => {
+/* P1-E, operator ruling 2026-07-21 (superseding this describe block's earlier name and
+   assertions): images are now advisory, so a field-complete case reaches ready_for_eva
+   regardless of the image contract. The gap still shows on the checklist (imagesReady:
+   false) — see canonical-readiness.test.ts for the checklist-level assertions. */
+describe('statusForReviewCase — images are advisory (P1-E)', () => {
+  it('reaches ready_for_eva when required fields are present even though images fail', () => {
     const input = caseInput({ evidence: [] });
-    expect(statusForReviewCase(input)).toBe('missing_images');
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 
-  it('missing_images fires even with instructions present, when fields are complete', () => {
+  it('reaches ready_for_eva with instructions present and fields complete, regardless of images', () => {
     const input = caseInput({ evidence: [instrEv()] });
-    expect(statusForReviewCase(input)).toBe('missing_images');
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 });
 
@@ -345,12 +349,12 @@ describe('statusForReviewCase — needs_review branch (FIX-3 evidence-aware)', (
     expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 
-  it('a concrete image failure remains the persisted reason when a field also needs review', () => {
+  it('a populated field under review and an advisory image gap both reach ready_for_eva (P1-E)', () => {
     const input = caseInput({
       evaFields: fullFields({ mileage: field('1000', 'needs_review') }),
       evidence: [],
     });
-    expect(statusForReviewCase(input)).toBe('missing_images');
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 });
 
