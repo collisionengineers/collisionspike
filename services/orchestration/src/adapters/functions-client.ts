@@ -97,6 +97,16 @@ export function callClassifyEmail(input: {
   /** RFC In-Reply-To / References headers — make is_reply detection reliable (#3). */
   inReplyTo?: string;
   references?: string;
+  /** PLAN-014 D1 — orchestration's OPEN-CASE lookup result for the named ref (the
+   *  classifier is TOLD, it never looks a Case up). Optional; `''` (unresolved/not
+   *  looked up) is today's byte-identical behaviour. */
+  /** The classifier's own open-case state vocabulary (PLAN-014 D1). Narrowed to the same union
+   *  the /classify-email route validates — never the orchestration 'matched'/'unmatched' terms. */
+  openCaseRefMatch?: 'one' | 'none' | 'ambiguous';
+  /** PLAN-014 D4 — content-based attachment typing from the parser's detector
+   *  (`detection/attachment_typing.py`), sparse per doc-bearing attachment. Optional;
+   *  omitted/empty is today's byte-identical behaviour. */
+  attachmentContentTypings?: Array<{ filename: string; docType: string }>;
 }): Promise<ClassifyEmailResult> {
   return callFunction(PARSER, 'POST', 'classify-email', {
     subject: input.subject ?? '',
@@ -110,6 +120,11 @@ export function callClassifyEmail(input: {
     has_attachments: input.hasAttachments ?? false,
     in_reply_to: input.inReplyTo ?? '',
     references: input.references ?? '',
+    open_case_ref_match: input.openCaseRefMatch ?? '',
+    attachment_content_typings: (input.attachmentContentTypings ?? []).map((t) => ({
+      filename: t.filename,
+      doc_type: t.docType,
+    })),
   });
 }
 

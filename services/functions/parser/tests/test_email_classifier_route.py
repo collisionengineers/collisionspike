@@ -137,6 +137,111 @@ def test_route_rejects_non_string_threading_header():
     assert data["is_reply"] is False  # error envelope shares the success schema
 
 
+# --------------------------------------------------------------------------- #
+# PLAN-014 D1/D4 — open_case_ref_match / attachment_content_typings wiring    #
+# --------------------------------------------------------------------------- #
+def test_route_passes_open_case_ref_match_through():
+    resp = function_app.classify_email_route(
+        _make_request(
+            {
+                "subject": "Following up on the file",
+                "body": "Please see the further photos for this case.",
+                "provider_match_state": "one",
+                "attachment_kinds": ["image"],
+                "has_attachments": True,
+                "open_case_ref_match": "one",
+            }
+        )
+    )
+    assert resp.status_code == 200
+    data = json.loads(resp.get_body())
+    assert "open_case_ref_match:one" in data["signals"]
+
+
+def test_route_rejects_non_string_open_case_ref_match():
+    resp = function_app.classify_email_route(
+        _make_request({"subject": "x", "body": "y", "open_case_ref_match": 1})
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
+def test_route_passes_attachment_content_typings_through():
+    """A content-typed report (generic filename, no 'report' hint) suppresses the
+    fresh-instruction promotion via the route — proves the field actually reaches
+    classify_email, not just accepted and dropped."""
+    resp = function_app.classify_email_route(
+        _make_request(
+            {
+                "subject": "Documents enclosed",
+                "body": "Please see the attached document.",
+                "provider_match_state": "one",
+                "attachment_kinds": ["instruction"],
+                "attachment_filenames": ["scan0091.pdf"],
+                "has_attachments": True,
+                "attachment_content_typings": [
+                    {"filename": "scan0091.pdf", "doc_type": "report"}
+                ],
+            }
+        )
+    )
+    assert resp.status_code == 200
+    data = json.loads(resp.get_body())
+    assert data["category"] != "receiving_work"
+    assert "attachment_content_typings:report" in data["signals"]
+
+
+def test_route_rejects_non_list_attachment_content_typings():
+    resp = function_app.classify_email_route(
+        _make_request({"subject": "x", "body": "y", "attachment_content_typings": "report"})
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
+def test_route_rejects_attachment_content_typings_with_non_object_entries():
+    resp = function_app.classify_email_route(
+        _make_request({"subject": "x", "body": "y", "attachment_content_typings": ["report"]})
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
+def test_route_rejects_unsupported_open_case_ref_match_state():
+    """The orchestration vocabulary ('matched'/'unmatched') or a typo must 400, never be
+    coerced to 'no open case' — otherwise an update for an existing case keeps a fresh-work
+    classification and later mints a duplicate."""
+    resp = function_app.classify_email_route(
+        _make_request({"subject": "x", "body": "y", "open_case_ref_match": "matched"})
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
+def test_route_rejects_content_typing_entry_missing_fields():
+    """A malformed {} entry (no filename / no doc_type) must 400 — it must not become a
+    nonempty content-type set that could suppress a genuine instruction."""
+    resp = function_app.classify_email_route(
+        _make_request({"subject": "x", "body": "y", "attachment_content_typings": [{}]})
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
+def test_route_rejects_content_typing_unsupported_doc_type():
+    resp = function_app.classify_email_route(
+        _make_request(
+            {
+                "subject": "x",
+                "body": "y",
+                "attachment_content_typings": [{"filename": "a.pdf", "doc_type": "weird"}],
+            }
+        )
+    )
+    assert resp.status_code == 400
+    assert json.loads(resp.get_body())["issues"][0]["code"] == "bad_field"
+
+
 def test_route_bad_json_returns_400_with_safe_other_label():
     resp = function_app.classify_email_route(_make_request(b"this is not json"))
     assert resp.status_code == 400
