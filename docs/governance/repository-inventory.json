@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710118960,
+  "totalFileBytes": 710121876,
   "entries": [
     {
       "path": ".",
@@ -16996,7 +16996,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1664040,
+      "size": 1664041,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17014,8 +17014,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4466903,
-      "sha256": "eb2ebd10352f058944047361dbe765cb0a335298e3ed68a1f84aa211c74d6b4e",
+      "size": 4466904,
+      "sha256": "8a20e0eedc926ceb3850fa1aff18c083d5fdd21ce03e619614979a0c15715a40",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17086,8 +17086,8 @@
     {
       "path": "docs/operations/deployment.md",
       "mediaType": "text/markdown",
-      "size": 4730,
-      "sha256": "370e0ad3cd61ebf4d90808908500255e1bdc158750d35c6fc503c91df35dda70",
+      "size": 6922,
+      "sha256": "d190fa9f7215597928f95debf1fe8c61e2a60a9ec8cfcc66afb7efa5d0b87463",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -19606,8 +19606,8 @@
     {
       "path": "docs/tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/changes.md",
       "mediaType": "text/markdown",
-      "size": 554,
-      "sha256": "8506624d6c798202d9ff65e365d4cf1bd9d26020fcd9f0da9d82c26228831c7d",
+      "size": 1276,
+      "sha256": "172d0f68193d2ef0b5aae03a24f7c3e0a4f8cb3363ebb70a9a5a7ad2a66c094f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
