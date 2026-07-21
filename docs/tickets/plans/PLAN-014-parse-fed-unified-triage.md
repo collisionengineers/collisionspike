@@ -2,7 +2,7 @@
 id: PLAN-014
 title: Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy
 status: active
-tickets: [TKT-290]
+tickets: [TKT-290, TKT-291]
 depends-on: []
 plan-kind: feature
 ---
@@ -59,11 +59,11 @@ filing time.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/1 done (0%).**
+**0/2 done (0%).**
 
 | Status | Count |
 |---|---:|
-| Now | 1 |
+| Now | 2 |
 | Verify | 0 |
 | Done | 0 |
 | Next | 0 |
@@ -73,4 +73,5 @@ filing time.
 | Ticket | Status | Title |
 |---|---|---|
 | [TKT-290](../now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | now | Centralize the intake orchestrator's duplicated VRM/ref precedence logic |
+| [TKT-291](../now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | now | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) |
 <!-- /GENERATED:PROGRESS -->
