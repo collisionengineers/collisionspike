@@ -63,21 +63,24 @@ describe('intakeOrchestrator terminal exact-message replay', () => {
         matchState: 'matched',
         principalCode: 'QDOS',
       },
-      classifyInbound: {
-        category: 'receiving_work',
-        subtype: 'instruction',
-        confidence: 1,
-        signals: [],
-        bodyCaseref: '',
-        bodyJobref: '',
-        bodyVrm: '',
+      // Slice 4b — one composed triageUnified activity replaces classifyInbound + triagePolicy.
+      triageUnified: {
+        classification: {
+          category: 'receiving_work',
+          subtype: 'instruction',
+          confidence: 1,
+          signals: [],
+          bodyCaseref: '',
+          bodyJobref: '',
+          bodyVrm: '',
+        },
+        decision: {
+          action: 'proceed_default',
+          finalCategory: 'receiving_work',
+          finalSubtype: 'instruction',
+        },
+        parseFedApplied: false,
       },
-      triagePolicy: {
-        action: 'proceed_default',
-        finalCategory: 'receiving_work',
-        finalSubtype: 'instruction',
-      },
-      parse: {},
       caseResolve: {
         outcome: 'already_ingested',
         caseId: 'case-final',
@@ -108,12 +111,13 @@ describe('intakeOrchestrator terminal exact-message replay', () => {
     }
 
     expect(step.value).toEqual({ skipped: true, caseId: 'case-final' });
+    // No attachments → orderParseCandidates([]) is empty → the hoisted parse is NOT called
+    // (Slice 4b avoids an activity round-trip that could only skip), and triageUnified is the
+    // single classify+triage call.
     expect(activityCalls).toEqual([
       'fetchMessage',
       'providerMatch',
-      'classifyInbound',
-      'triagePolicy',
-      'parse',
+      'triageUnified',
       'caseResolve',
     ]);
     expect(subCalls).toEqual([]);

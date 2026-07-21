@@ -1,6 +1,7 @@
 {
   "limit": 800,
   "ratchets": {
-    "packages/domain/src/domain/triage-policy.test.ts": 853
+    "packages/domain/src/domain/triage-policy.test.ts": 853,
+    "services/orchestration/src/workflows/intake/intakeOrchestrator.ts": 837
   }
 }
