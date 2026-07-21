@@ -65,6 +65,34 @@ plate OCR). The Python `func azure functionapp publish` recipe above does NOT ap
 Base image is pinned (`mcr.microsoft.com/azure-functions/python:4-python3.12`) and must be refreshed
 monthly for Microsoft's container security updates.
 
+## Guided-capture SPA (Static Web App) — `cespk-capture-spa-dev`
+
+The guided-capture PWA (`apps/capture-web/`, package `@cs/capture-web`) merged in from the former
+collisioncapture repo (ADR-0034, TKT-278) is a **Standard Azure Static Web App**, not a Function App —
+the `func`/`package:deploy` recipes above do NOT apply. Read-only IaC for the live resource is
+`infrastructure/config-capture/capture-spa.bicep` (identity, SKU, and the `linkedBackend` to
+`cespk-api-dev`); that template captures state and does not itself push content. Deploy is
+`[DEPLOY-WITH-LOGIN]` (interactive `az` + the SWA CLI):
+
+1. **Build the client bundle:** `npm run build --workspace @cs/capture-web` (runs `tsc --noEmit` +
+   `vite build`, output in `apps/capture-web/dist/`). Build from a clean clone at the reviewed commit.
+2. **Fetch the deployment token** (do not print it):
+   `az staticwebapp secrets list -n cespk-capture-spa-dev -g rg-collisionspike-dev --query "properties.apiKey" -o tsv`.
+3. **Push the bundle:** `swa deploy apps/capture-web/dist --deployment-token <token> --env production`
+   (Static Web Apps CLI; this is the same route by which the resource was first provisioned — there is
+   no CI deploy job yet).
+4. **SPA routing/headers** ship in `apps/capture-web/public/staticwebapp.config.json` (bundled into
+   `dist/` by the build). It is currently minimal (SPA fallback, no-store, immutable asset caching).
+
+**Deferred to [TKT-283](../tickets/backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md)
+(backlog, operator-gated):** a repeatable **CI** deploy job (replacing this one-off SWA-CLI push), the
+full CSP / `Permissions-Policy` / `Referrer-Policy` / `.wasm`/`.onnx` MIME security-header set the
+capture threat model requires, and the `capture.collisionengineers.co.uk` custom-domain binding (gated
+on operator PAYG + DNS). This runbook documents the manual route that exists today; it does not
+authorize the deferred automation or the domain/DNS spend. The capture SPA is a live public-facing
+resource — redeploy only under an explicitly authorized task, and prefer landing TKT-283's security
+headers before the next content push.
+
 ## Post-deployment proof
 
 - Confirm resource health, version/commit marker, HTTPS, and expected function registrations.
