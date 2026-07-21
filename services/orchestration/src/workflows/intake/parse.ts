@@ -30,13 +30,19 @@ import { isEngineerReportLayoutName } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { downloadEvidenceBytes } from '../../platform/blob.js';
 import { callOcrPdf, type OcrPdfResult } from '../../adapters/functions-client.js';
+import {
+  isPdf,
+  MAX_PARSE_DOCS,
+  orderParseCandidates,
+  type ParseAttachment,
+} from './parse-candidates.js';
 
-interface ParseAttachment {
-  filename: string;
-  contentType: string;
-  blobPath: string;
-  size: number;
-}
+// Re-export the pure candidate-ordering surface (extracted to parse-candidates.ts so the
+// intake orchestrator can value-import `orderParseCandidates` without pulling this module's
+// activity registration / blob / OCR clients into its graph). Single definition, no
+// duplication — existing importers (parse.test.ts, classifyPersist.ts) are unchanged.
+export { MAX_PARSE_DOCS, orderParseCandidates };
+export type { ParseAttachment };
 
 /** Per-field cell of the parser/OCR envelope ({value, confidence, source, warnings?}). */
 type FieldCell = { value?: string } | null | undefined;
@@ -119,41 +125,6 @@ interface ParseInput {
   attachments?: ParseAttachment[];
   /** Matched provider principal code, passed to the parser as provider_hint. */
   providerHint?: string;
-}
-
-/** Parser-supported document extensions (PDF/Word/RTF + email files — engine-core readers). */
-const DOC_EXT = /\.(pdf|docx?|rtf|eml|msg)$/i;
-const DOC_CTYPE = /pdf|msword|officedocument|rtf|rfc822|ms-outlook/i;
-/** An email FILE (.eml/.msg) — a parse candidate of LAST resort (a forwarded message). */
-const EMAIL_EXT = /\.(eml|msg)$/i;
-const EMAIL_CTYPE = /rfc822|ms-outlook/i;
-
-function isEmailFile(a: ParseAttachment): boolean {
-  return EMAIL_EXT.test(a.filename ?? '') || EMAIL_CTYPE.test(a.contentType ?? '');
-}
-
-/** Max documents parsed per email — bounds parser cost on attachment-heavy audit emails. */
-export const MAX_PARSE_DOCS = 3;
-
-const isPdf = (a: ParseAttachment): boolean =>
-  /pdf/i.test(a.contentType ?? '') || /\.pdf$/i.test(a.filename ?? '');
-
-/**
- * Order the document candidates for parsing. Email FILES (.eml/.msg) remain a pool of
- * last resort (only when NO separate document attached — a forwarded message as item
- * attachment). Within the real documents, Word/RTF go FIRST: on the audit-email corpus
- * (TKT-051 / ADR-0021) the instruction is a Word `.DOC` while the third-party engineer's
- * report is a PDF, so Word-first puts the instruction inside the MAX_PARSE_DOCS bound.
- * (The old single-doc picker preferred PDF, which is exactly how an audit email got its
- * EVA report parsed as "the instruction".) Order within a tier is the original
- * attachment order (stable).
- */
-export function orderParseCandidates(atts: readonly ParseAttachment[]): ParseAttachment[] {
-  const docs = atts.filter((a) => DOC_CTYPE.test(a.contentType ?? '') || DOC_EXT.test(a.filename ?? ''));
-  if (!docs.length) return [];
-  const nonEmail = docs.filter((a) => !isEmailFile(a));
-  const pool = nonEmail.length ? nonEmail : docs.filter(isEmailFile);
-  return [...pool.filter((a) => !isPdf(a)), ...pool.filter(isPdf)];
 }
 
 /**

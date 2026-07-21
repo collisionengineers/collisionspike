@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1210,
-    "files": 4078,
-    "entries": 5288
+    "directories": 1211,
+    "files": 4083,
+    "entries": 5294
   },
-  "totalFileBytes": 709998643,
+  "totalFileBytes": 710038553,
   "entries": [
     {
       "path": ".",
@@ -5916,6 +5916,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-294-triageunified-activity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16933,7 +16942,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1656185,
+      "size": 1658083,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16951,8 +16960,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4456869,
-      "sha256": "1a8b82a18fbeb067ec996256e43ffc025e965c7087d0e07b699727a78cc14653",
+      "size": 4459276,
+      "sha256": "2319b44f30289c0a10001e2d8adf31b3525a28cc7f2bd0ac393d6bc9d8f01db1",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16960,8 +16969,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71049,
-      "sha256": "02508edb6387e67e7981d8cb5fc8c24ba296733cdc5f1238bd243523367595b8",
+      "size": 71099,
+      "sha256": "fabd7a5b001f9c6821b5f3d7cafa9b0796f6f88798096ce08a3113986a7f8670",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17482,8 +17491,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 53385,
-      "sha256": "3160839b61310640ed3474c80e1fb48790916e32c758ca1bea5cb7062835d737",
+      "size": 53584,
+      "sha256": "c53d2c0c7f6163a1e12fcd43746bfd8ae50bd69c83b3a8561e7ccb0dfddaecf8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17491,8 +17500,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 56645,
-      "sha256": "0bdaca21d968d5e69e1b92154e30e261a6762ebf329f01295738b7acd799f648",
+      "size": 56842,
+      "sha256": "23f2e107caebabfc82d075b193def03a0860d19b1daa16fcc23b797448c231e1",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28046,6 +28055,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md",
+      "mediaType": "text/markdown",
+      "size": 6249,
+      "sha256": "5002422694cb941cb58269c2b8851024582d02373b1f7f3fc5964f95ddbc5622",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/changes.md",
+      "mediaType": "text/markdown",
+      "size": 6419,
+      "sha256": "3c6b02d7338e7c837225d2cdf7469f7a1cb8b6c006411d8b1d354b6834d5bf1f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse/verification.md",
+      "mediaType": "text/markdown",
+      "size": 3896,
+      "sha256": "4f77b9c988901390f73f87b4644bc4499653078e27775b0ac5cf09c24db614b8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28183,8 +28219,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 4122,
-      "sha256": "01416a3046d5f5d3eed66737ec3f94710521a665062865be8783de452722de2b",
+      "size": 4310,
+      "sha256": "9cece708ed25409122d5f24911e352372f162e0e00d5205db6aa701b3107f457",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -33538,8 +33574,8 @@
     {
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
-      "size": 100,
-      "sha256": "cac4a1c1fb176f7ead8d9062ab8c12a19c73e6f0871c8e26c808bd85029d1976",
+      "size": 178,
+      "sha256": "76fb9ad1fd45cf46ee301da3be4670e4d44e713fed11e57440b535324a073862",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -39784,8 +39820,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 5044,
-      "sha256": "3a0a75c0ff54233f062c9ac7bf7692be95e8e6066167f7075fa208356409bfac",
+      "size": 5158,
+      "sha256": "a0daaf0ef442544d7855cfded12dda7bb9f7b19fbc83ff1722c56c80ffc2191c",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40252,8 +40288,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/imagesReceivedVrmMatch.ts",
       "mediaType": "text/typescript",
-      "size": 10963,
-      "sha256": "ddcc81c8621c85fe0aa639b900416a4a466bffa8bd1d59f77bd8329362aac355",
+      "size": 11103,
+      "sha256": "07cbd89a936cad0e89db83d6d4be28f6c0f18acf3b95fb607c8ba12f4ccfb4de",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40405,8 +40441,17 @@
     {
       "path": "services/orchestration/src/workflows/intake/intake-evidence-persist.test.ts",
       "mediaType": "text/typescript",
-      "size": 8368,
-      "sha256": "7d3ab7611b6722b7db599c130ca3941b22457163ac081e853b5defc97b21918e",
+      "size": 8643,
+      "sha256": "6a53466236b5eaa6fc463174492fb5694a3534fec39df7c5c1d2c3010fc7ffb4",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake/intake-parse-hoist-slice4b.test.ts",
+      "mediaType": "text/typescript",
+      "size": 11170,
+      "sha256": "81fcbb715476dbcf50c2e6a24f9e19a614b639e0d67d482d3f08343bf8509b87",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40423,8 +40468,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intake-retro-fallback.test.ts",
       "mediaType": "text/typescript",
-      "size": 7836,
-      "sha256": "f7b603544c135914b8823cb39a39876af63f553babac5d22c5cd905dd6d84b23",
+      "size": 7911,
+      "sha256": "b4bd576b3e5faf758d340236ae41b4ab63cf8a3de975d6046837e646776a8bd5",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40441,8 +40486,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intake-terminal-replay.test.ts",
       "mediaType": "text/typescript",
-      "size": 3680,
-      "sha256": "0f0d6456fd89ebf500bdb96912a7bee1f3278273e8effbc7487eec866f2f5ffc",
+      "size": 4037,
+      "sha256": "10620a35172465519ee821b60703b62086dea1121cfd0c7777dfc81c98cc5dd5",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40450,8 +40495,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 42208,
-      "sha256": "acd83c7eeaccff94e4a5b831f24ab0317f3c5d5212123b43a1ba362edfa35645",
+      "size": 46806,
+      "sha256": "21fcaeb634673e6fe875f24edbd4f42e9fb556d011bcd73ff47db89bf0db6bff",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40475,6 +40520,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/intake/parse-candidates.ts",
+      "mediaType": "text/typescript",
+      "size": 3002,
+      "sha256": "1122d981403965d000eae3b4314a62256d69b4b62076440d5fb71ba47f4b02a3",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/intake/parse.test.ts",
       "mediaType": "text/typescript",
       "size": 13168,
@@ -40486,8 +40540,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/parse.ts",
       "mediaType": "text/typescript",
-      "size": 19606,
-      "sha256": "687935358a2b386a894b6d64945b92c27e3ad527db6cd99094217e09a1d4da7b",
+      "size": 18204,
+      "sha256": "2d8ab280675328b17ae49ed0acf9568dfab48706012222d85760b5486f577276",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
