@@ -373,6 +373,19 @@ describe('deriveAttachmentSignals', () => {
     expect(out.imagesOnly).toBe(false);
   });
 
+  /* TKT-307 regression, ported here by hand. The fix landed on triagePolicy.ts, which
+   * this rebuild deleted after moving _SIGNATURE_IMAGE_RE into triageUnified.ts — so
+   * resolving that delete without re-applying the fix would silently restore the capped
+   * \d{1,4} on the only live copy, with the Python twin left fixed and out of lockstep. */
+  it('TKT-307 regression: a six-digit Outlook cid signature logo ONLY (image078315.png) -> imagesOnly false', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [{ filename: 'image078315.png', contentType: 'image/png', blobPath: 'a', size: 10 }],
+      }),
+    );
+    expect(out.imagesOnly).toBe(false);
+  });
+
   it('a real photo alongside a signature logo -> imagesOnly true (the non-signature photo is genuine evidence)', () => {
     const out = deriveAttachmentSignals(
       envelope({
