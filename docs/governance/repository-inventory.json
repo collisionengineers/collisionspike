@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710108159,
+  "totalFileBytes": 710111968,
   "entries": [
     {
       "path": ".",
@@ -13108,8 +13108,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 12779,
-      "sha256": "1ff6a66b7b1ef65dfd9a3cc6cf38459f433ab1ebf7b8e821856d7262c352c430",
+      "size": 14337,
+      "sha256": "4d0d5c22616ce39fdb36a3322d20fd1ea5e5ce0653d5827bc3b3b43083c3f89d",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17015,7 +17015,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4466903,
-      "sha256": "81e33ffcd6106268090648a052cb4ecd906aad792aa5b4fde53a4b7257467c80",
+      "sha256": "af5e3cab99fb061dd736f4c76977b108d3699ae47a4bb6de5e19beddca5ad5aa",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17132,7 +17132,7 @@
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
       "size": 6389,
-      "sha256": "baff41f50d7f833e77f0e0c8beeb7661e4549a5c24097049dc0e0daaefc9be56",
+      "sha256": "8032b03d756fa348b59273126a3e7fcac623e721b9d600efd784982d49b43cc3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17140,8 +17140,8 @@
     {
       "path": "docs/operations/live-facts.evidence.json",
       "mediaType": "application/json",
-      "size": 4469,
-      "sha256": "e3bb5f1b750acda182ffb8488015189196b788f4b0ddd01496f4a5e043838cdb",
+      "size": 4682,
+      "sha256": "1cdc13aa023206a44185baee7d6c7e381d2a8659622f798d96436ec32e2c5250",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28219,8 +28219,8 @@
     {
       "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/changes.md",
       "mediaType": "text/markdown",
-      "size": 1589,
-      "sha256": "5eaf87af6d98f3e95e0fc9e9a48e67974d6a7473163dace4cb986cfe18432a05",
+      "size": 1653,
+      "sha256": "17830e0e2b9973cc17ddb0a65f8986f8e75f44a0ca0ee72688c5646f9acc0c52",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28228,8 +28228,8 @@
     {
       "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/verification.md",
       "mediaType": "text/markdown",
-      "size": 1605,
-      "sha256": "5c94bbdc04689f23601344fa9db3ccebedb46a5aa37de13a9a3148b2f62f806c",
+      "size": 3579,
+      "sha256": "79c4460e57e6d2862067f07857d42318a5bf8a4392068ae294a761d38c8973e6",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

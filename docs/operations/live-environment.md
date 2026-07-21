@@ -1,7 +1,7 @@
 # Live environment
 
 This is the readable view of [LIVE_FACTS.json](../../LIVE_FACTS.json), last verified there on
-2026-07-19. The JSON registry wins if values differ (this date is derived from `LIVE_FACTS.lastVerified`
+2026-07-21. The JSON registry wins if values differ (this date is derived from `LIVE_FACTS.lastVerified`
 and checked by `check:live-facts`). Verify live before making a decision that depends on current state.
 
 ## Core resources
@@ -62,7 +62,7 @@ West Europe.
   PLAN-009). Every deployable resource is present; the estate is unchanged in shape.
 - The subscription offer is pay-as-you-go (the earlier Free Trial upgrade is complete); `LIVE_FACTS.json`
   is corrected accordingly.
-- The orchestration host now registers 105 functions — up from the 2026-07-16 reading of 101 after the
+- The orchestration host now registers 106 functions — up from the 2026-07-16 reading of 101 after the
   2026-07-17 `d6ee70de` deploy; the API remains 144. The current counts live in `LIVE_FACTS.json`.
 - The EVA-validation resources (`cespkeval-fn-6c6fxd` and its plan/storage) remain deployed. Their live
   retirement is operator-gated (TKT-252) and has not been performed; the app stays as the rollback guard.

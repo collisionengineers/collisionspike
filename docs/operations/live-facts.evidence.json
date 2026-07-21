@@ -1,6 +1,6 @@
 {
   "$comment": "Committed, secret-free machine-readable evidence snapshot + field map for the machine-governed LIVE_FACTS.json fields (TKT-273 / PLAN-012). Each entry maps a LIVE_FACTS JSON path to its evidenced value, the dated read-only evidence source, the read-only probe that reproduces it, and the comparison rule. Replace only from dated read-only evidence; never infer live state from source. LIVE_FACTS.json records this file's path and sha256 under authority.machineEvidence; scripts/checks/check-live-facts.mjs compares the two offline, and scripts/checks/live-facts-azure-compare.mjs re-mints it read-only against Azure when credentials are present. No secrets, tokens, connection strings, or private identifiers appear here.",
-  "capturedAt": "2026-07-19T22:40:05Z",
+  "capturedAt": "2026-07-21T04:45:00Z",
   "evidenceBasis": "Read-only ARM resource inventory of rg-collisionspike-dev (2026-07-19, TKT-257), the banked PLAN-009 read-only dossier and docs/operations/cloud-inventory-2026-07-17.md, and the tracked route count in services/functions/parser/function_app.py.",
   "resourceGroup": "rg-collisionspike-dev",
   "fields": [
@@ -15,10 +15,10 @@
     {
       "path": "deployables.orchestration.functionCount",
       "resource": "cespk-orch-dev",
-      "value": 105,
+      "value": 106,
       "comparison": "exact",
       "probe": "az functionapp function list -n cespk-orch-dev -g rg-collisionspike-dev -o json",
-      "evidenceSource": "docs/operations/cloud-inventory-2026-07-17.md and the 2026-07-19 re-verification (105, up from 101 after the 2026-07-17 d6ee70de deploy)."
+      "evidenceSource": "105 -> 106 on 2026-07-21 (PLAN-014/TKT-296): the parse-fed unified triage deploy added the triageUnified activity (+1); confirmed live post-deploy via az functionapp function show triageUnified + the azure-diagnostician's 04:45Z read-only verification. Prior 105 from the 2026-07-19 re-verification (up from 101 after the 2026-07-17 d6ee70de deploy)."
     },
     {
       "path": "deployables.parser.functionCount",

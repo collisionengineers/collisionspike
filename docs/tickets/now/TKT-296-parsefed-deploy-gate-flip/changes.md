@@ -1,7 +1,7 @@
 # Changes — TKT-296: parse-fed deploy + gate flip (PLAN-014 Slice 5)
 
 ## Status
-docs landed; deploy + flip pending (this ticket's own live step).
+deploy + flip DONE + verified live (2026-07-21); see verification.md. VERIFIED-LIVE with the parse-fed-telemetry follow-up noted.
 
 ## What changed (in this PR — the deploy-prep docs)
 
