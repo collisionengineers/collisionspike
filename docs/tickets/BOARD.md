@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (35)
+## Now (36)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -41,6 +41,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
 | [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing · PLAN-014 |
 | [TKT-292](./now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) | P2 · parsing · PLAN-014 |
+| [TKT-294](./now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 · intake · PLAN-014 |
 
 ## Verify (32)
 
