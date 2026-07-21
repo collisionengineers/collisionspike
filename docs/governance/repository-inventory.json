@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1222,
-    "files": 4119,
-    "entries": 5341
+    "directories": 1227,
+    "files": 4127,
+    "entries": 5354
   },
-  "totalFileBytes": 710272633,
+  "totalFileBytes": 710371744,
   "entries": [
     {
       "path": ".",
@@ -1415,6 +1415,15 @@
       "lifecycle": "structural"
     },
     {
+      "path": "docs/reviews/200726",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "documentation",
+      "lifecycle": "structural"
+    },
+    {
       "path": "docs/tickets",
       "mediaType": "inode/directory",
       "size": 0,
@@ -2496,6 +2505,24 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-304-retro-stamps-out-of-scope-archive-folder",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-305-eternal-monitor-retry-audit",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -6609,6 +6636,24 @@
     },
     {
       "path": "docs/tickets/verify/TKT-296-parsefed-deploy-gate-flip",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -13162,8 +13207,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 20418,
-      "sha256": "268e1995cf884476fb78d92876f7d2e7bf8fc7039a0aef464fbd4e12d99fd55b",
+      "size": 22424,
+      "sha256": "6c5b1c08dc2e05d8a5f9b935cb3d70eb815e3424372afd7287c3ae31296ab3c9",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17050,7 +17095,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1672789,
+      "size": 1676807,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17068,8 +17113,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4478224,
-      "sha256": "3d261c7af653fbc097cb54293965ac2c983dfc9a75c72b20c149a20d50988b5f",
+      "size": 4483355,
+      "sha256": "734b5db73e3dddd841ecfbe6697912ac3b0ef2abf25150fb9504d312b02a2307",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17077,8 +17122,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71597,
-      "sha256": "cf28e8dc8e5f089dc4b8685c01d61d548094e420e2084abea2a612c1a0b58320",
+      "size": 71829,
+      "sha256": "84bd2fb2be3fba9e184def96303a6b6fca6c82d055d4e6124f7f14ce1300dc70",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17203,8 +17248,8 @@
     {
       "path": "docs/operations/live-facts.evidence.json",
       "mediaType": "application/json",
-      "size": 6355,
-      "sha256": "d4aeef0a92016dea7aaba0f5cb3cce26298e3b8b5dbeb14c0f3f704461b6a457",
+      "size": 7071,
+      "sha256": "dc280cb71459f39f35b8766aecf07775c4e49a9af8852c281162fd054024a79d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17606,10 +17651,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/reviews/200726/review1.md",
+      "mediaType": "text/markdown",
+      "size": 18794,
+      "sha256": "3be7ee00e54f2de9bec663b7e17ac4449fdc7888001417e014af500123a096b8",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/reviews/200726/review2.md",
+      "mediaType": "text/markdown",
+      "size": 24578,
+      "sha256": "1bc4a90fef4eb957302be7b5308270b2e62dfd7520669eb0d5cec4b96a552305",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/reviews/README.md",
       "mediaType": "text/markdown",
-      "size": 2173,
-      "sha256": "9b0460bed2d99da432b627d95566c6b1f0921475d93679d4aa2743025f2b6d5d",
+      "size": 2749,
+      "sha256": "7c9c4c7d7124ab82ffde8bfbde3b8e8a9673bb8f222e751e65fbacc962ffebb3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17617,8 +17680,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 55238,
-      "sha256": "a5f7934915ea2be738e248756116eed10d2e7db927fc30d95224d4f5bd82c6c5",
+      "size": 55883,
+      "sha256": "5963b9092f7fbec318ce5762dc5e646690977a9e7053f170a6968c23bab34669",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17626,8 +17689,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 58652,
-      "sha256": "a3ad9af9aa84d17307db1c321f1e5b4e4b1cba17604b2f75a98c0a15b1a0c505",
+      "size": 59312,
+      "sha256": "103d86ffd7045107a3ca65236d2b89d39cf578a3c791ed6a1c40e9674ccd0cb0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19878,6 +19941,24 @@
       "mediaType": "text/markdown",
       "size": 445,
       "sha256": "c92bf7634208fef6b9015e0ac7cafc17a2bb88b186e9dd2b755da86ff9a3b14c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-304-retro-stamps-out-of-scope-archive-folder/TKT-304-retro-stamps-out-of-scope-archive-folder.md",
+      "mediaType": "text/markdown",
+      "size": 3452,
+      "sha256": "7062c79aaa67258e0a6dbff3b0301277b341c639df7ccf3fff1175d940e73676",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-305-eternal-monitor-retry-audit/TKT-305-eternal-monitor-retry-audit.md",
+      "mediaType": "text/markdown",
+      "size": 2755,
+      "sha256": "d0c6b1cca20bd948c75cd361555150efbbcda8631a6c5cc2c290d793b5a262b5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -30179,6 +30260,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop/TKT-303-terminal-archive-failure-retry-loop.md",
+      "mediaType": "text/markdown",
+      "size": 5652,
+      "sha256": "92c221ed6148f1f65cc8b067e1e9deb904209c2fa970feabd4d8ec0a0d27d62f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop/changes.md",
+      "mediaType": "text/markdown",
+      "size": 4629,
+      "sha256": "432d3236b2cc1c975315f80c8fd08e63ca19477bf16f913370373cbc42f39ddf",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop/evidence/diagnosis-2026-07-21.md",
+      "mediaType": "text/markdown",
+      "size": 9111,
+      "sha256": "8df9f638fac5bd8f06fbf50737f59f908d58d547e07ce1b655e7a1ac1fc78d96",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/verify/TKT-303-terminal-archive-failure-retry-loop/verification.md",
+      "mediaType": "text/markdown",
+      "size": 6716,
+      "sha256": "f0e7d31da97aa3b76a6689da3d8444f795392593b103343f7beb33bd86297dd6",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "emailevals/AGENTS.md",
       "mediaType": "text/plain",
       "size": 10363,
@@ -34564,8 +34681,8 @@
     {
       "path": "services/data-api/src/features/archive/provider-outbox-routes.test.ts",
       "mediaType": "text/typescript",
-      "size": 5017,
-      "sha256": "5b8f5fed96a72018d498549feeaf7d7e8665e37e110e7978ee0a53199fafd24a",
+      "size": 6218,
+      "sha256": "87b23c0b053aed44de9e4b6968575b5e7d1f8bfa5455b1687c41c12ccc410f43",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -34573,8 +34690,8 @@
     {
       "path": "services/data-api/src/features/archive/provider-outbox-routes.ts",
       "mediaType": "text/typescript",
-      "size": 7394,
-      "sha256": "0e1c6e5d2269c08496f71a1bae9a2ff2a1a9d340f3ec78e825cd1ee14d671de6",
+      "size": 8085,
+      "sha256": "4c5b37097431b917f4cd621dcc9ff05b319246fd4a0b008f13f5c2b2d0e7fc2f",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -40162,8 +40279,8 @@
     {
       "path": "services/orchestration/src/adapters/functions-client.ts",
       "mediaType": "text/typescript",
-      "size": 17148,
-      "sha256": "f1e98a2abe693ee18359e5f6e4dc21a317b4127b806da72d4d34a52ec3e8eba1",
+      "size": 18425,
+      "sha256": "c0f4b2ac097b43ff9ddd4351f011213b003d3f4d5fce3320195546d94066671a",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40189,8 +40306,8 @@
     {
       "path": "services/orchestration/src/adapters/provider-archive-api.ts",
       "mediaType": "text/typescript",
-      "size": 1510,
-      "sha256": "44c3f4b42a4d39501cea8bd80779c15e5969fb83d1cc1761476b2789ab5ceaef",
+      "size": 1794,
+      "sha256": "eee5b47abae222104944f827e4cb53222258e89fddb676e3de5c3d3465e7703e",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40513,8 +40630,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/box-folder-create.test.ts",
       "mediaType": "text/typescript",
-      "size": 7156,
-      "sha256": "61737b0e2a1814e2d9f6ddc9a0d4b537b7d4347625b4b6ab728af2200c493708",
+      "size": 8994,
+      "sha256": "5506accf6c7c97dbabe8504a99e42700604b9e0186b7021efa94f41baf68ae06",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40522,8 +40639,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/box-folder-create.ts",
       "mediaType": "text/typescript",
-      "size": 9593,
-      "sha256": "34548e4ecda761393a57cd792cde3dc29ea9da61b724b7edbac45343b3e4cacf",
+      "size": 11643,
+      "sha256": "7ae2613465e39139b83539ee30a5bff81df99c91a20b238f639197d4ac1f78d4",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40594,8 +40711,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/provider-archive-monitor.test.ts",
       "mediaType": "text/typescript",
-      "size": 5363,
-      "sha256": "cbb4d040bd2c3c86696b39780d81961b7809c579c4d3fb64dd7818a2034d7572",
+      "size": 6425,
+      "sha256": "b8e7371b5a064b878505a7d7ca48ee9da625088fce16a28482b92220ae5fdca0",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40603,8 +40720,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/provider-archive-monitor.ts",
       "mediaType": "text/typescript",
-      "size": 5458,
-      "sha256": "1aa06746c96c4a265d72c4ce9d8cb1a43756e4a5775c79b31c8245adcc302ca1",
+      "size": 6495,
+      "sha256": "495ca9b241207b7682932c40f1fb64dd772e71764b39e8686a654ff06b322330",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

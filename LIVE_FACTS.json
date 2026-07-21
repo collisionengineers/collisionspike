@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-21T14:55:00Z",
-  "verificationMode": "PLAN-015 alpha cutover executed 2026-07-21 ~14:00-15:00Z (TKT-302 evidence): api+orch redeployed dark from main (orch 109 fns incl. the three new ship-dark PLAN-015 functions; api 146 raw -> 144 reconciled, unchanged), the three legacy intake mailboxes' Graph subscriptions pruned 14:02:42Z, Exchange RBAC scope CollisionSpike-Intake-Prod extended to instructions@ (Test-ServicePrincipalAuthorization InScope=true all four mailboxes), full RLS-complete pg_dump + verified-complete blob backup (12,930/12,930) taken, database wiped and rebuilt from baseline+seeds with 27 continuity Case/PO floors, capture + alpha gate trims applied, staff SPA deployed. Layered on the same-day PLAN-014 (TKT-296) 04:45Z verification and the 2026-07-19 (TKT-257) ARM inventory",
+  "lastVerified": "2026-07-21T21:32:00Z",
+  "verificationMode": "TKT-303 deploy 2026-07-21 21:26-21:32Z: api + orchestration republished from the source tree services/=0b1b9cf063cf869f72ad18ee6a23ca7d722ed15e (a content-addressed tree hash, not a commit id: the build commit was later split and rewritten, so only the tree identity is stable; verify with `git rev-parse <commit>:services`) (func azure functionapp publish --javascript from npm run package:deploy artifacts; api 146 raw unchanged, orch 109 unchanged, both Running). RETRO_CASE_ENABLED flipped true -> false on BOTH apps at 21:21:55Z by operator direction, settings backed up first. Post-deploy: orch 55/55 and api 28/28 successful requests, ZERO exceptions on either app, provider-archive monitor cycle completed 21:28:32Z on the new build. Layered on the earlier PLAN-015 alpha cutover: PLAN-015 alpha cutover executed 2026-07-21 ~14:00-15:00Z (TKT-302 evidence): api+orch redeployed dark from main (orch 109 fns incl. the three new ship-dark PLAN-015 functions; api 146 raw -> 144 reconciled, unchanged), the three legacy intake mailboxes' Graph subscriptions pruned 14:02:42Z, Exchange RBAC scope CollisionSpike-Intake-Prod extended to instructions@ (Test-ServicePrincipalAuthorization InScope=true all four mailboxes), full RLS-complete pg_dump + verified-complete blob backup (12,930/12,930) taken, database wiped and rebuilt from baseline+seeds with 27 continuity Case/PO floors, capture + alpha gate trims applied, staff SPA deployed. Layered on the same-day PLAN-014 (TKT-296) 04:45Z verification and the 2026-07-19 (TKT-257) ARM inventory",
   "environment": {
     "resourceGroup": "rg-collisionspike-dev",
     "primaryRegion": "uksouth",
@@ -148,8 +148,10 @@
         "note": "Since the d6ee70de deploy (2026-07-17) the inbox list slice excludes retro reconstruction anchor rows server-side (all three anchor variants, NULL-safe predicates); the case-scoped GET /api/inbound?caseId= slice keeps them, so the case Emails tab retains reconstruction provenance. Verified in Chrome post-deploy: the 'Other source' chip dissolved and mailbox chip counts dropped to real mail only (~149 anchor rows hidden)."
       },
       "RETRO_CASE_ENABLED": {
-        "dataApi": true,
-        "orchestration": true
+        "dataApi": false,
+        "orchestration": false,
+        "setAt": "2026-07-21T21:21:55Z",
+        "note": "Flipped true -> false on BOTH apps by explicit operator direction ('disable retro case creation'); settings backed up first and read back independently after. This is the MASTER retro switch: every retro activity on the orchestration app and every /api/internal/retro/* route on the Data API reads it and returns an honest { skipped: 'gate_off' } / gated_off, so retro case creation is off end to end and fail-closed. Deliberately scoped to this ONE name. RETRO_OUTLOOK_SEARCH_ENABLED stays true because it is ALSO the kill switch for the evidence-backfill Graph $search fallback (services/orchestration/src/workflows/evidence/evidence-backfill.ts:271) — flipping it would collaterally disable an unrelated feature. RETRO_RELATED_INGEST_ENABLED stays true but is inert while the master is off (layered under it). RETRO_BOX_ARCHIVE_ROOT_IDS stays 3221031282 because it must remain aligned with the Box facade's BOX_READONLY_ROOT_IDS. There is no retro timer or sweep — retro is intake-triggered plus a keyed manual starter — and no retro orchestration had run since 19:00Z, so nothing was in flight. Reversible by flipping the one name on both apps."
       },
       "RETRO_OUTLOOK_SEARCH_ENABLED": {
         "orchestration": true
@@ -225,7 +227,7 @@
     "humanReadableEnvironment": "docs/operations/live-environment.md",
     "machineEvidence": {
       "path": "docs/operations/live-facts.evidence.json",
-      "sha256": "d4aeef0a92016dea7aaba0f5cb3cce26298e3b8b5dbeb14c0f3f704461b6a457"
+      "sha256": "dc280cb71459f39f35b8766aecf07775c4e49a9af8852c281162fd054024a79d"
     },
     "rule": "Replace this snapshot only with dated read-only evidence; never infer live state from source code."
   }

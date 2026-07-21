@@ -29,8 +29,9 @@ df.app.activity('providerArchiveOutboxComplete', {
 });
 
 df.app.activity('providerArchiveOutboxDefer', {
-  handler: async (input: { caseId: string; generation: number; reason: string }) =>
-    providerArchiveApi.defer(input.caseId, input.generation, input.reason),
+  handler: async (
+    input: { caseId: string; generation: number; reason: string; terminal?: boolean },
+  ) => providerArchiveApi.defer(input.caseId, input.generation, input.reason, input.terminal),
 });
 
 df.app.orchestration('providerArchiveMonitorOrchestrator', function* (ctx) {
@@ -47,11 +48,28 @@ df.app.orchestration('providerArchiveMonitorOrchestrator', function* (ctx) {
           // This is the existing fail-closed seam: it derives the folder name from
           // Case/PO, asserts the pinned test root before remote access, adopts exact
           // 409 name conflicts, and stamps through the Data API first-wins route.
-          yield ctx.df.callSubOrchestratorWithRetry(
+          const ensured = (yield ctx.df.callSubOrchestratorWithRetry(
             'boxFolderCreateOrchestrator',
             retry,
             { caseId: row.caseId },
-          );
+          )) as { terminal?: boolean; reason?: string; detail?: string } | undefined;
+
+          if (ensured?.terminal) {
+            // The link is permanently unusable (wrong folder, out of scope). Park the row
+            // so it stops being listed at all — an operator has to look at it. Re-requesting
+            // provider recovery for the case clears the park (requestProviderArchive resets
+            // next_attempt_at), so this is recoverable without a manual database edit.
+            if (!ctx.df.isReplaying) {
+              ctx.log(`[providerArchiveMonitor] Archive ensure TERMINAL for ${row.caseId}: ${ensured.reason} — parking`);
+            }
+            yield ctx.df.callActivityWithRetry('providerArchiveOutboxDefer', retry, {
+              caseId: row.caseId,
+              generation: row.generation,
+              reason: `Archive folder unusable (${ensured.reason ?? 'terminal'})`,
+              terminal: true,
+            });
+            continue;
+          }
         } catch (e) {
           if (!ctx.df.isReplaying) {
             ctx.log(`[providerArchiveMonitor] Archive ensure failed for ${row.caseId}: ${String(e)}`);
