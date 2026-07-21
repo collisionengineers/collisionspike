@@ -1,0 +1,211 @@
+"""Core domain models.
+
+These dataclasses are the Python-side contract for v2. Implementation modules
+should depend on these shapes instead of exchanging raw strings.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, Literal
+
+
+class FieldKey(StrEnum):
+    WORK_PROVIDER = "work_provider"
+    VRM = "vrm"
+    VEHICLE_MODEL = "vehicle_model"
+    # vin is an OPTIONAL envelope-only field (collisionspike TKT-147): extracted
+    # where a layout labels it (the Tractable damage-capture PDF's "VIN" row),
+    # absent otherwise — there is deliberately NO document-wide fallback sniff (a
+    # bare 17-char alphanumeric heuristic would be all false-positive surface),
+    # so absence stays absence. NOT in REQUIRED_FIELDS and NEVER in the EVA JSON
+    # export (the settled EVA contract has no VIN slot — see
+    # EVA_EXPORT_FIELD_ORDER below; same never-exported discipline as is_audit).
+    VIN = "vin"
+    CLAIMANT_NAME = "claimant_name"
+    # claimant_telephone / claimant_email are the parser's NATIVE keys feeding the
+    # settled EVA fields of the same name (ROADMAP B2). They are OPTIONAL: derived
+    # from document text near claimant/insured context when present, left empty
+    # (for staff to fill) when absent. Deliberately NOT in REQUIRED_FIELDS.
+    CLAIMANT_TELEPHONE = "claimant_telephone"
+    CLAIMANT_EMAIL = "claimant_email"
+    REFERENCE = "reference"
+    INCIDENT_DATE = "incident_date"
+    INSTRUCTION_DATE = "instruction_date"
+    INSPECTION_DATE = "inspection_date"
+    INSPECTION_ADDRESS = "inspection_address"
+    ACCIDENT_CIRCUMSTANCES = "accident_circumstances"
+    VAT_STATUS = "vat_status"
+    MILEAGE = "mileage"
+    MILEAGE_UNIT = "mileage_unit"
+
+
+FIELD_ORDER: tuple[FieldKey, ...] = (
+    FieldKey.WORK_PROVIDER,
+    FieldKey.VRM,
+    FieldKey.VEHICLE_MODEL,
+    FieldKey.VIN,
+    FieldKey.CLAIMANT_NAME,
+    FieldKey.CLAIMANT_TELEPHONE,
+    FieldKey.CLAIMANT_EMAIL,
+    FieldKey.REFERENCE,
+    FieldKey.INCIDENT_DATE,
+    FieldKey.INSTRUCTION_DATE,
+    FieldKey.INSPECTION_DATE,
+    FieldKey.INSPECTION_ADDRESS,
+    FieldKey.ACCIDENT_CIRCUMSTANCES,
+    FieldKey.VAT_STATUS,
+    FieldKey.MILEAGE,
+    FieldKey.MILEAGE_UNIT,
+)
+
+# The EVA JSON export enumerates EXACTLY these keys, in this order — the settled
+# EVA drag-drop contract (resources/eva-json.schema.json, additionalProperties
+# false). FIELD_ORDER above is the ENGINE's extraction envelope and may carry
+# additional envelope-only fields (vin — collisionspike TKT-147) that must never
+# reach the EVA export; exporters/eva_json.py iterates THIS tuple, never
+# FIELD_ORDER. Keep in lockstep with the schema's property set.
+EVA_EXPORT_FIELD_ORDER: tuple[FieldKey, ...] = tuple(
+    key for key in FIELD_ORDER if key is not FieldKey.VIN
+)
+
+FIELD_LABELS: dict[FieldKey, str] = {
+    FieldKey.WORK_PROVIDER: "Work Provider",
+    FieldKey.VRM: "VRM",
+    FieldKey.VEHICLE_MODEL: "Vehicle Model",
+    FieldKey.VIN: "VIN",
+    FieldKey.CLAIMANT_NAME: "Claimant Name",
+    FieldKey.CLAIMANT_TELEPHONE: "Claimant Telephone",
+    FieldKey.CLAIMANT_EMAIL: "Claimant Email",
+    FieldKey.REFERENCE: "Reference",
+    FieldKey.INCIDENT_DATE: "Incident Date",
+    FieldKey.INSTRUCTION_DATE: "Instruction Date",
+    FieldKey.INSPECTION_DATE: "Inspection Date",
+    FieldKey.INSPECTION_ADDRESS: "Inspection Address",
+    FieldKey.ACCIDENT_CIRCUMSTANCES: "Accident Circumstances",
+    FieldKey.VAT_STATUS: "VAT Status",
+    FieldKey.MILEAGE: "Mileage",
+    FieldKey.MILEAGE_UNIT: "Mileage Unit",
+}
+
+REQUIRED_FIELDS: frozenset[FieldKey] = frozenset(
+    {
+        FieldKey.WORK_PROVIDER,
+        FieldKey.VRM,
+        FieldKey.VEHICLE_MODEL,
+        FieldKey.CLAIMANT_NAME,
+        FieldKey.REFERENCE,
+        FieldKey.INCIDENT_DATE,
+        FieldKey.INSTRUCTION_DATE,
+    }
+)
+
+
+@dataclass(frozen=True)
+class SourceSpan:
+    page_index: int | None = None
+    line_index: int | None = None
+    bbox: tuple[float, float, float, float] | None = None
+
+
+@dataclass(frozen=True)
+class DocumentLine:
+    text: str
+    page_index: int
+    line_index: int
+    bbox: tuple[float, float, float, float] | None = None
+    block_id: str | None = None
+    confidence: float | None = None
+
+
+@dataclass(frozen=True)
+class Table:
+    """A table extracted from a source document.
+
+    ``rows`` is an ordered tuple of rows, each a tuple of cell strings (empty
+    string for blank/None cells). ``bbox`` is the table's bounding box on the
+    page when known, and ``page_index`` records which page the table came from.
+    Kept deliberately minimal and additive so downstream code can ignore it.
+    """
+
+    rows: tuple[tuple[str, ...], ...] = ()
+    bbox: tuple[float, float, float, float] | None = None
+    page_index: int | None = None
+
+
+@dataclass(frozen=True)
+class DocumentPage:
+    page_index: int
+    width: float | None = None
+    height: float | None = None
+    lines: tuple[DocumentLine, ...] = ()
+    tables: tuple[Table, ...] = ()
+
+
+@dataclass(frozen=True)
+class DocumentModel:
+    source_path: Path
+    source_type: Literal["pdf", "docx", "doc", "eml", "msg", "txt"]
+    pages: tuple[DocumentPage, ...]
+    plain_text: str
+    reader_notes: tuple[str, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ProviderMatch:
+    provider_id: str | None
+    provider_name: str
+    confidence: float
+    matched_terms: tuple[str, ...] = ()
+    missing_terms: tuple[str, ...] = ()
+    rejected_terms: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class ExtractionIssue:
+    field: FieldKey | None
+    severity: Literal["info", "warning", "error"]
+    code: str
+    message: str
+
+
+@dataclass(frozen=True)
+class FieldExtraction:
+    value: str
+    raw_value: str = ""
+    rule_id: str | None = None
+    confidence: float | None = None
+    source_span: SourceSpan | None = None
+    issues: tuple[ExtractionIssue, ...] = ()
+
+
+@dataclass(frozen=True)
+class ExtractedRecord:
+    provider: ProviderMatch
+    fields: dict[FieldKey, FieldExtraction]
+    issues: tuple[ExtractionIssue, ...] = ()
+    # Free-text provenance lines (e.g. "Applied engineer report: <file>"), mirroring v1's
+    # per-session notes. Empty for a plain single-document extraction.
+    notes: tuple[str, ...] = ()
+    # True when the instruction text signals an AUDIT case — a second, independent
+    # CE inspection auditing a THIRD-PARTY engineer's original report (a distinct
+    # case-type marked by an "A." Case/PO prefix; see collisionspike ADR-0014).
+    # NOT the engineer-report overlay (which merges CE's OWN CNX/EVA report). The
+    # audit_signals list the signals that fired (e.g. the "A." Case/PO prefix), so
+    # the call is auditable. case_type is a coarse internal label ("audit" when
+    # is_audit, else None). All three are INTERNAL state and must NOT appear in the
+    # EVA JSON export.
+    is_audit: bool = False
+    audit_signals: tuple[str, ...] = ()
+    case_type: str | None = None
+    # True when the case-type came from a DUAL "report + audit report"
+    # instruction (one letter commissioning both deliverables -- the QDOS
+    # template). Downstream numbering differs: a dual letter mints ONE case
+    # from the provider's NORMAL sequence and DERIVES the audit ID from it,
+    # whereas a standalone audit mints from the marker's own sequence
+    # (collisionspike ADR-0021). INTERNAL state, never in the EVA export.
+    case_type_dual: bool = False
+

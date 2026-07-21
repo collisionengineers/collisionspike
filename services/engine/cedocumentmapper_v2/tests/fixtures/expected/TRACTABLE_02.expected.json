@@ -1,0 +1,20 @@
+{
+  "fixture_id": "tractable_02",
+  "source_file": "TRACTABLE 02.pdf",
+  "expected_provider": "tractable",
+  "expected_values": {
+    "work_provider": "",
+    "vrm": "OU66VDC",
+    "vehicle_model": "Hyundai i30",
+    "vin": "",
+    "incident_date": "02/06/2026",
+    "mileage": "188982",
+    "reference": "",
+    "claimant_name": "",
+    "claimant_telephone": "",
+    "claimant_email": "",
+    "inspection_address": ""
+  },
+  "allowed_blank_fields": [],
+  "notes": "collisionspike TKT-147: the second real Tractable damage-capture PDF (the TKT-102 evidence 'tractable2.pdf' - Hyundai i30, lower-case source reg 'Ou66vdc'). THE NO-VIN SAMPLE: its Vehicle Information VIN row prints the bare placeholder '-' (the Tractable empty-cell convention), which normalize_vin must blank - vin is pinned EMPTY here because ABSENCE IS NOT AN ERROR (the field slot is envelope-only and label-driven; a placeholder must never surface as a junk value). Also pins the two_label_join make+model capture on a second layout instance ('Hyundai'+'i30') and vrm case-normalization (Ou66vdc -> OU66VDC). Same CRITICAL empties as TRACTABLE_01: reference (Case-ID UUID / AI-quote money must never mint a case_ref), work_provider (Tractable is never a work provider), claimant_* and inspection_address (the header carries CE's own desk@ address)."
+}

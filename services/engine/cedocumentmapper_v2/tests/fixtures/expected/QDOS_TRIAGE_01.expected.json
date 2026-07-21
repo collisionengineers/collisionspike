@@ -1,0 +1,23 @@
+{
+  "fixture_id": "qdos_triage_01",
+  "source_file": "QDOS_TRIAGE_01.doc",
+  "expected_provider": "qdos",
+  "expected_values": {
+    "work_provider": "QDOS",
+    "vrm": "VN64WNG",
+    "vehicle_model": "MERCEDES-BENZ E250 CDI AMG LINE AUTO",
+    "claimant_name": "Miss Nicola Granger",
+    "reference": "REB/46487/1",
+    "incident_date": "30/06/2026",
+    "accident_circumstances": "Our client, in their vehicle was proceeding in the left lane on the Redbridge Flyover, Southampton and became stationary at a set of traffic lights. This portion of the road has two lanes for each direction of travel. Your insured, in their vehicle has failed to apply their brakes in time and has collided into the rear of our client's vehicle."
+  },
+  "allowed_blank_fields": [
+    "instruction_date",
+    "inspection_date",
+    "inspection_address",
+    "vat_status",
+    "mileage",
+    "mileage_unit"
+  ],
+  "notes": "QDOS triage letter (.doc with table layout). The pure-Python Word piece-table reader must retain the claimant and accident narrative without Word, LibreOffice, or antiword; provider hint QDOS is used when the footer phrase is absent."
+}

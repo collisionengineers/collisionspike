@@ -1,0 +1,19 @@
+{
+  "fixture_id": "acsp_scan_01",
+  "source_file": "ACSP SCAN 01.pdf",
+  "expected_provider": "acsp",
+  "expected_values": {
+    "work_provider": "ACSP",
+    "vrm": "CX69LEW",
+    "vehicle_model": "Toyota Prius",
+    "claimant_name": "Mazhar Hussain Butt",
+    "incident_date": "06/05/2026",
+    "inspection_address": "63 Booth Road\nCrawley\n\n\n\nRH11 6AG",
+    "accident_circumstances": "Client was stationary, waiting to pick up children from mosque, when the third-party came out of car park from the left and collided with the back bumper of client’s vehicle (as client was facing opposite way)"
+  },
+  "allowed_blank_fields": [
+    "reference",
+    "instruction_date"
+  ],
+  "notes": "Regression fixture for ACSP scanned claim forms with handwritten vehicle details."
+}

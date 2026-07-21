@@ -2767,7 +2767,7 @@
     ]
   },
   "jsonSchemas": {
-    "count": 7,
+    "count": 9,
     "schemas": [
       {
         "path": "contracts/eva-payload.schema.json",
@@ -2786,6 +2786,18 @@
         "id": "_code-table.schema.json",
         "title": "CollisionSpike code-table metadata",
         "sha256": "7288ad3dffbc4b6c501a9af60b4e552696e77638cc3fc7b34fa5753eb0d293b0"
+      },
+      {
+        "path": "services/functions/ocr/cedocumentmapper_v2/resources/eva-json.schema.json",
+        "id": "https://collisionengineers.local/contracts/eva-json.schema.json",
+        "title": "EVA JSON Export",
+        "sha256": "e06b8b9ea7ae71af3afb3afcba9f185a543ff584f07a32f3e9e8ee6a1e9ad567"
+      },
+      {
+        "path": "services/functions/ocr/cedocumentmapper_v2/resources/triage-rules.schema.json",
+        "id": "https://collisionengineers.local/contracts/triage-rules.schema.json",
+        "title": "Triage Rule Phrase Data",
+        "sha256": "29848d89abe3a40a681fc113eb506beb508f4824d17e190f3d83fe73ef2ac959"
       },
       {
         "path": "services/functions/parser/cedocumentmapper_v2/resources/eva-json.schema.json",

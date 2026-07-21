@@ -1,0 +1,23 @@
+{
+  "fixture_id": "oak_rtf_01",
+  "source_file": "OAK RTF 01.DOC",
+  "expected_provider": "oak",
+  "expected_values": {
+    "work_provider": "OAK",
+    "vrm": "PJ08AKX",
+    "claimant_name": "Mr Ameer Abbas",
+    "claimant_telephone": "01132009739",
+    "reference": "TJD/ABBAS/S495535.001",
+    "incident_date": "04/07/2026",
+    "instruction_date": "06/07/2026",
+    "inspection_address": "6 Crawford Lane\n\n\n\n\nG11 6TL",
+    "accident_circumstances": ""
+  },
+  "allowed_blank_fields": [
+    "vehicle_model",
+    "vat_status",
+    "mileage",
+    "mileage_unit"
+  ],
+  "notes": "Regression fixture for the Oakwood Scotland RTF-in-.DOC instruction letter (collisionspike TKT-086 sample). VERIFIED FINDING (2026-07-09): neither the letter nor its carrier email contains an accident-circumstances narrative — the letter carries only 'Accident: <date>' and the email only a vehicle-status advisory (total loss / unroadworthy). accident_circumstances is therefore PINNED EMPTY: the correct extraction is no narrative, never junk; the corpus-wide gap is measured by the TKT-086 coverage report instead."
+}

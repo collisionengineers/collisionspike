@@ -1,0 +1,10 @@
+{
+  "fixture_id": "__placeholder__v1_wins",
+  "source_file": "__PLACEHOLDER__no_source.pdf",
+  "expected_provider": "alison",
+  "expected_values": {
+    "vehicle_model": "REPLACE_WITH_V1_OUTPUT"
+  },
+  "allowed_blank_fields": [],
+  "notes": "PLACEHOLDER v1-wins fixture. The comparison report lists vehicle_model among the fields v1 extracts and v2 blanks, but the true expected value cannot be asserted without v1 (separate repo) and the report's example documents (e.g. ALISON PDF 01) contain no vehicle model in their text. source_file intentionally points at a missing file so the comparator loader skips it; test_comparator.py asserts the skip with a logged reason. To activate: run v1, paste the real value, rename fixture_id/source_file, and add the source document under instructions/."
+}

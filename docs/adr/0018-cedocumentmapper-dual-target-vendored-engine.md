@@ -1,6 +1,7 @@
 # ADR-0018 — The parser engine is authored externally and vendored as a pinned core
 
-**Status:** Accepted and implemented (2026-07-12).
+**Status:** Accepted and implemented (2026-07-12). **Superseded by [ADR-0035](./0035-cedocumentmapper-engine-repository-consolidation.md) (2026-07-20)** — the engine is now authored directly in this
+repository; the vendor-and-pin mechanism below no longer exists. Kept for historical context.
 
 ## Decision
 
