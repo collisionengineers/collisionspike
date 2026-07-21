@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (33)
+## Now (34)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -38,6 +38,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 · email |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 · integration |
+| [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
 | [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing |
 
 ## Verify (32)
@@ -77,7 +78,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-222](./verify/TKT-222-retro-link-related-emails/TKT-222-retro-link-related-emails.md) | Link every related mailbox email to a reconstructed retro case, not just the original instruction | P1 · intake · PLAN-004 |
 | [TKT-223](./verify/TKT-223-retro-force-rerun/TKT-223-retro-force-rerun.md) | Re-run retro reconstruction for previously failed drain rows (force restart) | P2 · intake · PLAN-004 |
 
-## Done (152)
+## Done (153)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -233,13 +234,14 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-277](./done/TKT-277-cross-language-parity-widening/TKT-277-cross-language-parity-widening.md) | Widen cross-language parity coverage and reconcile the evidence-kind MIME divergence | P2 · platform |
 | [TKT-278](./done/TKT-278-collisioncapture-repository-consolidation/TKT-278-collisioncapture-repository-consolidation.md) | Merge collisioncapture into collisionspike (repository consolidation) | P2 · integration |
 | [TKT-281](./done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 · web |
+| [TKT-287](./done/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md) | cedocumentmapper engine repository consolidation | P1 · parsing |
 
 ## Next (0)
 
 | ID | Title | Classification |
 |---|---|---|
 
-## Backlog (54)
+## Backlog (56)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -297,6 +299,8 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-283](./backlog/TKT-283-guided-capture-spa-deploy-pipeline/TKT-283-guided-capture-spa-deploy-pipeline.md) | Guided capture — SPA CI deploy pipeline, CSP headers, and custom domain | P2 · infra |
 | [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 · integration |
 | [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 · integration |
+| [TKT-288](./backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md) | Engine email-classifier precedence findings ported from the archived sibling repo | P3 · parsing |
+| [TKT-297](./backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md) | Engine-merge post-consolidation hardening (deferred Codex review findings) | P2 · parsing |
 
 ## Blocked (9)
 

@@ -18,6 +18,7 @@ import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
 import { vehicleDataIntakeIdempotencyKey } from '../../platform/vehicle-data-intake.js';
 import type { TriagePolicyDecision } from '@cs/domain';
 import { providerRecoveryAfterArchive } from './intake-decisions.js';
+import { resolveCaseVrm, resolveCaseRef } from './case-identity.js';
 
 const retry = new df.RetryOptions(/*firstRetryIntervalInMilliseconds*/ 5_000, /*maxNumberOfAttempts*/ 3);
 retry.backoffCoefficient = 2;
@@ -252,7 +253,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // Replay-safe: branches only on checkpointed triage values, never on process.env.
   if (triage.action === 'attach_case' && triage.targetCaseId) {
     const caseId = triage.targetCaseId;
-    const caseVrm = ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim();
+    const caseVrm = resolveCaseVrm({
+      candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm,
+      bodyVrm: classification.bodyVrm,
+    });
     const evidenceExtra = {
       ...(caseVrm ? { caseVrm } : {}),
       ...(workProviderId ? { workProviderId } : {}),
@@ -351,8 +355,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
     try {
       yield ctx.df.callActivityWithRetry('imagesUnmatched', retry, {
         internetMessageId: (inbound as { internetMessageId?: string }).internetMessageId,
-        vrm:
-          ((inbound as { candidateVrm?: string }).candidateVrm || classification.bodyVrm || '').trim(),
+        vrm: resolveCaseVrm({
+          candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm,
+          bodyVrm: classification.bodyVrm,
+        }),
         attachments: (inbound as { attachments?: unknown }).attachments,
         claimToken: ctx.df.newGuid('images-unmatched-body'),
       });
@@ -374,8 +380,8 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   if (!categoryMintsCase(classification.category)) {
     if (shouldLinkReplyToCase(classification)) {
       const inb = inbound as { candidateRef?: string; candidateVrm?: string };
-      const ref = ((inb.candidateRef || classification.bodyCaseref) ?? '').trim();
-      const vrm = ((inb.candidateVrm || classification.bodyVrm) ?? '').trim();
+      const ref = resolveCaseRef({ candidateRef: inb.candidateRef, bodyCaseref: classification.bodyCaseref });
+      const vrm = resolveCaseVrm({ candidateVrm: inb.candidateVrm, bodyVrm: classification.bodyVrm });
       // rules-engine-v2 Phase 2 / TKT-023 — widen the match beyond Case/PO+VRM with the
       // engine's job-ref signal (capture-only field #2 alongside recordInboundEmail's
       // bodyJobref/conversationId — see data-api.ts): a follow-up bearing only e.g. "Our
@@ -531,8 +537,10 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // VRM fallback — ADR-0015 §5) when the subject hadn't already yielded one.
   const inboundForCase = {
     ...(inbound as Record<string, unknown>),
-    candidateRef:
-      ((inbound as { candidateRef?: string }).candidateRef || classification.bodyCaseref) ?? '',
+    candidateRef: resolveCaseRef({
+      candidateRef: (inbound as { candidateRef?: string }).candidateRef,
+      bodyCaseref: classification.bodyCaseref,
+    }),
   };
 
   // 4 (runs FIRST now) — parse the instruction document so its PDF VRM + mileage feed case
@@ -688,7 +696,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
     yield ctx.df.callActivityWithRetry('correlatePreInstruction', retry, {
       caseId: resolved.caseId,
       casePo: resolved.casePo ?? null,
-      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm || '',
+      vrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
       caseRef: resolved.casePo ?? '',
       jobRef: parserRef || classification.bodyJobref || '',
     });
@@ -764,7 +772,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // EVA-readiness. attachmentTypings (parse activity, ADR-0014/ADR-0021) lets a report-typed
   // attachment persist as engineer_report evidence.
   const receivingWorkEvidenceExtra = {
-    caseVrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+    caseVrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
     ...(workProviderId ? { workProviderId } : {}),
   };
   const statusValue = yield* persistEvidenceAndArchive(ctx, retry, {
@@ -787,7 +795,7 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   try {
     yield ctx.df.callActivityWithRetry('enrich', retry, {
       caseId: resolved.caseId,
-      vrm: parserVrm || (inbound as { candidateVrm?: string }).candidateVrm,
+      vrm: resolveCaseVrm({ parserVrm, candidateVrm: (inbound as { candidateVrm?: string }).candidateVrm }),
       documentHasMileage,
       // Durable replays/retries of this intake instance must resolve to one
       // immutable lookup run and one audit/provenance write. Graph-backed

@@ -75,28 +75,29 @@ app = func.FunctionApp()
 _LOG = logging.getLogger("ce.parser")
 
 CONTRACT_VERSION = parser_adapter.CONTRACT_VERSION
-_VENDOR_LOCK_PATH = Path(__file__).resolve().parent / "cedocumentmapper_v2" / "VENDOR_LOCK.json"
+_ENGINE_FINGERPRINT_PATH = (
+    Path(__file__).resolve().parent / "cedocumentmapper_v2" / "ENGINE_FINGERPRINT.json"
+)
 
 
 @app.route(route="fingerprint", methods=["GET"], auth_level=func.AuthLevel.FUNCTION)
 def fingerprint(req: func.HttpRequest) -> func.HttpResponse:
-    """Return the immutable vendored-engine identity of this deployed package.
+    """Return the content identity of this deployed package's parser engine.
 
     This endpoint is deliberately separate from the byte-stable parse envelope. It exposes
     no secrets or case data, but remains function-key protected so deployment verification
-    uses the same caller boundary as the parser routes.
+    uses the same caller boundary as the parser routes. The engine is authored directly in
+    this repository (services/engine/cedocumentmapper_v2/); there is no longer a separate
+    authoring repository/tag/commit to report, so this reports content hash and file count
+    only — a live proof that the expected engine bytes are actually deployed.
     """
     del req
     try:
-        lock = json.loads(_VENDOR_LOCK_PATH.read_text(encoding="utf-8"))
+        fingerprint_data = json.loads(_ENGINE_FINGERPRINT_PATH.read_text(encoding="utf-8"))
         payload = {
             "contract": "ce-parser-fingerprint-v1",
-            "repository": lock["repository"],
-            "ref": lock["ref"],
-            "commit": lock["commit"],
-            "vendored_file_count": lock["vendoredFileCount"],
-            "content_sha256": lock["contentSha256"],
-            "providers_sha256": lock["providersSha256"],
+            "vendored_file_count": fingerprint_data["vendoredFileCount"],
+            "content_sha256": fingerprint_data["contentSha256"],
         }
         return func.HttpResponse(
             json.dumps(payload, separators=(",", ":")),

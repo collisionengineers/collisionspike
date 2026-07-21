@@ -1,0 +1,19 @@
+{
+  "fixture_id": "acsp_docx_01",
+  "source_file": "ACSP DOCX 01.docx",
+  "expected_provider": "acsp",
+  "expected_values": {
+    "work_provider": "ACSP",
+    "vrm": "HK19WTN",
+    "vehicle_model": "Volkswagen Sharan",
+    "claimant_name": "Mobasir Ali",
+    "incident_date": "04/05/2026",
+    "inspection_address": "Chandler Court\nFlat 6\nStation Approach\nHorley\n\nRH6 9EQ",
+    "accident_circumstances": "Our client was proceeding correctly along Horley Road when the third-party pulled out from the Earlswood Depot and collided into the off-side of our client\u2019s vehicle."
+  },
+  "allowed_blank_fields": [
+    "reference",
+    "instruction_date"
+  ],
+  "notes": "Regression fixture for ACSP editable DOCX claim-form tables."
+}
