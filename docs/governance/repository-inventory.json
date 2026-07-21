@@ -17,7 +17,7 @@
     "files": 4118,
     "entries": 5339
   },
-  "totalFileBytes": 710249770,
+  "totalFileBytes": 710251451,
   "entries": [
     {
       "path": ".",
@@ -17060,7 +17060,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4477446,
-      "sha256": "77f253dfea04274a50a7c858ca2d0ee8441897319390bd6e27f4bcd872409360",
+      "sha256": "0776ec0eb8688f67257c90e3b42aac60e889ee036bd34dcfe75f09d23d7d5536",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17122,8 +17122,8 @@
     {
       "path": "docs/operations/database.md",
       "mediaType": "text/markdown",
-      "size": 4966,
-      "sha256": "7f97362d547e808cb6e667ce9d972be0f808ecb91eea324b22d9f6c0fc15080d",
+      "size": 5746,
+      "sha256": "8ba31ca8a573cc2ef8b80606ba99ea9960111725e35e384e9b9911e2b5f20f8b",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28192,8 +28192,8 @@
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/changes.md",
       "mediaType": "text/markdown",
-      "size": 1556,
-      "sha256": "f2280d6bdc41a048e6fe898321138a1c8833afda138dbc9d29f8671a7ef70fd4",
+      "size": 2457,
+      "sha256": "a6d595704b81338e7f9a9bb2a1b8a9704cf3b0a370e9614507b0ee1500e25874",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

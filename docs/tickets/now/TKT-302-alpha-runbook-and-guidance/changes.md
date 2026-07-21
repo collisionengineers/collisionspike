@@ -23,3 +23,15 @@ Ticket created from PLAN-015.
   "Forward as attachment" — wrapped emails lose their photos), one provider email per forward,
   instructions and photo emails only, QDOS only, never bulk-copy history, staff sender is
   expected. Indexed from `docs/product/README.md`.
+
+## 2026-07-21 — correction: database firewall/WSL wording (operator flag)
+
+The operator flagged the backup/wipe/reseed section's connection guidance as wrong. Verified
+live (read-only `az postgres flexible-server firewall-rule list`, 2026-07-21): a **standing**
+per-IP rule `dev-machine-1-2026-07-20` exists for the operator workstation and matches its
+current public IP — the section's "add a transient rule, trap-delete it" instruction would have
+deleted the operator's deliberate standing rule. Also verified the Windows side of the
+workstation has no `psql`/`pg_dump` (WSL has both), so WSL is a tooling location, not a network
+requirement — firewall rules are by public IP and WSL egresses through the host's IP.
+`docs/operations/database.md` rewritten accordingly: standing rule named and protected, IP-drift
+pre-check added, transient-rule guidance scoped to non-standard machines only.
