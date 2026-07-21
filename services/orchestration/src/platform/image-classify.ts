@@ -145,16 +145,16 @@ export function parseImageResponse(json: unknown): ImageClassification | null {
   };
 }
 
-/** Detect an explicit model refusal tied to these exact bytes. */
+/**
+ * Detect an explicit model refusal tied to these exact bytes. `finish_reason` is the
+ * only reliable signal: under RAI policy `Microsoft.DefaultV2` every successful 200 also
+ * carries `content_filter_results` / `prompt_filter_results` keys, so a body-text scan for
+ * "content filter" false-positives on every healthy response and misreads it as terminal.
+ */
 function hasExplicitContentFilter(result: unknown): boolean {
   if (!result || typeof result !== 'object') return false;
   const first = (result as { choices?: Array<{ finish_reason?: unknown }> }).choices?.[0];
-  if (first?.finish_reason === 'content_filter') return true;
-  try {
-    return /content[_ -]?filter|responsibleaipolicyviolation/i.test(JSON.stringify(result));
-  } catch {
-    return false;
-  }
+  return first?.finish_reason === 'content_filter';
 }
 
 /**
