@@ -401,7 +401,10 @@ def _has_report_attachment(filenames: Any) -> bool:
 # pdf.pdf"). Distinguishing a signature logo from a damage photo by raster content is
 # TKT-047 (out of scope); the filename is the most honest signal the classifier has
 # today. Used ONLY to promote an image-delivering REPLY to case_update (Rule 4a2).
-_SIGNATURE_IMAGE_RE = re.compile(r"^image0*\d{1,4}\.(?:png|jpe?g|gif|bmp)$", re.IGNORECASE)
+#
+# TKT-307: the digit run is UNBOUNDED. A capped \d{1,4} let a six-digit Outlook cid
+# (image078315.png) fall through as "genuine evidence" and reach live evidence uncropped.
+_SIGNATURE_IMAGE_RE = re.compile(r"^image0*\d+\.(?:png|jpe?g|gif|bmp)$", re.IGNORECASE)
 _IMAGE_EXTENSIONS = frozenset({"jpg", "jpeg", "png", "gif", "bmp", "heic", "webp", "tif", "tiff"})
 _IMAGE_EVIDENCE_HINT_RE = re.compile(
     r"(?:images?|photos?|damage|\bimg[\W_]|vd\s*image)", re.IGNORECASE

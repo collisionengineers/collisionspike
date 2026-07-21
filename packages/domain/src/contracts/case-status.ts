@@ -213,6 +213,13 @@ export interface ReadinessCheck {
   ok: boolean;
   group: ReadinessCheckGroup;
   detail?: string;
+  /**
+   * True for a check that is visible on the checklist but does NOT gate `ready`
+   * (P1-E, operator ruling 2026-07-21, superseding the earlier TKT-130 EVA-image-rules
+   * note below): a failing advisory check still shows its detail to the handler, it
+   * just never blocks `ready_for_eva` or `canSubmitCaseToEva`.
+   */
+  advisory?: boolean;
 }
 
 /** The complete verdict consumed by status, the SPA checklist and submission. */
@@ -238,7 +245,9 @@ const IMAGE_BASED_ASSESSMENT = 'Image Based Assessment';
  * address rule.
  *
  * Every check answers one question: is an EVA requirement met? Nothing here
- * asks whether a person has acknowledged a value (TKT-130).
+ * asks whether a person has acknowledged a value (TKT-130). The images check
+ * is `advisory` (P1-E, 2026-07-21): it still reports a gap on the checklist,
+ * it just does not withhold `ready`/submission — see ReadinessCheck.advisory.
  */
 export function evaluateCaseReadiness(
   input: Pick<
@@ -278,6 +287,7 @@ export function evaluateCaseReadiness(
     label: 'Images',
     ok: imagesReady,
     group: 'images',
+    advisory: true,
     ...(imagesReady ? {} : { detail: imageGaps.join('; ') }),
   });
 
@@ -347,7 +357,9 @@ export function evaluateCaseReadiness(
   const requiredFieldsPresent = missingRequiredFieldKeys(input.evaFields).length === 0;
   return {
     checks,
-    ready: checks.every((check) => check.ok),
+    // P1-E: an advisory check (currently only 'images') is visible on the checklist but
+    // never gates readiness/submission — see the ReadinessCheck.advisory doc.
+    ready: checks.filter((check) => !check.advisory).every((check) => check.ok),
     requiredFieldsPresent,
     inspectionReady,
     vehicleDetailsReady,
@@ -387,20 +399,25 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
          un-retired back to it; the only writer of the marker is the merge path,
          which sets `linked_to_instruction` atomically, and there is no unmerge)
      2. canonical readiness passes          -> 'ready_for_eva'
-     3. field/address contract valid and images fail -> 'missing_images'
-     4. field/address contract fails and base image rules pass
+        (P1-E, 2026-07-21: images are ADVISORY — readiness no longer withholds on
+         a failing image check, so this fires whenever fields/address/vehicle/source
+         are complete regardless of the image contract. 'missing_images' is NOT
+         assigned by this branch any more; it stays in the status enum/code table
+         for the unrelated `archiveHoldingPending` early-return above and for
+         historical persisted rows.)
+     3. field/address contract fails and base image rules pass
                                              -> 'missing_required_fields'
         (RESERVED for cases that actually hold accepted image evidence but whose
          required fields are incomplete — the "Images only" queue)
-     5. no accepted images AND no instructions -> 'needs_review'
+     4. no accepted images AND no instructions -> 'needs_review'
         (nothing usable has arrived yet — pending/new; NEVER a premature error,
          and NEVER 'missing_required_fields' for an evidence-less case)
-     6. identifiable (provider/vrm/caseref/claimant) -> 'needs_review'
-     7. otherwise (unidentifiable, image-less)        -> 'error'
+     5. identifiable (provider/vrm/caseref/claimant) -> 'needs_review'
+     6. otherwise (unidentifiable, image-less)        -> 'error'
 
    Readiness is evaluated exactly once by `evaluateCaseReadiness`: required
    values, an explicit and internally-consistent inspection decision, and the
-   image contract. The SPA checklist and submission path consume this same
+   image contract (advisory only, P1-E). The SPA checklist and submission path consume this same
    result. Field- and image-level "reviewed / not reviewed" markers are NOT
    inputs (TKT-130) — see the note inside `evaluateCaseReadiness`.
 
@@ -427,10 +444,9 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   const fieldContractValid =
     readiness.requiredFieldsPresent && readiness.inspectionReady && readiness.vehicleDetailsReady;
 
+  // P1-E: images are advisory, so `ready` no longer depends on `baseImagesValid` —
+  // this fires for a field-complete case regardless of the image gap.
   if (readiness.ready) return 'ready_for_eva';
-  if (fieldContractValid && !baseImagesValid) {
-    return 'missing_images';
-  }
   // missing_required_fields is RESERVED for cases WITH real (accepted) image
   // evidence — i.e. imagesValid — that are missing required fields. An
   // evidence-less, field-incomplete case falls through to the pending branches.

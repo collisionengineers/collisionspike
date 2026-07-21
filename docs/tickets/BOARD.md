@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (37)
+## Now (41)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -43,6 +43,10 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-300](./now/TKT-300-hide-guided-photos-panel/TKT-300-hide-guided-photos-panel.md) | Hide the guided-photos staff panel from the case page (PLAN-015 Slice C) | P1 · ui · PLAN-015 |
 | [TKT-301](./now/TKT-301-alpha-config-gate-parity/TKT-301-alpha-config-gate-parity.md) | Config-capture and gate-registry parity for the alpha gates (PLAN-015 Slice D) | P1 · platform · PLAN-015 |
 | [TKT-302](./now/TKT-302-alpha-runbook-and-guidance/TKT-302-alpha-runbook-and-guidance.md) | Alpha cutover runbook, backup/wipe/reseed procedure, staff forwarding guidance (PLAN-015 Slice E) | P1 · docs · PLAN-015 |
+| [TKT-306](./now/TKT-306-image-classify-content-filter-false-positive/TKT-306-image-classify-content-filter-false-positive.md) | Image classification is 100% dead — a body-text scan misreads every healthy response as a content-filter block | P0 · orchestration |
+| [TKT-307](./now/TKT-307-signature-image-regex-digit-cap/TKT-307-signature-image-regex-digit-cap.md) | Signature/logo image regex caps its digit run at 4 — a six-digit Outlook cid escapes as evidence | P1 · triage |
+| [TKT-308](./now/TKT-308-retro-fallback-off-for-alpha/TKT-308-retro-fallback-off-for-alpha.md) | Turn off the retro reconstruction fallback for the alpha (live config, no code change) | P0 · archive |
+| [TKT-309](./now/TKT-309-eva-image-rules-advisory/TKT-309-eva-image-rules-advisory.md) | Make the EVA image rules advisory — they no longer gate readiness or submission | P1 · domain |
 
 ## Verify (39)
 
@@ -246,12 +250,13 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-281](./done/TKT-281-guided-capture-staff-panel-not-mounted/TKT-281-guided-capture-staff-panel-not-mounted.md) | Guided capture — mount the staff request panel into CaseDetail (currently dead code) | P2 · web |
 | [TKT-287](./done/TKT-287-cedocumentmapper-engine-repository-consolidation/TKT-287-cedocumentmapper-engine-repository-consolidation.md) | cedocumentmapper engine repository consolidation | P1 · parsing |
 
-## Next (0)
+## Next (1)
 
 | ID | Title | Classification |
 |---|---|---|
+| [TKT-310](./next/TKT-310-inbound-triage-ground-truth-corpus/TKT-310-inbound-triage-ground-truth-corpus.md) | Inbound-triage rewrite Phase 0 — regenerate the v4 baseline and sort the eval corpus | P1 · triage · PLAN-016 |
 
-## Backlog (57)
+## Backlog (62)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -312,6 +317,11 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-288](./backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md) | Engine email-classifier precedence findings ported from the archived sibling repo | P3 · parsing |
 | [TKT-289](./backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md) | Investigate whether Document Intelligence is a safe plate-OCR fallback | P2 · ai |
 | [TKT-297](./backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md) | Engine-merge post-consolidation hardening (deferred Codex review findings) | P2 · parsing |
+| [TKT-311](./backlog/TKT-311-inbound-triage-two-axis-taxonomy/TKT-311-inbound-triage-two-axis-taxonomy.md) | Inbound-triage rewrite Phase 1 — taxonomy as two axes (stage x intent) | P1 · triage · PLAN-016 |
+| [TKT-312](./backlog/TKT-312-inbound-triage-signal-precedence-engine/TKT-312-inbound-triage-signal-precedence-engine.md) | Inbound-triage rewrite Phase 2 — signal-precedence evaluator replaces first-match-wins | P1 · triage · PLAN-016 |
+| [TKT-313](./backlog/TKT-313-inbound-triage-forwards-first-class-route/TKT-313-inbound-triage-forwards-first-class-route.md) | Inbound-triage rewrite Phase 3 — forwards as a first-class route | P1 · triage · PLAN-016 |
+| [TKT-314](./backlog/TKT-314-inbound-triage-taxonomy-migration/TKT-314-inbound-triage-taxonomy-migration.md) | Inbound-triage rewrite Phase 4 — migrate every taxonomy touchpoint together | P1 · triage · PLAN-016 |
+| [TKT-315](./backlog/TKT-315-inbound-triage-engine-consolidation/TKT-315-inbound-triage-engine-consolidation.md) | Inbound-triage rewrite Phase 5 — collapse the vendored triplication and TS/Python twins | P2 · triage · PLAN-016 |
 
 ## Blocked (9)
 
