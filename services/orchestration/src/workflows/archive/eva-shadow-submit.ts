@@ -6,8 +6,9 @@
  * The orchestrator is a single retry-wrapped call of the EXISTING `evaSubmit` activity
  * (finalize-eva-box.ts): payload from the Data API's internal eva-submission producer,
  * submission via the eva-sentry Function, `eva_submitted` audit on success. It deliberately
- * does NOT run `boxFolderAugment` — the Case/PO Archive folder is already created at intake,
- * and the augment path would mint a UUID-named folder instead.
+ * does NOT run `evaArchiveFolderEnsure` (email-engine-rebuild — formerly `boxFolderAugment`)
+ * — the Case/PO Archive folder is already created at intake, so re-running the ensure step
+ * here would be redundant, not merely differently-named.
  *
  * Gates (both required, checked at the consumer edge): EVA_SHADOW_AUTOSUBMIT_ENABLED and
  * EVA_API_ENABLED. Off => honest traced drop; the queue message is consumed, nothing runs.

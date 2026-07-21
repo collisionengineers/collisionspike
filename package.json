@@ -6,7 +6,8 @@
     "packages/*",
     "apps/*",
     "services/data-api",
-    "services/orchestration"
+    "services/orchestration",
+    "services/intake-engine"
   ],
   "scripts": {
     "build": "npm run build --workspace @cs/domain && npm run build --workspace @cs/server-runtime && npm run build --workspace @cs/api && npm run build --workspace @cs/orchestration && npm run build --workspace @cs/web && npm run build --workspace @cs/capture-contracts && npm run build --workspace @cs/capture-core && npm run build --workspace @cs/capture-testkit && npm run build --workspace @cs/capture-web",

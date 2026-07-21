@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1222,
-    "files": 4119,
-    "entries": 5341
+    "directories": 1231,
+    "files": 4155,
+    "entries": 5386
   },
-  "totalFileBytes": 710272633,
+  "totalFileBytes": 710401750,
   "entries": [
     {
       "path": ".",
@@ -8489,6 +8489,78 @@
       "lifecycle": "structural"
     },
     {
+      "path": "services/intake-engine",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/src",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/src/adapters",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/src/registry",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/src/registry/providers",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/tests",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/intake-engine/tests/corpus",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "repository",
+      "lifecycle": "structural"
+    },
+    {
       "path": "services/orchestration",
       "mediaType": "inode/directory",
       "size": 0,
@@ -8562,6 +8634,15 @@
     },
     {
       "path": "services/orchestration/src/workflows/intake",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "orchestration",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -17050,7 +17131,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1672789,
+      "size": 1686207,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17068,8 +17149,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4478224,
-      "sha256": "3d261c7af653fbc097cb54293965ac2c983dfc9a75c72b20c149a20d50988b5f",
+      "size": 4495453,
+      "sha256": "c6163c8dc9c2a25b7c28c97ae73fadea106aa0b28ac6764a0fbf57a5586bb0b1",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17077,8 +17158,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71597,
-      "sha256": "cf28e8dc8e5f089dc4b8685c01d61d548094e420e2084abea2a612c1a0b58320",
+      "size": 71832,
+      "sha256": "015c95220d34e532942802e6154b02371003b5a079207c4d05114da9a47591be",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -32080,8 +32161,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 235669,
-      "sha256": "419be1de0d86e7a2eb2c7914659a4e8cda00d9073c946a846eecda3fc2415032",
+      "size": 236065,
+      "sha256": "6621aa7186497715425413454e1cec5a2835b3efda63e7a31c94edbed8edbc48",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -32089,8 +32170,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 6391,
-      "sha256": "301054db5657a2ad8ff356f3a20fc42f583c6a55bd5bbea335dbb6de69d96947",
+      "size": 6421,
+      "sha256": "411a56a021a0b5e7ef0a85bbc65fc2b9c05feac1454d35f5bd7e43d466fb0cb3",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -39989,6 +40070,258 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/intake-engine/README.md",
+      "mediaType": "text/markdown",
+      "size": 6198,
+      "sha256": "3f9ffaeba8d71aa0ec12bd8633e6ef799209dd777f62d253f9530cdd85b7572a",
+      "category": "documentation",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/package.json",
+      "mediaType": "application/json",
+      "size": 400,
+      "sha256": "e63b8dbb15884dffd4407044fcdefcf3aa81b4b3902a063241be4400975572cf",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/adapters/box-test-guard.ts",
+      "mediaType": "text/typescript",
+      "size": 4756,
+      "sha256": "88dba56f8cd7ae20d51862071f644ed8fb63a709fbc96c28e29b5f134679e36c",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/adapters/outlook-readonly-guard.ts",
+      "mediaType": "text/typescript",
+      "size": 1355,
+      "sha256": "27642b6a618e17bd064f5a409977ab78359066fb9dae7366276a26052d63a2d0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/index.ts",
+      "mediaType": "text/typescript",
+      "size": 779,
+      "sha256": "923373ae0adad37c7011554381f950509481c36af9a7f118962bd2e17288ad62",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/classify-email-type.ts",
+      "mediaType": "text/typescript",
+      "size": 4615,
+      "sha256": "583fb0dd6c980ef8479fd862f8054ff13b8e8ba003da1afe57bd3ea721800c89",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/identify-principal.ts",
+      "mediaType": "text/typescript",
+      "size": 6122,
+      "sha256": "483f66731b563cb57d7e6403f012100a11a30199c76b5542ba2b5681512d9ad0",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/mint-case-number.ts",
+      "mediaType": "text/typescript",
+      "size": 3973,
+      "sha256": "794d881fcc3ce7db68bd6995e407b6c520b121ea81c80165118969bb924f5642",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/pipeline.ts",
+      "mediaType": "text/typescript",
+      "size": 4802,
+      "sha256": "579e98d15732e96c6d51d7363f010f5f8d0ba731614441da736a852e7cd0d894",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/resolve-archive-folder-name.ts",
+      "mediaType": "text/typescript",
+      "size": 1077,
+      "sha256": "769599e6a70607217e41861707801c43e435328ecae1d95b1d147797b52a29f9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/resolve-intermediary-principal.ts",
+      "mediaType": "text/typescript",
+      "size": 2072,
+      "sha256": "a1daf9c7aef19e98fa1d8a1c9c09a44612850f9a230dbd91ae2307c196afbafa",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/registry/defaults.ts",
+      "mediaType": "text/typescript",
+      "size": 2874,
+      "sha256": "a5a4dab2ad92f74b99867ed3c2f2855b80442b88a3de70a483e2f1ae8b42f78d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/registry/loader.ts",
+      "mediaType": "text/typescript",
+      "size": 4565,
+      "sha256": "364351288849bf3152bc7895fafdd97442add010dae60c0491df764e833f95c9",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/registry/providers/CNX.json",
+      "mediaType": "application/json",
+      "size": 639,
+      "sha256": "7f61ab4c6c56758d3a7d23bf2eb4c7942583d4d435c569b0175288189184396d",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/registry/providers/QDOS.json",
+      "mediaType": "application/json",
+      "size": 1028,
+      "sha256": "bd430582b1db710b4b7881c151d2f84d620dc48dae2cac949325440bc4af3047",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/registry/schema.ts",
+      "mediaType": "text/typescript",
+      "size": 5378,
+      "sha256": "169222e49e147b3531fed064b41bcaa0b1b4b6bd25f65a795a9c10031c488979",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/box-test-guard.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2620,
+      "sha256": "f47cbf9ebc843ab2a1cefa74a6a765dd27e7767528b46a19a397a59f8c5d06c1",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/classify-email-type.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4175,
+      "sha256": "100af589e90972056020398da2c08d8d628ee505ed10aac3c9388ac1dadf0716",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/corpus/connexus-names-pch.txt",
+      "mediaType": "text/plain",
+      "size": 219,
+      "sha256": "b98f6923e9d816c27e6c9e1e1735a63c62f9bf81da10c5c9fbe2640e7b396bd4",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/corpus/qdos-audit-third-party-repairable.txt",
+      "mediaType": "text/plain",
+      "size": 301,
+      "sha256": "0f51c9f608b0dff97b93ea8e2e4bbf8b514d37df8a163f058c889e58db727776",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/corpus/qdos-direct-standard.txt",
+      "mediaType": "text/plain",
+      "size": 213,
+      "sha256": "02809708eb1cc63474850b6666f3793536852ed2e8914494c839226e40f2c121",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/corpus/qdos-dual-commissioning.txt",
+      "mediaType": "text/plain",
+      "size": 319,
+      "sha256": "a7bcf4de140efccc0c20299b44ecf04fcceacf2d664f9f7b30611e163f9a602b",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/identify-principal.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4414,
+      "sha256": "84aac497f428ff88669ea218f77e68bf3e98e80ced7ba31ef7653b58522cea19",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/mint-case-number.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3426,
+      "sha256": "a3bd9f9d30f699aadcddb1e29cde82098bd94d6f4824fac21a77b849cbb81f51",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/pipeline.corpus.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3549,
+      "sha256": "ed00316e3d1fe7b8ef752c8ef26e9f0be72715312547e329bdde38b7a9bb6f1d",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/registry.test.ts",
+      "mediaType": "text/typescript",
+      "size": 1899,
+      "sha256": "431c269caf859ec4bccf1ff5573db144d2aa17f25dcce8e1f68fe699960cbc3d",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tsconfig.json",
+      "mediaType": "application/json",
+      "size": 453,
+      "sha256": "5785284d3a8c35f105c7893a50e296bf30574f6a3f25a001f46702afcb32fa98",
+      "category": "configuration",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/vitest.config.ts",
+      "mediaType": "text/typescript",
+      "size": 419,
+      "sha256": "bb4b5af7928121df28c73d0cd65277579f0a0410e49e47a495ae25cecd7063ea",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/.funcignore",
       "mediaType": "application/octet-stream",
       "size": 99,
@@ -40018,8 +40351,8 @@
     {
       "path": "services/orchestration/package.json",
       "mediaType": "application/json",
-      "size": 515,
-      "sha256": "14a017a0b33aea4400475abb052d21108c42829d9789bcb298c274604ca8002d",
+      "size": 545,
+      "sha256": "71c6179057f82c5148621111a96954159ab2802af629733b58f3b0d775c5800a",
       "category": "configuration",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40198,8 +40531,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 5624,
-      "sha256": "83e5b183abad5767a1cfa093074e5845edf52c3af4f842108c1ac84b2fa1d543",
+      "size": 6821,
+      "sha256": "ddf500283502812ad8468cc759af4e965aa8ec0211df7019d09b86d68a3d6f77",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40511,24 +40844,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/orchestration/src/workflows/archive/box-folder-create.test.ts",
-      "mediaType": "text/typescript",
-      "size": 7156,
-      "sha256": "61737b0e2a1814e2d9f6ddc9a0d4b537b7d4347625b4b6ab728af2200c493708",
-      "category": "source",
-      "owner": "orchestration",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/orchestration/src/workflows/archive/box-folder-create.ts",
-      "mediaType": "text/typescript",
-      "size": 9593,
-      "sha256": "34548e4ecda761393a57cd792cde3dc29ea9da61b724b7edbac45343b3e4cacf",
-      "category": "source",
-      "owner": "orchestration",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/orchestration/src/workflows/archive/box-maintenance-monitor.test.ts",
       "mediaType": "text/typescript",
       "size": 8623,
@@ -40565,10 +40880,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/archive/case-archive-folder.test.ts",
+      "mediaType": "text/typescript",
+      "size": 7451,
+      "sha256": "a5bb63d6886dd697adf868b4290e7af4f8451af6acf2f1e5a8a10e5376384887",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/archive/case-archive-folder.ts",
+      "mediaType": "text/typescript",
+      "size": 11644,
+      "sha256": "ec3cca9fb38a05b675b9af3b058caf8029cb79f04d089830c3df6237429d827b",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.test.ts",
       "mediaType": "text/typescript",
-      "size": 5256,
-      "sha256": "5e9a66e449791a23a5cf77d0aeab3be8acb06171e004b30bb3cf71ad354ee995",
+      "size": 5268,
+      "sha256": "55241c386ea5ff1560c0c933852aecfaab401c167b63b0cd688cfce17779f25a",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40576,8 +40909,17 @@
     {
       "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.ts",
       "mediaType": "text/typescript",
-      "size": 3872,
-      "sha256": "a591bf359b9111f6e51c415d3c36abf394291287f3268b3084a6e87ce6a27bac",
+      "size": 3960,
+      "sha256": "331c4e946966baf73e423f273cf07e2325cb9591677fd1fa7a6d08ce52c04ae0",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/archive/finalize-eva-box.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4084,
+      "sha256": "7758c7acfefb740b6c879f409e4f8fea265080f8320c6f750742cd050a833f43",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40585,8 +40927,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.ts",
       "mediaType": "text/typescript",
-      "size": 3624,
-      "sha256": "418c755ce4b0547eadfd75faa584e84f16bf206754e3d581fd5cb9347814f792",
+      "size": 5103,
+      "sha256": "ec2a0c60b27d42ee62ab7302e5a8516ac9e8dad1af5f9a7c4fb96b3b0e232ca8",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40720,8 +41062,8 @@
     {
       "path": "services/orchestration/src/workflows/evidence/imagesUnmatched.ts",
       "mediaType": "text/typescript",
-      "size": 8789,
-      "sha256": "7e9935f1797b31b3f4ad0f7386e26131b439bc7dbecac87931920908c818dc0a",
+      "size": 9317,
+      "sha256": "91549cb91bced4255b680f156420bad56c856145d8780b3b2abf6f154a50734b",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40731,6 +41073,87 @@
       "mediaType": "text/typescript",
       "size": 3411,
       "sha256": "680b30a4fa104ce30a3a64a7390c57f7407e7c12beec08646281083fda6b614c",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/README.md",
+      "mediaType": "text/markdown",
+      "size": 3089,
+      "sha256": "5ba146180cff388ffac61b34363e3613339cac685611e4e1ca627036e8923efe",
+      "category": "documentation",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/classifyEmailType.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2200,
+      "sha256": "1fb77ba3c942688b06996a81984d160c28a2224999dad98e1e422ac26340d219",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/classifyEmailType.ts",
+      "mediaType": "text/typescript",
+      "size": 2419,
+      "sha256": "52b02354bd4a447f0f97a109ccef9e30c7520a84a15eab48707644662c90cc10",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/ensureArchiveFolder.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3773,
+      "sha256": "45c2411bd787a3165403f1e9172f9fc984ac30a3bad5cde62e4dab0817a382b0",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/ensureArchiveFolder.ts",
+      "mediaType": "text/typescript",
+      "size": 5059,
+      "sha256": "6de207b311b54c1ffb259b15f5dd2c145bdc7435ec6543c5d415f447e5b46ca3",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/identifyPrincipal.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2217,
+      "sha256": "950e7db1a35ba0fdb66420e44018c1c5cbc315e455af1fa65631c31c3de69d40",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/identifyPrincipal.ts",
+      "mediaType": "text/typescript",
+      "size": 1969,
+      "sha256": "c5337ec70af8ae12c8628d5c77873b289ab04df48c3e6a06b3891564fa1dde40",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/mintCaseNumber.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2360,
+      "sha256": "87ff9da23e301831eeccd77d55cd68f222688a1905a32c424e3601d61d50e1ab",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/mintCaseNumber.ts",
+      "mediaType": "text/typescript",
+      "size": 2971,
+      "sha256": "0f45632f2bd51302788154205d8d88b04a62945b796b2e1416715cb9269efe0a",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40909,8 +41332,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
-      "size": 46806,
-      "sha256": "21fcaeb634673e6fe875f24edbd4f42e9fb556d011bcd73ff47db89bf0db6bff",
+      "size": 47846,
+      "sha256": "b4cdbe5c76c7d880c8b844c54dd20fae9f3e03864dbcbbb9a0eab14fec955bc2",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41035,26 +41458,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triage-parity.test.ts",
       "mediaType": "text/typescript",
-      "size": 3538,
-      "sha256": "e9ee8e29804fbeb6d9be7f751e6e6304c44297b6fa36f00c91df7f0acbf5678a",
-      "category": "source",
-      "owner": "orchestration",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/orchestration/src/workflows/intake/triagePolicy.test.ts",
-      "mediaType": "text/typescript",
-      "size": 6597,
-      "sha256": "3f5143bae754f17c132a1b77e7673ad2ebfd11099b7257386ad5c1c0661a3804",
-      "category": "source",
-      "owner": "orchestration",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/orchestration/src/workflows/intake/triagePolicy.ts",
-      "mediaType": "text/typescript",
-      "size": 16746,
-      "sha256": "623bb0931ac72255aa62291db7a3d924dc3f8192d70995b3105f0654f5bfe1ad",
+      "size": 3542,
+      "sha256": "d2a4fcd001e3479ae9335352663ad175a5ab6e91843070705e38c199181ae8e2",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41062,8 +41467,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triageUnified.test.ts",
       "mediaType": "text/typescript",
-      "size": 9990,
-      "sha256": "fc757b157814e19df23636d0a49d5e567ac09c48ae702925f8e6afb417792be2",
+      "size": 15608,
+      "sha256": "75e692f6fc5749502a57a250eab5606c9eeec401bfcbf9baa3640a5419df5286",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41071,8 +41476,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triageUnified.ts",
       "mediaType": "text/typescript",
-      "size": 18693,
-      "sha256": "682ba1c35b44f135ac9dc90e262106176fedf865dc01fa94f93d27a4ef649126",
+      "size": 24139,
+      "sha256": "cda5bef2b242f50fda413f7ce96a01b4650b97a6eb044db05834490af387c336",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41089,8 +41494,8 @@
     {
       "path": "services/orchestration/src/workflows/mailbox/archive-holding-monitor.ts",
       "mediaType": "text/typescript",
-      "size": 9721,
-      "sha256": "70b91a8b3ed1a06be3aa6cb6d8d69094cbe31e73f64bc80207ec2751b3f36e29",
+      "size": 10037,
+      "sha256": "4e8353263a2a2233e62af9cfa27852f2db031363c4b9442faed76a6c18010693",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41377,8 +41782,8 @@
     {
       "path": "services/orchestration/tsconfig.json",
       "mediaType": "application/json",
-      "size": 520,
-      "sha256": "8f2319cfdcf02f3d65adcf83741530c3909fb62d8fbd6d9d235f2dd909e2be72",
+      "size": 556,
+      "sha256": "75d62d5601ec1c2209bea42798b827c21958b9bad63f2423b2986a65eea3f369",
       "category": "configuration",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41386,8 +41791,8 @@
     {
       "path": "services/orchestration/vitest.config.ts",
       "mediaType": "text/typescript",
-      "size": 1026,
-      "sha256": "e33258a394fd8eb09575d4ddab834d0df8a9adba51ef01e0e569193ce673c510",
+      "size": 1213,
+      "sha256": "24de4923e2b921a439ee234aa859a146b8c5b1248eaecc37a56d9c036cf5af34",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -47227,8 +47632,8 @@
     {
       "path": "tsconfig.json",
       "mediaType": "application/json",
-      "size": 410,
-      "sha256": "0b0318ea018f9444c461574c67771dd729d1e10333551ffd40d484d2a0676348",
+      "size": 454,
+      "sha256": "a08942f344846dfdfda56c3bc1ec0aca0caee111c562e17b3fde1e3414d3bcda",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"

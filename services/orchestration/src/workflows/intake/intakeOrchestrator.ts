@@ -671,6 +671,19 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
   // decision (case_type_code write + marker mint) is gated by AUDIT_CASES_ENABLED
   // INSIDE the Data API — forwarding is unconditional (shadow rollout: gate off, the
   // API records an observe-only audit_event and mints/types exactly as today).
+  //
+  // email-engine-rebuild — NOT rewired to @cs/intake-engine's classify-email-type.ts:
+  // that engine's registry currently only seeds QDOS + CNX (not PCH), has no diminution
+  // concept at all, and this call's consumer (caseResolve's `caseType?: 'standard' |
+  // 'audit' | 'audit_total_loss' | 'diminution'` field, a data-api contract out of scope
+  // for this pass) has no equivalent shape to receive the new engine's taxonomy. Rewiring
+  // this seam without a live regression (PCH audits silently stop classifying) or an
+  // out-of-scope data-api change is exactly the "full intakeOrchestrator.ts rewiring" this
+  // pass explicitly defers to a follow-up iteration — see the final report. `retro-
+  // reconstruct.ts` calls this SAME `decideCaseType` function independently for retro
+  // reconstruction, which is why packages/domain/src/domain/case-type.ts (and this call)
+  // were NOT deleted, despite the task's literal instruction to delete the whole file —
+  // see that file's own comment for the full reasoning.
   const caseTypeDecision = decideCaseType({
     parserCaseType: (parseResult as {
       case_type?: { value?: string | null; dual?: boolean; signals?: string[] };

@@ -14,6 +14,7 @@
     "@azure/functions": "^4.5.0",
     "@azure/storage-blob": "^12.25.0",
     "@cs/domain": "*",
+    "@cs/intake-engine": "*",
     "@cs/server-runtime": "*",
     "durable-functions": "^3.3.2"
   },

@@ -5,6 +5,7 @@
     { "path": "./packages/server-runtime" },
     { "path": "./services/data-api" },
     { "path": "./services/orchestration" },
+    { "path": "./services/intake-engine" },
     { "path": "./apps/web" },
     { "path": "./packages/capture-contracts" },
     { "path": "./packages/capture-core" },
