@@ -17,7 +17,7 @@
     "files": 4052,
     "entries": 5256
   },
-  "totalFileBytes": 709846492,
+  "totalFileBytes": 709847803,
   "entries": [
     {
       "path": ".",
@@ -12928,8 +12928,8 @@
     {
       "path": ".github/workflows/ci.yml",
       "mediaType": "application/yaml",
-      "size": 11596,
-      "sha256": "9b876260328798a67e981125c5be39ddaf2ec1f13fe59a3c18937eb2b5314808",
+      "size": 12267,
+      "sha256": "bec81506295e068d861fe97710020aafda28ab10d093748d9cbfcfed3da2e9d3",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -15376,8 +15376,8 @@
     {
       "path": "contracts/runtime-contract.snapshot.json",
       "mediaType": "application/json",
-      "size": 156899,
-      "sha256": "158d0688f45940b77c13549724451261a8b081757a124a58b40732c6e5684eef",
+      "size": 157539,
+      "sha256": "78108f304ee6eb63bbdb21ea9fa94058f1adbb26a3616a0e96c95a9b3978bfa4",
       "category": "contract",
       "owner": "contracts",
       "lifecycle": "active"
@@ -16898,7 +16898,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4443807,
-      "sha256": "d6af8dcbd405f2b0827b8bfa172714af6a5926c502766ebd328f0239dad71566",
+      "sha256": "9cb4dde4f8616b395f97f06f505d334880f8c3d5410fba1c6d4998ffe2d16f5e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"

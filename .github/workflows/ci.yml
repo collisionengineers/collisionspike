@@ -186,6 +186,14 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: services/engine/cedocumentmapper_v2/pyproject.toml
+      - name: Install Tesseract OCR (scanned-PDF eval fixtures)
+        # The eval corpus includes scanned/image-only PDFs (e.g. ACSP SCAN 01) whose text is
+        # recovered only by the engine's pdf.py OCR fallback (pytesseract → tesseract binary).
+        # Without the native binary those fixtures yield empty text → provider 'None' → the eval
+        # gate drops below baseline. The baseline was generated OCR-on, and the shipped OCR
+        # Function runs this same engine with tesseract present, so CI installs it to match.
+        if: ${{ needs.changes.outputs.code != 'false' }}
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr
       - name: Install engine dependencies
         if: ${{ needs.changes.outputs.code != 'false' }}
         working-directory: services/engine/cedocumentmapper_v2
