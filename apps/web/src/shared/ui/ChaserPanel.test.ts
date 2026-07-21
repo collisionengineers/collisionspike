@@ -142,13 +142,17 @@ describe('canonical image-gap chaser eligibility', () => {
       .toEqual(['damage_closeup_request']);
   });
 
-  it('offers a replacement request for an unresolved image decision', () => {
+  /* TKT-130, operator ruling 2026-07-21 — inverted. A classifier-excluded photo
+     awaiting confirmation used to raise a replacement-photo chaser. Chasing a
+     provider for photos when the required set is already complete asks them for
+     something we do not need; the chaser list now tracks real image gaps only. */
+  it('does not chase for a replacement when the required image set is complete', () => {
     expect(templateKeys(caseWith([
       overview(),
       closeup(),
-      image({ excluded: true, reviewRequired: true }),
+      image({ excluded: true }),
       instruction(),
-    ]))).toEqual(['replacement_photo_request']);
+    ]))).toEqual([]);
   });
 
   it('does not turn a reflection-only observation on Image Based Assessment into a gap', () => {

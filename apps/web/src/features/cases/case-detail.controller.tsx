@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useBlocker, useNavigate } from 'react-router-dom';
 import { Link, Toast, ToastBody, ToastTitle, useToastController } from '@fluentui/react-components';
 import { computeReadiness, useSeverityChipStyles, type ChecklistItem, type GuidedPhotoLink } from '../../shared/ui';
-import { data, EVA_FIELD_ORDER, dueInfo, getSharedLink, statusToStage, checkVrm, useBoxGates, useCaseUpdate, useDeleteCaseImageGate, useLogChase, useInspectionAddressSuggestions, useLocationAssistGate, activeGetSharedLinkTransport, serverMessageOf, type Case, type CaseStatus, type EvaFieldKey, type Evidence, type PipelineStageKey, type SuggestedAddress } from '../../data';
+import { data, dueInfo, getSharedLink, statusToStage, checkVrm, useBoxGates, useCaseUpdate, useDeleteCaseImageGate, useLogChase, useInspectionAddressSuggestions, useLocationAssistGate, activeGetSharedLinkTransport, serverMessageOf, type Case, type CaseStatus, type EvaFieldKey, type Evidence, type PipelineStageKey, type SuggestedAddress } from '../../data';
 import { canSubmitCaseToEva, allowedCaseTypes, CASE_PO_SHAPE_RE, derivedMarkerCasePo, isValidEvaMileage, normalizeCasePo, type CaseWorkType } from '@cs/domain';
 import { GLOBAL_TOASTER_ID } from '../../shared/ui';
 import { inspectionChoiceForCase } from '../../shared/ui/InspectionChoice';
@@ -80,15 +80,14 @@ function caseStageKey(status: CaseStatus): PipelineStageKey {
 }
 
 /* Resolve a readiness ChecklistItem to the tab that owns it and, for a field
-   item, the EvaFieldKey to focus. Keeps the deep-link the ONE blocker UI. */
-function checklistTarget(item: ChecklistItem, c: Case): { tab: TabName; fieldKey?: EvaFieldKey } {
+   item, the EvaFieldKey to focus. Keeps the deep-link the ONE blocker UI.
+   Every remaining group resolves from the item alone — the old 'conflicts'
+   branch was the only one that had to search the case, and it dead-ended
+   whenever the blocker was a plain needs_review field (TKT-130). */
+function checklistTarget(item: ChecklistItem): { tab: TabName; fieldKey?: EvaFieldKey } {
   if (item.group === 'images') return { tab: 'evidence' };
   if (item.group === 'source') return { tab: 'evidence' };
   if (item.group === 'address') return { tab: 'address' };
-  if (item.group === 'conflicts') {
-    const conflict = EVA_FIELD_ORDER.find((d) => c.evaFields[d.key].reviewState === 'conflict');
-    return { tab: 'fields', fieldKey: conflict?.key };
-  }
   // fields group — id is `field-<key>`.
   const key = item.id.startsWith('field-') ? (item.id.slice('field-'.length) as EvaFieldKey) : undefined;
   return { tab: 'fields', fieldKey: key };
@@ -600,7 +599,7 @@ export function useCaseDetailController({ caseData, images, imagesLoading, onRef
 
   /* Switch to a tab and (for field items) focus + reveal the offending field. */
   const goToBlocker = (item: ChecklistItem) => {
-    const { tab: targetTab, fieldKey } = checklistTarget(item, liveCase);
+    const { tab: targetTab, fieldKey } = checklistTarget(item);
     setTab(targetTab);
     if (targetTab === 'fields' && fieldKey) {
       // Wait for the Fields tab to mount, then focus the control.

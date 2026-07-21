@@ -17,7 +17,7 @@ import {
   useToastController,
 } from '@fluentui/react-components';
 import { Copy, ClipboardCheck } from 'lucide-react';
-import { evaluateEvaImageReadiness } from '@cs/domain';
+import { evaluateEvaImageRules } from '@cs/domain';
 import type { Case, Chaser, ChaserChannel, CopyFileRequestTransport } from '../../data';
 import { GLOBAL_TOASTER_ID } from './toaster';
 import type { GuidedPhotoLink } from './GuidedPhotoRequestPanel';
@@ -58,7 +58,7 @@ export interface ChaserTemplate {
   body: string;
 }
 
-type ImageGapCode = ReturnType<typeof evaluateEvaImageReadiness>['gaps'][number]['code'];
+type ImageGapCode = ReturnType<typeof evaluateEvaImageRules>['failures'][number]['code'];
 
 const IMAGE_TEMPLATE_BUILDERS: Record<ImageGapCode, (c: Case) => ChaserTemplate> = {
   min_count: (c) => ({
@@ -89,15 +89,6 @@ const IMAGE_TEMPLATE_BUILDERS: Record<ImageGapCode, (c: Case) => ChaserTemplate>
       `Hi,\n\nPlease send a clear close-up photo of the main damage to vehicle ${c.vrm}.\n\n` +
       `Many thanks,\nCollision Engineers`,
   }),
-  review_required: (c) => ({
-    key: 'replacement_photo_request',
-    label: 'Replacement photo request',
-    channels: ['email', 'whatsapp'],
-    requiresUploadLink: true,
-    body:
-      `Hi,\n\nOne or more photographs for vehicle ${c.vrm} cannot yet be used. ` +
-      `Please send clear replacement photographs.\n\nMany thanks,\nCollision Engineers`,
-  }),
 };
 
 const instructionTemplate = (c: Case): ChaserTemplate => ({
@@ -114,7 +105,7 @@ const instructionTemplate = (c: Case): ChaserTemplate => ({
  * that drive canonical readiness. Raw image presence never suppresses a gap. */
 export function chaserTemplatesForCase(c: Case): ChaserTemplate[] {
   const existingOverviewChaser = overviewChaserForPanel(c.chasers);
-  const imageTemplates = evaluateEvaImageReadiness(c.evidence).gaps.map((gap) => {
+  const imageTemplates = evaluateEvaImageRules(c.evidence).failures.map((gap) => {
     if (gap.code === 'missing_overview' && existingOverviewChaser) {
       return {
         key: EXISTING_OVERVIEW_REQUEST_KEY,

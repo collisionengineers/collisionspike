@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   evaluateEvaImageRules,
-  evaluateEvaImageReadiness,
   validateEvaImageRules,
   acceptedEvaImages,
   MIN_ACCEPTED_IMAGES,
@@ -86,41 +85,61 @@ describe('evaluateEvaImageRules — failing branches', () => {
   });
 });
 
-describe('evaluateEvaImageReadiness — canonical chaser gaps', () => {
+describe('canonical chaser gaps', () => {
   it('keeps every base gap when raw images exist but none are accepted', () => {
-    const result = evaluateEvaImageReadiness([
+    const result = evaluateEvaImageRules([
       img({ acceptedForEva: false }),
       img({ excluded: true }),
     ]);
     expect(result.ok).toBe(false);
-    expect(result.rules.acceptedCount).toBe(0);
-    expect(result.gaps.map((gap) => gap.code)).toEqual([
+    expect(result.acceptedCount).toBe(0);
+    expect(result.failures.map((failure) => failure.code)).toEqual([
       'min_count',
       'missing_overview',
       'missing_damage_closeup',
     ]);
   });
 
-  it('adds an unresolved-review gap after the base rules in stable order', () => {
-    const result = evaluateEvaImageReadiness([
-      overview,
-      closeup,
-      img({ excluded: true, reviewRequired: true }),
-    ]);
-    expect(result.rules.ok).toBe(true);
-    expect(result.ok).toBe(false);
-    expect(result.unresolvedReviewCount).toBe(1);
-    expect(result.gaps).toEqual([
-      expect.objectContaining({ code: 'review_required', count: 1 }),
-    ]);
-  });
-
   it('does not turn a reflection observation into a gap by itself', () => {
-    const result = evaluateEvaImageReadiness([
+    const result = evaluateEvaImageRules([
       { ...overview, personReflection: true },
       closeup,
     ] as Array<ImageRuleEvidence & { personReflection?: boolean }>);
     expect(result.ok).toBe(true);
-    expect(result.gaps).toEqual([]);
+    expect(result.failures).toEqual([]);
+  });
+});
+
+/* TKT-130 (operator ruling 2026-07-21): images carry NO reviewed/not-reviewed
+   state in this contract. A classifier-excluded photo awaiting human
+   confirmation used to add a fourth `review_required` gap that held an otherwise
+   complete case. These pin the replacement behaviour so it cannot regress. */
+describe('an unconfirmed classifier exclusion never blocks the image contract', () => {
+  it('passes when the accepted set satisfies the three rules', () => {
+    // The third photo is excluded, so it never counted toward the rules anyway —
+    // holding the case for it made Not-ready mean something other than
+    // "the EVA requirements aren't met".
+    const result = evaluateEvaImageRules([
+      overview,
+      closeup,
+      img({ excluded: true }),
+    ]);
+    expect(result.ok).toBe(true);
+    expect(result.failures).toEqual([]);
+    expect(result.acceptedCount).toBe(2);
+  });
+
+  it('still fails honestly when excluding the photo breaks a real rule', () => {
+    // Removal of the review gate must not weaken the contract: exclude the only
+    // damage close-up and the case is correctly still not ready.
+    const result = evaluateEvaImageRules([
+      overview,
+      img({ imageRole: 'damage_closeup', excluded: true }),
+    ]);
+    expect(result.ok).toBe(false);
+    expect(result.failures.map((failure) => failure.code)).toEqual([
+      'min_count',
+      'missing_damage_closeup',
+    ]);
   });
 });

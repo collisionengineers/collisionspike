@@ -18,7 +18,7 @@ import {
 } from './eva-export';
 import {
   MIN_ACCEPTED_IMAGES,
-  evaluateEvaImageReadiness,
+  evaluateEvaImageRules,
   acceptedEvaImages,
   type ImageRuleEvidence,
 } from './image-rules';
@@ -203,18 +203,8 @@ export function conflictFieldKeys(
   );
 }
 
-/** Field keys still awaiting review or carrying an unresolved conflict. */
-export function unresolvedReviewFieldKeys(
-  fields: Record<EvaFieldKey, ReviewableField>,
-): EvaFieldKey[] {
-  return EVA_FIELD_ORDER.map((d) => d.key).filter((key) => {
-    const state = fields[key]?.reviewState;
-    return state === 'needs_review' || state === 'conflict';
-  });
-}
-
 /** Stable groups used by every checklist adapter. */
-export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'vehicle' | 'conflicts' | 'source';
+export type ReadinessCheckGroup = 'fields' | 'images' | 'address' | 'vehicle' | 'source';
 
 /** One canonical, handler-facing readiness check. */
 export interface ReadinessCheck {
@@ -232,10 +222,8 @@ export interface CaseReadinessResult {
   requiredFieldsPresent: boolean;
   inspectionReady: boolean;
   vehicleDetailsReady: boolean;
-  /** Base accepted-count/role image contract (before unresolved-review gate). */
-  imageRulesPass: boolean;
+  /** The accepted-count/role image contract. */
   imagesReady: boolean;
-  reviewsResolved: boolean;
   sourceEvidenceReady: boolean;
 }
 
@@ -246,8 +234,11 @@ const IMAGE_BASED_ASSESSMENT = 'Image Based Assessment';
  *
  * It is deliberately richer than a status enum: the same ordered checks drive
  * the Case Detail checklist while the booleans drive persisted status and the
- * submission guard. No caller is expected to re-implement any field, image,
- * address or review-state rule.
+ * submission guard. No caller is expected to re-implement any field, image or
+ * address rule.
+ *
+ * Every check answers one question: is an EVA requirement met? Nothing here
+ * asks whether a person has acknowledged a value (TKT-130).
  */
 export function evaluateCaseReadiness(
   input: Pick<
@@ -270,21 +261,18 @@ export function evaluateCaseReadiness(
     });
   }
 
-  const imageReadiness = evaluateEvaImageReadiness(input.evidence);
-  const imageRules = imageReadiness.rules;
-  const imageGaps = imageReadiness.gaps.map((gap) => {
-    switch (gap.code) {
+  const imageRules = evaluateEvaImageRules(input.evidence);
+  const imageGaps = imageRules.failures.map((failure) => {
+    switch (failure.code) {
       case 'min_count':
         return `need at least ${MIN_ACCEPTED_IMAGES} accepted (have ${imageRules.acceptedCount})`;
       case 'missing_overview':
         return 'no overview with a visible registration';
       case 'missing_damage_closeup':
         return 'no main-damage close-up';
-      case 'review_required':
-        return `${gap.count} image${gap.count === 1 ? '' : 's'} still ${gap.count === 1 ? 'needs' : 'need'} review`;
     }
   });
-  const imagesReady = imageReadiness.ok;
+  const imagesReady = imageRules.ok;
   checks.push({
     id: 'images',
     label: 'Images',
@@ -329,21 +317,18 @@ export function evaluateCaseReadiness(
     ...(inspectionReady ? {} : { detail: addressDetail ?? 'Choose an inspection option' }),
   });
 
-  const unresolvedFields = unresolvedReviewFieldKeys(input.evaFields);
-  const reviewsResolved = unresolvedFields.length === 0;
-  checks.push({
-    id: 'no-conflicts',
-    label: 'No unresolved field reviews',
-    ok: reviewsResolved,
-    group: 'conflicts',
-    ...(reviewsResolved
-      ? {}
-      : {
-          detail: `Review: ${unresolvedFields
-            .map((key) => EVA_FIELD_ORDER.find((d) => d.key === key)?.label ?? key)
-            .join(', ')}`,
-        }),
-  });
+  // NOTE (TKT-130, operator ruling 2026-07-21): there is deliberately NO
+  // field-review check here. A `no-conflicts` check used to fail whenever any of
+  // the 12 EVA fields carried `needs_review` or `conflict`, rendering as "No
+  // unresolved field reviews". It was not a real signal: `needs_review` is the
+  // DATABASE DEFAULT on field_level_provenance, and the read mapping also falls
+  // back to it whenever no provenance row matches the current value — so fields
+  // the parser had populated perfectly well arrived "unresolved", and the only
+  // way to clear one was to retype its value. Readiness now means exactly what
+  // Not-ready/Review claim it means: the EVA requirements are met or they are
+  // not. A genuine source conflict is still recorded and still shown against the
+  // field on the Fields tab (`EvaField.conflicts`); it just no longer blocks.
+  // Do not reintroduce a review-state gate here.
 
   const sourceEvidenceReady = input.sourceEvidencePending !== true
     && input.sourceEvidenceArchiveFailed !== true;
@@ -366,9 +351,7 @@ export function evaluateCaseReadiness(
     requiredFieldsPresent,
     inspectionReady,
     vehicleDetailsReady,
-    imageRulesPass: imageRules.ok,
     imagesReady,
-    reviewsResolved,
     sourceEvidenceReady,
   };
 }
@@ -409,7 +392,6 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
                                              -> 'missing_required_fields'
         (RESERVED for cases that actually hold accepted image evidence but whose
          required fields are incomplete — the "Images only" queue)
-     4b. unresolved field/image review       -> 'needs_review'
      5. no accepted images AND no instructions -> 'needs_review'
         (nothing usable has arrived yet — pending/new; NEVER a premature error,
          and NEVER 'missing_required_fields' for an evidence-less case)
@@ -417,9 +399,10 @@ function hasIdentityOf(input: StatusEvaluationInput): boolean {
      7. otherwise (unidentifiable, image-less)        -> 'error'
 
    Readiness is evaluated exactly once by `evaluateCaseReadiness`: required
-   values, an explicit and internally-consistent inspection decision, the image
-   contract, unresolved image decisions and every field review/conflict. The SPA
-   checklist and submission path consume this same result.
+   values, an explicit and internally-consistent inspection decision, and the
+   image contract. The SPA checklist and submission path consume this same
+   result. Field- and image-level "reviewed / not reviewed" markers are NOT
+   inputs (TKT-130) — see the note inside `evaluateCaseReadiness`.
 
    It deliberately does NOT invent `duplicate_risk` / `linked_to_instruction`
    (set by the dedup flow) nor the submit terminals (`eva_submitted` /
@@ -440,7 +423,7 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   if(input.archiveHoldingPending===true)return 'missing_images';
 
   const readiness = evaluateCaseReadiness(input);
-  const baseImagesValid = readiness.imageRulesPass;
+  const baseImagesValid = readiness.imagesReady;
   const fieldContractValid =
     readiness.requiredFieldsPresent && readiness.inspectionReady && readiness.vehicleDetailsReady;
 
@@ -453,15 +436,6 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   // evidence-less, field-incomplete case falls through to the pending branches.
   if (!fieldContractValid && baseImagesValid) return 'missing_required_fields';
 
-  // A complete-looking case with any unresolved field conflict/review or
-  // classifier image decision remains Not Ready (needs_review maps there).
-  if (
-    (fieldContractValid || baseImagesValid) &&
-    (!readiness.reviewsResolved || (baseImagesValid && !readiness.imagesReady))
-  ) {
-    return 'needs_review';
-  }
-
   const acceptedImages = acceptedEvaImages(input.evidence).length;
   const instructionCount = instructionCountOf(input);
   // Nothing usable has arrived yet (no accepted images AND no instructions):
@@ -472,11 +446,4 @@ export function statusForReviewCase(input: StatusEvaluationInput): CaseStatus {
   // EVA-ready: a partially-identified case waits for a human; a wholly
   // unidentifiable, image-less one is an exception.
   return hasIdentityOf(input) ? 'needs_review' : 'error';
-}
-
-/** Open review issues = any field still `needs_review`, or any field in `conflict`. */
-export function hasOpenReviewIssues(
-  fields: Record<EvaFieldKey, ReviewableField>,
-): boolean {
-  return unresolvedReviewFieldKeys(fields).length > 0;
 }

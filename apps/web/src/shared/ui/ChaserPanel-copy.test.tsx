@@ -122,19 +122,21 @@ describe('image chaser link requirement', () => {
 });
 
 describe('live image-gap recomputation', () => {
-  it('removes a replacement request as soon as concurrent review resolves', async () => {
+  /* TKT-130, operator ruling 2026-07-21 — inverted. This previously asserted the
+     panel offered a replacement-photo request while a classifier-excluded photo
+     awaited human confirmation, and withdrew it once "review resolved". Images
+     no longer carry a reviewed/not-reviewed state, so a complete set is complete
+     the moment it is complete, whatever the classifier discarded alongside it. */
+  it('never raises a replacement request for a classifier-excluded spare photo', async () => {
     const overview = evidence({ imageRole: 'overview', registrationVisible: true });
     const closeup = evidence({ imageRole: 'damage_closeup' });
-    const pending = evidence({ excluded: true, reviewRequired: true });
-    const view = render(panel(panelCase([overview, closeup, pending])));
+    const discarded = evidence({ excluded: true, reviewRequired: true });
+    render(panel(panelCase([overview, closeup, discarded])));
 
-    expect((screen.getByRole('textbox', { name: 'Draft' }) as HTMLTextAreaElement).value)
-      .toContain('cannot yet be used');
-
-    view.rerender(panel(panelCase([overview, closeup, { ...pending, reviewRequired: false }])));
     await waitFor(() => expect(screen.getByText(
       'Nothing to chase — this case already has its instruction and images.',
     )).toBeTruthy());
+    expect(screen.queryByRole('textbox', { name: 'Draft' })).toBeNull();
   });
 
   it('reopens image requests after accepted photos are excluded, then closes them after upload', async () => {

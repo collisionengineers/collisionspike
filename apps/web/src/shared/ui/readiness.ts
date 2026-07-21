@@ -10,7 +10,7 @@ export interface ChecklistItem {
   label: string;
   ok: boolean;
   /** Category, for grouping/iconography. */
-  group: 'fields' | 'images' | 'address' | 'vehicle' | 'conflicts' | 'source';
+  group: 'fields' | 'images' | 'address' | 'vehicle' | 'source';
   /** Optional detail shown when not ok. */
   detail?: string;
 }
@@ -32,19 +32,18 @@ export function computeReadiness(c: Case): ReadinessResult {
   const canonical = readinessForCase(c);
   const items: ChecklistItem[] = canonical.checks.map((check) => ({ ...check }));
 
+  const MISSING_KIND_BY_GROUP: Record<ChecklistItem['group'], MissingItem['kind']> = {
+    fields: 'required_field',
+    vehicle: 'required_field',
+    images: 'image_rule',
+    address: 'inspection_address',
+    source: 'source_evidence',
+  };
+
   const missing: MissingItem[] = items
     .filter((i) => !i.ok)
     .map((i) => ({
-      kind:
-        i.group === 'fields' || i.group === 'vehicle'
-          ? 'required_field'
-          : i.group === 'images'
-            ? 'image_rule'
-            : i.group === 'address'
-              ? 'inspection_address'
-              : i.group === 'source'
-                ? 'source_evidence'
-                : 'conflict',
+      kind: MISSING_KIND_BY_GROUP[i.group],
       label: i.detail ?? i.label,
     }));
 
