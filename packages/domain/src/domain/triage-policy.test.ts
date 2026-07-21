@@ -435,6 +435,31 @@ describe('decideTriage — auto-attach promotion (rung 3, TKT-093, gated `autoAt
     expect(out.decisionInputs.autoAttachApplied).toBe(false);
   });
 
+  it('ADR-0010 / PLAN-014 pin — a VRM-only match can NEVER reach attach_case, under every gate combination, even with parse-fed context (attachments/imagesOnly populated) present', () => {
+    // Pinned directly to the `target.matchedOn !== 'vrm'` guard this function's
+    // autoAttachEligible computation depends on (see the module doc above,
+    // "VRM-ONLY MATCHES NEVER PROMOTE PAST SUGGESTION" / "PERMANENT, not a
+    // release-1 caveat"). PLAN-014's parse-fed reorder (Slice 4) widens what
+    // populates `context` (a parser-derived VRM can now reach this same
+    // `openCaseMatches` shape earlier in the pipeline) — this test proves the
+    // structural guard holds regardless, by construction, not by relying on the
+    // offline A/B backtest alone to catch a violation empirically.
+    const vrmOnlyContexts = [
+      context({ openCaseMatches: [match({ matchedOn: 'vrm' })] }),
+      context({ openCaseMatches: [match({ matchedOn: 'vrm' })], hasAttachments: true, attachmentKinds: ['image'] }),
+      context({ openCaseMatches: [match({ matchedOn: 'vrm' })], imagesOnly: true, hasAttachments: true }),
+    ];
+    for (const ctx of vrmOnlyContexts) {
+      const out = decideTriage(
+        classification({ category: 'query', subtype: 'query_existing_work', bodyVrm: 'AB12CDE' }),
+        ctx,
+        GATES_ALL_ON,
+      );
+      expect(out.action).not.toBe('attach_case');
+      expect(out.decisionInputs.autoAttachApplied).toBe(false);
+    }
+  });
+
   it('gate ON but AMBIGUOUS (>1 open case) -> stays suggest_attach (a person picks)', () => {
     const out = decideTriage(
       casePoQuery(),

@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1211,
-    "files": 4083,
-    "entries": 5294
+    "directories": 1213,
+    "files": 4089,
+    "entries": 5302
   },
-  "totalFileBytes": 710038553,
+  "totalFileBytes": 710075386,
   "entries": [
     {
       "path": ".",
@@ -5907,6 +5907,24 @@
     },
     {
       "path": "docs/tickets/now/TKT-292-classify-email-route-client-wiring",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16942,7 +16960,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1658083,
+      "size": 1660570,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16960,8 +16978,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4459276,
-      "sha256": "2319b44f30289c0a10001e2d8adf31b3525a28cc7f2bd0ac393d6bc9d8f01db1",
+      "size": 4462449,
+      "sha256": "f65ecf49aeefe4dd51d24919e5bcab17f566ce3db4abcb1359708b86f8b58925",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16969,8 +16987,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71099,
-      "sha256": "fabd7a5b001f9c6821b5f3d7cafa9b0796f6f88798096ce08a3113986a7f8670",
+      "size": 71180,
+      "sha256": "16a9511f8e9e22c906864b1b74d22cdd1a510e983a569d0b3104ea13bf94d693",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17491,8 +17509,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 53584,
-      "sha256": "c53d2c0c7f6163a1e12fcd43746bfd8ae50bd69c83b3a8561e7ccb0dfddaecf8",
+      "size": 53774,
+      "sha256": "2f214d693c0de5f71e50d2352a03650523dfab20d98e16e50d4a890f63710817",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17500,8 +17518,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 56842,
-      "sha256": "23f2e107caebabfc82d075b193def03a0860d19b1daa16fcc23b797448c231e1",
+      "size": 57030,
+      "sha256": "715aa2794080d71f741de01a42a7ae7f8025e9edb429537044127b27c3f5c86b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28028,6 +28046,42 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md",
+      "mediaType": "text/markdown",
+      "size": 4307,
+      "sha256": "74a336148a1ba2107ffd9d186282d1fc5cb57c3f5a74ca640a1386dd11bf7e25",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2832,
+      "sha256": "c42ed00cbe4f3dc63af54dc1ee1c6fc72d094f9a85c502d57b48435b10ba903f",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/evidence/parsefed-backtest-report.md",
+      "mediaType": "text/markdown",
+      "size": 842,
+      "sha256": "1d4d629bee40f5893ef33d7266db64586ce8bc62301deba74148209e04214a1e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-293-parsefed-backtest-harness/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1819,
+      "sha256": "dffa93d688a68d0184b1ca6d3d55981883448b01a59a68a8b0e6a1f89a5d4399",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md",
       "mediaType": "text/markdown",
       "size": 3586,
@@ -28219,8 +28273,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 4310,
-      "sha256": "9cece708ed25409122d5f24911e352372f162e0e00d5205db6aa701b3107f457",
+      "size": 4488,
+      "sha256": "23c7ccaa1b620f36c89d16c4433e42ab46b64fbc8d9f395b0a366092d2bb228f",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32620,8 +32674,8 @@
     {
       "path": "packages/domain/src/domain/triage-policy.test.ts",
       "mediaType": "text/typescript",
-      "size": 34788,
-      "sha256": "2076ab1bc2c0d97614ac215efc73cb448693bcd04f2e7256bccf79626cb2f904",
+      "size": 36264,
+      "sha256": "b3360f4609f72bbe94a1ded05aec452a16309902b4704ac9759e2b71f39cdcc3",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -33575,7 +33629,7 @@
       "path": "scripts/checks/source-size-budget.json",
       "mediaType": "application/json",
       "size": 178,
-      "sha256": "76fb9ad1fd45cf46ee301da3be4670e4d44e713fed11e57440b535324a073862",
+      "sha256": "ff45a900d3be4b29eaf5dea5a5f90d1ff284e940594b276be48da52c67743f80",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -33716,10 +33770,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "scripts/evaluation/email/run_ab_parsefed.py",
+      "mediaType": "text/x-python",
+      "size": 12696,
+      "sha256": "e36499afc08c6e5b93c49cb97974b85114c087901936dfd770ee9abb5d01b2db",
+      "category": "automation",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
       "path": "scripts/evaluation/email/run_eval.py",
       "mediaType": "text/x-python",
-      "size": 28152,
-      "sha256": "2664e8f01fc4ce5caaa58d873d5224f5c801c370fe28ec93c492a71794ba343c",
+      "size": 29499,
+      "sha256": "6d4dc527effb2bd5314b0d4bdaa584ae3cf3b1c4357cbc81c1a8c8137b3b43ed",
       "category": "automation",
       "owner": "engineering-automation",
       "lifecycle": "active"
@@ -33747,6 +33810,15 @@
       "mediaType": "text/x-python",
       "size": 948,
       "sha256": "7a7eff2650e79c7de6a890b85db468c8baac9f3ba2f8cd23cfeed5ae38a530f4",
+      "category": "test",
+      "owner": "engineering-automation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "scripts/evaluation/email/tests/test_run_ab_parsefed.py",
+      "mediaType": "text/x-python",
+      "size": 5217,
+      "sha256": "724b901815ffd59a752be66539fca139c6351ebeefe0ba9c5fd605b643e19fdd",
       "category": "test",
       "owner": "engineering-automation",
       "lifecycle": "active"
