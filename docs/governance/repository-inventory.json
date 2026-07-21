@@ -17,7 +17,7 @@
     "files": 4139,
     "entries": 5376
   },
-  "totalFileBytes": 710355390,
+  "totalFileBytes": 710358073,
   "entries": [
     {
       "path": ".",
@@ -17204,7 +17204,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4492269,
-      "sha256": "a3717d72923db5bd93636841ae72a46730e25840d2e9af3966a52ba99205c631",
+      "sha256": "9c320f5dd3c9c7cea63388c99628935d04034f759f19b53efc11d06894003117",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -32719,8 +32719,8 @@
     {
       "path": "packages/domain/src/contracts/canonical-readiness.test.ts",
       "mediaType": "text/typescript",
-      "size": 8833,
-      "sha256": "2a7b9090a5ae5d441b85ef8a03f802f568be98b9edf9dc005a935d9796b8de26",
+      "size": 9294,
+      "sha256": "9d3d9ff130a099c0b018dc669d32c40f4d914d79cbf9f2500c6436731c994feb",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32737,8 +32737,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.test.ts",
       "mediaType": "text/typescript",
-      "size": 17169,
-      "sha256": "c8da79cdd05b3459381c8f3e26d1739b6a17ce4c8870be3f9f53694d90a9f143",
+      "size": 17543,
+      "sha256": "921bb91c61eccd08bbb534fd2dee3a42f465e67fa6b2ce2b1092601d3f5cb51f",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32746,8 +32746,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.ts",
       "mediaType": "text/typescript",
-      "size": 19414,
-      "sha256": "709b327f4aa3d4d472f891ea8209f3ed10c3e7146a90d64033554a25110c5b5a",
+      "size": 20638,
+      "sha256": "8a27f518eeca46bc963b96d8b3503687eefff74fdc5ac8a01b49c4c9cfdb6263",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32809,8 +32809,8 @@
     {
       "path": "packages/domain/src/contracts/image-rules.ts",
       "mediaType": "text/typescript",
-      "size": 5234,
-      "sha256": "2d5cc71c1057f07953a6016ab901bf3c373a657dc7da22a88b43ce6fa6b4a1f2",
+      "size": 5832,
+      "sha256": "abc07057fdbd444cfef04f13bb625c80c8d15f8e6e5e2b400e8d078b4b878a45",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -35500,8 +35500,8 @@
     {
       "path": "services/data-api/src/features/cases/edit-save.test.ts",
       "mediaType": "text/typescript",
-      "size": 12702,
-      "sha256": "3a0b7e1ad5b878e366c2f6698ba97c32a9054a9800f716e99705f655653477ab",
+      "size": 12728,
+      "sha256": "aa28d810ef54b47c2438628fd635b7355522f8eeebff54c491420fdf538dbe83",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
