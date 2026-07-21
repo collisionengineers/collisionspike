@@ -60,9 +60,10 @@ implementation) or keep the allowance is a future decision; either way the corpu
 
 ## Change protocol
 
-Any behavioural change to one side (a re-vendor that changes `normalize_vrm`, or an edit to
-`canonicalizeVrm`/the marker parser) MUST update that side's column in the corpus in the **same change**,
-keeping the vectors green. Reconciling a divergence means updating both columns to agree and removing its
-`allowedDivergence`. This guard pins behaviour only; it does not touch the ADR-0018 vendor-lock files
-(`VENDOR_LOCK.json`, `PROVENANCE.md`, `verify_vendor_pin.py`, `test_engine_vendored_in_sync.py`) or the
-EVA schema/rename in-sync guards, which remain authoritative for their own boundaries.
+Any behavioural change to one side (an edit to `normalize_vrm` in
+`services/engine/cedocumentmapper_v2/`, or an edit to `canonicalizeVrm`/the marker parser) MUST update
+that side's column in the corpus in the **same change**, keeping the vectors green. Reconciling a
+divergence means updating both columns to agree and removing its `allowedDivergence`. This guard pins
+behaviour only; it does not touch `scripts/checks/check-engine-materialized.py` (which pins the
+materialized parser/OCR copies to the canonical engine source, not TS/Python behaviour) or the EVA
+schema/rename in-sync guards, which remain authoritative for their own boundaries.

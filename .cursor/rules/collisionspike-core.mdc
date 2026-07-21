@@ -11,7 +11,8 @@ alwaysApply: true
 - `LIVE_FACTS.json` and `docs/operations/live-environment.md` are state authority.
 - Run `npm run verify` for the offline gate. Live reads require the matching skill
   and current task authority; production writes require explicit approval.
-- The parser engine is authored in the pinned sibling and vendored into
-  `services/functions/parser`; do not rederive it elsewhere.
+- The parser engine is authored in `services/engine/cedocumentmapper_v2/` and materialized into
+  `services/functions/parser` and `services/functions/ocr`; do not hand-edit a materialized copy or
+  rederive the engine elsewhere.
 - Production web code may load only real REST data. Fabricated records belong in
   test fixtures and must never be importable by production modules.

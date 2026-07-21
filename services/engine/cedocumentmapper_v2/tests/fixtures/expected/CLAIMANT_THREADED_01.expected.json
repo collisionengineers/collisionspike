@@ -1,0 +1,11 @@
+{
+  "fixture_id": "claimant_threaded_01",
+  "source_file": "CLAIMANT THREADED 01.eml",
+  "expected_provider": "unknown_temp",
+  "expected_values": {
+    "vrm": "JK78LMN",
+    "claimant_name": "Mr John Sample"
+  },
+  "allowed_blank_fields": [],
+  "notes": "TKT-150 PR-8 regression: the current sender signs off above a forwarded original. The quoted instruction opens with a Many thanks pleasantry and names Mr John Sample in ordinary our-client prose. The sign-off block must be excluded without truncating the later original instruction."
+}

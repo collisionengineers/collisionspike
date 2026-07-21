@@ -74,10 +74,11 @@ draft reviewable, and editing a draft merely to produce a diff is forbidden. Ins
 
 ## Sibling repositories
 
-This repository is the build target. Sibling repositories may contain useful prior art or an authoring
-source, but they are not runtime dependencies and do not override this repository's reviews, ADRs, or
-current docs. The parser engine is the one deliberate vendoring relationship: update its authoring
-repository first, then refresh the pinned copy here.
+This repository is the build target. Sibling repositories may contain useful prior art, but they are not
+runtime dependencies and do not override this repository's reviews, ADRs, or current docs. The parser
+engine — formerly the one deliberate vendoring relationship — is now authored directly in this repository
+at `services/engine/cedocumentmapper_v2/` (see [ADR-0035](../adr/0035-cedocumentmapper-engine-repository-consolidation.md));
+its former sibling repository is no longer a runtime dependency of anything here.
 
 ## Generated adapters and output
 

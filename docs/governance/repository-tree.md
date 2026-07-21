@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1163 directories, 3886 files.
+Grand total: 1206 directories, 4055 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1001,13 +1001,13 @@ Grand total: 1163 directories, 3886 files.
     ui-ux-pro-max/  (1 file)
 ```
 
-### .cursor — 15 directories, 37 files
+### .cursor — 15 directories, 36 files
 
 ```text
 .cursor/  (2 files)
   agents/  (15 files)
   hooks/  (5 files)
-  rules/  (5 files)
+  rules/  (4 files)
   skills/  (0 files)
     box-rest-api/  (1 file)
     collision-engineers-design/  (1 file)
@@ -1096,11 +1096,11 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 589 directories, 1459 files
+### docs — 595 directories, 1472 files
 
 ```text
 docs/  (1 file)
-  adr/  (34 files)
+  adr/  (35 files)
   architecture/  (11 files)
   design/  (3 files)
     product-demo/  (2 files)
@@ -1246,6 +1246,10 @@ docs/  (1 file)
       TKT-284-guided-capture-security-corpus-and-runbook/  (3 files)
         evidence/  (1 file)
       TKT-285-guided-capture-device-gate-calibration/  (3 files)
+        evidence/  (1 file)
+      TKT-288-engine-classifier-precedence-findings/  (3 files)
+        evidence/  (1 file)
+      TKT-297-engine-merge-hardening-findings/  (3 files)
         evidence/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
@@ -1550,6 +1554,8 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-281-guided-capture-staff-panel-not-mounted/  (3 files)
         evidence/  (1 file)
+      TKT-287-cedocumentmapper-engine-repository-consolidation/  (3 files)
+        evidence/  (1 file)
     next/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
@@ -1803,12 +1809,12 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
-### scripts — 19 directories, 114 files
+### scripts — 19 directories, 116 files
 
 ```text
 scripts/  (6 files)
-  build/  (3 files)
-  checks/  (54 files)
+  build/  (4 files)
+  checks/  (55 files)
     fixtures/  (0 files)
       auth-inventory/  (1 file)
       managed-identity-mint/  (2 files)
@@ -1827,7 +1833,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 65 directories, 606 files
+### services — 102 directories, 761 files
 
 ```text
 services/  (0 files)
@@ -1851,6 +1857,32 @@ services/  (0 files)
       shared/  (6 files)
         mapping/  (7 files)
         validation/  (3 files)
+  engine/  (0 files)
+    cedocumentmapper_v2/  (3 files)
+      docs/  (0 files)
+        contracts/  (7 files)
+        testing/  (2 files)
+          testjsons/  (3 files)
+      src/  (0 files)
+        cedocumentmapper_v2/  (1 file)
+          application/  (2 files)
+          config/  (2 files)
+          detection/  (4 files)
+          domain/  (2 files)
+          eval/  (5 files)
+          exporters/  (4 files)
+          normalization/  (2 files)
+          readers/  (7 files)
+          resources/  (4 files)
+          rules/  (5 files)
+          ui/  (2 files)
+      tests/  (24 files)
+        contract/  (2 files)
+        fixtures/  (1 file)
+          expected/  (17 files)
+          instructions/  (18 files)
+          v1_wins/  (1 file)
+            expected/  (1 file)
   functions/  (2 files)
     _authconf/  (3 files)
     box-webhook/  (17 files)
@@ -1862,9 +1894,21 @@ services/  (0 files)
     location-assist/  (14 files)
       tests/  (8 files)
     ocr/  (12 files)
-      tests/  (5 files)
+      cedocumentmapper_v2/  (3 files)
+        application/  (2 files)
+        config/  (2 files)
+        detection/  (4 files)
+        domain/  (2 files)
+        exporters/  (4 files)
+        normalization/  (2 files)
+        readers/  (7 files)
+        resources/  (4 files)
+        rules/  (5 files)
+        ui/  (2 files)
+      tests/  (6 files)
+        fixtures/  (1 file)
     parser/  (10 files)
-      cedocumentmapper_v2/  (4 files)
+      cedocumentmapper_v2/  (3 files)
         application/  (2 files)
         config/  (2 files)
         detection/  (4 files)
@@ -1876,8 +1920,7 @@ services/  (0 files)
         rules/  (5 files)
         ui/  (2 files)
       contracts/  (1 file)
-      scripts/  (1 file)
-      tests/  (20 files)
+      tests/  (19 files)
         fixtures/  (5 files)
           expected/  (11 files)
     vehicle-enrichment/  (10 files)
@@ -2195,10 +2238,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 3886 | 3886 | PASS |
-| Proposed tree directories == ledger final directories | 1163 | 1163 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 3888 | 3888 | PASS |
-| Proposed directories == inventory directories | 1163 | 1163 | PASS |
+| Proposed tree files == ledger final files | 4055 | 4055 | PASS |
+| Proposed tree directories == ledger final directories | 1206 | 1206 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4057 | 4057 | PASS |
+| Proposed directories == inventory directories | 1206 | 1206 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

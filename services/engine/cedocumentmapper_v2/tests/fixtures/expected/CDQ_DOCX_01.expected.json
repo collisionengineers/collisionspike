@@ -1,0 +1,24 @@
+{
+  "fixture_id": "cdq_docx_01",
+  "source_file": "CDQ DOCX 01.docx",
+  "expected_provider": "cdq",
+  "expected_values": {
+    "work_provider": "",
+    "vrm": "SN67USB",
+    "vehicle_model": "TOYOT AURIS",
+    "claimant_name": "Ajmal Riaz Cheema",
+    "claimant_telephone": "07846409833",
+    "claimant_email": "ajmal.cheema@yahoo.com",
+    "reference": "",
+    "incident_date": "26/06/2026",
+    "inspection_address": "44 colonsay road crawley\n\n\n\n\nRH11 9DL",
+    "accident_circumstances": "I WAS STATIONARY AT JNC WAITING TO JOIN THE HIGH STREET WHEN T/P FAILED TO STOP AND REAR ENDED MY VEHICLE"
+  },
+  "allowed_blank_fields": [
+    "work_provider",
+    "reference",
+    "instruction_date",
+    "inspection_date"
+  ],
+  "notes": "Regression fixture for the CDQ claimant/defendant questionnaire claim form (collisionspike TKT-022, the Cheema textbox-drawn .docx). Every value must come from the CLAIMANT section, never the Defendant's (the live failure took the defendant's colour fragment as the model and a questionnaire prompt as the name); the leading-dash value convention is stripped; the layout names NO work provider (sender context fills it), so work_provider/reference are expected EMPTY rather than junk."
+}
