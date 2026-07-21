@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1215,
-    "files": 4093,
-    "entries": 5308
+    "directories": 1216,
+    "files": 4097,
+    "entries": 5313
   },
-  "totalFileBytes": 710089115,
+  "totalFileBytes": 710108159,
   "entries": [
     {
       "path": ".",
@@ -5961,6 +5961,15 @@
     },
     {
       "path": "docs/tickets/now/TKT-295-reorder-tkt102-collapse",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16778,10 +16787,19 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/adr/0036-parse-fed-unified-triage.md",
+      "mediaType": "text/markdown",
+      "size": 3786,
+      "sha256": "470b14e7b9334353fc473a330a83adaaeafed62b89b1510d51b924cc85c50e91",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/adr/README.md",
       "mediaType": "text/markdown",
-      "size": 5572,
-      "sha256": "445197b1ce8ce9781ec8ec59839bd443a26456d83d589dc129ab08d2b39d6e7e",
+      "size": 5761,
+      "sha256": "984581930672f34574d739393ec4d644458c97dc0b9175e27a2be2f8b92c6b48",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16978,7 +16996,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1662489,
+      "size": 1664040,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16996,8 +17014,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4464884,
-      "sha256": "b65e68d26672797afabbc3e115091b39d2e427a3d8c79e570e81f43c177dd7da",
+      "size": 4466903,
+      "sha256": "81e33ffcd6106268090648a052cb4ecd906aad792aa5b4fde53a4b7257467c80",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17005,8 +17023,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71268,
-      "sha256": "eeaa6544a49a19d94af271f41e8a4b598395d37a3c973fabb2417b085a303bc5",
+      "size": 71320,
+      "sha256": "9a8e96425b0fb030585749e3162dd58009e3888e201a5df52f7f378a72c09459",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17068,8 +17086,8 @@
     {
       "path": "docs/operations/deployment.md",
       "mediaType": "text/markdown",
-      "size": 2415,
-      "sha256": "f0fb52bc9765be40148222b42717e64544b42f47040b3de72b25d0a9408e1f3d",
+      "size": 4730,
+      "sha256": "370e0ad3cd61ebf4d90808908500255e1bdc158750d35c6fc503c91df35dda70",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17086,8 +17104,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 26689,
-      "sha256": "23374795dc04765a4e772b594bdcfaaf225a222ef7736f2ff8f0f9d941bc5d99",
+      "size": 27271,
+      "sha256": "069f92dd17181f1ce1c81e279af3fcff487899aef842d254445e859c93bd1900",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17527,8 +17545,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 53970,
-      "sha256": "cdb0f3d991802a50e6828f689853d1177957699a83d221ad65e693378749eca7",
+      "size": 54201,
+      "sha256": "e97e8dd19fb1e869e893a7b0b5a36d900f9d98cdcc451902a595c3f2c7f1aa25",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17536,8 +17554,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 57231,
-      "sha256": "5c9c467751c33fc6692d959fd9125ad373286eff17772bea9907bda42d2638eb",
+      "size": 57460,
+      "sha256": "f92ec0f8320a272402eb548b7b42e75ba828b78aace25877c42f5039d263abe1",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -26824,8 +26842,8 @@
     {
       "path": "docs/tickets/now/TKT-102-tractable-received-handling/TKT-102-tractable-received-handling.md",
       "mediaType": "text/markdown",
-      "size": 5639,
-      "sha256": "6edc1556027abadc9cffe0bd8cf7a5ca857e724a7861b435487f0bd93aac8be0",
+      "size": 6322,
+      "sha256": "75d9f53ef6c05dd3e17d4d54149d2fc8a0d2270c7fb1ed431d7df6d17d3c98eb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28190,6 +28208,33 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md",
+      "mediaType": "text/markdown",
+      "size": 3993,
+      "sha256": "31d1434d77c8c59e9ef5810447839b4750a46809da5390a9a1c0a3479530b03d",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1589,
+      "sha256": "5eaf87af6d98f3e95e0fc9e9a48e67974d6a7473163dace4cb986cfe18432a05",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-296-parsefed-deploy-gate-flip/verification.md",
+      "mediaType": "text/markdown",
+      "size": 1605,
+      "sha256": "5c94bbdc04689f23601344fa9db3ccebedb46a5aa37de13a9a3148b2f62f806c",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28327,8 +28372,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 4488,
-      "sha256": "23c7ccaa1b620f36c89d16c4433e42ab46b64fbc8d9f395b0a366092d2bb228f",
+      "size": 4708,
+      "sha256": "73395eb5c5b346c078ec0d027a4d45141d133f0f0bae8a71360a3a4cf9126d59",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

@@ -2,7 +2,7 @@
 id: PLAN-014
 title: Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy
 status: active
-tickets: [TKT-290, TKT-291, TKT-292, TKT-293, TKT-294, TKT-295]
+tickets: [TKT-290, TKT-291, TKT-292, TKT-293, TKT-294, TKT-295, TKT-296]
 depends-on: []
 plan-kind: feature
 ---
@@ -59,11 +59,11 @@ filing time.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/6 done (0%).**
+**0/7 done (0%).**
 
 | Status | Count |
 |---|---:|
-| Now | 6 |
+| Now | 7 |
 | Verify | 0 |
 | Done | 0 |
 | Next | 0 |
@@ -78,4 +78,5 @@ filing time.
 | [TKT-293](../now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | now | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) |
 | [TKT-294](../now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | now | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) |
 | [TKT-295](../now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | now | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) |
+| [TKT-296](../now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | now | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) |
 <!-- /GENERATED:PROGRESS -->

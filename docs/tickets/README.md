@@ -32,11 +32,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 3/3 (100%) |
 | [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 5/5 (100%) |
 | [PLAN-013](./plans/PLAN-013-guided-capture-vision-programme.md) — On-device vision programme for guided capture — dataset to enforced guidance | active | 0/0 (0%) |
-| [PLAN-014](./plans/PLAN-014-parse-fed-unified-triage.md) — Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy | active | 0/6 (0%) |
+| [PLAN-014](./plans/PLAN-014-parse-fed-unified-triage.md) — Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy | active | 0/7 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (38)
+## Now (39)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -78,6 +78,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-293](./now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) | P1 | parsing | PLAN-014 |
 | [TKT-294](./now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 | intake | PLAN-014 |
 | [TKT-295](./now/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) | P1 | intake | PLAN-014 |
+| [TKT-296](./now/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) | P1 | intake | PLAN-014 |
 
 ## Verify (32)
 

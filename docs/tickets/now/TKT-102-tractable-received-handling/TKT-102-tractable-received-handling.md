@@ -97,3 +97,13 @@ traffic. This ruling also supersedes the earlier suggest-first adjudication for 
 ### Follow-up evidence
 
 - [Operator Tractable failure note](./evidence/followup-2026-07-13/tractable.md)
+
+### 2026-07-21 — inline-parse collapse implemented (PLAN-014 Slice 4b / TKT-295)
+
+The dedicated inline `parse` call this lane made has been REMOVED. Parse now runs ONCE per email,
+hoisted above triage, and this image-delivery VRM rung reads that single hoisted `parserVrm` (same
+value, one fewer parse — no second, possibly-disagreeing fetch across retries). Behaviour is
+preserved: `triedVrm` still means "what the subject/body machinery already tried" and never includes
+the parser VRM; the rung is still suggest-first (a VRM-only match never auto-attaches, ADR-0010). The
+still-open "auto-attach" acceptance item is unchanged — correctly still suggest-only. See PLAN-014.
+
