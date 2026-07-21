@@ -1,7 +1,7 @@
 # Live environment
 
 This is the readable view of [LIVE_FACTS.json](../../LIVE_FACTS.json), last verified there on
-2026-07-19. The JSON registry wins if values differ (this date is derived from `LIVE_FACTS.lastVerified`
+2026-07-21. The JSON registry wins if values differ (this date is derived from `LIVE_FACTS.lastVerified`
 and checked by `check:live-facts`). Verify live before making a decision that depends on current state.
 
 ## Core resources
@@ -62,10 +62,25 @@ West Europe.
   PLAN-009). Every deployable resource is present; the estate is unchanged in shape.
 - The subscription offer is pay-as-you-go (the earlier Free Trial upgrade is complete); `LIVE_FACTS.json`
   is corrected accordingly.
-- The orchestration host now registers 105 functions — up from the 2026-07-16 reading of 101 after the
+- The orchestration host registered 105 functions — up from the 2026-07-16 reading of 101 after the
   2026-07-17 `d6ee70de` deploy; the API remains 144. The current counts live in `LIVE_FACTS.json`.
 - The EVA-validation resources (`cespkeval-fn-6c6fxd` and its plan/storage) remain deployed. Their live
   retirement is operator-gated (TKT-252) and has not been performed; the app stays as the rollback guard.
+
+## Parse-fed unified triage deploy — 2026-07-21
+
+- PLAN-014 (TKT-296) deployed the parse-fed unified triage stack live: the parser
+  (`cespike-parser-dev-x7xt3d5ovhi7y`, Slice 1 D4 + Slice 2 `/classify-email` validation), the OCR
+  container (`cespkocr-fn-dev-glju3v`, new engine-materialized image), and the orchestration host
+  (`cespk-orch-dev`, the `triageUnified` activity + parse hoisted before triage).
+- The orchestration host now registers **106** functions — up from the 2026-07-19 reading of 105; the
+  +1 is the new `triageUnified` activity (the superseded `classifyInbound`/`triagePolicy` activities are
+  retained but no longer called by the intake path, so no function was removed). The API remains 144.
+- `TRIAGE_PARSE_FED_ENABLED` was flipped from its ship-dark default to `true` @ 2026-07-21T04:27:50Z.
+  Read-only post-deploy verification (azure-diagnostician, 04:45Z) found the host Running, the cutover
+  wired, and 0 exceptions / 0 sev≥3 traces / 0 Failed or Terminated Durable instances. Behavioural
+  proof of the enabled path on a live arrival is not yet banked (no inbound since the flip) — tracked as
+  TKT-296's residual follow-up; the gate is trivially reversible if a regression surfaces.
 
 ## Operating constraints
 

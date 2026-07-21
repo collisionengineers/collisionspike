@@ -1,6 +1,6 @@
 {
-  "lastVerified": "2026-07-19T22:40:05Z",
-  "verificationMode": "read-only ARM resource inventory of rg-collisionspike-dev (2026-07-19, TKT-257) directly confirming resource presence and states; the offer correction and the app-tier function counts are carried forward from the banked PLAN-009 read-only dossier (not re-minted from source)",
+  "lastVerified": "2026-07-21T04:45:00Z",
+  "verificationMode": "PLAN-014 (TKT-296) parse-fed unified triage deploy verified live 2026-07-21T04:45Z: parser (cespike-parser-dev-x7xt3d5ovhi7y, D4 + /classify-email validation — negative probe returned 400 error:bad_field), OCR (cespkocr-fn-dev-glju3v, new engine-materialized image ce-ocr@sha256:6e911f33, container Running), and orchestration (cespk-orch-dev, triageUnified cutover, parse hoisted before triage) all redeployed; TRIAGE_PARSE_FED_ENABLED flipped true @ 04:27:50Z; 0 exceptions / 0 sev>=3 traces (orch + parser, 12h) / 0 Failed+Terminated Durable instances; the one pre-flip intakeOrchestrator Completed. Layered on the 2026-07-19 (TKT-257) read-only ARM inventory that carried the app-tier function counts",
   "environment": {
     "resourceGroup": "rg-collisionspike-dev",
     "primaryRegion": "uksouth",
@@ -20,7 +20,8 @@
     "orchestration": {
       "resource": "cespk-orch-dev",
       "source": "services/orchestration",
-      "functionCount": 105
+      "functionCount": 106,
+      "note": "105 -> 106 on 2026-07-21: PLAN-014 Slice 4a added the triageUnified activity (the old classifyInbound + triagePolicy activities are retained but no longer called by the intake path; classifyInbound is still called by retroCaseOrchestrator, so it must not be removed)."
     },
     "database": {
       "resource": "cespk-pg-dev",
@@ -163,6 +164,10 @@
       "scope": "approved test folder only",
       "note": "Confirmed 2026-07-20 via `npx box folders:get 0`: 392761581105 is genuinely named \"test folder\"; the real archive root is a separate folder (4077648161, \"Collision Engineers\") not currently written to."
     },
+    "TRIAGE_PARSE_FED_ENABLED": {
+      "orchestration": true,
+      "note": "PLAN-014 (TKT-296) parse-fed unified triage. Flipped true on cespk-orch-dev 2026-07-21T04:27:50.70Z after the ship-dark gate-off deploy (drain gate confirmed 0 intakeOrchestrator in-flight; 0 race casualties). Deploy+flip verified healthy 04:45Z (0 exceptions / 0 sev>=3 traces / 0 Failed Durable). CAVEAT: the parse-fed telemetry (triage_decision.parseFedGateOn=true / parseFedApplied) is verified in DEPLOYED SOURCE + wiring but not yet stamped on a live post-flip event — no inbound email has been triaged since the flip (sparse dev traffic). Follow-up spot-check on the next real arrival: customEvents | where name=='triage_decision' | extend tostring(customDimensions.parseFedGateOn). Gate is trivially reversible (unset) if a regression surfaces."
+    },
     "BOX_REG_FOLDER_ENABLED": {
       "orchestration": true,
       "note": "Found live true on cespk-orch-dev via the 2026-07-20 TKT-159 gate readback, contradicting TKT-034's own written verdict (still says dark/pending operator approval of the non-case_po registration-plate folder-naming semantic). Operator confirmed 2026-07-20 this was a deliberate, approved flip. TKT-034's verification.md needs updating to match; its own post-flip live proof (one reg-keyed folder create observed end to end) has still not been recorded."
@@ -200,7 +205,7 @@
     "humanReadableEnvironment": "docs/operations/live-environment.md",
     "machineEvidence": {
       "path": "docs/operations/live-facts.evidence.json",
-      "sha256": "e3bb5f1b750acda182ffb8488015189196b788f4b0ddd01496f4a5e043838cdb"
+      "sha256": "24b77fc1036d1f630654db9b26e54bea5f1db822a11dd9e7363fb213bde6aa0d"
     },
     "rule": "Replace this snapshot only with dated read-only evidence; never infer live state from source code."
   }

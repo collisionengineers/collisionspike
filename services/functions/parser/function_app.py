@@ -90,12 +90,17 @@ def fingerprint(req: func.HttpRequest) -> func.HttpResponse:
     this repository (services/engine/cedocumentmapper_v2/); there is no longer a separate
     authoring repository/tag/commit to report, so this reports content hash and file count
     only — a live proof that the expected engine bytes are actually deployed.
+
+    The contract id is ``v2`` because dropping the retired vendoring provenance fields
+    (``repository``/``ref``/``commit``/``providers_sha256``) is a breaking response-shape
+    change from ``v1``; the identifier is bumped so a consumer keyed on ``v1`` fails the
+    id check rather than accepting a nominal-v1 body and then breaking on the absent fields.
     """
     del req
     try:
         fingerprint_data = json.loads(_ENGINE_FINGERPRINT_PATH.read_text(encoding="utf-8"))
         payload = {
-            "contract": "ce-parser-fingerprint-v1",
+            "contract": "ce-parser-fingerprint-v2",
             "vendored_file_count": fingerprint_data["vendoredFileCount"],
             "content_sha256": fingerprint_data["contentSha256"],
         }
