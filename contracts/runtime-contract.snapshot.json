@@ -861,7 +861,7 @@
           "POST"
         ],
         "publicPath": "/api/finalize-eva-box",
-        "authLevel": "anonymous",
+        "authLevel": "function",
         "policyIdentifiers": [],
         "source": "services/orchestration/src/workflows/archive/finalize-eva-box.ts"
       },

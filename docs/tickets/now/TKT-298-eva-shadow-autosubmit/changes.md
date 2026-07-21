@@ -30,3 +30,8 @@ Ticket created from PLAN-015.
   contract; `eva-shadow-submit.test.ts` (7) — queue binding, gate drop, deterministic start,
   duplicate skip, Failed re-drive, missing-caseId drop, orchestrator = exactly one `evaSubmit`
   call. All green.
+- `contracts/runtime-contract.snapshot.json` — regenerated (one line): the
+  `/api/finalize-eva-box` route's pinned `authLevel` moves `anonymous → function`, the
+  deliberate contract change this ticket makes. The runtime-contract check caught the drift in
+  CI exactly as designed; the snapshot diff is the reviewable record (the approvals ledger only
+  models removals).
