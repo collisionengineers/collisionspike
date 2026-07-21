@@ -1004,7 +1004,13 @@ def classify_email(
         if isinstance(t, dict)
     }
     content_detected_report = "report" in content_doc_types
-    content_withdraws_instruction = bool(content_doc_types) and not (
+    # PLAN-014 D5 backtest finding: withdrawing on a bare "unknown" verdict was too
+    # aggressive -- "unknown" is the detector's OWN deliberate, safe abstain default
+    # for anything it cannot confidently type (see attachment_typing.py's module
+    # docstring, "abstain-to-unidentified bias"), not a confident negative signal.
+    # Only a "junk" verdict (the detector's own high-precision, deliberately-tiny
+    # negative bucket) withdraws a promotion; "unknown" alone does not.
+    content_withdraws_instruction = "junk" in content_doc_types and not (
         content_doc_types & {"report", "instruction"}
     )
     is_reply = _is_reply(subject_s, _normalise(in_reply_to), _normalise(references))

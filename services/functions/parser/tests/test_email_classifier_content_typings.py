@@ -101,20 +101,27 @@ def test_content_typed_junk_withdraws_instruction_promotion():
     assert "attachment_content_typings:junk" in with_typing["signals"]
 
 
-def test_content_typed_unknown_alone_withdraws_instruction_promotion():
+def test_content_typed_unknown_alone_does_not_withdraw_instruction_promotion():
+    """PLAN-014 D5 backtest finding: 'unknown' is the detector's own deliberate, safe
+    abstain default (it could not confidently type the document either way) -- NOT a
+    confident negative signal, so it must not alone withdraw a real instruction
+    promotion (a real corpus item, a QDOS lead docx the detector could not classify,
+    regressed on this exact point during the backtest). Only 'junk' (the detector's
+    high-precision, deliberately-tiny negative bucket) withdraws."""
     kwargs = dict(
         subject="New matter",
-        body="Please see attached.",
+        body="Please inspect.",
         provider_match_state="one",
         attachment_kinds=["instruction"],
         attachment_filenames=["attachment1.pdf"],
         has_attachments=True,
     )
+    without_typing = classify_email(**kwargs)
     with_typing = classify_email(
         **kwargs,
         attachment_content_typings=[{"filename": "attachment1.pdf", "doc_type": "unknown"}],
     )
-    assert with_typing["category"] != "receiving_work"
+    assert with_typing["category"] == without_typing["category"] == "receiving_work"
 
 
 def test_content_typed_instruction_does_not_withdraw_its_own_promotion():

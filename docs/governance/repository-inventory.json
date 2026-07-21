@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1164,
-    "files": 3893,
-    "entries": 5057
+    "files": 3894,
+    "entries": 5058
   },
-  "totalFileBytes": 705210350,
+  "totalFileBytes": 705219211,
   "entries": [
     {
       "path": ".",
@@ -16519,7 +16519,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1582617,
+      "size": 1582934,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16537,8 +16537,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4359059,
-      "sha256": "23be34786c6969701f17a87be14aa815314b9fc6eedccd895fed57789b52bfa2",
+      "size": 4359461,
+      "sha256": "a212c154e84ea38ed3df779431f00d0062374564ac3bd4ae7d5de5d498fa4b26",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16547,7 +16547,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 69486,
-      "sha256": "a767a7993e19310f89c52a79fa97a5944c726d24c2a2240f3f93c0d1a65deeba",
+      "sha256": "1e967a5dfc560193de8aa1f726402ddb1f9db02c6afef238783d4efa574bd0c3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -27427,8 +27427,8 @@
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/changes.md",
       "mediaType": "text/markdown",
-      "size": 1965,
-      "sha256": "fbe01dc560411eabe3abc89a1896190be6ab41a2213eb42b52123fb19f48e78f",
+      "size": 3673,
+      "sha256": "663de4e497d3bce880bacc20b768cee7aa2352385c115a1eb3711159612d3c4e",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27436,8 +27436,8 @@
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/verification.md",
       "mediaType": "text/markdown",
-      "size": 1812,
-      "sha256": "ffa3aeea63720b448c1921a858e0e6824d4b4ddd680597f94598c8805d1e15d2",
+      "size": 2307,
+      "sha256": "b8bf8494ea4a5677bd5920996dccf6c26e1a53dbd553703348776c12906c324d",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -36544,8 +36544,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/PROVENANCE.md",
       "mediaType": "text/markdown",
-      "size": 3417,
-      "sha256": "51974a300b6c6df8e776522f4202911b59493e9fd2ce6de22863f5e9849e1428",
+      "size": 4365,
+      "sha256": "50e11e21d779e945a126e964b6476046f07a57a8ff5ad2c51970ddf53056242d",
       "category": "documentation",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -36554,7 +36554,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/VENDOR_LOCK.json",
       "mediaType": "application/json",
       "size": 850,
-      "sha256": "56aa3ce9d07db87d346d632f8448b060b6ce72828b05a4fad32eb480e5fa1e74",
+      "sha256": "f493fac0f96d5364c3441c3ad0400cf6387beff72e247b5bfa7e7b09aaadc2ff",
       "category": "vendored-source",
       "owner": "document-parsing",
       "lifecycle": "vendored"
@@ -36616,8 +36616,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/detection/attachment_typing.py",
       "mediaType": "text/x-python",
-      "size": 11959,
-      "sha256": "7d04aeca0a765a23cdbd5640b8903c4b3b28866200ecf9226b0b8045f4953ba6",
+      "size": 12880,
+      "sha256": "6fc905c1381b6f0489b29a6e0cc4c447a2963afc5f9873b5ee8b39f120aae7d7",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -36841,8 +36841,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 100375,
-      "sha256": "44af373d2b31dd18eb77f5083a9d2ee45840f4f134508e8e2e7d63117c3d3ef6",
+      "size": 100866,
+      "sha256": "a8352a2f3605fa88fa02d9242eb3d63162d6450e5a42c08a84a5e6d1ad8ef947",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -37118,6 +37118,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/functions/parser/tests/test_attachment_typing.py",
+      "mediaType": "text/x-python",
+      "size": 3011,
+      "sha256": "44e251c139de4719bd2f486b9ab9e47e316b82bb160a95f1afc2f690dbc3e87a",
+      "category": "test",
+      "owner": "document-parsing",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/functions/parser/tests/test_audit_detection.py",
       "mediaType": "text/x-python",
       "size": 2282,
@@ -37165,8 +37174,8 @@
     {
       "path": "services/functions/parser/tests/test_email_classifier_content_typings.py",
       "mediaType": "text/x-python",
-      "size": 6289,
-      "sha256": "fd6f2a6bd910f91105e55bde86013ccbfb0745cf9a4430a01029dec2996cb8aa",
+      "size": 6857,
+      "sha256": "9a161bdb995b826d5f4032c586c2fc50cf49c2849fdb4aea4883a963827554a1",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"

@@ -5,10 +5,16 @@ TESTED-OFFLINE
 
 ## Evidence
 
-- `services/functions/parser`: `python -m pytest -q` — **396 passed, 19 skipped** (the 19 are
+- `services/functions/parser`: `python -m pytest -q` — **400 passed, 19 skipped** (the 19 are
   pre-existing environment-dependent skips, unrelated to this change — confirmed present
-  before this change too). Includes the new parity/behavior suite (6 tests) and the new
-  TKT-288 overlap tripwire suite (4 tests).
+  before this change too). Includes the parity/behavior suite (6 tests), the TKT-288 overlap
+  tripwire suite (4 tests), and (added after the Slice 3 backtest finding) the direct
+  `type_document_text()` unit suite (4 tests).
+- **Real-corpus proof (added after Slice 3/TKT-293's backtest found 3 regressions in the
+  original D4 build)**: `python scripts/evaluation/email/run_ab_parsefed.py` against the full
+  67-item corpus — **zero regressions** after the two fixes above (down from 3), 2 genuine
+  improvements retained, confirmed by re-running the go/no-go backtest — see TKT-293's own
+  evidence for the full report.
 - Manually probed all 4 TKT-288-overlap scenarios directly via `classify_email()` before
   writing the tripwire assertions, confirming each reproduces the exact bug shape its
   finding describes (receipt-confirmation cover note suppressed; new-work reply read as
