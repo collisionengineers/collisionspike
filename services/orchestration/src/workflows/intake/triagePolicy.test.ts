@@ -176,4 +176,13 @@ describe('deriveAttachmentSignals', () => {
     );
     expect(out.imagesOnly).toBe(true);
   });
+
+  it('TKT-307 regression: a six-digit Outlook cid signature logo ONLY (image078315.png) -> imagesOnly false', () => {
+    const out = deriveAttachmentSignals(
+      envelope({
+        attachments: [{ filename: 'image078315.png', contentType: 'image/png', blobPath: 'a', size: 10 }],
+      }),
+    );
+    expect(out.imagesOnly).toBe(false);
+  });
 });

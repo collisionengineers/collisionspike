@@ -17,7 +17,7 @@
     "files": 4139,
     "entries": 5376
   },
-  "totalFileBytes": 710353878,
+  "totalFileBytes": 710355390,
   "entries": [
     {
       "path": ".",
@@ -17203,8 +17203,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4492270,
-      "sha256": "c248c4686726a28a2b425c6428672fe401da563c65ac67685699778f97eac2a9",
+      "size": 4492269,
+      "sha256": "a3717d72923db5bd93636841ae72a46730e25840d2e9af3966a52ba99205c631",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -37480,8 +37480,8 @@
     {
       "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 101653,
-      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
+      "size": 101825,
+      "sha256": "b0bba65657395a2746883ec3f3b6a5dd6c703a282840edbb240e584f80b8df23",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -37957,8 +37957,8 @@
     {
       "path": "services/engine/cedocumentmapper_v2/tests/test_email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 45288,
-      "sha256": "5f7db3211b05608512b4f9e80c8478c04a93b921c6418bcb3f259e24abb265c5",
+      "size": 45774,
+      "sha256": "f84a4ad675477e23a77bc24567d8810b7b24a74bec5a3f6080a2fb3454a81a51",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -38867,7 +38867,7 @@
       "path": "services/functions/ocr/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
       "mediaType": "application/json",
       "size": 159,
-      "sha256": "971214dd4dbd9c387a21adc522bd4f3e1a01cda4e920c40a97365f28b7b50952",
+      "sha256": "b1ac7fa8a242d78d5dc165d4e9505df2441b8f67b3504ac1d0bdb9a39006001e",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -39154,8 +39154,8 @@
     {
       "path": "services/functions/ocr/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 101653,
-      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
+      "size": 101825,
+      "sha256": "b0bba65657395a2746883ec3f3b6a5dd6c703a282840edbb240e584f80b8df23",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -39353,7 +39353,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
       "mediaType": "application/json",
       "size": 159,
-      "sha256": "971214dd4dbd9c387a21adc522bd4f3e1a01cda4e920c40a97365f28b7b50952",
+      "sha256": "b1ac7fa8a242d78d5dc165d4e9505df2441b8f67b3504ac1d0bdb9a39006001e",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -39640,8 +39640,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 101653,
-      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
+      "size": 101825,
+      "sha256": "b0bba65657395a2746883ec3f3b6a5dd6c703a282840edbb240e584f80b8df23",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -41359,8 +41359,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triagePolicy.test.ts",
       "mediaType": "text/typescript",
-      "size": 6597,
-      "sha256": "3f5143bae754f17c132a1b77e7673ad2ebfd11099b7257386ad5c1c0661a3804",
+      "size": 6944,
+      "sha256": "6ae0aa9cd34ff7a96820dd5572796789862ef0fa27e6e76fc03568e647bf7439",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41368,8 +41368,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/triagePolicy.ts",
       "mediaType": "text/typescript",
-      "size": 16746,
-      "sha256": "623bb0931ac72255aa62291db7a3d924dc3f8192d70995b3105f0654f5bfe1ad",
+      "size": 16910,
+      "sha256": "0374c1405b9d69da55d7808d185be4b8f796f0484b030b8860ff8aef087be11e",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

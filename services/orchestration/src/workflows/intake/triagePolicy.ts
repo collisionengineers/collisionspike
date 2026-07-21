@@ -140,8 +140,11 @@ export function buildTriageContextRequest(
  * would fall to case_update/update_general. The FILENAME tier below recovers it so the
  * triage policy sees imagesOnly=true -> images_received, matching Stage A. A signature
  * logo ("imageNNN.png") never counts as delivered evidence; an engineer's REPORT
- * disqualifies the images-only reading (it is existing-work, not new evidence). */
-const _SIGNATURE_IMAGE_RE = /^image0*\d{1,4}\.(?:png|jpe?g|gif|bmp)$/i;
+ * disqualifies the images-only reading (it is existing-work, not new evidence).
+ *
+ * TKT-307: digit run is UNBOUNDED, in lockstep with the Python twin — a capped \d{1,4}
+ * let a six-digit Outlook cid (image078315.png) read as genuine evidence. */
+const _SIGNATURE_IMAGE_RE = /^image0*\d+\.(?:png|jpe?g|gif|bmp)$/i;
 const _IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'heic', 'webp', 'tif', 'tiff']);
 const _IMAGE_EVIDENCE_HINT_RE = /(?:images?|photos?|damage|\bimg[\W_]|vd\s*image)/i;
 const _REPORT_FILENAME_RE = /(engineer'?s?report|reportv\d|report\.(?:pdf|docx?)$|finalreport|draftreport|auditreport)/i;
