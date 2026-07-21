@@ -77,7 +77,7 @@
     }
   },
   "mailIntake": {
-    "status": "alpha cutover 2026-07-21 — re-scoped to the single instructions mailbox; subscription bootstrap pending Exchange RBAC propagation (Graph 403s despite InScope=true, auto-retrying every 5 minutes)",
+    "status": "live — PLAN-015 alpha posture: the single instructions mailbox is subscribed (Inbox + SentItems). The bootstrap succeeded 2026-07-21 ~16:05Z on the third automated retry, ~1.5 h after the Exchange scope change (RBAC enforcement-cache propagation lag; Test-ServicePrincipalAuthorization had shown InScope=true immediately). Steady state verified: a follow-up maintenance pass renewed exactly the two alpha subscriptions (expiry 2026-07-28) with zero creates/prunes/errors.",
     "transport": "Microsoft Graph push notifications",
     "mailboxes": [
       "instructions@collisionengineers.co.uk"
@@ -212,7 +212,8 @@
       "boxRootId": "392761581105",
       "note": "Flipped back false on cespk-api-dev 2026-07-21 (PLAN-015 Phase 5 alpha trim; it was a fail-closed no-op anyway — the dedicated CollisionSpike.ImageIngest app role has never been created, TKT-154). The Box root id setting remains in place, inert. TKT-154 verdict stays PENDING."
     },
-    "liveCutoverPerformed": false
+    "liveCutoverPerformed": false,
+    "liveCutoverNote": "Deliberately UNCHANGED by the 2026-07-21 PLAN-015 'alpha cutover' — that operation re-scoped intake to the alpha mailbox and reset the data stores for the trial; it is NOT the ADR-0022 production cutover. The production cutover remains its own gated event: Box writes leave the test folder (BOX_FOLDER_ROOT_ID repoint), RETRO_ADOPT_ARCHIVE_PO_ENABLED flips after the TKT-004 authoritative floor seeding (TKT-178 runbook), and EVA production submission is separately gated. Everything in the alpha runs against the test Box folder (392761581105) and, once Phase 6 lands, the vendor TEST EVA environment."
   },
   "operatorWatchItems": [
     "retain evidence of an unattended mail-subscription renewal",
