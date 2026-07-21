@@ -334,11 +334,15 @@ describe('statusForReviewCase — needs_review branch (FIX-3 evidence-aware)', (
     expect(statusForReviewCase(input)).toBe('needs_review');
   });
 
-  it('a populated case with an open conflict stays needs_review', () => {
+  /* TKT-130, operator ruling 2026-07-21 — inverted from "stays needs_review".
+     A populated, valid value is a met EVA requirement whatever its review marker
+     says. The competing source is still recorded and still shown against the
+     field on the Fields tab; it just no longer holds the case. */
+  it('a populated case with an open conflict is ready — the value is present', () => {
     const input = caseInput({
       evaFields: fullFields({ vehicleModel: field('Audi A3', 'conflict') }),
     });
-    expect(statusForReviewCase(input)).toBe('needs_review');
+    expect(statusForReviewCase(input)).toBe('ready_for_eva');
   });
 
   it('a concrete image failure remains the persisted reason when a field also needs review', () => {

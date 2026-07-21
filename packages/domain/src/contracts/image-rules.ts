@@ -16,6 +16,17 @@
    (`kind === 'image' && acceptedForEva && !excluded`); the collisioncc
    original lacked the `!excluded` clause — the prototype is the authority here.
 
+   THOSE THREE RULES ARE THE WHOLE CONTRACT (TKT-130, operator ruling
+   2026-07-21). There is deliberately NO "image reviewed / not reviewed" state
+   here. An earlier `evaluateEvaImageReadiness` added a fourth gate that held a
+   case whenever the classifier had auto-excluded a photo that no person had
+   confirmed. That is not a missing requirement: the photo is already excluded,
+   so it never counted toward the three rules above, and holding a complete case
+   because a machine discarded a spare photo made Not-ready mean something other
+   than "the EVA requirements aren't met". The classifier's opinion still shows
+   on the Evidence tab as advisory copy (`Evidence.reviewRequired`, which the SPA
+   reads) — it simply no longer decides readiness. Do not reintroduce it.
+
    PURE + DETERMINISTIC + FRAMEWORK-FREE.
    ============================================================ */
 
@@ -37,12 +48,6 @@ export interface ImageRuleEvidence {
   acceptedForEva: boolean;
   /** Flagged unusable (e.g. a person's reflection is visible). */
   excluded?: boolean;
-  /**
-   * An automatic image decision still needs a person to confirm it. A case with
-   * any such unresolved image cannot be ready even when its other accepted
-   * images happen to satisfy the count/role rules.
-   */
-  reviewRequired?: boolean;
 }
 
 /** Stable codes for each rule failure (UI / flow can branch on these). */
@@ -52,17 +57,6 @@ export interface ImageRuleFailure {
   code: ImageRuleCode;
   message: string;
 }
-
-/** A readiness-owned image gap. Base EVA rule failures retain their stable
- * codes; unresolved automatic decisions are the one additional image gate
- * shared by status, the checklist and chaser availability. */
-export type ImageReadinessGap =
-  | ImageRuleFailure
-  | {
-      code: 'review_required';
-      message: string;
-      count: number;
-    };
 
 /** Minimum accepted images required for an EVA upload set. */
 export const MIN_ACCEPTED_IMAGES = 2;
@@ -86,14 +80,6 @@ export interface ImageRuleResult {
   hasOverview: boolean;
   hasDamageCloseup: boolean;
   failures: ImageRuleFailure[];
-}
-
-/** The complete image-readiness verdict used by every case surface. */
-export interface EvaImageReadinessResult {
-  ok: boolean;
-  rules: ImageRuleResult;
-  unresolvedReviewCount: number;
-  gaps: ImageReadinessGap[];
 }
 
 /**
@@ -137,36 +123,6 @@ export function evaluateEvaImageRules(
     hasOverview,
     hasDamageCloseup,
     failures,
-  };
-}
-
-/**
- * Evaluate every readiness-owned image gate in stable order.
- *
- * A person's-reflection observation is deliberately not a gap by itself. It
- * affects this verdict only when another persisted decision marks the image
- * excluded or awaiting review, preserving the Image Based Assessment exception.
- */
-export function evaluateEvaImageReadiness(
-  evidence: readonly ImageRuleEvidence[],
-): EvaImageReadinessResult {
-  const rules = evaluateEvaImageRules(evidence);
-  const unresolvedReviewCount = evidence.filter(
-    (item) => item.kind === 'image' && item.reviewRequired === true,
-  ).length;
-  const gaps: ImageReadinessGap[] = [...rules.failures];
-  if (unresolvedReviewCount > 0) {
-    gaps.push({
-      code: 'review_required',
-      message: `${unresolvedReviewCount} image${unresolvedReviewCount === 1 ? '' : 's'} still ${unresolvedReviewCount === 1 ? 'needs' : 'need'} review.`,
-      count: unresolvedReviewCount,
-    });
-  }
-  return {
-    ok: gaps.length === 0,
-    rules,
-    unresolvedReviewCount,
-    gaps,
   };
 }
 

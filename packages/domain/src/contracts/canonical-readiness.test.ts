@@ -82,8 +82,9 @@ describe('TKT-130 canonical readiness matrix', () => {
       'field-dateOfLoss',
       'field-accidentCircumstances',
       'images',
-      'no-conflicts',
     ]));
+    // The blockers are the empty values and the image set — never a review marker.
+    expect(result.failed).not.toContain('no-conflicts');
   });
 
   it.each([
@@ -98,17 +99,47 @@ describe('TKT-130 canonical readiness matrix', () => {
     expect(result.failed).toContain(`field-${key}`);
   });
 
+  /* TKT-130, operator ruling 2026-07-21. These previously asserted the OPPOSITE:
+     any field marked needs_review or conflict held an otherwise-complete case in
+     Not ready behind a "No unresolved field reviews" blocker. That marker was
+     never a real signal — needs_review is the field_level_provenance DB default,
+     and the read mapping also falls back to it when no provenance row matches the
+     current value, so well-populated parsed fields arrived "unresolved" with no
+     way to clear them except retyping the value. */
   it.each(['needs_review', 'conflict'] as const)(
-    'an unresolved %s field stays Not ready even with complete values and images',
+    'a populated %s field reaches Review when every EVA requirement is met',
     (reviewState) => {
       const result = verdict(input({
         evaFields: completeFields({ vehicleModel: field('Audi A3', reviewState) }),
       }));
-      expect(result.status).toBe('needs_review');
-      expect(result.queue).toBe('not-ready');
-      expect(result.failed).toContain('no-conflicts');
+      expect(result.status).toBe('ready_for_eva');
+      expect(result.queue).toBe('review');
+      expect(result.readiness.ready).toBe(true);
+      expect(result.failed).toEqual([]);
     },
   );
+
+  it.each(['needs_review', 'conflict'] as const)(
+    'a BLANK %s field is still Not ready — the value, not the marker, is the blocker',
+    (reviewState) => {
+      const result = verdict(input({
+        evaFields: completeFields({ vehicleModel: field('', reviewState) }),
+      }));
+      expect(result.status).toBe('missing_required_fields');
+      expect(result.queue).toBe('not-ready');
+      expect(result.failed).toContain('field-vehicleModel');
+    },
+  );
+
+  it('no readiness check is a review-state check', () => {
+    const result = verdict(input());
+    expect(result.readiness.checks.map((check) => check.id)).not.toContain('no-conflicts');
+    // The forbidden label must not exist on any surface (TKT-130 acceptance).
+    expect(result.readiness.checks.map((check) => check.label))
+      .not.toContain('No unresolved field reviews');
+    // The 'conflicts' group is gone from ReadinessCheckGroup itself, so a
+    // runtime assertion for it no longer compiles — the type is the guarantee.
+  });
 
   it('all images excluded is Not ready, never raw-presence ready', () => {
     const result = verdict(input({
@@ -120,14 +151,18 @@ describe('TKT-130 canonical readiness matrix', () => {
       .toContain('have 0');
   });
 
-  it('an unresolved automatic image decision blocks an otherwise valid set', () => {
+  /* TKT-130, operator ruling 2026-07-21. This previously asserted that an
+     unconfirmed classifier exclusion blocked an otherwise valid set. The excluded
+     photo never counted toward the three image rules in the first place, so
+     holding the case for it was not a missing requirement. The classifier's
+     opinion survives as advisory copy on the Evidence tab. */
+  it('an unconfirmed classifier exclusion does not block an otherwise valid set', () => {
     const result = verdict(input({
-      evidence: [...validImages(), image({ excluded: true, reviewRequired: true })],
+      evidence: [...validImages(), image({ excluded: true })],
     }));
-    expect(result.status).toBe('needs_review');
-    expect(result.queue).toBe('not-ready');
-    expect(result.readiness.checks.find((check) => check.id === 'images')?.detail)
-      .toContain('1 image still needs review');
+    expect(result.status).toBe('ready_for_eva');
+    expect(result.queue).toBe('review');
+    expect(result.readiness.imagesReady).toBe(true);
   });
 
   it('a non-empty inspection address without a saved decision is Not ready', () => {

@@ -77,15 +77,29 @@ describe('computeReadiness canonical adapter', () => {
     expect(canSubmitCaseToEva(c)).toBe(true);
   });
 
-  it('shows an unresolved populated field as a blocking checklist reason', () => {
+  /* TKT-130, operator ruling 2026-07-21 — inverted. This previously asserted
+     that a populated field carrying a review marker was a blocking checklist
+     reason rendering "No unresolved field reviews". The checklist now only ever
+     states unmet EVA requirements, so the panel cannot show an item a handler
+     has no way to action. */
+  it('does not treat a populated field with a review marker as a blocker', () => {
     const c = testCase();
     c.evaFields.vehicleModel.reviewState = 'conflict';
     const ui = computeReadiness(c);
+    expect(ui.ready).toBe(true);
+    expect(ui.items.find((item) => item.id === 'no-conflicts')).toBeUndefined();
+    expect(ui.items.map((item) => item.label)).not.toContain('No unresolved field reviews');
+    expect(ui.missing).toEqual([]);
+    expect(canSubmitCaseToEva(c)).toBe(true);
+  });
+
+  it('still blocks that same field when its value is actually missing', () => {
+    const c = testCase();
+    c.evaFields.vehicleModel.value = '';
+    c.evaFields.vehicleModel.reviewState = 'conflict';
+    const ui = computeReadiness(c);
     expect(ui.ready).toBe(false);
-    expect(ui.items.find((item) => item.id === 'no-conflicts')).toMatchObject({
-      ok: false,
-      detail: expect.stringContaining('Vehicle Model'),
-    });
+    expect(ui.items.find((item) => item.id === 'field-vehicleModel')).toMatchObject({ ok: false });
     expect(canSubmitCaseToEva(c)).toBe(false);
   });
 

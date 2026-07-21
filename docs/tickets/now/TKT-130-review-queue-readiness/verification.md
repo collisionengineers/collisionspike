@@ -115,3 +115,53 @@ ancestry was checked, and the production JS provides direct live contradiction. 
 surfaces are current authenticated API payloads, database rows, audit rows and a signed-in QDOS26079 trace;
 their absence cannot change the FAILED verdict because both current source and deployed code violate
 explicit acceptance.
+
+## Verdict update — 2026-07-21 (implementer-gathered; independent verifier still required)
+
+**STILL PENDING.** The 2026-07-14 FAILED verdict had two halves: the source-level violation and the
+live-state violation. The source half is now addressed; **the live half is untouched**, so the verdict
+does not move and the ticket stays in `now`.
+
+### Closed by this change (offline evidence)
+
+The 2026-07-14 sweep cited three source facts. All three are now false:
+
+- `case-status.ts` "defines every `needs_review` or `conflict` field as unresolved" —
+  `unresolvedReviewFieldKeys` no longer exists.
+- `case-status.ts` "emits `No unresolved field reviews`" — the check is deleted. A regression test
+  asserts the string is absent from every emitted check label, and the `conflicts` group is gone from
+  `ReadinessCheckGroup`, so a re-introduction cannot type-check.
+- "routes otherwise complete cases with either state to `needs_review`" — that branch is removed.
+- "Current tests also expect the blanket `no-conflicts` failure (`canonical-readiness.test.ts:101-110`)"
+  — those tests now assert the **opposite**, each carrying a comment recording what it previously
+  asserted and why it inverted.
+
+Test evidence, this machine, 2026-07-21: `@cs/domain` 607/607; `@cs/web` 557/557; full workspace run
+3124/3124 across 280 files, 0 failures. `check:runtime-contract` (191 routes / 56 DTOs / 65 tables),
+`check:route-authority`, `check:parity`, `check:database`, `check:layout` all pass.
+`check:derivation` fails on PLAN-013/PLAN-014 missing derivation-summaries — **pre-existing and
+unrelated**, confirmed by re-running it against the clean baseline with this work stashed (identical
+failure).
+
+Matrix coverage added, in the shape the "How to re-verify" step 1 asked for: populated-valid,
+populated-with-marker, blank-with-marker, and the forbidden-label absence assertion; plus, on the image
+side, complete-set-with-discarded-photo (passes) and exclusion-breaks-a-real-rule (still fails
+honestly, proving the contract was not weakened).
+
+### NOT closed — every live acceptance line remains open
+
+- No backup-first idempotent recomputation over active cases. **Until it runs, live cases parked in
+  `needs_review` by a review marker stay there**; deploying this code alone does not move them.
+- No residual ledger, no DB/API/SPA membership/count reconciliation, no QDOS26079 disposition.
+- No stale-status EVA submission counter-probe.
+- No signed-in Chrome pass proving the checklist no longer renders the forbidden item.
+- Not deployed. The SPA and Data API still run the previous build.
+
+### Also still open from the 13 July ruling
+
+The interaction/network/audit tests proving view-only navigation performs no write are not written.
+This change does not introduce a write on view, but it does not prove the absence of one either.
+
+Note the 13 July ruling expected a conflict-resolution action to be built. The 2026-07-21 operator
+ruling supersedes that: conflicts no longer block, so no resolution action is required for readiness.
+Competing sources remain visible against the field on the Fields tab.

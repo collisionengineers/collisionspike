@@ -149,3 +149,59 @@ orchestration untouched. Registry updated (`LIVE_FACTS.json` + `live-environment
 Remove the blanket field-review blocker. Populated, valid, non-conflicting values require no extra
 confirmation; only missing, invalid or genuinely conflicting values block readiness. Viewing is read-only.
 Implementation and live recomputation remain pending.
+
+## 2026-07-21 — review-state blockers removed from the canonical evaluator (code only)
+
+Implements the 13 July field-review ruling, and extends it to images on a fresh operator ruling of
+2026-07-21. **Code and tests only — the live recomputation is NOT done. Verdict stays PENDING.**
+
+### Operator ruling, 2026-07-21
+
+Asked to confirm the boundary, the operator restated readiness in plain terms:
+
+> Not ready = required fields for EVA not obtained. Review means ready for EVA (just needs the human
+> "review", i.e. pressing the EVA button).
+
+and directed that the "no unresolved field reviews" area be removed outright, **and that images
+likewise carry no "reviewed"/"not reviewed" state**. This goes one step further than the 13 July
+ruling, which had kept a genuine source conflict blocking: a conflicted field still *has* a value, so
+by the rule above the requirement is met. Conflicts remain recorded and visible, but advisory.
+
+### Why the old check was not a real signal
+
+`needs_review` is the **column default** on `field_level_provenance.review_state_code`
+(`database/baseline/070_field_level_provenance.sql:19`), and the parser's provenance INSERT
+(`services/data-api/.../parser-fields.ts`) omits the column, so every parser-filled field landed
+"unresolved". The read mapping (`shared/mapping/cases.ts`) independently falls back to `needs_review`
+whenever no provenance row matches the current value. The check scanned **all 12** EVA fields, not
+just required ones, and the only way to clear one was to retype its value — there is no
+"mark reviewed" action anywhere in the codebase. The deep-link made it worse: `checklistTarget`
+searched only for a field in `conflict`, so a `needs_review` blocker focused nothing at all.
+
+The image half was the same shape. `Evidence.reviewRequired` means "the classifier excluded this photo
+and no human confirmed it". That photo is *already excluded*, so it never counted toward the ≥2
+accepted / overview-with-registration / damage-close-up rules — yet it held the whole case.
+
+### Changed
+
+- `contracts/case-status.ts` — `no-conflicts` check deleted, along with `unresolvedReviewFieldKeys`,
+  `hasOpenReviewIssues`, the `conflicts` check group, and the `reviewsResolved` /`imageRulesPass`
+  result fields (`imageRulesPass` and `imagesReady` were identical once the image gate went).
+  The `needs_review` status branch that existed solely to catch these two conditions is removed as
+  dead code — verified to change no outcome, since a source-evidence-pending case still reaches
+  `needs_review` via the identity branch below it.
+- `contracts/image-rules.ts` — `review_required` gap, `ImageReadinessGap`, `EvaImageReadinessResult`
+  and `evaluateEvaImageReadiness` deleted; `ImageRuleEvidence.reviewRequired` removed. With the extra
+  gate gone the two-tier structure was pure duplication, so callers use `evaluateEvaImageRules`.
+- `apps/web` — `readiness.ts` group union and missing-item mapping (now a total record, no unreachable
+  fallback); `case-detail.controller.tsx` conflicts deep-link branch; `ChaserPanel.tsx` replacement-photo
+  template (chasing for photos when the required set is complete asks providers for what we don't need).
+- `Evidence.reviewRequired` is **kept** on the model type: the Evidence-tab advisory ("Check this
+  photo…") stays, per the operator's decision to drop the blocker but keep the notice.
+
+### Not done — the live half of acceptance
+
+Persisted statuses were computed under the old rule, so cases parked in `needs_review` purely by a
+review marker will **not** move until a recomputation runs. The backup-first idempotent recompute over
+every active case, the residual ledger, the DB/API/SPA reconciliation and the stale-status EVA submit
+counter-probe all remain outstanding, exactly as the 2026-07-14 sweep recorded.

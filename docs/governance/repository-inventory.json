@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710122161,
+  "totalFileBytes": 710131654,
   "entries": [
     {
       "path": ".",
@@ -14251,8 +14251,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail.controller.tsx",
       "mediaType": "text/tsx",
-      "size": 36438,
-      "sha256": "d02163f0318c25dfb0f2b143ef979429f8c6b25a01825ab44a2d9d0183453170",
+      "size": 36428,
+      "sha256": "2bed3359b5992128f7f8a572a7cdbf8234dd4d9efda42463732ea56e3d55a03b",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -14971,8 +14971,8 @@
     {
       "path": "apps/web/src/shared/ui/ChaserPanel-copy.test.tsx",
       "mediaType": "text/tsx",
-      "size": 7314,
-      "sha256": "4cc39e62531d1e59a13e1860fc0088b426b16ace5ae424fdedc568761bbdd76a",
+      "size": 7565,
+      "sha256": "2110c8f08b966f70606fd4e2e259abd75b7d1269a435db6dd39b4d46b9a203c4",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -14980,8 +14980,8 @@
     {
       "path": "apps/web/src/shared/ui/ChaserPanel.test.ts",
       "mediaType": "text/typescript",
-      "size": 7860,
-      "sha256": "738f3187e670ce889b3dee7ad1cba35d993c7ca056578ad211acc6e14a3676fd",
+      "size": 8148,
+      "sha256": "f41ec5f87d2801a8ba443a6179ef7850943347ee8ff58a60e606cd08d7feb918",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -14989,8 +14989,8 @@
     {
       "path": "apps/web/src/shared/ui/ChaserPanel.tsx",
       "mediaType": "text/tsx",
-      "size": 16655,
-      "sha256": "116ac5918cfe86dabd518e26f9597cb537a037ff8524878b90e411dccab4266f",
+      "size": 16289,
+      "sha256": "d0752ce0b98bbd003512387150f2b3b218d8ddae5678c0415536a7105c4e0f7c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -15295,8 +15295,8 @@
     {
       "path": "apps/web/src/shared/ui/readiness.test.ts",
       "mediaType": "text/typescript",
-      "size": 3565,
-      "sha256": "abba2c77a4f7320d9949d6e097f3cde11891706fd5650c86c28efa699b947ab7",
+      "size": 4386,
+      "sha256": "2be314e6637fed52c0bd1215e578b8bcc5830d5216921cb9f852e18ec45890cb",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -15304,8 +15304,8 @@
     {
       "path": "apps/web/src/shared/ui/readiness.ts",
       "mediaType": "text/typescript",
-      "size": 1513,
-      "sha256": "a86882d1585bfc26844f861446164550c9c1787366f93cc8f199e47f40cad0d5",
+      "size": 1458,
+      "sha256": "ae893c17a0515327f9cd83ce595155641d0a0dabf880ac6691d7e8c455042c98",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -16996,7 +16996,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1664131,
+      "size": 1664133,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17014,8 +17014,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4466994,
-      "sha256": "11ddb9ea45380d9adc8e804ad6a88445aaaade20e394448a0a53f994d5262633",
+      "size": 4467164,
+      "sha256": "c283f776b70b8250aaace927eb35886ed290ebc635293215fa8e344214dceaad",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -26950,8 +26950,8 @@
     {
       "path": "docs/tickets/now/TKT-130-review-queue-readiness/changes.md",
       "mediaType": "text/markdown",
-      "size": 9636,
-      "sha256": "4fa4067d32514636fdbf621f6ef06891c062e0f4e39216fae0f6e282cdc2f73e",
+      "size": 13465,
+      "sha256": "9b2cf4a0d698b32fb813565eb074c3e6e140eec8e2f0cf2e612d9766dfbd5901",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27031,8 +27031,8 @@
     {
       "path": "docs/tickets/now/TKT-130-review-queue-readiness/verification.md",
       "mediaType": "text/markdown",
-      "size": 8590,
-      "sha256": "a5d86b351845add7e1c4bb58776942e3c929baaa21ad6ba21ce1cfc1b86bfa6e",
+      "size": 11703,
+      "sha256": "f5de87fa6582561d7f5143063441b83b7948717f981adf17182c5dd7cd75e0b8",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32215,8 +32215,8 @@
     {
       "path": "packages/domain/src/contracts/canonical-readiness.test.ts",
       "mediaType": "text/typescript",
-      "size": 6847,
-      "sha256": "caabba2fb2a2f47ad710488e41f2a144fc3b72ce3b850f6665bfadeb524f5c62",
+      "size": 8833,
+      "sha256": "2a7b9090a5ae5d441b85ef8a03f802f568be98b9edf9dc005a935d9796b8de26",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32233,8 +32233,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.test.ts",
       "mediaType": "text/typescript",
-      "size": 16845,
-      "sha256": "7c426afdd00a1cf08cc7c2350b4557a8a305bc0d7c26a2337f195058c575826e",
+      "size": 17169,
+      "sha256": "c8da79cdd05b3459381c8f3e26d1739b6a17ce4c8870be3f9f53694d90a9f143",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32242,8 +32242,8 @@
     {
       "path": "packages/domain/src/contracts/case-status.ts",
       "mediaType": "text/typescript",
-      "size": 20109,
-      "sha256": "af580cc863acfc0f70ffdbacb02446841c2207d868272bd3ff9eb00c863a08c6",
+      "size": 19414,
+      "sha256": "709b327f4aa3d4d472f891ea8209f3ed10c3e7146a90d64033554a25110c5b5a",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32296,8 +32296,8 @@
     {
       "path": "packages/domain/src/contracts/image-rules.test.ts",
       "mediaType": "text/typescript",
-      "size": 4306,
-      "sha256": "2096f77846a507e10bc51f3cc0c7fc2e138e36aae872be6892435cf66ffbf111",
+      "size": 5216,
+      "sha256": "1cfea5a5d511c3f914e4a52b70bec936ea375b79ddd3c15b42c26ffac2c2b0f2",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -32305,8 +32305,8 @@
     {
       "path": "packages/domain/src/contracts/image-rules.ts",
       "mediaType": "text/typescript",
-      "size": 6309,
-      "sha256": "ec98c92d17affdd6d9cb37a32f0bca0adc638138efeb0eb73ff58607748ea9ba",
+      "size": 5234,
+      "sha256": "2d5cc71c1057f07953a6016ab901bf3c373a657dc7da22a88b43ce6fa6b4a1f2",
       "category": "contract",
       "owner": "domain-model",
       "lifecycle": "active"
