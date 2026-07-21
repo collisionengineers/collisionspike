@@ -3,9 +3,10 @@
  * emails — the Tractable "New completed lead…" shape — carry NO registration or reference
  * in their subject/body: the match key lives INSIDE the attached PDF (its Vehicle
  * Information block). By the time this runs, the ordinary subject/body machinery
- * (triagePolicy, activity 1.55) has already found nothing, and the orchestrator has
- * re-used the EXISTING `parse` activity over the PDF attachment(s); the PDF-extracted VRM
- * arrives here as a plain input.
+ * (triageUnified) has already found nothing, and the orchestrator passes in the VRM the
+ * single hoisted `parse` activity extracted from the PDF attachment(s). Since Slice 4b
+ * (TKT-102 collapse) that is the ONE parse per email — this lane no longer makes its own
+ * dedicated re-parse call; the PDF-extracted VRM arrives here as a plain input.
  *
  * This activity feeds that VRM into the EXISTING machinery — never a parallel pipeline:
  *   - context read → the same `POST /api/internal/triage/context` the triage policy uses
