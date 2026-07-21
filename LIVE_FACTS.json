@@ -83,8 +83,8 @@
       "desk@collisionengineers.co.uk"
     ],
     "renewal": "durable subscription monitor running",
-    "permissionBoundary": "Exchange-scoped application read access; no tenant-wide Microsoft Graph application role or delegated grant observed",
-    "outlookMutation": "disabled by OUTLOOK_MOVE_ENABLED=false on the Data API and orchestration"
+    "permissionBoundary": "CORRECTED 2026-07-21 (was wrongly recorded as read-only): the Graph Intake app registration (5d37a155-2af8-4878-b96a-6faad5207137) holds Application Mail.ReadWrite AND Application Mail.Read over all three intake mailboxes, granted via Exchange Online RBAC for Applications under two custom recipient scopes (CollisionSpike-Intake-Prod covering info@/engineers@/desk@, and CS-Intake-EngDigital covering engineers@). Verified live by Test-ServicePrincipalAuthorization: Mail.ReadWrite InScope=true for info@, engineers@ and desk@. The Entra side is empty (zero appRoleAssignments, zero oauth2PermissionGrants, empty requiredResourceAccess), so az/Graph queries of the app registration show nothing and misleadingly imply read-only; only Test-ServicePrincipalAuthorization reveals the grant. Mailbox safety therefore rests on code and gates, NOT on permissions.",
+    "outlookMutation": "disabled by OUTLOOK_MOVE_ENABLED=false on the Data API and orchestration. NB this gate — not the permission grant — is what prevents mail mutation; the identity is write-capable (see permissionBoundary). No delete/purge/send code exists anywhere in the repo; the only mutating mail calls are moveMessage and ensureInboxChildFolder in services/orchestration/src/adapters/graph.ts:585,600."
   },
   "access": {
     "roles": [

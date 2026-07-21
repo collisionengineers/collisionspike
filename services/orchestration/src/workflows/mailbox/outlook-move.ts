@@ -14,9 +14,11 @@
  *   5. report `moved`/`failed` back to the Data API
  *      (POST /api/internal/inbound/{id}/outlook-moved), which stamps the row + audit.
  *
- * Requires the Mail.ReadWrite Exchange-RBAC re-consent recorded in
- * docs/operations/operator-actions.md;
- * under today's Mail.Read-only grant the move POST 403s and the job reports `failed`.
+ * Permission state (verified live 2026-07-21 — this comment previously claimed a Mail.Read-only grant
+ * under which the move POST would 403; that was WRONG): the Graph Intake app registration holds
+ * `Application Mail.ReadWrite` via Exchange Online RBAC over all three intake mailboxes, so the move
+ * POST would SUCCEED. Nothing here is permission-blocked. `OUTLOOK_MOVE_ENABLED` (below) is the only
+ * thing preventing a live mailbox mutation — treat it as a real kill switch, not a belt-and-braces one.
  *
  * Retry semantics: a TRANSIENT error (Graph 5xx/429/network) rethrows so the queue
  * redelivers (up to the ~5-dequeue poison limit); on the LAST attempt — or any

@@ -17,7 +17,7 @@
     "files": 4097,
     "entries": 5313
   },
-  "totalFileBytes": 710122161,
+  "totalFileBytes": 710125551,
   "entries": [
     {
       "path": ".",
@@ -13108,8 +13108,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 14337,
-      "sha256": "8dbb138f0286cee23564f6cc6d2adb25d8c3aa7f05e1551e0f2e2258ece6247e",
+      "size": 15398,
+      "sha256": "ff3c465cc9a4c6dc381356401cbffb7571c385bd599ff2eaf447423e26e722ad",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17015,7 +17015,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4466994,
-      "sha256": "11ddb9ea45380d9adc8e804ad6a88445aaaade20e394448a0a53f994d5262633",
+      "sha256": "8a0b7c170180b347180b441eaed13649ccc8dc93afd740c3c48684d5b3b1c6e5",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17131,8 +17131,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 7614,
-      "sha256": "5210bee193ff5d62ee09735336ef0dd6f650470570c788ea484cbe5b7b18ae18",
+      "size": 8827,
+      "sha256": "c4f5034b93ee1f2946a9e90def63f19f221ae5fa08110d85860df4d3bd8d9351",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -27220,8 +27220,8 @@
     {
       "path": "docs/tickets/now/TKT-159-feature-gate-intent-audit/evidence/code-derived-gate-inventory-2026-07-20.md",
       "mediaType": "text/markdown",
-      "size": 21155,
-      "sha256": "59073154a843be3f707d2c2251f5647d4153c5f2b48003c2fa4b34689036abbe",
+      "size": 21953,
+      "sha256": "c56354c683bb8fece15be5fed4e2df43d2564d79728cc0287e281a2bc6ad6dc5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -40954,8 +40954,8 @@
     {
       "path": "services/orchestration/src/workflows/mailbox/outlook-move.ts",
       "mediaType": "text/typescript",
-      "size": 5021,
-      "sha256": "9b555dabc21065188723aaff1a01b6b9e32127cf85924cc7e02699bfa6f889f5",
+      "size": 5339,
+      "sha256": "6232459915cc6d114e8fa46699d36ffde60c752fe384304daf765307273d1f79",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

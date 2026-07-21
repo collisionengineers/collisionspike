@@ -13,6 +13,15 @@
 > `DELETE_CASE_IMAGE_ENABLED`, `MCP_IMAGE_INGEST_ENABLED`). **The table below is now historical —
 > superseded by `feature-gates.md` — and is kept for its code citations, not as current live state.**
 >
+> ❌ **Factual correction (2026-07-21).** The `OUTLOOK_MOVE_ENABLED` row below says
+> *"needs `Mail.ReadWrite` Exchange re-consent"*. That is **wrong** — the grant already exists and did
+> when this file was written. Live `Test-ServicePrincipalAuthorization` against the Graph Intake app
+> shows `Application Mail.ReadWrite` `InScope=true` for `info@`, `engineers@` and `desk@`, via Exchange
+> Online RBAC scopes `CollisionSpike-Intake-Prod` and `CS-Intake-EngDigital`. The gate is off-and-
+> intentional, but it is off **by gate alone** — no permission blocks the move. The error is
+> understandable: the Entra side is empty, so `az`/Graph queries of the app registration show no roles
+> at all. Use `Test-ServicePrincipalAuthorization`, never `az`, to settle mailbox permission questions.
+>
 > ⚠️ **NEEDS VERIFICATION / FACT-CHECK BEFORE USE.** This inventory was assembled by reading the
 > repository (`packages/domain/src/gates.ts`, service source, `LIVE_FACTS.json`, ADRs, and ticket
 > specs) plus the *committed* `LIVE_FACTS.json` snapshot (`lastVerified: 2026-07-19T22:40:05Z`). It
