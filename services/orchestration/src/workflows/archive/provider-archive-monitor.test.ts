@@ -92,6 +92,29 @@ describe('provider Archive durable monitor', () => {
     );
   });
 
+  it('parks a terminal folder ensure instead of retrying it forever', () => {
+    const ctx = context();
+    const run = orchestrations.get('providerArchiveMonitorOrchestrator')!(ctx);
+    run.next();
+    run.next({ rows: [{ caseId: 'case-1', generation: 5, archiveRequired: true }] });
+    // The activity RETURNS a terminal outcome (it no longer throws), so the sub-orchestrator
+    // completes successfully and the monitor must recognise the outcome rather than the error.
+    const step = run.next({ terminal: true, reason: 'archive_scope_refused' });
+    expect(step.value).toMatchObject({
+      name: 'providerArchiveOutboxDefer',
+      input: {
+        caseId: 'case-1',
+        generation: 5,
+        reason: 'Archive folder unusable (archive_scope_refused)',
+        terminal: true,
+      },
+    });
+    // A terminal row is never acknowledged as complete — the case still needs an operator.
+    expect(ctx.df.callActivityWithRetry).not.toHaveBeenCalledWith(
+      'providerArchiveOutboxComplete', expect.anything(), expect.anything(),
+    );
+  });
+
   it('defers when exact API verification says completion is still pending', () => {
     const ctx = context();
     const run = orchestrations.get('providerArchiveMonitorOrchestrator')!(ctx);
