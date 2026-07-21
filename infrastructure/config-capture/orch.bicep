@@ -55,6 +55,13 @@ param enrichmentEnabled bool = true
 param boxApiEnabled bool = true
 param boxFolderAtIntakeEnabled bool = true
 param boxFileRequestEnabled bool = true
+// PLAN-015 (TKT-298) — EVA submission gate on this app (read by the evaSubmit activity
+// and the eva-shadow-submit consumer). Captured at its ship-dark default: not set live
+// today (absent == off). The alpha cutover flips it true (docs/operations/alpha-testing.md
+// Phase 6), which ALSO adds the `evasentry-fn-key` KV secret + EVASENTRY_FN_KEY setting —
+// deliberately not captured here until they exist live. The TKT-299 poller variables
+// (INTAKE_POLL_*) are LOCAL-ONLY by design and are never captured for this app.
+param evaApiEnabled bool = false
 
 // ---- Secret reference NAMES (values injected out-of-band) ----
 param graphClientSecretName string = 'graph-client-secret'
@@ -124,6 +131,7 @@ var capturedAppSettings = {
   BOX_FOLDER_AT_INTAKE_ENABLED: string(boxFolderAtIntakeEnabled)
   BOX_FILEREQUEST_ENABLED: string(boxFileRequestEnabled)
   BOX_FOLDER_ROOT_ID: boxFolderRootId
+  EVA_API_ENABLED: string(evaApiEnabled)
 }
 
 // Apply path (guarded off by default). When applyAppSettings=true this WRITES
@@ -209,5 +217,6 @@ output capturedSettingNames array = [
   'BOX_FOLDER_AT_INTAKE_ENABLED'
   'BOX_FILEREQUEST_ENABLED'
   'BOX_FOLDER_ROOT_ID'
+  'EVA_API_ENABLED'
 ]
 output functionAppPrincipalId string = functionApp.identity.principalId

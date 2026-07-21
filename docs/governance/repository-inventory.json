@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1216,
-    "files": 4098,
-    "entries": 5314
+    "directories": 1221,
+    "files": 4118,
+    "entries": 5339
   },
-  "totalFileBytes": 710151426,
+  "totalFileBytes": 710249394,
   "entries": [
     {
       "path": ".",
@@ -5898,6 +5898,51 @@
     },
     {
       "path": "docs/tickets/now/TKT-282-guided-capture-live-boundary-verification/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-298-eva-shadow-autosubmit",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-299-local-intake-poller",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-300-hide-guided-photos-panel",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-301-alpha-config-gate-parity",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -14215,8 +14260,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail-main.tsx",
       "mediaType": "text/tsx",
-      "size": 24831,
-      "sha256": "4f2d6fc7d00216f60eac35e9144248b809efbc8d475942e34da9dd5e3071934c",
+      "size": 24738,
+      "sha256": "6c10d41fa2bd6eea6f1d82ff001b8d0c2b0feae0676a57c9bf5b9382a2cfcbd5",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -16996,7 +17041,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1664479,
+      "size": 1672184,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17014,8 +17059,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4467595,
-      "sha256": "720c096eb2e83cf8d2154d8aef4124d4e99dfdd80148ce6f58e62f97c242b5b1",
+      "size": 4477446,
+      "sha256": "288a02fa944887b9b23bb0d430f9b9603d989224e68abcd0199ef873943bfcab",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17023,8 +17068,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 71320,
-      "sha256": "5940769f6477e8fb8fe85b9a68cc8ec1e4b1270ae1ae5f05b687ac1eece29522",
+      "size": 71569,
+      "sha256": "fc18c9165836c6269101404891fa54ce13e62843af4bfd95794d080512c38b04",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17032,8 +17077,17 @@
     {
       "path": "docs/operations/README.md",
       "mediaType": "text/markdown",
-      "size": 1255,
-      "sha256": "dcde3554f70e7d4a33e1ac4e109970fe83beab3d09b765046cb6c2c3548eb921",
+      "size": 1373,
+      "sha256": "74469cf36382b003768d44ff9bf244bdbd5ab55301e26bd017e42cbce93b0d95",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/operations/alpha-testing.md",
+      "mediaType": "text/markdown",
+      "size": 13382,
+      "sha256": "8928b7e4d70d9f75e1340fa6d1b6b7d963d5ed25d2a5d1c3446316b16247dbcf",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17068,8 +17122,8 @@
     {
       "path": "docs/operations/database.md",
       "mediaType": "text/markdown",
-      "size": 1503,
-      "sha256": "0e05aa07d905de6d444c3979a265c60b6ec7374b1f6b2bdd99d3f57c2f417f73",
+      "size": 4966,
+      "sha256": "7f97362d547e808cb6e667ce9d972be0f808ecb91eea324b22d9f6c0fc15080d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17104,8 +17158,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 30906,
-      "sha256": "38df944bea8aa1d4ffcf745e2a1097ce8c3396e47afb69b8e3e166874d390d2b",
+      "size": 32535,
+      "sha256": "20ca16b1926fa37ac091472c4c6007a619bff72025a3e2ac802bbd41746116e0",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17176,8 +17230,8 @@
     {
       "path": "docs/product/README.md",
       "mediaType": "text/markdown",
-      "size": 738,
-      "sha256": "1c4a2149a6e16a3750c85f50fb78bde603a68508c24c697660d9f07285b355ff",
+      "size": 852,
+      "sha256": "9a17f3a43355c01d4a18fcfdaad11a6489f45b6e8a05ee038f86debedfd5d574",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17223,6 +17277,15 @@
       "mediaType": "text/markdown",
       "size": 1056,
       "sha256": "b3f1be1e2d408e6965f3074544ad23c0bd8f80c37329de510cb8768be9528d93",
+      "category": "documentation",
+      "owner": "documentation",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/product/staff-forwarding-guide.md",
+      "mediaType": "text/markdown",
+      "size": 2117,
+      "sha256": "4469eed756a2e204b979cd81165c95e2c06951d8c7f5802f57998233cec83bcc",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17545,8 +17608,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 54222,
-      "sha256": "f00ad6caa5a3ec63a0dbbdb603bacd557278921755482d5e4f7d16012c9e8668",
+      "size": 55238,
+      "sha256": "a5f7934915ea2be738e248756116eed10d2e7db927fc30d95224d4f5bd82c6c5",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17554,8 +17617,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 57481,
-      "sha256": "4f0630d45cd1890536bc023c8b2d31bb70f00fdd58d606296ac839fac7fc8c08",
+      "size": 58652,
+      "sha256": "a3ad9af9aa84d17307db1c321f1e5b4e4b1cba17604b2f75a98c0a15b1a0c505",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28046,6 +28109,96 @@
       "lifecycle": "active"
     },
     {
+      "path": "docs/tickets/now/TKT-298-eva-shadow-autosubmit/TKT-298-eva-shadow-autosubmit.md",
+      "mediaType": "text/markdown",
+      "size": 2619,
+      "sha256": "ac869f53eb88fd25709e028c56ad0e535adda9e9af78bed0822259b5222d18e8",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-298-eva-shadow-autosubmit/changes.md",
+      "mediaType": "text/markdown",
+      "size": 2131,
+      "sha256": "bfa0ebc75616586664e6058881609542e89c1f46a93cfd4de5aab6fe87bee141",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-299-local-intake-poller/TKT-299-local-intake-poller.md",
+      "mediaType": "text/markdown",
+      "size": 2818,
+      "sha256": "a9ae16cf6e100aca2e00d74b78e26ddad70331d0d0344fd657ff21148b4b16cb",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-299-local-intake-poller/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1665,
+      "sha256": "aaf3554c97a126a933cb550f2a9fd7e510c9d2033f354dc67501de87021259b9",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-300-hide-guided-photos-panel/TKT-300-hide-guided-photos-panel.md",
+      "mediaType": "text/markdown",
+      "size": 1766,
+      "sha256": "fdc674fab59b1fc49111dc6c39014e32691e4b1c290cfd7bff08eb477f6b8322",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-300-hide-guided-photos-panel/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1180,
+      "sha256": "ade1abdbb44655d9870876e1c53e8df4ec999df5ce887d510d717b9271d8d649",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-301-alpha-config-gate-parity/TKT-301-alpha-config-gate-parity.md",
+      "mediaType": "text/markdown",
+      "size": 2016,
+      "sha256": "4ba13c40e1785a3a5fe4f3f51004a2f328af71cc944c4c5b663c3cc437fcfe95",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-301-alpha-config-gate-parity/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1382,
+      "sha256": "d464ae234ca5761cde081be3a984eb0ef33ea1c6e4d47f6bb6594bb7eef04576",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/TKT-302-alpha-runbook-and-guidance.md",
+      "mediaType": "text/markdown",
+      "size": 2338,
+      "sha256": "a15ea8a093d22c88a72448864ffac02ff3f7b2d1a0266b3d7462108566634dd0",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/changes.md",
+      "mediaType": "text/markdown",
+      "size": 1556,
+      "sha256": "f2280d6bdc41a048e6fe898321138a1c8833afda138dbc9d29f8671a7ef70fd4",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
       "path": "docs/tickets/plans/PLAN-001-ai-mcp-hardening.md",
       "mediaType": "text/markdown",
       "size": 4529,
@@ -28185,6 +28338,15 @@
       "mediaType": "text/markdown",
       "size": 4750,
       "sha256": "3fdd7b14adb293f5a1bcd1c2d3a515d5917cf44a41100721843c36bcf4797383",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-015-app-alpha-testing.md",
+      "mediaType": "text/markdown",
+      "size": 5058,
+      "sha256": "51757f8be85064bf435f7157a861c83c15c39049558cc206be55f87ca3d16405",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -31774,8 +31936,8 @@
     {
       "path": "infrastructure/config-capture/api.bicep",
       "mediaType": "application/octet-stream",
-      "size": 7622,
-      "sha256": "7a0d87232546ca9b50f49bce84457963b19a13b2cae3908a5bf298bddd8ef702",
+      "size": 8034,
+      "sha256": "c625db4ef0ed1d7b57b04900feff2dbd05ee30819513e2aeafdcdee4c414f3e5",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -31792,8 +31954,8 @@
     {
       "path": "infrastructure/config-capture/orch.bicep",
       "mediaType": "application/octet-stream",
-      "size": 9924,
-      "sha256": "f19f5e09f6044b895ac1b63caa6e1ef813a77485447cc7ad3677b8f1c6ffb18d",
+      "size": 10548,
+      "sha256": "84ce4fce09837b5beadd7da3619117d08402c2155261757edb59d1f9f70975c7",
       "category": "infrastructure",
       "owner": "repository",
       "lifecycle": "active"
@@ -32872,8 +33034,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 20560,
-      "sha256": "6ea545a4228e0d08ac282ffc15c0ecc6d05102b56268a7034e1aee38b39a2d0e",
+      "size": 21879,
+      "sha256": "46faabb1ecd055bdd72afda25eb1b2802a8120b9062d55e743bf5f48a0a1625c",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -34645,8 +34807,8 @@
     {
       "path": "services/data-api/src/features/cases/archive-completion-routes.ts",
       "mediaType": "text/typescript",
-      "size": 8152,
-      "sha256": "f732c2e483d2c81ed02c36640e082b406917f91ba896990cdef5509e6186226d",
+      "size": 8547,
+      "sha256": "314abc8dcfb1e5289c2bafd9427cf76ad9563cd3250220b57b376addf74cb3cc",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -35007,6 +35169,24 @@
       "mediaType": "text/typescript",
       "size": 12702,
       "sha256": "3a0b7e1ad5b878e366c2f6698ba97c32a9054a9800f716e99705f655653477ab",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/eva-shadow-queue.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3253,
+      "sha256": "0884b481f4b8b065665d350142f643b98aca7ec6dd5e05927d583310da8f1dfd",
+      "category": "source",
+      "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/data-api/src/features/cases/eva-shadow-queue.ts",
+      "mediaType": "text/typescript",
+      "size": 3024,
+      "sha256": "8782762e8e9216879cfa381db62d78d2f8091bb09e7e9ed48671c4037150e1eb",
       "category": "source",
       "owner": "data-api",
       "lifecycle": "active"
@@ -40000,8 +40180,8 @@
     {
       "path": "services/orchestration/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 5158,
-      "sha256": "a0daaf0ef442544d7855cfded12dda7bb9f7b19fbc83ff1722c56c80ffc2191c",
+      "size": 5624,
+      "sha256": "83e5b183abad5767a1cfa093074e5845edf52c3af4f842108c1ac84b2fa1d543",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40083,6 +40263,24 @@
       "mediaType": "text/typescript",
       "size": 13453,
       "sha256": "30b184874cef7bc819be700275d4e88f0a217e58931e1c6074224a2e181a534b",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/platform/intake-poll-core.test.ts",
+      "mediaType": "text/typescript",
+      "size": 3653,
+      "sha256": "a953ef54a41ad9ca76b4d5142cf519d10ffa9babf9652197043cac597e4326b2",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/platform/intake-poll-core.ts",
+      "mediaType": "text/typescript",
+      "size": 3979,
+      "sha256": "ee4092298c8d3e1de4764ac937e977a95136c46200e0738817c3dd853c53cf70",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40349,10 +40547,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.test.ts",
+      "mediaType": "text/typescript",
+      "size": 5256,
+      "sha256": "5e9a66e449791a23a5cf77d0aeab3be8acb06171e004b30bb3cf71ad354ee995",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.ts",
+      "mediaType": "text/typescript",
+      "size": 3872,
+      "sha256": "a591bf359b9111f6e51c415d3c36abf394291287f3268b3084a6e87ce6a27bac",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.ts",
       "mediaType": "text/typescript",
-      "size": 3365,
-      "sha256": "7c8d4054b1ee9b63b1fb883784037c046b138c52e304ce7f458d965294bbdd44",
+      "size": 3624,
+      "sha256": "418c755ce4b0547eadfd75faa584e84f16bf206754e3d581fd5cb9347814f792",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40920,6 +41136,15 @@
       "mediaType": "text/typescript",
       "size": 4343,
       "sha256": "5f4d41a0cec10e252cd26f3f43fb54f52132ad0240d317b34ab38d6a58b2d576",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/mailbox/intake-poll.ts",
+      "mediaType": "text/typescript",
+      "size": 6205,
+      "sha256": "2758b48c5a7ae2bd77f0d5f138f9fddab7fe5855866bd5478039050edbd021e4",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

@@ -17,6 +17,7 @@ Every live write requires explicit task scope, the relevant checks, and a record
 - [Data-subject rights](./data-subject-rights.md)
 - [Delete one case image](./delete-case-image.md)
 - [Feature gates](./feature-gates.md) — every flag defined in plain language, with live state and implications
+- [Alpha testing](./alpha-testing.md) — the PLAN-015 QDOS single-provider cutover runbook and local shadow bring-up
 
 Exact dated values belong in [LIVE_FACTS.json](../../LIVE_FACTS.json). Open work remains authoritative
 in [tickets](../tickets/README.md); the operator-actions page is a generated view of that authority.

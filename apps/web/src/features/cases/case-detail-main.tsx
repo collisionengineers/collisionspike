@@ -1,7 +1,7 @@
 
 import { Badge, Button, Caption1, Divider, Field, Input, Link, MessageBar, MessageBarBody, Spinner, Tab, TabList, Text, Textarea, Toast, ToastBody, ToastTitle, type SelectTabData, type SelectTabEvent } from '@fluentui/react-components';
 import { AlertTriangle, ArrowUpRight, FileText, ImageOff, Mail, Lightbulb, Search } from 'lucide-react';
-import { ChaserPanel, EvaFieldRow, FIELD_CLUSTERS, GuidedPhotoRequestPanel, LABEL_FOR, ImageOrderList, Panel, ProvenanceBadge, ThumbGridSkeleton } from '../../shared/ui';
+import { ChaserPanel, EvaFieldRow, FIELD_CLUSTERS, LABEL_FOR, ImageOrderList, Panel, ProvenanceBadge, ThumbGridSkeleton } from '../../shared/ui';
 import { activeCopyFileRequestTransport, type Note } from '../../data';
 import { sourceReadinessRecoverySnapshot } from '@cs/domain';
 import { LinkedEmailsPanel } from '../../shared/ui/LinkedEmailsPanel';
@@ -15,7 +15,7 @@ import type { useCaseDetailController } from './case-detail.controller';
 type CaseDetailViewModel = ReturnType<typeof useCaseDetailController>;
 
 export function CaseDetailMain(props: CaseDetailViewModel) {
-  const { acceptedImages, addNote, addrSearch, addrSearching, archiveEnabled, assistAiEnabled, assistCandidates, assistNoResult, assistRunning, c, caseVersion, changeImageBasedReason, chips, chooseInspection, confirmedProvenance, decisionMode, deleteImageEnabled, dispatchToast, documents, evidenceMutations, evidenceSaveErrors, guidedPhotoLink, imagesLoading, imgState, inspectionDraft, isRemoved, liveCase, locationAssistEnabled, logChase, noViewableRegistration, noteDraft, notesNewestFirst, onAcceptedForEva, onDismissReflection, onExclude, onGuidedPhotoLinkCancelled, onOpenInArchive, onRegistrationVisible, onRole, onSuggestLocation, onTextChange, openDeleteImage, openingArchive, overrideAddr, overrideReason, persistedCase, registerRef, setAddrSearch, setC, setCaseVersion, setEvaOrderKeys, setGuidedPhotoLink, setNoteDraft, setPersistedCase, setShowAllSuggestions, setTab, showAllSuggestions, styles, suggestions, tab, toast, uploadLinkEnabled, useSuggestion, validationByField } = props;
+  const { acceptedImages, addNote, addrSearch, addrSearching, archiveEnabled, assistAiEnabled, assistCandidates, assistNoResult, assistRunning, c, caseVersion, changeImageBasedReason, chips, chooseInspection, confirmedProvenance, decisionMode, deleteImageEnabled, dispatchToast, documents, evidenceMutations, evidenceSaveErrors, imagesLoading, imgState, inspectionDraft, liveCase, locationAssistEnabled, logChase, noViewableRegistration, noteDraft, notesNewestFirst, onAcceptedForEva, onDismissReflection, onExclude, onOpenInArchive, onRegistrationVisible, onRole, onSuggestLocation, onTextChange, openDeleteImage, openingArchive, overrideAddr, overrideReason, persistedCase, registerRef, setAddrSearch, setC, setCaseVersion, setEvaOrderKeys, setNoteDraft, setPersistedCase, setShowAllSuggestions, setTab, showAllSuggestions, styles, suggestions, tab, toast, uploadLinkEnabled, useSuggestion, validationByField } = props;
   return         <div className={styles.main}>
           <Panel>
             <TabList
@@ -402,18 +402,14 @@ export function CaseDetailMain(props: CaseDetailViewModel) {
 
               {tab === 'chasers' && (
                 <div className={styles.stack}>
-                  <GuidedPhotoRequestPanel
-                    caseId={c.id}
-                    disabled={isRemoved}
-                    onLinkReady={setGuidedPhotoLink}
-                    onLinkCancelled={onGuidedPhotoLinkCancelled}
-                  />
-                  <Divider />
+                  {/* TKT-300 (PLAN-015): the guided-photos request panel is hidden while
+                      guided capture is off for the alpha — restore by reverting this
+                      ticket's change and flipping the capture gates back on. The
+                      component, its tests, and the controller wiring stay in place. */}
                   <ChaserPanel
                     case={liveCase}
                     fileRequestEnabled={uploadLinkEnabled}
                     onRequestUploadLink={activeCopyFileRequestTransport}
-                    guidedPhotoLink={guidedPhotoLink}
                     onLogChased={({ channel, templateLabel }) => {
                       // Optimistic note (the visible artifact) rolled back if the
                       // POST fails; the durable chaser row PERSISTS through the

@@ -11,6 +11,7 @@ engineer's assessment or write the report.
 - [Intake workflow](./intake-workflow.md)
 - [Provider and address corpora](./provider-and-address-corpora.md)
 - [Roles and permissions](./roles-and-permissions.md)
+- [Staff forwarding guide](./staff-forwarding-guide.md) — how to forward provider emails during the alpha trial
 
 Canonical terms live in the root [domain glossary](../../CONTEXT.md). Current implementation details
 belong in [architecture](../architecture/README.md); work state belongs in

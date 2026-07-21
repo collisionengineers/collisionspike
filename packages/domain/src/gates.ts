@@ -191,6 +191,23 @@ export const gates = {
   // handling (attention_reason 'images_no_match') — fallback step 3 — which needs no gate.
   boxRegFolder: (): boolean => process.env.BOX_REG_FOLDER_ENABLED === 'true',
 
+  // ---- PLAN-015 (QDOS single-provider alpha) gates — default OFF, ship DARK ----
+  // TKT-298 — EVA shadow auto-submit. While ON (alpha posture only), a REAL
+  // ready_for_eva → eva_submitted transition ALSO enqueues a background REST submission
+  // via the orchestration `eva-shadow-submit` queue; the staff-facing extract flow and
+  // the route's response are unchanged either way (fire-and-forget, best-effort). The
+  // enqueue side (Data API) reads this gate; the orchestration consumer requires it AND
+  // EVA_API_ENABLED. Which EVA environment receives the submission is decided by the
+  // configured credentials, not a URL (ADR-0005: vendor UAT credentials => test).
+  evaShadowAutosubmit: (): boolean => process.env.EVA_SHADOW_AUTOSUBMIT_ENABLED === 'true',
+  // TKT-299 — pull-based intake poller for the LOCAL shadow instance. NEVER set live:
+  // live intake is push-only (Graph subscriptions). Doubly dark — the timer also needs
+  // its own INTAKE_POLL_MAILBOXES (same JSON shape as GRAPH_INTAKE_MAILBOXES, kept as a
+  // SEPARATE variable precisely so the live app stays inert even if this boolean were
+  // ever flipped by mistake).
+  intakePoll: (): boolean => process.env.INTAKE_POLL_ENABLED === 'true',
+  intakePollMailboxes: (): string => process.env.INTAKE_POLL_MAILBOXES ?? '',
+
   // (The replay-backfill gate was REMOVED with its driver — TKT-106. The wipe-and-
   // rebuild path is non-viable: TKT-059's dry-run proved the mailboxes retain only a
   // fraction of the DB's source emails, so the DB is the system of record. Keep the
