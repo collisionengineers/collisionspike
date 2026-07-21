@@ -32,10 +32,11 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [PLAN-011](./plans/PLAN-011-python-doctrine-and-parity.md) — Python runtime doctrine and cross-language parity | active | 3/3 (100%) |
 | [PLAN-012](./plans/PLAN-012-repository-hardening.md) — Repository hardening and standing drift guards | active | 5/5 (100%) |
 | [PLAN-013](./plans/PLAN-013-guided-capture-vision-programme.md) — On-device vision programme for guided capture — dataset to enforced guidance | active | 0/0 (0%) |
+| [PLAN-014](./plans/PLAN-014-parse-fed-unified-triage.md) — Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy | active | 0/1 (0%) |
 
 [Open the generated board](./BOARD.md).
 
-## Now (32)
+## Now (33)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -71,6 +72,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-232](./now/TKT-232-pr102-review-remediation/TKT-232-pr102-review-remediation.md) | PR | P1 | email | — |
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 | email | — |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 | integration | — |
+| [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 | intake | PLAN-014 |
 
 ## Verify (32)
 
