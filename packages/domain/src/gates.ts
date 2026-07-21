@@ -204,11 +204,13 @@ export const gates = {
   boxFolderRootId: (): string => process.env.BOX_FOLDER_ROOT_ID ?? '',         // #27
   boxFileRequestTemplateId: (): string => process.env.BOX_FILE_REQUEST_TEMPLATE_ID ?? '',// #28
 
-  // AI model endpoint config (TKT-015). The server-side model call path is built but
-  // dormant: these settings are ABSENT in live app-settings, so the generate route stays
-  // an honest no-op until the wiring lands (model deployments now exist on the Foundry
-  // account — live state in LIVE_FACTS.json `foundry`; rules-engine-v2 Phase 4 wires
-  // them). Prefer managed-identity/keyless — no API key gate by design.
+  // AI model endpoint config (TKT-015). CORRECTED 2026-07-21 — this comment previously
+  // said these settings are ABSENT live and the generate route was therefore an honest
+  // no-op. Both are PRESENT on cespk-api-dev (AI_MODEL_DEPLOYMENT=gpt-5), so
+  // aiAssistConfigured() is true and the route made real model calls whenever
+  // AI_ASSIST_ENABLED was on. What makes it a no-op today is AI_ASSIST_ENABLED=false
+  // alone — an operator switch, not missing wiring. Do not restore the old claim without
+  // a fresh live readback. Prefer managed-identity/keyless — no API key gate by design.
   aiModelEndpoint: (): string => process.env.AI_MODEL_ENDPOINT ?? '',
   aiModelDeployment: (): string => process.env.AI_MODEL_DEPLOYMENT ?? '',
 

@@ -109,9 +109,8 @@
     "location assistance",
     "mail triage",
     "retroactive linking",
-    "AI suggestions and image analysis",
-    "read-only MCP",
-    "human-confirmed assistant writes"
+    "AI image analysis (producer still live, but with NO staff-visible surface since AI_ASSIST_ENABLED went off 2026-07-21 — suggestions accumulate unreviewable)",
+    "read-only MCP (unaffected by the 2026-07-21 assistant shutdown — external AI tools can still read case data)"
   ],
   "deliberatelyUnavailable": [
     "EVA REST submission pending vendor multi-principal support and a parity test",
@@ -119,12 +118,20 @@
     "public guided capture pending abuse-control and device acceptance",
     "individual image deletion pending designated-test-case proof",
     "capture cleanup pending designated-test-case proof",
-    "MCP image ingestion pending dedicated app-role and standard-client proof"
+    "MCP image ingestion pending dedicated app-role and standard-client proof",
+    "in-app AI suggestion panel and assistant chat drawer, switched off by explicit operator direction 2026-07-21",
+    "human-confirmed assistant writes, unreachable while the assistant chat drawer is off (ASSISTANT_WRITE_TIER_ENABLED still reads true)"
   ],
   "safetyGates": {
     "outlookMove": {
       "dataApi": false,
       "orchestration": false
+    },
+    "aiAssistantSurfaces": {
+      "AI_ASSIST_ENABLED": false,
+      "AI_CHAT_ENABLED": false,
+      "setAt": "2026-07-21T11:32:55Z",
+      "note": "Both flipped true -> false on cespk-api-dev by explicit operator direction ('disable the AI assistant'). Both surfaces are honest-off in code, so the case-page Assistant panel and the header assistant button/drawer now render nothing; no SPA deploy was needed. Server-side, POST /api/cases/{id}/ai-suggestions/generate is an honest no-op and POST /api/assistant/chat refuses. NOT a cosmetic change: AI_MODEL_ENDPOINT and AI_MODEL_DEPLOYMENT (gpt-5) are configured live, so the suggestion route WAS making real model calls beforehand — the gates.ts comment claiming those settings were absent was wrong and is corrected in the same change. No ai_suggestion data is deleted and the list/review routes stay ungated, but staff lose the only UI from which to accept or reject pending rows. Scope: these two names only. IMAGE_ANALYSIS_ENABLED and MCP_SERVER_ENABLED were read in the same pass, confirmed true, and deliberately left on — so image-analysis suggestions keep being written with no surface, and external MCP read access is unaffected. Verification: independent appsettings readback both before and after; app state Running; App Insights over the restart showed 329 requests / 0 failed / 0 exceptions, confirmed by a second pass at 283 / 0 / 0, with the config write pinned by the activity log to 11:32:54.519Z-11:32:55.441Z. Rollback is one command, no deploy."
     },
     "retroReconstruction": {
       "lastVerified": "2026-07-17T10:57:00Z",

@@ -4,6 +4,10 @@ This page explains every feature flag ("gate") in the system: what it actually c
 if it's on vs off, and its live state as read directly from Azure on **2026-07-20**. It is written for a
 non-engineer to understand the *implications* of flipping a switch, not to replace the code.
 
+**Updated 2026-07-21** for the AI-and-assistant section only: `AI_ASSIST_ENABLED` and `AI_CHAT_ENABLED`
+were re-read live and then deliberately turned **off**; `IMAGE_ANALYSIS_ENABLED` and `MCP_SERVER_ENABLED`
+were re-read and left **on**. Every other row on this page still carries its 2026-07-20 reading.
+
 **How to read "Live state" below:** a gate only has an effect on the one app/service that actually reads
 it (see "Read by"). If a name doesn't appear in that app's settings at all, it behaves as **off** — the
 system doesn't treat "not set" as "on."
@@ -14,13 +18,13 @@ the plain-language companion. See also the code-level inventory at
 
 ## AI and assistant features
 
-| Gate | Plain-language meaning | On = | Off = | Live (2026-07-20) |
+| Gate | Plain-language meaning | On = | Off = | Live (2026-07-21) |
 |---|---|---|---|---|
-| `AI_ASSIST_ENABLED` | Lets staff request AI-written suggestions (e.g. drafting text) in the app. | Staff can trigger an AI suggestion; it still needs the AI model connection configured to actually do anything. | The AI-suggestion buttons/paths are hidden or no-op. | **ON** (`cespk-api-dev`) |
-| `AI_CHAT_ENABLED` | Turns on a read-only chat drawer where staff can ask the assistant questions about a case. | The chat panel appears and can answer using only read access — it cannot change anything. | No chat panel. | **ON** (`cespk-api-dev`) |
-| `ASSISTANT_TOOLSET_V2` | Switches the assistant's internal "toolbox" (what it's allowed to look up) to the newer, centrally-managed list. | Assistant uses the current registry-driven tool list. | Assistant falls back to the older hardcoded toolset. | **ON** (`cespk-api-dev`) |
-| `ASSISTANT_WRITE_TIER_ENABLED` | The riskier tier: lets the assistant *propose* a change, which a human then confirms before it executes. | Assistant can propose write actions for a human to approve/execute; it can never write unilaterally. | Assistant is read-only — suggestion only, no propose/confirm flow. | **ON** (`cespk-api-dev`) |
-| `MCP_SERVER_ENABLED` | The master switch for exposing case data to external AI tools (like Claude or other agents) over a standard protocol (MCP), read-only. | External AI tools can connect and read case data (subject to their own role). | No external AI tool can connect at all. | **ON** (`cespk-api-dev`) |
+| `AI_ASSIST_ENABLED` | Lets staff request AI-written suggestions (e.g. drafting text) in the app. | Staff can trigger an AI suggestion. The AI model connection **is** configured (`gpt-5`), so this makes real model calls — see the correction below. | The Assistant panel disappears from the case page entirely, and the suggestion route becomes an honest no-op: no model calls, no cost. Suggestions already stored are **not** deleted, but staff lose the only screen from which to accept or reject them. | **OFF** (`cespk-api-dev`) — flipped from ON at 2026-07-21T11:32:55Z by explicit operator direction ("disable the AI assistant"). Reversible in one command, no deploy. |
+| `AI_CHAT_ENABLED` | Turns on a read-only chat drawer where staff can ask the assistant questions about a case. | The chat panel appears and can answer using only read access — it cannot change anything. | No chat panel: the assistant button vanishes from the top of the screen and the chat route politely refuses. This also makes `ASSISTANT_WRITE_TIER_ENABLED` unreachable, because the chat drawer is its only way in. | **OFF** (`cespk-api-dev`) — flipped from ON at 2026-07-21T11:32:55Z by explicit operator direction. Reversible in one command, no deploy. |
+| `ASSISTANT_TOOLSET_V2` | Switches the assistant's internal "toolbox" (what it's allowed to look up) to the newer, centrally-managed list. | Assistant uses the current registry-driven tool list. | Assistant falls back to the older hardcoded toolset. | **ON** (`cespk-api-dev`) — but inert while `AI_CHAT_ENABLED` is off. |
+| `ASSISTANT_WRITE_TIER_ENABLED` | The riskier tier: lets the assistant *propose* a change, which a human then confirms before it executes. | Assistant can propose write actions for a human to approve/execute; it can never write unilaterally. | Assistant is read-only — suggestion only, no propose/confirm flow. | **ON** (`cespk-api-dev`) — but **unreachable** while `AI_CHAT_ENABLED` is off, since the chat drawer is its only entry point. The flag still reads "on" while nothing can use it. |
+| `MCP_SERVER_ENABLED` | The master switch for exposing case data to external AI tools (like Claude or other agents) over a standard protocol (MCP), read-only. | External AI tools can connect and read case data (subject to their own role). | No external AI tool can connect at all. | **ON** (`cespk-api-dev`) — re-read live 2026-07-21 and left on. ⚠️ Note this is **not** covered by turning the two assistant gates off: external AI tools can still read case data. See "Known gaps". |
 | `EMAIL_AI_ENABLED` | *(see "Needs definition" below for the full explanation)* An optional AI second opinion on classifying an inbound email, layered on top of a free deterministic classifier that always runs. | The system asks an AI model to double-check ambiguous email classifications; writes only to an internal suggestion field, never routes mail itself. | Only the deterministic (rule-based, $0) classifier runs — no AI involved in email triage. | **ON** (`cespk-orch-dev`) — has been live-acting before, see TKT-120 |
 
 ## Image handling and evidence
@@ -28,7 +32,7 @@ the plain-language companion. See also the code-level inventory at
 | Gate | Plain-language meaning | On = | Off = | Live (2026-07-20) |
 |---|---|---|---|---|
 | `IMAGE_ROLE_CLASSIFY_ENABLED` | *(see "Needs definition" below)* An AI step, run automatically on every incoming photo, that decides what the photo actually shows (e.g. "this is the number plate," "this is damage") and whether a registration plate is visible in it. This is the classifier that owns the real fields staff and the system rely on. | New photos get auto-tagged with a role/registration status as they arrive. | New photos are all marked "unknown role" — nothing downstream that depends on role knows what a photo is of. | **ON** (`cespk-orch-dev`) |
-| `IMAGE_ANALYSIS_ENABLED` | *(see "Needs definition" below)* A separate, on-demand "tell me more about this image" AI pass a staff member can trigger — checks things like whether a vehicle is present, whether it matches other photos, and suggests an inspection address. It never overwrites the role/registration fields the classifier above owns — it only writes suggestions. | Staff can generate additional AI observations about a specific image on request. Sends image content to an AI service (flagged for privacy review — DPIA-gated). | The "Generate image analysis" action is unavailable. | **ON** (`cespk-api-dev`) |
+| `IMAGE_ANALYSIS_ENABLED` | *(see "Needs definition" below)* A separate, on-demand "tell me more about this image" AI pass a staff member can trigger — checks things like whether a vehicle is present, whether it matches other photos, and suggests an inspection address. It never overwrites the role/registration fields the classifier above owns — it only writes suggestions. | Staff can generate additional AI observations about a specific image on request. Sends image content to an AI service (flagged for privacy review — DPIA-gated). | The "Generate image analysis" action is unavailable. | **ON** (`cespk-api-dev`) — re-read live 2026-07-21 and left on. ⚠️ Since `AI_ASSIST_ENABLED` went off, its output has **nowhere to appear**: the Assistant panel was the only screen showing these suggestions, so they are still written but invisible and un-actionable. See "Known gaps". |
 | `DELETE_CASE_IMAGE_ENABLED` | Lets a staff member permanently delete one photo from a case (removes it from every store: archive, cloud storage and the database). | Any signed-in staff member can permanently delete any case image. This is a real, irreversible action — not limited to test cases at the API layer (the archive/Box side is locked to a test folder, the other two stores are not). | The "Delete image" button is present in the UI but does nothing (an honest "disabled" response) — no image can ever be deleted this way. | **ON** (`cespk-api-dev`) — flipped 2026-07-20 by explicit operator direction; live delete/readback proof not yet run, see TKT-160 |
 | `MCP_IMAGE_INGEST_ENABLED` (+ `MCP_IMAGE_INGEST_BOX_ROOT_ID`) | Lets an external automated tool (e.g. a folder-watcher on someone's PC) upload photos straight into the matching case by reading a vehicle registration plate, without a human clicking anything. | The upload pathway exists in the code, but see the caveat: a second, independent safeguard (a special "just for this" security permission) must also exist, and it currently doesn't, so nobody can actually use this yet even though the switch is on. | The pathway is switched off entirely. | **ON** (`cespk-api-dev`) — flipped 2026-07-20; currently a no-op for everyone because the dedicated security permission it also requires (`CollisionSpike.ImageIngest`) has never been created, see TKT-154 |
 
@@ -191,6 +195,25 @@ keeping. It has zero test coverage, and its cited design rationale (ADR-0017) do
 
 ## Known gaps found during this audit (not fixed, just surfaced)
 
+- **"Turn off the AI assistant" does not turn off all AI (2026-07-21).** `AI_ASSIST_ENABLED` and
+  `AI_CHAT_ENABLED` are independent leaves, not parents. With both off, two AI paths are still live:
+  `IMAGE_ANALYSIS_ENABLED` still runs and still writes image suggestions, and `MCP_SERVER_ENABLED` still
+  serves case data to external AI tools. Anyone reading "the assistant is disabled" should not infer
+  either of those is closed. Each is owned by a separate ticket (TKT-016, TKT-110) and needs its own
+  operator decision.
+- **Image-analysis suggestions are now written but invisible (2026-07-21).** The Assistant panel was the
+  only place a case's AI suggestions were shown. With `AI_ASSIST_ENABLED` off and
+  `IMAGE_ANALYSIS_ENABLED` on, new suggestion rows keep accumulating with no screen to review them, and
+  any already-pending ones can no longer be accepted or rejected by staff. Nothing is deleted. Either
+  turn `IMAGE_ANALYSIS_ENABLED` off too, or accept that it is producing unreviewable output.
+- **The AI model connection is configured, contradicting the code comments (2026-07-21).**
+  `AI_MODEL_ENDPOINT` and `AI_MODEL_DEPLOYMENT` (`gpt-5`) are both set live on `cespk-api-dev`.
+  `packages/domain/src/gates.ts` previously claimed they were absent and that the suggestion route was
+  therefore an honest no-op. It was not: before the flip, the route made real model calls. The comment is
+  corrected in the same change as this note.
+- **`ASSISTANT_WRITE_TIER_ENABLED` reads on but is unreachable (2026-07-21).** The chat drawer is its
+  only entry point, so with `AI_CHAT_ENABLED` off the flag advertises a capability nothing can invoke.
+  Left as-is deliberately; worth resolving so the registry doesn't overstate live capability.
 - **`CHASER_SEND_ENABLED` is a stub even when on.** The code path that should send a real reminder
   (via Outlook/WhatsApp) only records an audit row today — see the table above.
 - **`AZURE_VISION_ENABLED` and `VALUATION_ENABLED` are unused code.** No harm in either state, but they
