@@ -209,6 +209,37 @@ def _body_and_attachments(msg) -> tuple[str, list[str]]:
     return raw_body, attachment_names
 
 
+def load_email_attachment_bytes(path: Path) -> list[tuple[str, bytes]]:
+    """Return (filename, bytes) for every real attachment in a .eml/.msg file.
+
+    PLAN-014 D5 (parse-fed backtest) — shared loader machinery: `load_email_fields`
+    above only returns attachment NAMES (a `classify_email()` request needs no more),
+    but the parse-fed backtest needs the actual bytes to run each attachment through
+    the vendored engine's content-based document typing (`parser_adapter.run_parser`),
+    the SAME in-process call the live `/parse` route makes. Kept here (not duplicated
+    in the backtest script) so there is one email-attachment-walking implementation,
+    mirroring `_body_and_attachments`'s traversal exactly.
+    """
+    msg = _load_email_message(path)
+    attachments: list[tuple[str, bytes]] = []
+    if not msg.is_multipart():
+        return attachments
+    for part in msg.walk():
+        disp = str(part.get_content_disposition() or "").lower()
+        if disp != "attachment":
+            continue
+        name = part.get_filename()
+        if not name:
+            continue
+        try:
+            payload = part.get_payload(decode=True)
+        except Exception:
+            continue
+        if isinstance(payload, bytes) and payload:
+            attachments.append((str(name).strip(), payload))
+    return attachments
+
+
 def load_email_fields(path: Path) -> dict[str, Any]:
     """Extract the classify_email() request fields from a real .eml/.msg file.
 
