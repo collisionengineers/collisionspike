@@ -17,7 +17,7 @@
     "files": 4098,
     "entries": 5314
   },
-  "totalFileBytes": 710142104,
+  "totalFileBytes": 710141933,
   "entries": [
     {
       "path": ".",
@@ -14215,8 +14215,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail-main.tsx",
       "mediaType": "text/tsx",
-      "size": 25349,
-      "sha256": "c5a29d4c0170d7341159becf674ca10023ce8d3ac700f444d7152399a858a858",
+      "size": 24831,
+      "sha256": "4f2d6fc7d00216f60eac35e9144248b809efbc8d475942e34da9dd5e3071934c",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -14260,8 +14260,8 @@
     {
       "path": "apps/web/src/features/cases/case-detail.styles.ts",
       "mediaType": "text/typescript",
-      "size": 13658,
-      "sha256": "2b2635acc8c131dbd5136066a4751d6bfd537231d35ddd51d2b613987f81ab78",
+      "size": 14005,
+      "sha256": "35adb566349d944ca0a5d830b826fde0c2e2be12aa2e76c5d18cd8ae627513d7",
       "category": "source",
       "owner": "web-app",
       "lifecycle": "active"
@@ -17015,7 +17015,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4467425,
-      "sha256": "0d158f7577f850d0dd60a1a8c5684f6ac353f322762acb148d11859f135b2d4a",
+      "sha256": "8e212807b13187f6fc9054cc50e0b1d11b74ce6422fdd4e3326f1ea0dfaed8be",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
