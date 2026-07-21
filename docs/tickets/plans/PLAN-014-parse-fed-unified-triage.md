@@ -2,7 +2,7 @@
 id: PLAN-014
 title: Parse-fed unified triage — reorder parse ahead of triage and compose classify + policy
 status: active
-tickets: [TKT-290, TKT-291, TKT-292, TKT-293]
+tickets: [TKT-290, TKT-291, TKT-292, TKT-293, TKT-294]
 depends-on: []
 plan-kind: feature
 ---
@@ -59,11 +59,11 @@ filing time.
 <!-- GENERATED:PROGRESS -->
 ## Computed progress
 
-**0/4 done (0%).**
+**0/5 done (0%).**
 
 | Status | Count |
 |---|---:|
-| Now | 4 |
+| Now | 5 |
 | Verify | 0 |
 | Done | 0 |
 | Next | 0 |
@@ -76,4 +76,5 @@ filing time.
 | [TKT-291](../now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | now | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) |
 | [TKT-292](../now/TKT-292-classify-email-route-client-wiring/TKT-292-classify-email-route-client-wiring.md) | now | Wire open_case_ref_match and attachment_content_typings through /classify-email (PLAN-014 Slice 2) |
 | [TKT-293](../now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | now | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) |
+| [TKT-294](../now/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | now | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) |
 <!-- /GENERATED:PROGRESS -->
