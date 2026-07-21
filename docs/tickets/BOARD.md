@@ -2,7 +2,7 @@
 
 Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/maintenance/ticket-generate.mjs`; do not edit the tables by hand.
 
-## Now (34)
+## Now (35)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -40,6 +40,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 · integration |
 | [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
 | [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing · PLAN-014 |
+| [TKT-293](./now/TKT-293-parsefed-backtest-harness/TKT-293-parsefed-backtest-harness.md) | Parse-fed backtest harness — the go/no-go gate (PLAN-014 Slice 3) | P1 · parsing · PLAN-014 |
 
 ## Verify (32)
 

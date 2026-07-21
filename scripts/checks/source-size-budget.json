@@ -1,6 +1,6 @@
 {
   "limit": 800,
   "ratchets": {
-    "packages/domain/src/domain/triage-policy.test.ts": 829
+    "packages/domain/src/domain/triage-policy.test.ts": 853
   }
 }
