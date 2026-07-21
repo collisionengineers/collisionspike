@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ensureCaseArchiveFolder, type BoxFolderCreateDeps } from './case-archive-folder.js';
+import {
+  ArchiveLinkRefusal,
+  ensureCaseArchiveFolder,
+  terminalArchiveFailure,
+  type BoxFolderCreateDeps,
+} from './case-archive-folder.js';
+import { FocusedFnHttpError } from '../../adapters/functions-client.js';
 
-// The real pinned root from tools/box-scope.json's `allowedRoot` — @cs/intake-engine's
-// resolveArchiveRoot() (which this file now delegates to) reads that file directly, so
-// this constant must track it exactly the way box-folder-create.test.ts's own
-// PINNED_TEST_ARCHIVE_ROOT_ID literal used to.
+// The pinned root, asserted against @cs/intake-engine's compiled-in
+// PINNED_ARCHIVE_ROOT_ID (which its own parity test keeps in step with
+// tools/box-scope.json's `allowedRoot`). This file no longer imports a
+// PINNED_TEST_ARCHIVE_ROOT_ID constant — case-archive-folder.ts stopped owning one.
 const PINNED_TEST_ARCHIVE_ROOT_ID = '392761581105';
 
 function harness(overrides: Partial<BoxFolderCreateDeps> = {}) {
@@ -200,5 +206,53 @@ describe('ensureCaseArchiveFolder', () => {
 
     await expect(ensureCaseArchiveFolder({ caseId: 'case-1' }, h.ctx, h.deps))
       .rejects.toThrow('refusing a mismatched linkage');
+  });
+
+  it('raises every refusal as a terminal type so the activity can stop the retry cascade', async () => {
+    const h = harness({
+      getCaseBoxFolder: vi.fn(async () => ({
+        boxFolderId: 'folder-production',
+        boxFolderUrl: null,
+        casePo: 'QDOS26031',
+      })),
+      getFolder: vi.fn(async () => ({
+        id: 'folder-production',
+        name: 'QDOS26031',
+        parent: { id: 'production-root' },
+        path_collection: { entries: [{ id: 'production-root' }] },
+      })),
+    });
+
+    await expect(ensureCaseArchiveFolder({ caseId: 'case-1' }, h.ctx, h.deps))
+      .rejects.toBeInstanceOf(ArchiveLinkRefusal);
+  });
+});
+
+describe('terminalArchiveFailure', () => {
+  it('treats the Box facade scope-lock 400 as terminal — retrying it can never succeed', () => {
+    const error = new FocusedFnHttpError(
+      'fn GET box/folders/401801654393 → 400: {"error": "Target is outside the allowed Box root (scope lock).", "status": 400}',
+      400,
+    );
+
+    expect(terminalArchiveFailure(error)).toMatchObject({
+      skipped: true,
+      terminal: true,
+      reason: 'archive_scope_refused',
+    });
+  });
+
+  it('treats our own adoption refusal as terminal', () => {
+    expect(terminalArchiveFailure(new ArchiveLinkRefusal('refusing adoption')))
+      .toMatchObject({ terminal: true, reason: 'archive_link_refused' });
+  });
+
+  it.each([500, 502, 503, 408, 429])('keeps %i retryable', (status) => {
+    expect(terminalArchiveFailure(new FocusedFnHttpError(`fn GET box/folders/1 → ${status}: x`, status)))
+      .toBeNull();
+  });
+
+  it('keeps an unclassified transport fault retryable', () => {
+    expect(terminalArchiveFailure(new Error('socket hang up'))).toBeNull();
   });
 });

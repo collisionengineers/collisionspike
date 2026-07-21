@@ -37,9 +37,45 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { resolveArchiveFolderName, resolveArchiveRoot } from '@cs/intake-engine';
-import { box } from '../../adapters/functions-client.js';
+import { box, isTerminalFnFailure } from '../../adapters/functions-client.js';
 import { dataApi } from '../../adapters/data-api.js';
 import { ensureArchiveFolderV2Core } from '../intake-v2/ensureArchiveFolder.js';
+
+/**
+ * A case's saved Archive link cannot be used and no amount of retrying will change that:
+ * the folder is outside the pinned root, or it is not the folder the case says it is.
+ * Thrown (not returned) so `ensureCaseArchiveFolder` keeps its refuse-loudly contract; the
+ * ACTIVITY converts it into a terminal outcome so Durable stops retrying.
+ */
+export class ArchiveLinkRefusal extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ArchiveLinkRefusal';
+  }
+}
+
+/** Terminal outcome shape returned by the activity instead of throwing. */
+export interface TerminalArchiveOutcome extends Record<string, unknown> {
+  skipped: true;
+  terminal: true;
+  reason: string;
+  detail: string;
+}
+
+/**
+ * A refusal by us, or a fixed 4xx refusal by the Box facade, is terminal. Anything else
+ * (5xx, timeout, transport fault) stays retryable exactly as before.
+ */
+export function terminalArchiveFailure(error: unknown): TerminalArchiveOutcome | null {
+  const terminal = error instanceof ArchiveLinkRefusal || isTerminalFnFailure(error);
+  if (!terminal) return null;
+  return {
+    skipped: true,
+    terminal: true,
+    reason: error instanceof ArchiveLinkRefusal ? 'archive_link_refused' : 'archive_scope_refused',
+    detail: error instanceof Error ? error.message : String(error),
+  };
+}
 
 export interface BoxFolderCreateInput {
   caseId: string;
@@ -90,12 +126,14 @@ const defaultDeps: BoxFolderCreateDeps = {
   stampCaseBoxFolder: dataApi.stampCaseBoxFolder,
 };
 
-/** Fails closed: throws unless `rootId` is exactly the pinned test root that
- *  `tools/box-scope.json`'s `allowedRoot` names (the SAME single source of truth
- *  `@cs/intake-engine`'s own guard reads — see that module's doc comment). */
+/** Fails closed: throws unless `rootId` is exactly the pinned test root
+ *  `@cs/intake-engine`'s guard compiles in (kept in step with
+ *  `tools/box-scope.json`'s `allowedRoot` by that package's parity test).
+ *  TKT-303: an `ArchiveLinkRefusal`, not a bare Error — a misconfigured root can
+ *  never come right on a retry, so the activity must park it, not re-drive it. */
 export function assertPinnedTestArchiveRoot(rootId: string): void {
   if (rootId.trim() !== resolveArchiveRoot()) {
-    throw new Error('Archive folder creation is locked to the pinned test root');
+    throw new ArchiveLinkRefusal('Archive folder creation is locked to the pinned test root');
   }
 }
 
@@ -113,7 +151,7 @@ async function verifyFolderIdentity(
     String(folder.parent?.id ?? '') !== expectedRootId ||
     !pathIds.includes(expectedRootId)
   ) {
-    throw new Error(
+    throw new ArchiveLinkRefusal(
       `Archive folder identity mismatch for case folder ${folderId}: refusing adoption`,
     );
   }
@@ -142,7 +180,7 @@ export async function ensureCaseArchiveFolder(
   const folderName = rawCasePo ? resolveArchiveFolderName(rawCasePo) : '';
   if (!folderName) {
     if (existing.boxFolderId) {
-      throw new Error(`Case ${caseId} has an Archive link but no verifiable Case/PO`);
+      throw new ArchiveLinkRefusal(`Case ${caseId} has an Archive link but no verifiable Case/PO`);
     }
     ctx.log(JSON.stringify({ evt: 'boxFolderCreate', caseId, skipped: 'no_case_po' }));
     return { skipped: true, reason: 'no_case_po' };
@@ -165,7 +203,7 @@ export async function ensureCaseArchiveFolder(
       ...(existing.boxFolderUrl ? { boxFolderUrl: existing.boxFolderUrl } : {}),
     });
     if (stamp.boxFolderId !== existing.boxFolderId) {
-      throw new Error(
+      throw new ArchiveLinkRefusal(
         `Archive folder first-wins conflict for case ${caseId}: refusing a mismatched linkage`,
       );
     }
@@ -201,7 +239,7 @@ export async function ensureCaseArchiveFolder(
   });
   const effectiveFolderId = (stamp.boxFolderId ?? '').trim();
   if (effectiveFolderId !== folderId) {
-    throw new Error(
+    throw new ArchiveLinkRefusal(
       `Archive folder first-wins conflict for case ${caseId}: refusing a mismatched linkage`,
     );
   }
@@ -266,6 +304,18 @@ df.app.activity('boxFolderCreate', {
     // Durable history and stays replay-safe — the parse/enrich/chaser convention.
     if (!gates.boxApi() || !gates.boxFolderAtIntake()) return { skipped: true, reason: 'gated off' };
 
-    return ensureCaseArchiveFolder(input, ctx);
+    try {
+      return await ensureCaseArchiveFolder(input, ctx);
+    } catch (e) {
+      // A fixed refusal can never succeed on a retry. RETURNING it (instead of throwing)
+      // is what stops the retry amplification: `retry` here (3) multiplied by the caller's
+      // sub-orchestrator retry (4) turned one permanently-bad case into 12 doomed Box calls
+      // per monitor wake, forever. A returned outcome is recorded in Durable history once
+      // and replays deterministically.
+      const terminal = terminalArchiveFailure(e);
+      if (!terminal) throw e;
+      ctx.log(JSON.stringify({ evt: 'boxFolderCreate', caseId: input.caseId, ...terminal }));
+      return terminal;
+    }
   },
 });

@@ -48,7 +48,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-308](./now/TKT-308-retro-fallback-off-for-alpha/TKT-308-retro-fallback-off-for-alpha.md) | Turn off the retro reconstruction fallback for the alpha (live config, no code change) | P0 · archive |
 | [TKT-309](./now/TKT-309-eva-image-rules-advisory/TKT-309-eva-image-rules-advisory.md) | Make the EVA image rules advisory — they no longer gate readiness or submission | P1 · domain |
 
-## Verify (39)
+## Verify (40)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -91,6 +91,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-294](./verify/TKT-294-triageunified-activity/TKT-294-triageunified-activity.md) | triageUnified activity — composes classify + triage, no reorder yet (PLAN-014 Slice 4a) | P1 · intake · PLAN-014 |
 | [TKT-295](./verify/TKT-295-reorder-tkt102-collapse/TKT-295-reorder-tkt102-collapse.md) | Atomic parse→triage reorder + TKT-102 inline-parse collapse (PLAN-014 Slice 4b) | P1 · intake · PLAN-014 |
 | [TKT-296](./verify/TKT-296-parsefed-deploy-gate-flip/TKT-296-parsefed-deploy-gate-flip.md) | Deploy the parse-fed unified triage stack (gate-off), drain, flip TRIAGE_PARSE_FED_ENABLED (PLAN-014 Slice 5) | P1 · intake · PLAN-014 |
+| [TKT-303](./verify/TKT-303-terminal-archive-failure-retry-loop/TKT-303-terminal-archive-failure-retry-loop.md) | A terminal Box refusal retries forever — classify it and park the outbox row | P1 · archive |
 
 ## Done (153)
 
@@ -256,7 +257,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 |---|---|---|
 | [TKT-310](./next/TKT-310-inbound-triage-ground-truth-corpus/TKT-310-inbound-triage-ground-truth-corpus.md) | Inbound-triage rewrite Phase 0 — regenerate the v4 baseline and sort the eval corpus | P1 · triage · PLAN-016 |
 
-## Backlog (62)
+## Backlog (64)
 
 | ID | Title | Classification |
 |---|---|---|
@@ -317,6 +318,8 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-288](./backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md) | Engine email-classifier precedence findings ported from the archived sibling repo | P3 · parsing |
 | [TKT-289](./backlog/TKT-289-docintel-plate-fallback-hardening/TKT-289-docintel-plate-fallback-hardening.md) | Investigate whether Document Intelligence is a safe plate-OCR fallback | P2 · ai |
 | [TKT-297](./backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md) | Engine-merge post-consolidation hardening (deferred Codex review findings) | P2 · parsing |
+| [TKT-304](./backlog/TKT-304-retro-stamps-out-of-scope-archive-folder/TKT-304-retro-stamps-out-of-scope-archive-folder.md) | Retro reconstruction stamps a discovered live-archive folder as the case's durable Archive link | P1 · archive |
+| [TKT-305](./backlog/TKT-305-eternal-monitor-retry-audit/TKT-305-eternal-monitor-retry-audit.md) | Audit every eternal Durable monitor for terminal failures retried forever | P2 · platform |
 | [TKT-311](./backlog/TKT-311-inbound-triage-two-axis-taxonomy/TKT-311-inbound-triage-two-axis-taxonomy.md) | Inbound-triage rewrite Phase 1 — taxonomy as two axes (stage x intent) | P1 · triage · PLAN-016 |
 | [TKT-312](./backlog/TKT-312-inbound-triage-signal-precedence-engine/TKT-312-inbound-triage-signal-precedence-engine.md) | Inbound-triage rewrite Phase 2 — signal-precedence evaluator replaces first-match-wins | P1 · triage · PLAN-016 |
 | [TKT-313](./backlog/TKT-313-inbound-triage-forwards-first-class-route/TKT-313-inbound-triage-forwards-first-class-route.md) | Inbound-triage rewrite Phase 3 — forwards as a first-class route | P1 · triage · PLAN-016 |

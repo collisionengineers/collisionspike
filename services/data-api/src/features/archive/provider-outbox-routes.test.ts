@@ -114,7 +114,33 @@ describe('provider Archive outbox verifier', () => {
       ctx,
     ) as { status: number; jsonBody: unknown };
     expect(result.jsonBody).toMatchObject({ deferred: true, pending: true });
-    expect(db.query.mock.calls[0][1]).toEqual([CASE_ID, 7, 'folder unavailable']);
+    expect(db.query.mock.calls[0][1]).toEqual([CASE_ID, 7, 'folder unavailable', false]);
     expect(String(db.query.mock.calls[0][0])).toContain('LEAST(provider_archive_attempt_count, 6)');
+  });
+
+  it('parks a terminal defer at infinity so the pending slice stops listing it', async () => {
+    db.query.mockResolvedValue([{ next_attempt_at: 'infinity' }]);
+    const result = await registrations.get('internalProviderArchiveOutboxDefer')!.handler(
+      request({ id: CASE_ID }, {
+        generation: 7,
+        reason: 'Archive folder unusable (archive_scope_refused)',
+        terminal: true,
+      }),
+      ctx,
+    ) as { status: number; jsonBody: unknown };
+    expect(result.jsonBody).toMatchObject({ deferred: true, pending: true, terminal: true });
+    expect(db.query.mock.calls[0][1]).toEqual([
+      CASE_ID, 7, 'Archive folder unusable (archive_scope_refused)', true,
+    ]);
+    expect(String(db.query.mock.calls[0][0])).toContain("'infinity'::timestamptz");
+  });
+
+  it('never parks on a plain defer — only an explicit terminal flag parks', async () => {
+    db.query.mockResolvedValue([{ next_attempt_at: '2026-07-14T12:05:00Z' }]);
+    await registrations.get('internalProviderArchiveOutboxDefer')!.handler(
+      request({ id: CASE_ID }, { generation: 7, reason: 'x', terminal: 'yes' }),
+      ctx,
+    );
+    expect(db.query.mock.calls[0][1]?.[3]).toBe(false);
   });
 });
