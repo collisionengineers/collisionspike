@@ -184,6 +184,10 @@ export const useStyles = makeStyles({
   thumbMeta: { display: 'flex', flexDirection: 'column', gap: tokens.spacingVerticalXS, padding: tokens.spacingVerticalS },
   thumbName: { fontSize: tokens.fontSizeBase200, color: tokens.colorNeutralForeground3, wordBreak: 'break-all' },
   thumbRowBetween: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacingHorizontalS },
+  /* Single-child archive row. Its former space-between partner (the "Case archive —
+     … mirrored here" caption) was removed by operator direction, so the link/button
+     is left-aligned on purpose — not a stray space-between with one child. */
+  thumbRowStart: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalS },
   /* TKT-123 — dismissible person-reflection warning on a flagged photo. Amber
      warning triad (never colour-only: the triangle carries the shape cue). */
   reflectionWarning: {
