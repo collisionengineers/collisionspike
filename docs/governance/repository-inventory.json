@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1164,
-    "files": 3893,
-    "entries": 5057
+    "files": 3894,
+    "entries": 5058
   },
-  "totalFileBytes": 705201635,
+  "totalFileBytes": 705206047,
   "entries": [
     {
       "path": ".",
@@ -16519,7 +16519,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1582606,
+      "size": 1582920,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16537,8 +16537,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4359044,
-      "sha256": "ecf22d9e224712af928ed4f7cbe72b85980aecd927c59bdad7ef2830b3912ae5",
+      "size": 4359443,
+      "sha256": "18433ce6484df8a338cf83ee967bd682f0c9cc79c82183d812b8c12dfa600e90",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16547,7 +16547,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 69489,
-      "sha256": "4e1e7bd3fd522454cd4c3e17ee455898bddc9447f08f59682c271f23dfcda7fd",
+      "sha256": "33b5ac0e79d188cd84634622a25623f5ebf1ebc078e84b32a38ebc372cc2c089",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17068,8 +17068,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52082,
-      "sha256": "05cf4c3722cba8d8281830e99ae802b728ae3febb90bb588b40c28c664259637",
+      "size": 52094,
+      "sha256": "a52e0e0c58f4b6da9f8c29cef94a3987410fa514602c57819af28940284018ea",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17077,8 +17077,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 55166,
-      "sha256": "e3f57804bc5bf117dc73fa08fa4a12e2135694acc3e9fd77446daac091768bbc",
+      "size": 55345,
+      "sha256": "4b7f6a313086d819c0a008b28678d34520e56a99832d86ba18c5fa72b6c1c31a",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27418,8 +27418,8 @@
     {
       "path": "docs/tickets/now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md",
       "mediaType": "text/markdown",
-      "size": 5055,
-      "sha256": "72fe15603576102eb7ee0a078a1ab90dbc301c266ae88306547a6db9a53f4e7f",
+      "size": 5070,
+      "sha256": "bce665968c0730fd75bb7c597f036151eb01fa2f5caafbe70c3a7ea13ca4078b",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27573,6 +27573,15 @@
       "mediaType": "text/markdown",
       "size": 3394,
       "sha256": "778600163cd122372b9c7fcc0e370ca03bcb712195ebc51a24943b6d94b5e20e",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
+      "mediaType": "text/markdown",
+      "size": 3493,
+      "sha256": "8017d5d863407f8cac8fcf3135603a8002689604b04a2b4175ba62e101010a5c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

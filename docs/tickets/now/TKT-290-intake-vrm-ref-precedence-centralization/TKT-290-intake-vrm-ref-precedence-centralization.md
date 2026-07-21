@@ -6,6 +6,7 @@ priority: P2
 area: intake
 tickets-it-relates-to: [TKT-043, TKT-102]
 research-link: workingspace/proposedparserchanges.md
+plan: PLAN-014
 ---
 
 # Centralize the intake orchestrator's duplicated VRM/ref precedence logic
