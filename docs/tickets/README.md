@@ -272,7 +272,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
 
-## Backlog (55)
+## Backlog (56)
 
 | ID | Title | Priority | Area | Plan |
 |---|---|---|---|---|
@@ -331,6 +331,7 @@ Ticket specs and their frontmatter are the repository's work authority. Status f
 | [TKT-284](./backlog/TKT-284-guided-capture-security-corpus-and-runbook/TKT-284-guided-capture-security-corpus-and-runbook.md) | Guided capture — consolidated security test corpus and post-deploy probe runbook | P2 | integration | — |
 | [TKT-285](./backlog/TKT-285-guided-capture-device-gate-calibration/TKT-285-guided-capture-device-gate-calibration.md) | Guided capture — physical device quality-gate calibration | P2 | integration | — |
 | [TKT-288](./backlog/TKT-288-engine-classifier-precedence-findings/TKT-288-engine-classifier-precedence-findings.md) | Engine email-classifier precedence findings ported from the archived sibling repo | P3 | parsing | — |
+| [TKT-297](./backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md) | Engine-merge post-consolidation hardening (deferred Codex review findings) | P2 | parsing | — |
 
 ## Blocked (9)
 

@@ -12,7 +12,12 @@ const ratchets = new Map(Object.entries(budget.ratchets ?? {}));
 if (!Number.isInteger(limit) || limit < 1) throw new Error("source-size budget limit must be a positive integer");
 const sourceExtensions = new Set([".bicep", ".cjs", ".js", ".mjs", ".py", ".sql", ".ts", ".tsx"]);
 const exemptPrefixes = [
+  // Vendored / materialized cedocumentmapper engine — not hand-authored collisionspike logic,
+  // so the growth ratchet does not apply (the canonical source and both materialized copies
+  // are byte-identical, enforced by check-engine-materialized.py).
+  "services/engine/cedocumentmapper_v2/",
   "services/functions/parser/cedocumentmapper_v2/",
+  "services/functions/ocr/cedocumentmapper_v2/",
   ".agents/skills/ui-ux-pro-max/",
 ];
 

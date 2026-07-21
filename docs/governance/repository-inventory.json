@@ -13,11 +13,11 @@
   },
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
-    "directories": 1204,
-    "files": 4052,
-    "entries": 5256
+    "directories": 1206,
+    "files": 4057,
+    "entries": 5263
   },
-  "totalFileBytes": 709847803,
+  "totalFileBytes": 709861509,
   "entries": [
     {
       "path": ".",
@@ -2460,6 +2460,24 @@
     },
     {
       "path": "docs/tickets/backlog/TKT-288-engine-classifier-precedence-findings/evidence",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings",
+      "mediaType": "inode/directory",
+      "size": 0,
+      "sha256": null,
+      "category": "directory",
+      "owner": "ticket-system",
+      "lifecycle": "structural"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/evidence",
       "mediaType": "inode/directory",
       "size": 0,
       "sha256": null,
@@ -16879,7 +16897,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1645851,
+      "size": 1648072,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16897,8 +16915,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4443807,
-      "sha256": "9cb4dde4f8616b395f97f06f505d334880f8c3d5410fba1c6d4998ffe2d16f5e",
+      "size": 4446629,
+      "sha256": "9917f72626d64009f3bc40c7b5b80972035805cb344839c2b440568a6c171e48",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16906,8 +16924,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 70722,
-      "sha256": "a374a58d285c07424d7fe13075edafe829d9e91343b23437d4a98f226a32263d",
+      "size": 70808,
+      "sha256": "5b53f872c515f75a1f4ae7516562e8c3b274eb577e818743c4020bde6b141bec",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17428,8 +17446,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52296,
-      "sha256": "f19013b9e80d6da3281ccf186a7eebfb39e4569de504dce5a832a642acdb95db",
+      "size": 52497,
+      "sha256": "f52f18cd007d33012645eb5b5db9e08ebd0e2a188665b044a27573211dcc63fb",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17437,8 +17455,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 55385,
-      "sha256": "6420658142f2f0540b77ee375029ca7bc8dfc82a99403655b37ce2a983ee28fb",
+      "size": 55591,
+      "sha256": "edd82471e895b7f95321954de098247b306af6c5f4e5fbd8a8cc6befaf4ef577",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -19617,6 +19635,42 @@
       "mediaType": "text/markdown",
       "size": 683,
       "sha256": "b0752fa3a04f52972f93c5a7ddb2eb043124793f5893b5555a7e247484056dbd",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/TKT-297-engine-merge-hardening-findings.md",
+      "mediaType": "text/markdown",
+      "size": 2970,
+      "sha256": "f6d0e2561481633ac6b7ef8c41f63af6d82a9b78bb95b4a14f8c087ddeded445",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/changes.md",
+      "mediaType": "text/markdown",
+      "size": 274,
+      "sha256": "cdc69f68ced755230d63fa0d436078ecfbcdbe0d299e8e11ad27e2455aefe027",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/evidence/codex-review-findings.md",
+      "mediaType": "text/markdown",
+      "size": 1366,
+      "sha256": "f2c821ed722a1b3a1cdef4e61aa25661ea169ea699365da78632b8507a031406",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/backlog/TKT-297-engine-merge-hardening-findings/verification.md",
+      "mediaType": "text/markdown",
+      "size": 445,
+      "sha256": "c92bf7634208fef6b9015e0ac7cafc17a2bb88b186e9dd2b755da86ff9a3b14c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -33043,8 +33097,8 @@
     {
       "path": "scripts/checks/check-source-size.mjs",
       "mediaType": "text/javascript",
-      "size": 3130,
-      "sha256": "71d13b9b5eee4b59384e22e590686e4e30079ad3b307d89932da6bcd46179f60",
+      "size": 3479,
+      "sha256": "18e11847b498b5ec66d1ad130fe5c7d8ea5837d68b125550f1866b400a80ea73",
       "category": "automation",
       "owner": "repository-governance",
       "lifecycle": "active"
@@ -36089,6 +36143,15 @@
       "sha256": "4f7b945930ebbb49ec27c81232a82409e162dffc487eba0066022eee0bbe43fd",
       "category": "source",
       "owner": "data-api",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/README.md",
+      "mediaType": "text/markdown",
+      "size": 2766,
+      "sha256": "e116d3967f6df5ed81f112013ed731528ee4e4c3b991ba5eeb647f33f8ac69d7",
+      "category": "documentation",
+      "owner": "repository",
       "lifecycle": "active"
     },
     {
