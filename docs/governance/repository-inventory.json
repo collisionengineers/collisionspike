@@ -17,7 +17,7 @@
     "files": 4069,
     "entries": 5277
   },
-  "totalFileBytes": 709919479,
+  "totalFileBytes": 709934617,
   "entries": [
     {
       "path": ".",
@@ -16915,7 +16915,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1652648,
+      "size": 1652682,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -16933,8 +16933,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4452397,
-      "sha256": "78107af0375864a790b9aa2725c8020be902f6896dbddeeeb5591bdf14b681be",
+      "size": 4452431,
+      "sha256": "c0d9e373f3725e37fd622d71d5e67bda51ead60472fbb8004bb613f9866c830d",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -16943,7 +16943,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 70939,
-      "sha256": "da4de9f164bf5ca459a9c50b57278130a088c1e249004aa8747d0ca016d4c4d5",
+      "sha256": "ee0d841ead404af3ab07cdbdca5004071023d2d9652016d48be3e7ec9c3e9373",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17464,8 +17464,8 @@
     {
       "path": "docs/tickets/BOARD.md",
       "mediaType": "text/markdown",
-      "size": 52929,
-      "sha256": "21c04a2dbfcc2b44bb8f738b614aa694c35fc36af6c14f0d1eeb1e21526d221b",
+      "size": 52941,
+      "sha256": "9197027062eaaf633905b6d72106870465d5a4a6af1c9faca569fcf5b21f9753",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -17473,8 +17473,8 @@
     {
       "path": "docs/tickets/README.md",
       "mediaType": "text/markdown",
-      "size": 56200,
-      "sha256": "4300bdbb5d2ff13827058c146c5b78c74c842edd2c93ce406cce94ae9f462b08",
+      "size": 56205,
+      "sha256": "017fb67cd700776e92b7e2d22eb2ac0bfb13e2175625bcd8732988f338ad2f56",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27949,8 +27949,8 @@
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md",
       "mediaType": "text/markdown",
-      "size": 4838,
-      "sha256": "0b8ffe3695ba53800e8d7e17d6389d7be2fa021562ac780e90808d8f23f82889",
+      "size": 5216,
+      "sha256": "cec8aa22e8732fd570b7dc1805d7cfccd2040f5d8549bafacd3741f5a5d3dde0",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27958,8 +27958,8 @@
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/changes.md",
       "mediaType": "text/markdown",
-      "size": 3673,
-      "sha256": "663de4e497d3bce880bacc20b768cee7aa2352385c115a1eb3711159612d3c4e",
+      "size": 4649,
+      "sha256": "adafa12aea20743f871b6fac9edaa6274d56a5fa8ad426dd265c0579dfcd1c85",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -27967,8 +27967,8 @@
     {
       "path": "docs/tickets/now/TKT-291-classifier-attachment-content-typings/verification.md",
       "mediaType": "text/markdown",
-      "size": 2307,
-      "sha256": "b8bf8494ea4a5677bd5920996dccf6c26e1a53dbd553703348776c12906c324d",
+      "size": 2479,
+      "sha256": "f8e1f078df11561262813abac54e4f26d59d9bf0dfed5e22b1ddc442842caf47",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28111,8 +28111,8 @@
     {
       "path": "docs/tickets/plans/PLAN-014-parse-fed-unified-triage.md",
       "mediaType": "text/markdown",
-      "size": 3493,
-      "sha256": "8017d5d863407f8cac8fcf3135603a8002689604b04a2b4175ba62e101010a5c",
+      "size": 3701,
+      "sha256": "0421d2531ddf9df4ff54599c9f9fd7d91456efbffad28c7f05497aea7c4f5fec",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -32323,8 +32323,8 @@
     {
       "path": "packages/domain/src/domain/classification.ts",
       "mediaType": "text/typescript",
-      "size": 8535,
-      "sha256": "f81815a02f87b00bc5df4afbeb47c8e47ff3360e7319932c034eb04cdb585cf7",
+      "size": 8897,
+      "sha256": "25b738c74f4bba354d40d89465c7b24e8daf08614db4a3087c95c37552aada90",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -36418,8 +36418,8 @@
     {
       "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/detection/attachment_typing.py",
       "mediaType": "text/x-python",
-      "size": 11959,
-      "sha256": "7d04aeca0a765a23cdbd5640b8903c4b3b28866200ecf9226b0b8045f4953ba6",
+      "size": 12950,
+      "sha256": "1bc339aee33a004eecbc532d3603ebafc07368d86695a1bd0dd52a1dcd047c64",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -36679,8 +36679,8 @@
     {
       "path": "services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 98694,
-      "sha256": "e90a9c2818690183a83d8ecd66c26b428433960a99e8348731d1a5cd85acbaf9",
+      "size": 101653,
+      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -37100,6 +37100,15 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_attachment_typing_dual_commissioning.py",
+      "mediaType": "text/x-python",
+      "size": 3011,
+      "sha256": "44e251c139de4719bd2f486b9ab9e47e316b82bb160a95f1afc2f690dbc3e87a",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/engine/cedocumentmapper_v2/tests/test_audit_case_type.py",
       "mediaType": "text/x-python",
       "size": 14059,
@@ -37149,6 +37158,24 @@
       "mediaType": "text/x-python",
       "size": 45288,
       "sha256": "5f7db3211b05608512b4f9e80c8478c04a93b921c6418bcb3f259e24abb265c5",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_email_classifier_content_typings.py",
+      "mediaType": "text/x-python",
+      "size": 11057,
+      "sha256": "025348c70269047d6dce0f826af21a1784818170bba8846228f552276d31146f",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/engine/cedocumentmapper_v2/tests/test_email_classifier_tkt288_overlap_tripwires.py",
+      "mediaType": "text/x-python",
+      "size": 4220,
+      "sha256": "ded2616357e483e9930e0db8f16102aa51893d4e54fa69664cc5b614b1d56fdf",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -38039,7 +38066,7 @@
       "path": "services/functions/ocr/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
       "mediaType": "application/json",
       "size": 159,
-      "sha256": "becba6a56dc8c9d062cb72633e28a84e79949e53a54233e3284ebd04e2011d57",
+      "sha256": "971214dd4dbd9c387a21adc522bd4f3e1a01cda4e920c40a97365f28b7b50952",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -38101,8 +38128,8 @@
     {
       "path": "services/functions/ocr/cedocumentmapper_v2/detection/attachment_typing.py",
       "mediaType": "text/x-python",
-      "size": 11959,
-      "sha256": "7d04aeca0a765a23cdbd5640b8903c4b3b28866200ecf9226b0b8045f4953ba6",
+      "size": 12950,
+      "sha256": "1bc339aee33a004eecbc532d3603ebafc07368d86695a1bd0dd52a1dcd047c64",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -38326,8 +38353,8 @@
     {
       "path": "services/functions/ocr/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 98694,
-      "sha256": "e90a9c2818690183a83d8ecd66c26b428433960a99e8348731d1a5cd85acbaf9",
+      "size": 101653,
+      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
       "category": "source",
       "owner": "image-analysis",
       "lifecycle": "active"
@@ -38525,7 +38552,7 @@
       "path": "services/functions/parser/cedocumentmapper_v2/ENGINE_FINGERPRINT.json",
       "mediaType": "application/json",
       "size": 159,
-      "sha256": "becba6a56dc8c9d062cb72633e28a84e79949e53a54233e3284ebd04e2011d57",
+      "sha256": "971214dd4dbd9c387a21adc522bd4f3e1a01cda4e920c40a97365f28b7b50952",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -38587,8 +38614,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/detection/attachment_typing.py",
       "mediaType": "text/x-python",
-      "size": 12880,
-      "sha256": "6fc905c1381b6f0489b29a6e0cc4c447a2963afc5f9873b5ee8b39f120aae7d7",
+      "size": 12950,
+      "sha256": "1bc339aee33a004eecbc532d3603ebafc07368d86695a1bd0dd52a1dcd047c64",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -38812,8 +38839,8 @@
     {
       "path": "services/functions/parser/cedocumentmapper_v2/rules/email_classifier.py",
       "mediaType": "text/x-python",
-      "size": 100866,
-      "sha256": "a8352a2f3605fa88fa02d9242eb3d63162d6450e5a42c08a84a5e6d1ad8ef947",
+      "size": 101653,
+      "sha256": "b0908a90fda26b51c91f003124e95733f50edaa2707f2878ce546e1a93d1785c",
       "category": "source",
       "owner": "document-parsing",
       "lifecycle": "active"
@@ -39080,15 +39107,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/parser/tests/test_attachment_typing.py",
-      "mediaType": "text/x-python",
-      "size": 3011,
-      "sha256": "44e251c139de4719bd2f486b9ab9e47e316b82bb160a95f1afc2f690dbc3e87a",
-      "category": "test",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/parser/tests/test_audit_detection.py",
       "mediaType": "text/x-python",
       "size": 2282,
@@ -39134,15 +39152,6 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/functions/parser/tests/test_email_classifier_content_typings.py",
-      "mediaType": "text/x-python",
-      "size": 6857,
-      "sha256": "9a161bdb995b826d5f4032c586c2fc50cf49c2849fdb4aea4883a963827554a1",
-      "category": "test",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
       "path": "services/functions/parser/tests/test_email_classifier_regressions.py",
       "mediaType": "text/x-python",
       "size": 32193,
@@ -39174,15 +39183,6 @@
       "mediaType": "text/x-python",
       "size": 20658,
       "sha256": "775fa9c0f30ccd1dd77356e1dd83689783dfe02497bf9451e634dea680a52f57",
-      "category": "test",
-      "owner": "document-parsing",
-      "lifecycle": "active"
-    },
-    {
-      "path": "services/functions/parser/tests/test_email_classifier_tkt288_overlap_tripwires.py",
-      "mediaType": "text/x-python",
-      "size": 4220,
-      "sha256": "ded2616357e483e9930e0db8f16102aa51893d4e54fa69664cc5b614b1d56fdf",
       "category": "test",
       "owner": "document-parsing",
       "lifecycle": "active"

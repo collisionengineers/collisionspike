@@ -58,8 +58,9 @@ any attached DOCUMENT (email classification is orchestration step 1.5; the
 document parser's ``/parse`` route runs at step 4), so this module's output
 cannot feed back into ``classify_email``'s Rule 1 corroboration gate without a
 pipeline reorder -- that is out of scope for this module and is tracked in the
-consuming repository's ticket system. See this package's ``PROVENANCE.md`` for
-the immutable source boundary. What this
+consuming repository's ticket system. See the engine README
+(``services/engine/cedocumentmapper_v2/README.md``) for the authoring-source
+boundary and the materialization contract. What this
 module DOES do: give a `/parse`-time, content-based typing that a downstream
 resolve/identification layer or telemetry pipeline can consume today.
 """
@@ -159,15 +160,26 @@ def type_document_text(text: str, catalog: Any) -> dict[str, Any]:
     title_hits = _match_keywords(haystack, _REPORT_TITLE_PHRASES)
     structure_hits = _match_keywords(haystack, _REPORT_STRUCTURE_PHRASES)
     is_engineer_report_provider = bool(provider_cfg and provider_cfg.get("engineer_report"))
+    # PLAN-014 D5 backtest finding: a QDOS "dual" COMMISSIONING letter's own heading
+    # ("ENGINEER NOTIFICATION (REPORT + AUDIT REPORT)") legitimately contains the
+    # title phrase "audit report" while the document is an INSTRUCTION commissioning
+    # BOTH a report and an audit -- rules/engine.py's own dual_report_audit_phrases
+    # signal already recognises this exact phrasing as a case-type-dual INSTRUCTION,
+    # not a completed report (resources/triage-rules.json). A title hit riding on a
+    # dual-commissioning phrase does not stand alone; it needs the same
+    # structure-hit/engineer_report-provider corroboration Rule 1b requires.
+    dual_commissioning = bool(_match_keywords(haystack, _RULES.dual_report_audit_phrases))
+    corroborated = is_engineer_report_provider and bool(structure_hits)
     # 1a. A title phrase is specific enough to stand alone, regardless of
-    #     whether a provider was recognised.
+    #     whether a provider was recognised -- UNLESS it rides on a dual-
+    #     commissioning phrase (above), which needs the same corroboration as 1b.
     # 1b. Structure wording alone is NOT enough -- it must be corroborated by
     #     a detected engineer_report provider (CNX / EVA). An engineer_report
     #     provider match with NEITHER a title NOR structure hit does NOT
     #     promote here (that covering-letter-shaped case falls through to
     #     Rule 2 as an ordinary instruction -- a provider match alone is not
     #     evidence that THIS particular document is the report itself).
-    if title_hits or (is_engineer_report_provider and structure_hits):
+    if (title_hits and not dual_commissioning) or corroborated:
         markers.extend(f"report_title:{phrase}" for phrase in title_hits)
         markers.extend(f"report_structure:{phrase}" for phrase in structure_hits)
         if is_engineer_report_provider and provider_name:

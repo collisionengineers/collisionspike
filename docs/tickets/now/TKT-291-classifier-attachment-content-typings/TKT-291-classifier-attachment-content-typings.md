@@ -4,8 +4,9 @@ title: classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4)
 status: now
 priority: P2
 area: parsing
-tickets-it-relates-to: [TKT-290, TKT-288, TKT-043]
+tickets-it-relates-to: [TKT-290, TKT-288, TKT-043, TKT-287]
 research-link: workingspace/proposedparserchanges.md
+plan: PLAN-014
 ---
 
 # classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4)
@@ -39,11 +40,12 @@ filename doesn't hint report; a content-detected `junk`/`unknown` (with no `repo
 the set) withdraws `has_instruction_doc`'s promotion. Absent/empty input is byte-for-bit identical to
 prior output (parity-tested).
 
-**Direct in-repo edit, not the normal vendor-then-tag cycle** — the authoring sibling
-`cedocumentmapper_v2.0` is archived (read-only) regardless of the still-open, unreviewed, CI-failing
-`engine/cedocumentmapper-merge` PR that would otherwise retire this mechanism entirely. `VENDOR_LOCK.json`'s
-`contentSha256` is updated to reflect this edit; `PROVENANCE.md` records the exception explicitly (see
-its new "Known exception" section) rather than silently pretending this is still wording-only.
+**Authored in the canonical engine source (the engine merge has LANDED)** — TKT-287 / PR #145 merged,
+so `services/engine/cedocumentmapper_v2/src/cedocumentmapper_v2/` is now the single authoring source
+and the vendoring mechanism (`VENDOR_LOCK.json`/`PROVENANCE.md`/`verify_vendor_pin.py`) is retired.
+This change is made there and materialized into both deployed copies (parser + ocr) by
+`scripts/build/sync-engine.py`; `check-engine-materialized.py` enforces byte-identity. See `changes.md`
+for the re-home detail and the per-file-precedence correction applied on the way in.
 
 **D4 vs. `classifyAttachment()` precedence-philosophy** — documented in 3 places (this ticket,
 `email_classifier.py`'s inline comment at the change site, `packages/domain/src/domain/classification.ts`'s
@@ -63,13 +65,15 @@ a deliberate, visible diff rather than a silent double-fix.
   existing-suite scenarios (not synthetic).
 - Content `report` overrides a filename-derived `instruction` kind when the filename itself doesn't
   hint report (closes the exact gap `attachment_typing.py`'s docstring names).
-- Content `junk`/`unknown` (alone) withdraws an instruction-doc promotion; content `instruction`
-  (agreeing with the filename) does NOT withdraw it.
-- 4 TKT-288-overlap tripwire tests pin today's current (known pre-existing buggy) output for findings
-  #5/#9/#12/#13.
-- Full parser pytest suite green (396 passed, 19 pre-existing env-skipped).
-- `VENDOR_LOCK.json`/`PROVENANCE.md` honestly record the direct-edit exception; the offline vendor-pin
-  check (the one CI actually runs) passes.
+- Content `junk` (alone) withdraws an instruction-doc promotion; content `unknown` ABSTAINS (the
+  filename-derived kind stands — corrected per review + the Slice-3 backtest finding); content
+  `instruction` promotes even under a generic filename (per-file precedence).
+- A content-typed `report` on one attachment does NOT suppress an email that also carries a
+  content-typed `instruction` (per-file precedence, automated-review P1).
+- 4 TKT-288-overlap tripwire tests pin today's current (known pre-existing) output for findings
+  #5/#9/#12/#13 (unchanged — they pass no typings).
+- Engine pytest suite green (`services/engine/cedocumentmapper_v2`, 466 passed / 7 env-skipped);
+  `check-engine-materialized.py` PASS (canonical == both deployed copies).
 
 ## Research
 

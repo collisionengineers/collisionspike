@@ -879,6 +879,7 @@ def classify_email(
     attachment_filenames: Any = None,
     open_case_ref_match: Any = "",
     authentication_results: Any = "",
+    attachment_content_typings: Any = None,
 ) -> dict[str, Any]:
     """Classify one inbound email into the triage taxonomy. PURE — no I/O.
 
@@ -984,6 +985,42 @@ def classify_email(
     kinds = {str(k).strip().lower() for k in (attachment_kinds or []) if str(k).strip()}
     filenames = [str(f) for f in (attachment_filenames or []) if str(f).strip()]
     has_atts = bool(has_attachments) or bool(kinds)
+    # PLAN-014 D4 (parse-fed unified triage reorder) — content-based attachment typing
+    # (detection/attachment_typing.py's type_document_text, already surfaced via /parse)
+    # was previously unavailable here: the classifier saw only the filename/extension-
+    # derived ``kinds``, its own weakest signal (an invoice/remittance PDF reads as
+    # ``instruction``; a photos-only PDF with a generic filename reads as neither
+    # instruction nor report). ABSENT/EMPTY input is byte-for-bit identical to today's
+    # output (parity-tested) — this parameter is purely additive.
+    # Deliberate mirror image of classifyAttachment()'s OPPOSITE precedence
+    # (packages/domain/src/domain/classification.ts: extension wins over MIME for cheap
+    # evidence-KIND classification, since both signals there are equally-cheap guesses
+    # about an unopened file) — here content is not a guess (parse already read the
+    # document), so it is the stronger signal for this later-stage TRIAGE PROMOTION
+    # concern. Reconciled PER FILE (not a coarse aggregate): a content 'report' on one
+    # sibling no longer suppresses when another sibling is a content 'instruction'.
+    content_doc_types = {
+        str(t.get("doc_type", "")).strip().lower()
+        for t in (attachment_content_typings or [])
+        if isinstance(t, dict)
+    }
+    # Per-file reconciliation (PLAN-014 D4 contract: content overrides filename PER FILE).
+    # A content-typed 'report' on ONE attachment must NOT suppress an email that ALSO carries a
+    # content-typed 'instruction'; and a content-typed 'instruction' promotes even when its
+    # FILENAME is generic. So 'report' counts only when no sibling is 'instruction'; a content
+    # 'instruction' feeds has_instruction_doc directly. 'unknown' abstains (filename kind stands);
+    # only 'junk' withdraws, and only when no sibling is a report/instruction.
+    # PLAN-014 D5 backtest finding: withdrawing on a bare "unknown" verdict was too
+    # aggressive -- "unknown" is the detector's OWN deliberate, safe abstain default
+    # for anything it cannot confidently type (see attachment_typing.py's module
+    # docstring, "abstain-to-unidentified bias"), not a confident negative signal.
+    # Only a "junk" verdict (the detector's own high-precision, deliberately-tiny
+    # negative bucket) withdraws a promotion; "unknown" alone does not.
+    content_detected_instruction = "instruction" in content_doc_types
+    content_detected_report = "report" in content_doc_types and not content_detected_instruction
+    content_withdraws_instruction = "junk" in content_doc_types and not (
+        content_doc_types & {"report", "instruction"}
+    )
     is_reply = _is_reply(subject_s, _normalise(in_reply_to), _normalise(references))
     # A FORWARD ("FW:"/"FWD:") carries an INHERITED subject like a reply does, but may
     # carry a genuinely new instruction onward (so it is not a reply). collisionspike
@@ -1078,9 +1115,11 @@ def classify_email(
     query_or_chase = bool(query_phrases) or bool(chase_phrases)
 
     provider_known = state == PROVIDER_ONE
-    has_instruction_doc = bool(kinds & _INSTRUCTION_KINDS)
+    has_instruction_doc = (
+        bool(kinds & _INSTRUCTION_KINDS) or content_detected_instruction
+    ) and not content_withdraws_instruction
     has_images = bool(kinds & _IMAGE_KINDS)
-    has_report_attachment = _has_report_attachment(filenames)
+    has_report_attachment = _has_report_attachment(filenames) or content_detected_report
     has_existing_ref = bool(body_caseref or body_jobref)
     # A case-summary DIGEST enumerates many Case/POs (a recap of work already accepted,
     # TKT-029) — never a single fresh instruction. Counted over the full haystack.
@@ -1126,6 +1165,8 @@ def classify_email(
         signals.append(f"body_vrm:{body_vrm}")
     if has_report_attachment:
         signals.append("report_attachment")
+    if content_doc_types:
+        signals.append("attachment_content_typings:" + ",".join(sorted(content_doc_types)))
     if digest:
         signals.append("digest_multiple_refs:" + ",".join(sorted(distinct_caserefs)))
     if state in {PROVIDER_ONE, PROVIDER_NONE, PROVIDER_AMBIGUOUS}:

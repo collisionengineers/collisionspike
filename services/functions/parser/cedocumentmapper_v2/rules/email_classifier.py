@@ -997,19 +997,27 @@ def classify_email(
     # evidence-KIND classification, since both signals there are equally-cheap guesses
     # about an unopened file) — here content is not a guess (parse already read the
     # document), so it is the stronger signal for this later-stage TRIAGE PROMOTION
-    # concern. Coarse (not per-file), matching has_instruction_doc's existing granularity.
+    # concern. Reconciled PER FILE (not a coarse aggregate): a content 'report' on one
+    # sibling no longer suppresses when another sibling is a content 'instruction'.
     content_doc_types = {
         str(t.get("doc_type", "")).strip().lower()
         for t in (attachment_content_typings or [])
         if isinstance(t, dict)
     }
-    content_detected_report = "report" in content_doc_types
+    # Per-file reconciliation (PLAN-014 D4 contract: content overrides filename PER FILE).
+    # A content-typed 'report' on ONE attachment must NOT suppress an email that ALSO carries a
+    # content-typed 'instruction'; and a content-typed 'instruction' promotes even when its
+    # FILENAME is generic. So 'report' counts only when no sibling is 'instruction'; a content
+    # 'instruction' feeds has_instruction_doc directly. 'unknown' abstains (filename kind stands);
+    # only 'junk' withdraws, and only when no sibling is a report/instruction.
     # PLAN-014 D5 backtest finding: withdrawing on a bare "unknown" verdict was too
     # aggressive -- "unknown" is the detector's OWN deliberate, safe abstain default
     # for anything it cannot confidently type (see attachment_typing.py's module
     # docstring, "abstain-to-unidentified bias"), not a confident negative signal.
     # Only a "junk" verdict (the detector's own high-precision, deliberately-tiny
     # negative bucket) withdraws a promotion; "unknown" alone does not.
+    content_detected_instruction = "instruction" in content_doc_types
+    content_detected_report = "report" in content_doc_types and not content_detected_instruction
     content_withdraws_instruction = "junk" in content_doc_types and not (
         content_doc_types & {"report", "instruction"}
     )
@@ -1107,7 +1115,9 @@ def classify_email(
     query_or_chase = bool(query_phrases) or bool(chase_phrases)
 
     provider_known = state == PROVIDER_ONE
-    has_instruction_doc = bool(kinds & _INSTRUCTION_KINDS) and not content_withdraws_instruction
+    has_instruction_doc = (
+        bool(kinds & _INSTRUCTION_KINDS) or content_detected_instruction
+    ) and not content_withdraws_instruction
     has_images = bool(kinds & _IMAGE_KINDS)
     has_report_attachment = _has_report_attachment(filenames) or content_detected_report
     has_existing_ref = bool(body_caseref or body_jobref)

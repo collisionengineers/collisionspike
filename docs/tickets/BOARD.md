@@ -39,7 +39,7 @@ Generated from ticket frontmatter. Edit a ticket spec, then run `node scripts/ma
 | [TKT-233](./now/TKT-233-retro-anchor-provenance-and-parse-gaps/TKT-233-retro-anchor-provenance-and-parse-gaps.md) | Retro anchor provenance and parse gaps — hide anchors from triage, own-domain contact exclusion, .msg originals | P1 · email |
 | [TKT-282](./now/TKT-282-guided-capture-live-boundary-verification/TKT-282-guided-capture-live-boundary-verification.md) | Guided capture — client-server live boundary verification (urgent — gates already live-on) | P1 · integration |
 | [TKT-290](./now/TKT-290-intake-vrm-ref-precedence-centralization/TKT-290-intake-vrm-ref-precedence-centralization.md) | Centralize the intake orchestrator's duplicated VRM/ref precedence logic | P2 · intake · PLAN-014 |
-| [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing |
+| [TKT-291](./now/TKT-291-classifier-attachment-content-typings/TKT-291-classifier-attachment-content-typings.md) | classify_email() gains attachment_content_typings (PLAN-014 Slice 1 / D4) | P2 · parsing · PLAN-014 |
 
 ## Verify (32)
 

@@ -5,37 +5,36 @@ TESTED-OFFLINE
 
 ## Evidence
 
-- `services/functions/parser`: `python -m pytest -q` — **400 passed, 19 skipped** (the 19 are
-  pre-existing environment-dependent skips, unrelated to this change — confirmed present
-  before this change too). Includes the parity/behavior suite (6 tests), the TKT-288 overlap
-  tripwire suite (4 tests), and (added after the Slice 3 backtest finding) the direct
-  `type_document_text()` unit suite (4 tests).
-- **Real-corpus proof (added after Slice 3/TKT-293's backtest found 3 regressions in the
-  original D4 build)**: `python scripts/evaluation/email/run_ab_parsefed.py` against the full
-  67-item corpus — **zero regressions** after the two fixes above (down from 3), 2 genuine
-  improvements retained, confirmed by re-running the go/no-go backtest — see TKT-293's own
-  evidence for the full report.
-- Manually probed all 4 TKT-288-overlap scenarios directly via `classify_email()` before
-  writing the tripwire assertions, confirming each reproduces the exact bug shape its
-  finding describes (receipt-confirmation cover note suppressed; new-work reply read as
-  existing query; billing-only mail promoted via instruction kind; ambiguous provider
-  treated as new client).
-- `VENDOR_LOCK.json`'s offline check (`test_engine_vendored_in_sync.py` ->
-  `verify_vendor_pin.py`, no `--sibling` — the check CI actually runs) passes with the
-  updated `contentSha256`.
-- `packages/domain`: `npx vitest run` — 32 files, 602 tests, all green (the `classification.ts`
-  change is comment-only).
+- **Engine suite (canonical home):** `cd services/engine/cedocumentmapper_v2 && python -m pytest
+  tests -q` — **466 passed, 7 skipped, 0 failed**. The 7 skips are environmental (tesseract binary
+  absent ×2; v1-sibling-repo fixtures absent ×5), not real failures. Includes the relocated Slice-1
+  suites (content-typings parity + the 2 new per-file-precedence tests; the TKT-288 tripwires; the
+  dual-commissioning `type_document_text()` unit tests).
+- **Materialization:** `python scripts/checks/check-engine-materialized.py` — **PASS (2 targets)**;
+  canonical == parser copy == ocr copy (byte-identical), so the classifier change is present in both
+  deployed Function Apps.
+- **Real-corpus go/no-go (re-run against the re-homed engine):** `run_ab_parsefed.py` over the
+  labelled corpus — **OLD 51/58 (87.9%) → NEW 53/58 (91.4%), 0 regressions, 2 improvements**
+  (`tkt023-original-reply`, `tkt032-pcd-diminution`) — reproduces the saved baseline EXACTLY. The
+  per-file-precedence correction (automated-review P1) adds correctness with no regression. See
+  TKT-293's evidence for the full report.
+- **Per-file-precedence branches unit-pinned:** report+instruction siblings →
+  `existing_provider_instruction` (old aggregate would abstain to `other`); content-`instruction`
+  under an `image` filename kind → promotes. The TKT-288 tripwires are unchanged (base behavior is
+  byte-identical).
+- `packages/domain`: `npx vitest run` — 32 files, 602 tests green (the `classification.ts` change is
+  doc-comment only, now corrected to junk-only withdrawal).
 
 ## Pending / gaps
 
-The engine-merge branch's own TKT-288 (unmerged) will need to re-diff its 4 overlapping
-findings against this change when it eventually lands — flagged in this ticket's Proposed
-Change section and in the tripwire test file's own docstring; no further action possible from
-this side (that branch is not mine to edit).
+- OCR-dependent scanned-PDF content typings were not exercised in the local backtest run (no tesseract
+  locally); the CI `engine` job installs tesseract. The aggregate still reproduced the baseline
+  exactly, so no material effect on the go/no-go.
+- The engine-merge branch's TKT-288 (backlog) will re-diff its 4 overlapping findings against this
+  change when picked up — flagged in the tripwire test's docstring; no further action from this side.
 
 ## How to re-verify
 
-- `cd services/functions/parser && python -m pytest -q` — expect 396 passed / 19 skipped.
-- `cd services/functions/parser && python scripts/verify_vendor_pin.py` — expect PASS
-  (offline lock; no sibling clone needed).
+- `cd services/engine/cedocumentmapper_v2 && python -m pytest tests -q` — expect 466 passed / 7 skipped.
+- `python scripts/checks/check-engine-materialized.py` — expect PASS (2 targets).
 - `cd packages/domain && npx vitest run` — expect 32 files / 602 tests green.

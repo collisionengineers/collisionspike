@@ -4,10 +4,14 @@
 of `{filename, doc_type}` (doc_type in instruction|report|junk|unknown) from the parser's
 already-built content-based attachment detector (detection/attachment_typing.py). Absent
 or empty must be byte-for-bit identical to today's output (proven below against real
-existing-suite scenarios, not synthetic ones). A content-detected `report` overrides a
-filename-derived `instruction` kind (has_report_attachment); a content-detected
-`junk`/`unknown` (with no `report`/`instruction` in the set) withdraws an instruction-doc
-promotion (has_instruction_doc).
+existing-suite scenarios, not synthetic ones). Content overrides filename PER FILE (the
+automated-review per-file-precedence fix, not a coarse aggregate): a content-detected
+`report` promotes the report-attachment signal (has_report_attachment) UNLESS a sibling
+attachment is content-typed `instruction`, in which case the instruction wins; a
+content-detected `instruction` promotes an instruction-doc (has_instruction_doc) even
+under a generic filename; and only a content-detected `junk` (not `unknown`, the
+detector's safe abstain default), with no `report`/`instruction` sibling, withdraws an
+instruction-doc promotion.
 """
 
 from cedocumentmapper_v2.rules.email_classifier import classify_email
@@ -143,3 +147,79 @@ def test_content_typed_instruction_does_not_withdraw_its_own_promotion():
     )
     assert with_typing["category"] == without_typing["category"] == "receiving_work"
     assert with_typing["subtype"] == without_typing["subtype"] == "new_client_work"
+
+
+# --------------------------------------------------------------------------- #
+# New behaviour (per-file reconciliation) — a sibling `report` must NOT suppress  #
+# when another attachment is content-typed `instruction`.                         #
+# --------------------------------------------------------------------------- #
+def test_content_report_sibling_does_not_suppress_when_instruction_also_present():
+    """PLAN-014 D4 per-file precedence (automated-review fix): content overrides
+    filename PER FILE, not as a coarse aggregate. A `report` verdict on ONE attachment
+    used to unconditionally set has_report_attachment and abstain the whole email to
+    `other` -- even when a SECOND attachment was content-typed `instruction`. The fix
+    makes `report` count only when no sibling is `instruction`; the instruction then
+    promotes normally. (Contrast test_content_typed_report_with_generic_filename_
+    suppresses_new_work_promotion, where `report` is the ONLY content verdict.)"""
+    kwargs = dict(
+        subject="Documents enclosed",
+        body="Please see the attached document.",
+        provider_match_state="one",
+        attachment_kinds=["instruction"],
+        attachment_filenames=["scan0091.pdf", "scan0092.pdf"],
+        has_attachments=True,
+    )
+    # A lone report verdict still suppresses (abstains to other), unchanged.
+    report_only = classify_email(
+        **kwargs,
+        attachment_content_typings=[{"filename": "scan0091.pdf", "doc_type": "report"}],
+    )
+    assert report_only["category"] == "other"
+    assert "report_attachment" in report_only["signals"]
+
+    # With an instruction sibling, the instruction wins per file: report no longer
+    # suppresses, and the email promotes as a provider instruction.
+    report_plus_instruction = classify_email(
+        **kwargs,
+        attachment_content_typings=[
+            {"filename": "scan0091.pdf", "doc_type": "report"},
+            {"filename": "scan0092.pdf", "doc_type": "instruction"},
+        ],
+    )
+    assert report_plus_instruction["category"] == "receiving_work"
+    assert report_plus_instruction["subtype"] == "existing_provider_instruction"
+    assert "report_attachment" not in report_plus_instruction["signals"]
+    assert (
+        "attachment_content_typings:instruction,report"
+        in report_plus_instruction["signals"]
+    )
+
+
+# --------------------------------------------------------------------------- #
+# New behaviour (per-file reconciliation) — a content `instruction` promotes      #
+# even when the FILENAME/extension kind gives no instruction doc.                #
+# --------------------------------------------------------------------------- #
+def test_content_instruction_promotes_even_with_non_instruction_filename_kind():
+    """PLAN-014 D4 per-file precedence (automated-review fix): a photos-only PDF whose
+    extension-derived kind is not `instruction` (here `image`) but whose CONTENT the
+    parser typed `instruction` must still promote -- content feeds has_instruction_doc
+    directly. Without content typing the email abstains to `other`; with it, it promotes
+    as a provider instruction."""
+    kwargs = dict(
+        subject="Documents enclosed",
+        body="Please see the attached document.",
+        provider_match_state="one",
+        attachment_kinds=["image"],
+        attachment_filenames=["scan0091.pdf"],
+        has_attachments=True,
+    )
+    without_typing = classify_email(**kwargs)
+    assert without_typing["category"] == "other"
+
+    with_typing = classify_email(
+        **kwargs,
+        attachment_content_typings=[{"filename": "scan0091.pdf", "doc_type": "instruction"}],
+    )
+    assert with_typing["category"] == "receiving_work"
+    assert with_typing["subtype"] == "existing_provider_instruction"
+    assert "attachment_content_typings:instruction" in with_typing["signals"]
