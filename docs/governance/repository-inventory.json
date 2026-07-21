@@ -17,7 +17,7 @@
     "files": 4119,
     "entries": 5341
   },
-  "totalFileBytes": 710270906,
+  "totalFileBytes": 710272633,
   "entries": [
     {
       "path": ".",
@@ -13162,8 +13162,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 19510,
-      "sha256": "286e6883bc3b81e07387babb64c356dfcd8a5c99f647a5f5784784e636255d20",
+      "size": 20418,
+      "sha256": "268e1995cf884476fb78d92876f7d2e7bf8fc7039a0aef464fbd4e12d99fd55b",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17069,7 +17069,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4478224,
-      "sha256": "3e070fe4c5ca834a30601be569d128b2926dfb6e121445af8f632b90ba1ee9d0",
+      "sha256": "3d261c7af653fbc097cb54293965ac2c983dfc9a75c72b20c149a20d50988b5f",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17194,8 +17194,8 @@
     {
       "path": "docs/operations/live-environment.md",
       "mediaType": "text/markdown",
-      "size": 11201,
-      "sha256": "a380986830166b77562189ede4b6e0fd46a49e35e97b25c321b3eb2e2b4dd2aa",
+      "size": 11243,
+      "sha256": "cdae232a7cc2042f380c228ac9e51f7eddd609ff3e29deb958fa1474ef88ef51",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28201,8 +28201,8 @@
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/changes.md",
       "mediaType": "text/markdown",
-      "size": 3591,
-      "sha256": "585eddf54ab56c4e4ee000aa1182d65c6a465ccb2e1fc417f6ab491c78472ecb",
+      "size": 3686,
+      "sha256": "0c65f86e5b60f25db9f0a16189c65ea0bcc4fe132e71ad63a4353000a25c4d26",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28210,8 +28210,8 @@
     {
       "path": "docs/tickets/now/TKT-302-alpha-runbook-and-guidance/evidence/cutover-2026-07-21.md",
       "mediaType": "text/markdown",
-      "size": 8781,
-      "sha256": "05c09ae4078e320caf4905d21c0ddab3259678cb7dbe82d93f1d3450789a3f5d",
+      "size": 9463,
+      "sha256": "5518afbbf75c37d21711c93c81ac0077ee5552ca518746b27e9aeeb98063fb22",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

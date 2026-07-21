@@ -31,9 +31,10 @@ is [evidence/cutover-2026-07-21.md](./evidence/cutover-2026-07-21.md). Outcome: 
 Exchange scope extended (all four mailboxes InScope=true), legacy subscriptions pruned, backups
 banked (RLS-complete dump + 12,930/12,930 blob ledger), database wiped/rebuilt (66 tables,
 27 floors, QDOS26 continues at 812), blob container cleared to zero, capture + alpha trims off
-(TKT-200 exposure closed), SPA deployed. Residuals: the alpha mailbox subscription (Exchange
-RBAC propagation lag, auto-retrying), Phase 6 (vendor UAT credentials), and the
-real-arrival behavioural smokes.
+(TKT-200 exposure closed), SPA deployed. The alpha mailbox subscription bootstrapped ~16:05Z
+after ~1.5 h of Exchange RBAC propagation (steady state verified) — live intake is watching the
+alpha mailbox. Remaining residuals: Phase 6 (vendor UAT credentials) and the real-arrival
+behavioural smokes.
 
 Execution corrections folded back into the docs this pass: the `func publish --javascript` flag;
 psql `\copy` performs no variable interpolation (920 needs a resolved-path copy — `database.md`

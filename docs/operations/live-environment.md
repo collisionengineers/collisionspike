@@ -92,9 +92,10 @@ West Europe.
   144 reconciled). The `eva-shadow-submit` queue was created.
 - The Exchange RBAC recipient scope was extended to the alpha mailbox (verified
   `Test-ServicePrincipalAuthorization` InScope=true for all four mailboxes); the legacy
-  subscriptions were pruned at 14:02:42Z. The alpha mailbox's own subscription bootstrap was still
-  returning Graph 403 at the time of this record (RBAC propagation lag) with an automatic retry
-  running — see `LIVE_FACTS.mailIntake.status` for the definitive state.
+  subscriptions were pruned at 14:02:42Z. The alpha mailbox's subscriptions (Inbox + SentItems)
+  bootstrapped at ~16:05Z after ~1.5 h of RBAC enforcement-cache propagation (Graph 403s in the
+  interim despite InScope=true — a propagation characteristic worth remembering); steady state
+  verified renew-only.
 - Backups banked before any deletion: an RLS-complete `pg_dump --role=csadmin` (79 TABLE DATA
   entries) plus a verified-complete blob download (12,930/12,930 blobs, case-collision and
   post-scan stragglers reconciled to zero). The database was wiped and rebuilt from
