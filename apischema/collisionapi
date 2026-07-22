@@ -1,0 +1,320 @@
+{
+  "openapi" : "3.0.0",
+  "info" : {
+    "title" : "Provider Intake API",
+    "description" : "API for lodging cases with instructions and images. Provider identity is resolved from the API key.",
+    "version" : "1.0.0"
+  },
+  "servers" : [ {
+    "url" : "https://api.example.com/api"
+  } ],
+  "paths" : {
+    "/provider-intake/cases" : {
+      "post" : {
+        "tags" : [ "Provider Intake" ],
+        "summary" : "Lodge a case with instructions and images",
+        "operationId" : "providerIntakeCase",
+        "parameters" : [ {
+          "name" : "X-Api-Key",
+          "in" : "header",
+          "description" : "API key for authentication",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "description" : "Idempotency key to prevent duplicate case creation. Must be 16-128 characters and match regex validation.\n",
+          "required" : true,
+          "style" : "simple",
+          "explode" : false,
+          "schema" : {
+            "maxLength" : 128,
+            "minLength" : 16,
+            "pattern" : "^[\\w\\-]+$",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProviderApiSubmission"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Case created successfully",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CaseResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Bad request due to validation errors or invalid JSON or invalid idempotency key",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthorized due to missing, invalid, revoked, or deactivated API key",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "error" : {
+                      "type" : "string",
+                      "example" : "Invalid API key"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "Conflict due to idempotency key reuse with different content",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "error" : {
+                      "type" : "string",
+                      "example" : "idempotency_conflict"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413" : {
+            "description" : "Payload too large (request body exceeds 50 MB limit)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "error" : {
+                      "type" : "string",
+                      "example" : "payload_too_large"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503" : {
+            "description" : "Service unavailable due to incomplete evidence persistence (retryable)",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "error" : {
+                      "type" : "string",
+                      "example" : "evidence_incomplete"
+                    },
+                    "message" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500" : {
+            "description" : "Internal server error",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object",
+                  "properties" : {
+                    "error" : {
+                      "type" : "string",
+                      "example" : "internal"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "ApiKeyAuth" : [ ]
+        } ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ProviderApiSubmission" : {
+        "required" : [ "images", "instructions", "providerReference", "vrm" ],
+        "type" : "object",
+        "properties" : {
+          "vrm" : {
+            "type" : "string",
+            "description" : "Vehicle registration mark",
+            "example" : "AB12CDE"
+          },
+          "providerReference" : {
+            "type" : "string",
+            "description" : "Provider reference identifier",
+            "example" : "REF123456"
+          },
+          "instructions" : {
+            "type" : "array",
+            "description" : "Array of instruction attachments",
+            "items" : {
+              "$ref" : "#/components/schemas/Attachment"
+            }
+          },
+          "images" : {
+            "type" : "array",
+            "description" : "Array of image attachments",
+            "items" : {
+              "$ref" : "#/components/schemas/ImageAttachment"
+            }
+          },
+          "claimantName" : {
+            "type" : "string",
+            "description" : "Name of the claimant",
+            "example" : "John Doe"
+          },
+          "accidentCircumstances" : {
+            "type" : "string",
+            "description" : "Description of accident circumstances",
+            "example" : "Rear-ended at traffic light"
+          },
+          "accidentDate" : {
+            "type" : "string",
+            "description" : "Date of the accident",
+            "format" : "date",
+            "example" : "2024-06-15"
+          }
+        }
+      },
+      "Attachment" : {
+        "required" : [ "base64Data", "contentType", "filename" ],
+        "type" : "object",
+        "properties" : {
+          "filename" : {
+            "type" : "string",
+            "description" : "Name of the file",
+            "example" : "instructions.pdf"
+          },
+          "base64Data" : {
+            "type" : "string",
+            "description" : "Base64-encoded content of the file",
+            "example" : "VGhpcyBpcyBhIHRlc3QgZmlsZSBjb250ZW50Lg=="
+          },
+          "contentType" : {
+            "type" : "string",
+            "description" : "MIME type of the file",
+            "example" : "application/pdf"
+          },
+          "excludeFromClaim" : {
+            "type" : "boolean",
+            "description" : "Optional flag to exclude from claim",
+            "default" : false
+          },
+          "excludeFromRegistration" : {
+            "type" : "boolean",
+            "description" : "Optional flag to exclude from registration",
+            "default" : false
+          }
+        }
+      },
+      "ImageAttachment" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Attachment"
+        }, {
+          "required" : [ "imageRole" ],
+          "type" : "object",
+          "properties" : {
+            "imageRole" : {
+              "type" : "string",
+              "description" : "Role of the image",
+              "example" : "front",
+              "enum" : [ "front", "rear", "side", "interior", "unknown" ]
+            },
+            "excludeFromClaim" : {
+              "type" : "boolean",
+              "description" : "Optional flag to exclude from claim",
+              "default" : false
+            },
+            "excludeFromRegistration" : {
+              "type" : "boolean",
+              "description" : "Optional flag to exclude from registration",
+              "default" : false
+            },
+            "sequenceIndex" : {
+              "type" : "integer",
+              "description" : "Sequence index for ordering images",
+              "example" : 1
+            }
+          }
+        } ]
+      },
+      "CaseResponse" : {
+        "required" : [ "caseId" ],
+        "type" : "object",
+        "properties" : {
+          "caseId" : {
+            "type" : "string",
+            "description" : "Unique identifier of the created case",
+            "example" : "case-1234567890"
+          },
+          "casePo" : {
+            "type" : "string",
+            "description" : "Case purchase order number, if assigned",
+            "nullable" : true,
+            "example" : "PO-987654321"
+          }
+        }
+      },
+      "ErrorResponse" : {
+        "required" : [ "error", "message" ],
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "type" : "string",
+            "description" : "Error code or type",
+            "example" : "validation_error"
+          },
+          "message" : {
+            "type" : "string",
+            "description" : "Detailed error message",
+            "example" : "The 'vrm' field is required and must be a non-empty string."
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "ApiKeyAuth" : {
+        "type" : "apiKey",
+        "name" : "X-Api-Key",
+        "in" : "header"
+      }
+    }
+  }
+}
