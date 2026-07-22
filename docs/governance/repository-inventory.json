@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1250,
-    "files": 4184,
-    "entries": 5434
+    "files": 4189,
+    "entries": 5439
   },
-  "totalFileBytes": 710557556,
+  "totalFileBytes": 710588863,
   "entries": [
     {
       "path": ".",
@@ -17302,7 +17302,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1701381,
+      "size": 1703000,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17320,8 +17320,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4514760,
-      "sha256": "27cebf1a010272aa82ef42b47dd743193b96095217cdb1cdccacddb35ada0508",
+      "size": 4516799,
+      "sha256": "bfee32d13de928084b957cc2026a078a15bd0d683ecc544322d53fb633546e40",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17329,8 +17329,8 @@
     {
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
-      "size": 72786,
-      "sha256": "87946977263c8b40fa8a9e9d6d18981af3d47543cfef916934fd7e77f82b487e",
+      "size": 72787,
+      "sha256": "9e7d7737c35b286e044fb2f518a797a1dbcaf2d8c69aae3bfa34cc4ed34af94c",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -33547,8 +33547,8 @@
     {
       "path": "packages/domain/src/gates.ts",
       "mediaType": "text/typescript",
-      "size": 21879,
-      "sha256": "46faabb1ecd055bdd72afda25eb1b2802a8120b9062d55e743bf5f48a0a1625c",
+      "size": 22937,
+      "sha256": "184c56abd86cbee4fdd24362197345a914eef1cfb9ba988b5ca760ce6f2d4101",
       "category": "source",
       "owner": "domain-model",
       "lifecycle": "active"
@@ -40522,8 +40522,8 @@
     {
       "path": "services/intake-engine/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 780,
-      "sha256": "7b4491433dd673ddd91d88c38f19df891f1cc48745944f7cac7ce7645374a3ee",
+      "size": 836,
+      "sha256": "7d9610e9d907d7f1c8ae9762f739d0c1919d449723cf2b137357a6e25b750666",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40533,6 +40533,15 @@
       "mediaType": "text/typescript",
       "size": 4615,
       "sha256": "583fb0dd6c980ef8479fd862f8054ff13b8e8ba003da1afe57bd3ea721800c89",
+      "category": "source",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/src/pipeline/extract-forwarded-sender.ts",
+      "mediaType": "text/typescript",
+      "size": 4198,
+      "sha256": "236f7798eb551de9de7356a61dc00c717e29a2dbced480afa76527700f34115c",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40700,6 +40709,24 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/intake-engine/tests/corpus/qdos-staff-forward-audit.txt",
+      "mediaType": "text/plain",
+      "size": 482,
+      "sha256": "797b6bb16d7fd29c4e13ad895f3caf9755995526fe175127b33ff169d21abf20",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/extract-forwarded-sender.test.ts",
+      "mediaType": "text/typescript",
+      "size": 5249,
+      "sha256": "f97cf1905f5af515011ad41093cb1027659a55f9391765f86f308ab9b6c83a06",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/intake-engine/tests/identify-principal.test.ts",
       "mediaType": "text/typescript",
       "size": 4414,
@@ -40720,8 +40747,8 @@
     {
       "path": "services/intake-engine/tests/pipeline.corpus.test.ts",
       "mediaType": "text/typescript",
-      "size": 3549,
-      "sha256": "ed00316e3d1fe7b8ef752c8ef26e9f0be72715312547e329bdde38b7a9bb6f1d",
+      "size": 5393,
+      "sha256": "dfc97ff6d5f4f7ab16eee9ad1e0fbe45128e4fdf2ba81287702d07c8532a697b",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -41512,8 +41539,8 @@
     {
       "path": "services/orchestration/src/workflows/intake-v2/README.md",
       "mediaType": "text/markdown",
-      "size": 4129,
-      "sha256": "3885c26ab519a5dcd886fb2714cf5b15f6751a24afb8db0e1fca6bb2b69d7ff7",
+      "size": 5073,
+      "sha256": "f8f27b09c9052d9e193aca36be3e39fa9e755c93eb6ae663514193983dfa4fef",
       "category": "documentation",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41568,6 +41595,24 @@
       "mediaType": "text/typescript",
       "size": 1969,
       "sha256": "c5337ec70af8ae12c8628d5c77873b289ab04df48c3e6a06b3891564fa1dde40",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/intakeEngineDecision.test.ts",
+      "mediaType": "text/typescript",
+      "size": 6609,
+      "sha256": "2ad5d33ca1e807f75232909496fd0e4ccb66659ab35c6ec5ecd7c39986545cd1",
+      "category": "source",
+      "owner": "orchestration",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/orchestration/src/workflows/intake-v2/intakeEngineDecision.ts",
+      "mediaType": "text/typescript",
+      "size": 6535,
+      "sha256": "af46fe6681d92daf624a5bbe80d1fc6f1f488b34dc24228b229b6d107dda6248",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41765,7 +41810,7 @@
       "path": "services/orchestration/src/workflows/intake/intakeOrchestrator.ts",
       "mediaType": "text/typescript",
       "size": 46856,
-      "sha256": "d16bcea16f78270177836425a73ba3448a3b68c4797986a4e3157833d7ca2803",
+      "sha256": "dab785519600e7ee2378f0cd8fb07dbf5ff2346176073965726fa1eff5a048f3",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41827,8 +41872,8 @@
     {
       "path": "services/orchestration/src/workflows/intake/providerMatch.ts",
       "mediaType": "text/typescript",
-      "size": 4627,
-      "sha256": "cd14e8db28f902f1392d948081d0ee2669d5a4a280744980a0aacef93f1d7be0",
+      "size": 5300,
+      "sha256": "d595cfcb2fd03cd79f8c02c5747c8df27509d3deb28a0bc768bb27874266823f",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

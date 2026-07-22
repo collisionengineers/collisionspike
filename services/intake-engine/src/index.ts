@@ -11,6 +11,7 @@ export * from './registry/defaults.js';
 export * from './registry/loader.js';
 
 // pipeline
+export * from './pipeline/extract-forwarded-sender.js';
 export * from './pipeline/identify-principal.js';
 export * from './pipeline/resolve-intermediary-principal.js';
 export * from './pipeline/classify-email-type.js';

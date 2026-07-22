@@ -35,33 +35,51 @@ numbering, or Box-safety logic is implemented here — it all lives in
   (`services/intake-engine/src/adapters/box-scope-guard.ts`) for why the pinned-root
   assertion happens before any Box call.
 
-## What this directory deliberately does NOT do (yet)
+## The engine is wired AUTHORITATIVELY (INTAKE_ENGINE_ENABLED)
 
-`intakeOrchestrator.ts`'s live 800+ line generator does **not** call these activities —
-wiring the new engine into the actual per-email intake decision (which providers get
-matched, which email type a message resolves to, what Case/PO gets minted) is a
-follow-up iteration, not part of this pass. This pass's job was narrower: stand up the
-new activities, prove they're correctly wired to `@cs/intake-engine` with their own unit
-tests (mocked Box client, no live calls), and rip out the Box-folder-creation call sites
-the new guard supersedes.
+`intakeEngineDecision.ts` puts `@cs/intake-engine` on the live intake path. Ships dark;
+flipping `INTAKE_ENGINE_ENABLED` on is a live operator action, no deploy. Two decisions
+move:
 
-### Why `decideCaseType` was not rewired
+1. **Provider identification** (`providerMatch.ts`) matches on the sender recovered from a
+   forwarded email's quoted header block, not the envelope `From`. This is the change that
+   makes the alpha work at all: every alpha instruction is a staff forward, so the envelope
+   `From` is a Collision Engineers address that correctly matches nothing
+   (docs/operations/alpha-testing.md). The recovered address then goes through the
+   **existing** `matchSenderIdentity` against the full live provider corpus — not the
+   engine's two-entry registry — so no provider loses coverage.
+2. **Case type** (`intakeOrchestrator.ts`) comes from the engine's email-type classifier,
+   mapped onto `CaseWorkType`.
 
-`intakeOrchestrator.ts`'s `decideCaseType` call still uses
-`packages/domain/src/domain/case-type.ts`, not `@cs/intake-engine`'s
-`classify-email-type.ts`. Three concrete blockers, all of which must clear before that
-seam can move:
+### Taxonomy mapping
 
-1. **Registry coverage.** The new engine's registry seeds only QDOS and CNX. PCH is
-   absent, so rewiring would silently stop classifying PCH audits — a live regression
-   with no test to catch it.
-2. **No diminution concept.** The new engine has no equivalent of the `diminution` case
-   type at all.
-3. **Consumer contract.** The call's consumer is `caseResolve`'s
-   `caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution'` field — a
-   data-api contract with no shape to receive the new engine's taxonomy. Changing it is
-   out of scope for this pass.
+| engine email type | `CaseWorkType` | `dual` | minted marker |
+|---|---|---|---|
+| `1a_standard` | `standard` | false | (none) |
+| `1b_audit_repairable` | `audit` | false | `A.` |
+| `1b_audit_total_loss` | `audit_total_loss` | false | `AP.` |
+| `1c_inspection_and_audit` | `audit` | **true** | (none — dual keeps the standard number) |
 
-This is also why `packages/domain/src/domain/case-type.ts` still exists: `retro-
-reconstruct.ts` calls the same `decideCaseType` independently for retro reconstruction,
-so deleting it would break a second, unrelated caller. See that file's own comment.
+The mapping deliberately stops at the TYPE. The engine's own Case/PO prefix strings
+(`'a.'`/`'ap.'`, lower-case by its design note) are **never used** — `markerForMint` in
+`packages/domain/src/domain/case-type.ts` remains the single owner of marker format, so the
+canonical upper-case markers are produced exactly as before and the two casing conventions
+never need reconciling.
+
+The `1c` → `dual: true` mapping is not a guess: `markerForMint` already returns `''` for a
+dual decision, and the engine's own corpus test independently asserts `1c` yields prefix
+`''`. Both sides already agreed.
+
+### Falls back, never guesses
+
+Anything the engine does not resolve — unknown sender, ambiguous domain, or an audit whose
+verdict it could not determine (`needs_review`) — defers to the existing
+`decideCaseType(signals)`. Any throw does too. So the worst case is today's behaviour.
+
+### Known limit: diminution
+
+The engine has no `diminution` concept, accepted for the QDOS alpha experiment. A legacy
+diminution decision is **preserved, not overridden** — the engine cannot meaningfully
+contradict a type it cannot express, and silently downgrading one to `standard` would mint
+a wrong Case/PO. `packages/domain/src/domain/case-type.ts` therefore stays, and is in any
+case still called independently by `retro-reconstruct.ts`.

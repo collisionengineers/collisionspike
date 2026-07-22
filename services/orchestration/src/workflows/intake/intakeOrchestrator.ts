@@ -14,7 +14,8 @@ import type { InboundClassification } from './classifyInbound.js';
 import { shouldAttemptPdfVrmMatch } from '../evidence/imagesReceivedVrmMatch.js';
 import { shouldLinkReplyToCase } from './reply-link-eligibility.js';
 import { shouldAttemptTriageAssist } from './triage-classify.js';
-import { decideCaseType, decideRetro, categoryMintsCase } from '@cs/domain';
+import { decideRetro, categoryMintsCase } from '@cs/domain';
+import { decideCaseTypeWithIntakeEngine } from '../intake-v2/intakeEngineDecision.js';
 import { vehicleDataIntakeIdempotencyKey } from '../../platform/vehicle-data-intake.js';
 import { providerRecoveryAfterArchive } from './intake-decisions.js';
 import { resolveCaseVrm, resolveCaseRef } from './case-identity.js';
@@ -664,14 +665,13 @@ df.app.orchestration('intakeOrchestrator', function* (ctx): Generator<Task, unkn
     );
   }
 
-  // Case-type decision (ADR-0021) — pure + deterministic over the two CHECKPOINTED
-  // activity results (parse envelope + Stage-A classification), so it is replay-safe in
-  // the orchestrator body. The parser's document case_type is primary; the classifier
-  // subtype is fallback/corroboration. APPLYING the decision (case_type_code write +
-  // marker mint) is gated by AUDIT_CASES_ENABLED INSIDE the Data API — forwarding is
-  // unconditional (shadow rollout: gate off, the API records an observe-only audit_event
-  // and mints/types as today). NOT rewired to @cs/intake-engine — intake-v2/README.md.
-  const caseTypeDecision = decideCaseType({
+  // Case-type decision (ADR-0021) — pure + deterministic over CHECKPOINTED values, so it
+  // is replay-safe in the orchestrator body. Under INTAKE_ENGINE_ENABLED the verdict comes
+  // from @cs/intake-engine's email-type classifier, mapped onto CaseWorkType, falling back
+  // to the parser/classifier signals whenever it does not resolve (intake-v2/README.md).
+  // APPLYING the decision (case_type_code write + marker mint) is gated by
+  // AUDIT_CASES_ENABLED INSIDE the Data API — forwarding is unconditional.
+  const caseTypeDecision = decideCaseTypeWithIntakeEngine(inbound, {
     parserCaseType: (parseResult as {
       case_type?: { value?: string | null; dual?: boolean; signals?: string[] };
     }).case_type,

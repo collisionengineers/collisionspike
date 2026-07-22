@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { loadRegistry } from '../src/registry/loader.js';
 import { runIntakePipeline } from '../src/pipeline/pipeline.js';
+import { resolveIdentifyingSender } from '../src/pipeline/extract-forwarded-sender.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CORPUS_DIR = join(HERE, 'corpus');
@@ -57,6 +58,39 @@ describe('runIntakePipeline — synthetic corpus', () => {
       registry,
       year: '26',
     });
+    expect(result.outcome).toBe('resolved');
+    expect(result.principalCode).toBe('QDOS');
+    expect(result.emailType).toBe('1b_audit_repairable');
+    expect(result.caseNumberContract).toEqual({ sequenceScopeKey: 'QDOS26', prefix: 'a.' });
+  });
+
+  /* The alpha's REAL mail shape. Fixtures (1)-(3) hand the pipeline the ideal provider
+   * address directly, which no live alpha email ever carries: every instruction arrives
+   * as a staff forward, so the envelope sender is a Collision Engineers address and
+   * Stage 1 returns 'unmatched' — the pipeline then short-circuits before classifying
+   * anything. Feeding the envelope sender straight in is what that looks like; routing
+   * it through resolveIdentifyingSender first is what makes the engine work. */
+  const STAFF_SENDER = 'sam.baker@collisionengineers.co.uk';
+
+  it('(5a) staff-forwarded QDOS audit, envelope sender used as-is -> unmatched, pipeline never classifies', () => {
+    const result = runIntakePipeline({
+      senderAddress: STAFF_SENDER,
+      contentText: fixture('qdos-staff-forward-audit.txt'),
+      registry,
+      year: '26',
+    });
+    expect(result.outcome).toBe('unmatched');
+    expect(result.identify.outcome).toBe('unmatched');
+    expect(result.emailType).toBeUndefined();
+    expect(result.caseNumberContract).toBeUndefined();
+  });
+
+  it('(5b) same email, sender recovered from the forwarded header -> resolved / QDOS / 1b_audit_repairable / a. prefix', () => {
+    const contentText = fixture('qdos-staff-forward-audit.txt');
+    const { senderAddress, source } = resolveIdentifyingSender(STAFF_SENDER, contentText);
+    expect(source).toBe('forwarded_header');
+
+    const result = runIntakePipeline({ senderAddress, contentText, registry, year: '26' });
     expect(result.outcome).toBe('resolved');
     expect(result.principalCode).toBe('QDOS');
     expect(result.emailType).toBe('1b_audit_repairable');
