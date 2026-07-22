@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1250,
-    "files": 4183,
-    "entries": 5433
+    "files": 4184,
+    "entries": 5434
   },
-  "totalFileBytes": 710552185,
+  "totalFileBytes": 710555532,
   "entries": [
     {
       "path": ".",
@@ -17302,7 +17302,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1701053,
+      "size": 1701381,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17320,8 +17320,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4514347,
-      "sha256": "36e6c04ae50e09b312ac7788726631b18839a837c7f67b678ac6bcd4d2c08d2d",
+      "size": 4514760,
+      "sha256": "cb25b32c9285923500edbfdc099232f373d86cff5b58b464962dbb567f610f5a",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17330,7 +17330,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 72786,
-      "sha256": "4fb6010992c3b37ace03e9364a60e82d3a6124b2a74b0d05c49f58b842596f2c",
+      "sha256": "87946977263c8b40fa8a9e9d6d18981af3d47543cfef916934fd7e77f82b487e",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -28615,8 +28615,8 @@
     {
       "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/changes.md",
       "mediaType": "text/markdown",
-      "size": 663,
-      "sha256": "b4f1a3e8500a70af99af97dbab52128372053ea5a0e67f6bf3258193bf443eac",
+      "size": 970,
+      "sha256": "cdd3af9d52a9c5731d1f1093885a4368fab771b0ca92db6f57f077918ed4c55c",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"
@@ -28626,6 +28626,15 @@
       "mediaType": "text/markdown",
       "size": 1402,
       "sha256": "2cb0e9096f4f1315a785dd34043ebd9d04800e2e085775738d603d9166aa6489",
+      "category": "ticket",
+      "owner": "ticket-system",
+      "lifecycle": "active"
+    },
+    {
+      "path": "docs/tickets/now/TKT-308-retro-fallback-off-for-alpha/verification.md",
+      "mediaType": "text/markdown",
+      "size": 2299,
+      "sha256": "b8193645cd2c2c630adaaf99d19776b02e26a7356d429da57ddf251297996e20",
       "category": "ticket",
       "owner": "ticket-system",
       "lifecycle": "active"

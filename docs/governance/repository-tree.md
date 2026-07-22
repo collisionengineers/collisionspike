@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1250 directories, 4181 files.
+Grand total: 1250 directories, 4182 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,7 +1096,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 630 directories, 1541 files
+### docs — 630 directories, 1542 files
 
 ```text
 docs/  (1 file)
@@ -1650,7 +1650,7 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-307-signature-image-regex-digit-cap/  (2 files)
         evidence/  (1 file)
-      TKT-308-retro-fallback-off-for-alpha/  (2 files)
+      TKT-308-retro-fallback-off-for-alpha/  (3 files)
         evidence/  (1 file)
       TKT-309-eva-image-rules-advisory/  (2 files)
         evidence/  (1 file)
@@ -2282,9 +2282,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4181 | 4181 | PASS |
+| Proposed tree files == ledger final files | 4182 | 4182 | PASS |
 | Proposed tree directories == ledger final directories | 1250 | 1250 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4183 | 4183 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4184 | 4184 | PASS |
 | Proposed directories == inventory directories | 1250 | 1250 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
