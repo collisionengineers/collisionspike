@@ -112,6 +112,7 @@
     "retroactive linking",
     "AI image analysis: OFF since the 2026-07-21 PLAN-015 alpha trim (IMAGE_ANALYSIS_ENABLED=false) — closes the write-only-suggestions gap the assistant shutdown opened earlier the same day",
     "AI image role/registration classification: OFF since 2026-07-22T10:56:13Z by explicit operator direction (IMAGE_ROLE_CLASSIFY_ENABLED=false on cespk-orch-dev). New photos persist with role 'unknown'. Also stops the 5-minute Box classification sweep (box-classification-monitor) making any model call, and therefore stops it dead-lettering evidence rows — the TKT-306 failure mode. Evidence already dead-lettered with box_classify_dead_letter_reason='model_content_filter' is NOT recovered by this and stays permanently unswept; no reset route exists in code",
+    "rebuilt intake rules engine (@cs/intake-engine): ON since 2026-07-22T12:35:47Z (INTAKE_ENGINE_ENABLED=true on cespk-orch-dev). Provider identification now reads the ORIGINATING sender out of a forwarded email's quoted header — the alpha's entire mail shape is staff forwards, whose envelope From correctly matches nothing — and the case-type decision comes from the engine's email-type classifier mapped onto CaseWorkType. Falls back to the previous decideCaseType() on unmatched/ambiguous/needs_review or any throw. No diminution concept: a legacy diminution decision is preserved, not overridden",
     "read-only MCP (unaffected by the 2026-07-21 assistant shutdown — external AI tools can still read case data)"
   ],
   "deliberatelyUnavailable": [

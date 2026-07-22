@@ -17,7 +17,7 @@
     "files": 4189,
     "entries": 5439
   },
-  "totalFileBytes": 710588863,
+  "totalFileBytes": 710590702,
   "entries": [
     {
       "path": ".",
@@ -13414,8 +13414,8 @@
     {
       "path": "LIVE_FACTS.json",
       "mediaType": "application/json",
-      "size": 23133,
-      "sha256": "8cbc2708685d95974fb149093099d66f1afdc9856a44f3e9b941687986553743",
+      "size": 23742,
+      "sha256": "41afa136de95d60e36814218035560d3a75fdfa475ce59940bf01bb780160982",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -17321,7 +17321,7 @@
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
       "size": 4516799,
-      "sha256": "bfee32d13de928084b957cc2026a078a15bd0d683ecc544322d53fb633546e40",
+      "sha256": "28e76540276079d74fc2e78df2240c6ab9e63f1b50df04e83865eacf11fb7a17",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17419,8 +17419,8 @@
     {
       "path": "docs/operations/feature-gates.md",
       "mediaType": "text/markdown",
-      "size": 34361,
-      "sha256": "6c57e4e1405770824db9b4cd7d4df3573aedad57e1d679adf1740fab93e2365b",
+      "size": 35591,
+      "sha256": "d75d56d6d3c4fb84af75375eef03e3499dd17fc8a281a198ea23d50332855da9",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
