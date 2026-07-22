@@ -12,7 +12,7 @@
  * `node -e "require('./.artifacts/deploy/orchestration/main.cjs')"`, which registers
  * Durable activities without ever calling into them. Unit tests pass too, because under
  * vitest the source tree really is on disk. Exactly this gap shipped a version of
- * box-test-guard.ts that read tools/box-scope.json and a registry loader that
+ * box-scope-guard.ts that read tools/box-scope.json and a registry loader that
  * `readdirSync`'d providers/ — both green everywhere, both dead in production.
  *
  * So: bundle with the REAL deploy config, write the output somewhere with no repo above

@@ -90,7 +90,7 @@ df.app.activity('boxFolderAugment', {
       return { skipped: true, reason: 'no_case_po' };
     }
     const folderName = resolveArchiveFolderName(rawCasePo);
-    // The guarded ensure call — @cs/intake-engine's box-test-guard fails closed unless
+    // The guarded ensure call — @cs/intake-engine's box-scope-guard fails closed unless
     // the target parent is the pinned test root (see intake-v2/ensureArchiveFolder.ts).
     const folder = await ensureArchiveFolderV2Core({ name: folderName });
     const folderUrl = `https://app.box.com/folder/${encodeURIComponent(folder.id)}`;

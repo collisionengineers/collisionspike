@@ -1,6 +1,13 @@
 /* ============================================================
    intake-engine — THE single Box-folder-creation safety primitive.
 
+   NAME: "box-scope-guard", not "box-test-guard". This is PRODUCTION code that pins Box
+   writes to the test-scope root — it is not a test helper. The old name tokenized to
+   "test", so scripts/checks/check-production-dependencies.mjs classified it as
+   artificial/test-only data and failed the build for being reachable from a production
+   entry point. It also just read wrong. Do not rename it back; "scope" matches
+   tools/box-scope.json, which is the actual source of truth for the pinned root.
+
    This package has ZERO live Box/Graph SDK dependencies and ZERO runtime I/O.
    `ensureArchiveFolder` is pure logic plus ONE guarded pass-through: the actual Box
    read/create calls are INJECTED (an interface, never a live SDK import). It resolves
@@ -81,7 +88,7 @@ export async function ensureArchiveFolder(
 
   if (targetParent !== pinnedRoot) {
     throw new Error(
-      `box-test-guard: refusing to create/find folder under "${targetParent}" — pinned test root is "${pinnedRoot}"`,
+      `box-scope-guard: refusing to create/find folder under "${targetParent}" — pinned test root is "${pinnedRoot}"`,
     );
   }
 

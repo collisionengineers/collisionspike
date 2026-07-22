@@ -17,7 +17,7 @@
     "files": 4183,
     "entries": 5433
   },
-  "totalFileBytes": 710551611,
+  "totalFileBytes": 710552136,
   "entries": [
     {
       "path": ".",
@@ -17302,7 +17302,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1701051,
+      "size": 1701053,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17320,8 +17320,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4514345,
-      "sha256": "d3baf657c8fa2a01e5705397ef14d9a0d0d0ab47d8fcd21429d67ef0563fad7c",
+      "size": 4514347,
+      "sha256": "c682cc2fc621608e919d0b2a2240f39d6c2ddf116adef6d59f112aa8781e1a68",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -40477,8 +40477,8 @@
     {
       "path": "services/intake-engine/README.md",
       "mediaType": "text/markdown",
-      "size": 6198,
-      "sha256": "3f9ffaeba8d71aa0ec12bd8633e6ef799209dd777f62d253f9530cdd85b7572a",
+      "size": 6203,
+      "sha256": "da85853135a21fda0f845ec242ab0f09ec720fcda68732bb84dff4f29d728d4c",
       "category": "documentation",
       "owner": "repository",
       "lifecycle": "active"
@@ -40493,10 +40493,10 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/intake-engine/src/adapters/box-test-guard.ts",
+      "path": "services/intake-engine/src/adapters/box-scope-guard.ts",
       "mediaType": "text/typescript",
-      "size": 4708,
-      "sha256": "40125bdaada2fcd98392809fca9ca5d1c5a3fc250f4f4488b00447a6921fd0d9",
+      "size": 5216,
+      "sha256": "d6eab306e7ebe5b8c059bd3c5aa8a51a69893eaf2ea04a64fa8c5eba3c33aa83",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40513,8 +40513,8 @@
     {
       "path": "services/intake-engine/src/index.ts",
       "mediaType": "text/typescript",
-      "size": 779,
-      "sha256": "923373ae0adad37c7011554381f950509481c36af9a7f118962bd2e17288ad62",
+      "size": 780,
+      "sha256": "7b4491433dd673ddd91d88c38f19df891f1cc48745944f7cac7ce7645374a3ee",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40619,19 +40619,19 @@
       "lifecycle": "active"
     },
     {
-      "path": "services/intake-engine/tests/box-scope-parity.test.ts",
+      "path": "services/intake-engine/tests/box-scope-guard.test.ts",
       "mediaType": "text/typescript",
-      "size": 2064,
-      "sha256": "054a158f2011c7bfbd1204fa1aea374d663693e10d3ab2e2a412cc16c44e3b94",
+      "size": 2621,
+      "sha256": "fb0490950b5b90b15434d22ae7f3ff3ab8f1238418328af5c7102e642b687ae0",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
     },
     {
-      "path": "services/intake-engine/tests/box-test-guard.test.ts",
+      "path": "services/intake-engine/tests/box-scope-parity.test.ts",
       "mediaType": "text/typescript",
-      "size": 2620,
-      "sha256": "f47cbf9ebc843ab2a1cefa74a6a765dd27e7767528b46a19a397a59f8c5d06c1",
+      "size": 2066,
+      "sha256": "3c23d1a72bd4a4d67499a8627af85d1f63769b57a39d5ef05173f55f4912c4c4",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -40639,8 +40639,8 @@
     {
       "path": "services/intake-engine/tests/bundle-survival.test.ts",
       "mediaType": "text/typescript",
-      "size": 4325,
-      "sha256": "14cf7b239e4ce6ad81c4e0f152c91817a1c091610bb3cb90a44a6a4f821c3b1e",
+      "size": 4326,
+      "sha256": "327124c09936f88b599ca4faed42a27343c1dcf84a5e0aa81fcae7cbb847966a",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -41350,8 +41350,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.ts",
       "mediaType": "text/typescript",
-      "size": 5570,
-      "sha256": "c7fb4c990e505cbee6d94ada2c9a5b4c27aaf15e45c1198b6568342c3693536e",
+      "size": 5571,
+      "sha256": "b3daf630c89da388345be90c45eda3e322cb06140c54079dc0d78ad6ceda555d",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41503,8 +41503,8 @@
     {
       "path": "services/orchestration/src/workflows/intake-v2/README.md",
       "mediaType": "text/markdown",
-      "size": 3089,
-      "sha256": "5ba146180cff388ffac61b34363e3613339cac685611e4e1ca627036e8923efe",
+      "size": 3090,
+      "sha256": "1b6f676c43a5963252f9b55421e0a751d2c4ed36a3f6f5eff4199a18699cb8ee",
       "category": "documentation",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41539,8 +41539,8 @@
     {
       "path": "services/orchestration/src/workflows/intake-v2/ensureArchiveFolder.ts",
       "mediaType": "text/typescript",
-      "size": 5495,
-      "sha256": "037ed2a570c68970f9715dc894eb97c04e085d08a13782f26392da2d30d70f9f",
+      "size": 5496,
+      "sha256": "d1ced5496dccbf91891c30eefc3dfd17534e3190fe2e89652ab5a1ff8cd646a5",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

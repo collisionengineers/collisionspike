@@ -6,7 +6,7 @@
  * to the `BoxFolderClient` shape `@cs/intake-engine`'s `ensureArchiveFolder` guard
  * expects, then calls it.
  *
- * `ensureArchiveFolder` (services/intake-engine/src/adapters/box-test-guard.ts) resolves
+ * `ensureArchiveFolder` (services/intake-engine/src/adapters/box-scope-guard.ts) resolves
  * the pinned test-scope root from tools/box-scope.json's `allowedRoot` and asserts the
  * target parent folder id against it BEFORE either injected client method runs — any
  * mismatch throws immediately, no Box call happens. That is the entire safety property

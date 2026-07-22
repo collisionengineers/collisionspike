@@ -32,7 +32,7 @@ numbering, or Box-safety logic is implemented here — it all lives in
   folder-augment step, the unmatched-images VRM folder) now routes through this
   activity's exported `ensureArchiveFolderV2Core` function rather than calling
   `box.createFolder` directly. See that guard's own doc comment
-  (`services/intake-engine/src/adapters/box-test-guard.ts`) for why the pinned-root
+  (`services/intake-engine/src/adapters/box-scope-guard.ts`) for why the pinned-root
   assertion happens before any Box call.
 
 ## What this directory deliberately does NOT do (yet)

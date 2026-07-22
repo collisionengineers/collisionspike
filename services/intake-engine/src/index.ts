@@ -19,5 +19,5 @@ export * from './pipeline/resolve-archive-folder-name.js';
 export * from './pipeline/pipeline.js';
 
 // adapters
-export * from './adapters/box-test-guard.js';
+export * from './adapters/box-scope-guard.js';
 export * from './adapters/outlook-readonly-guard.js';

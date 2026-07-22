@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { resolveArchiveRoot, ensureArchiveFolder, type BoxFolderClient } from '../src/adapters/box-test-guard.js';
+import { resolveArchiveRoot, ensureArchiveFolder, type BoxFolderClient } from '../src/adapters/box-scope-guard.js';
 
 const PINNED_ROOT = '392761581105'; // tools/box-scope.json's allowedRoot, confirmed in the ticket.
 

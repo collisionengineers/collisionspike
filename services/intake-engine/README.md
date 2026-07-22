@@ -14,7 +14,7 @@ calls, no database, no Box/Graph SDK imports anywhere. The only file-system read
 this package are:
 
 - `src/registry/loader.ts` reading its own `providers/*.json` files, and
-- `src/adapters/box-test-guard.ts` reading `tools/box-scope.json` to resolve the pinned
+- `src/adapters/box-scope-guard.ts` reading `tools/box-scope.json` to resolve the pinned
   archive-root id.
 
 Both are read-only, local-repo reads — never a live API call. This is why the package
@@ -57,14 +57,14 @@ match any registry entry proceeds through the pipeline as `unmatched`, per
 
 ## 3. The two safety guards, and why they're single choke points
 
-- **`src/adapters/box-test-guard.ts`** — `ensureArchiveFolder(name, boxClient, opts?)`
+- **`src/adapters/box-scope-guard.ts`** — `ensureArchiveFolder(name, boxClient, opts?)`
   is the *only* way this package touches a Box folder. It resolves the pinned test-root
   id from `tools/box-scope.json` (the SAME pinned root, `392761581105`, already
   enforced elsewhere in this repo — see `.claude/hooks/box-scope-lib.mjs`) and asserts
   the target parent folder against it **before** calling either injected client method.
   `boxClient` is an injected interface, never a live SDK import, so this package has no
   network dependency and its guard can be exhaustively unit-tested with a fake client
-  (see `tests/box-test-guard.test.ts`, including the negative case: a mismatched root
+  (see `tests/box-scope-guard.test.ts`, including the negative case: a mismatched root
   throws before the fake client is ever called).
 - **`src/adapters/outlook-readonly-guard.ts`** — exports only read-shaped types
   (`ReadOnlyMessageAccess`: `getMessageBody`, `getAttachments`). It documents/enforces,
@@ -106,9 +106,9 @@ src/
   pipeline/          identify-principal -> resolve-intermediary-principal ->
                      classify-email-type -> mint-case-number -> resolve-archive-folder-name,
                      composed by pipeline.ts
-  adapters/          box-test-guard.ts, outlook-readonly-guard.ts
+  adapters/          box-scope-guard.ts, outlook-readonly-guard.ts
   index.ts           public barrel export
 tests/
   registry.test.ts, identify-principal.test.ts, classify-email-type.test.ts,
-  mint-case-number.test.ts, box-test-guard.test.ts, pipeline.corpus.test.ts (+ tests/corpus/*.txt)
+  mint-case-number.test.ts, box-scope-guard.test.ts, pipeline.corpus.test.ts (+ tests/corpus/*.txt)
 ```
