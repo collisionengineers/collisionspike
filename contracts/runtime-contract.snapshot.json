@@ -86,7 +86,7 @@
         "publicPath": "/api/box-folder-create",
         "authLevel": "function",
         "policyIdentifiers": [],
-        "source": "services/orchestration/src/workflows/archive/box-folder-create.ts"
+        "source": "services/orchestration/src/workflows/archive/case-archive-folder.ts"
       },
       {
         "runtime": "python",
