@@ -105,12 +105,13 @@
     "mail intake",
     "document parsing",
     "vehicle enrichment",
-    "plate and scanned-document OCR",
+    "scanned-document OCR (plate OCR turned OFF 2026-07-22T10:56:13Z by operator direction, PLATE_OCR_ENABLED=false on cespk-orch-dev; scanned-document OCR deliberately left ON)",
     "Archive folders and file requests",
     "location assistance",
     "mail triage",
     "retroactive linking",
     "AI image analysis: OFF since the 2026-07-21 PLAN-015 alpha trim (IMAGE_ANALYSIS_ENABLED=false) — closes the write-only-suggestions gap the assistant shutdown opened earlier the same day",
+    "AI image role/registration classification: OFF since 2026-07-22T10:56:13Z by explicit operator direction (IMAGE_ROLE_CLASSIFY_ENABLED=false on cespk-orch-dev). New photos persist with role 'unknown'. Also stops the 5-minute Box classification sweep (box-classification-monitor) making any model call, and therefore stops it dead-lettering evidence rows — the TKT-306 failure mode. Evidence already dead-lettered with box_classify_dead_letter_reason='model_content_filter' is NOT recovered by this and stays permanently unswept; no reset route exists in code",
     "read-only MCP (unaffected by the 2026-07-21 assistant shutdown — external AI tools can still read case data)"
   ],
   "deliberatelyUnavailable": [
