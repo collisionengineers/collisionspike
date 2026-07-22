@@ -1,6 +1,33 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { loadRegistry } from '../src/registry/loader.js';
 import { DEFAULT_EMAIL_TYPE_RULES } from '../src/registry/defaults.js';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const PROVIDERS_DIR = resolve(HERE, '..', 'src', 'registry', 'providers');
+
+/**
+ * loader.ts uses STATIC IMPORTS rather than a directory scan, because a scan cannot
+ * survive the esbuild deploy bundle (see the manifest comment there). The cost is that
+ * a new provider JSON must be added to the manifest by hand. This test does the
+ * directory scan at TEST time so a forgotten entry fails loudly here instead of
+ * silently going missing in production.
+ */
+describe('provider manifest completeness', () => {
+  it('every JSON file in providers/ is present in the loaded registry', () => {
+    const onDisk = readdirSync(PROVIDERS_DIR)
+      .filter((name) => name.toLowerCase().endsWith('.json'))
+      .sort();
+    const loaded = loadRegistry();
+    expect(loaded.all.length).toBe(onDisk.length);
+    // Each file is named <PRINCIPAL>.json, so the principal codes must match the files.
+    const loadedCodes = loaded.all.map((entry) => entry.principalCode).sort();
+    const fileCodes = onDisk.map((name) => name.replace(/\.json$/i, '')).sort();
+    expect(loadedCodes).toEqual(fileCodes);
+  });
+});
 
 describe('loadRegistry', () => {
   it('loads both seeded providers', () => {

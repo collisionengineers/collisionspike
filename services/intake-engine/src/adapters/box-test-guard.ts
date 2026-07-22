@@ -1,26 +1,36 @@
 /* ============================================================
    intake-engine — THE single Box-folder-creation safety primitive.
 
-   This package has ZERO live Box/Graph SDK dependencies. `ensureArchiveFolder` is pure
-   logic plus ONE guarded pass-through: the actual Box read/create calls are INJECTED
-   (an interface, never a live SDK import). It resolves the pinned test-scope root via
-   `resolveArchiveRoot()` — which reads tools/box-scope.json's `allowedRoot`, the SAME
-   pinned root id (`392761581105`) the rest of this repo's Box tooling already enforces
-   (see .claude/hooks/box-scope-lib.mjs) — and asserts it BEFORE calling either injected
-   client method. Any mismatch throws immediately; no Box call happens.
+   This package has ZERO live Box/Graph SDK dependencies and ZERO runtime I/O.
+   `ensureArchiveFolder` is pure logic plus ONE guarded pass-through: the actual Box
+   read/create calls are INJECTED (an interface, never a live SDK import). It resolves
+   the pinned test-scope root via `resolveArchiveRoot()` — the compiled-in
+   `PINNED_ARCHIVE_ROOT_ID` (`392761581105`), the SAME pinned root id the rest of this
+   repo's Box tooling already enforces (see .claude/hooks/box-scope-lib.mjs and
+   tools/box-scope.json) — and asserts it BEFORE calling either injected client method.
+   Any mismatch throws immediately; no Box call happens.
 
    Written so it is IMPOSSIBLE to reach `boxClient.getFolder`/`createFolder` without
    first passing the root assertion: there is exactly one code path through this
    function, and the assertion is the first statement on it.
    ============================================================ */
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-// services/intake-engine/src/adapters -> repo root -> tools/box-scope.json
-const DEFAULT_BOX_SCOPE_PATH = resolve(HERE, '..', '..', '..', '..', 'tools', 'box-scope.json');
+/**
+ * The pinned test-scope archive root, COMPILED IN as a literal.
+ *
+ * This deliberately does NOT read tools/box-scope.json at runtime. The orchestration
+ * service ships as a single esbuild bundle (scripts/build/build-orchestration.cjs) with
+ * `import.meta.url` rewritten to the bundle's own path, and the bundler copies only
+ * host.json — so an `import.meta.url`-relative read of tools/box-scope.json resolves to
+ * a path four levels above wwwroot that has never existed on the Function App. A file
+ * read here fails closed on EVERY archive-folder call in production while CI stays green
+ * (ci.yml only `require`s the bundle, which registers activities without calling this).
+ *
+ * tools/box-scope.json remains the single source of truth: `box-scope-parity.test.ts`
+ * reads it at TEST time — where the repo genuinely exists — and fails if this literal
+ * ever drifts from its `allowedRoot`.
+ */
+export const PINNED_ARCHIVE_ROOT_ID = '392761581105';
 
 /** The shape of Box folder read/create calls this module accepts. Deliberately NOT the
  * live Box SDK's client type — an injected fake/mock satisfies this in tests, a real
@@ -36,39 +46,20 @@ export interface EnsureArchiveFolderOptions {
    * this to anything but the default; it exists so this function still has an
    * explicit assertion point rather than an implicit "trust the caller" root. */
   parentFolderId?: string;
-  /** Override the box-scope.json path — TEST USE ONLY, so this module's own tests
-   * don't depend on the file actually existing at the real repo-relative location.
-   * Production callers must never set this. */
-  scopeConfigPathOverride?: string;
 }
 
 /**
- * Reads the pinned allowed Box archive root from tools/box-scope.json. FAILS CLOSED:
- * throws if the file is missing, unreadable, not valid JSON, or missing a non-empty
- * `allowedRoot` string — never silently allows an un-pinned root.
+ * The pinned allowed Box archive root. Pure — no I/O, so it behaves identically in the
+ * repo, in tests, and inside the deployed single-file bundle.
+ *
+ * Note what this does and does not buy: the assertion below compares a caller-supplied
+ * parent (env `BOX_FOLDER_ROOT_ID`, or a persisted `root_folder_id` DB column on the
+ * TKT-034 holding path) against this compiled-in literal. That comparison is only
+ * meaningful BECAUSE the two sides come from different places — were both sides read
+ * from the same env var, the guard would be a tautology.
  */
-export function resolveArchiveRoot(scopeConfigPathOverride?: string): string {
-  const path = scopeConfigPathOverride ?? DEFAULT_BOX_SCOPE_PATH;
-
-  let raw: string;
-  try {
-    raw = readFileSync(path, 'utf8');
-  } catch (err) {
-    throw new Error(`box-test-guard: cannot read Box scope config at ${path}: ${(err as Error).message}`);
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    throw new Error(`box-test-guard: Box scope config at ${path} is not valid JSON: ${(err as Error).message}`);
-  }
-
-  const allowedRoot = (parsed as Record<string, unknown> | null)?.allowedRoot;
-  if (typeof allowedRoot !== 'string' || allowedRoot.length === 0) {
-    throw new Error(`box-test-guard: Box scope config at ${path} has no non-empty "allowedRoot" string`);
-  }
-  return allowedRoot;
+export function resolveArchiveRoot(): string {
+  return PINNED_ARCHIVE_ROOT_ID;
 }
 
 /**
@@ -85,7 +76,7 @@ export async function ensureArchiveFolder(
   boxClient: BoxFolderClient,
   opts: EnsureArchiveFolderOptions = {},
 ): Promise<{ id: string; name: string }> {
-  const pinnedRoot = resolveArchiveRoot(opts.scopeConfigPathOverride);
+  const pinnedRoot = resolveArchiveRoot();
   const targetParent = opts.parentFolderId ?? pinnedRoot;
 
   if (targetParent !== pinnedRoot) {

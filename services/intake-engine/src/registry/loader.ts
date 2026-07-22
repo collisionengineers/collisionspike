@@ -19,9 +19,8 @@
    validation throws (that's a real authoring mistake, not "unregistered").
    ============================================================ */
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import CNX from './providers/CNX.json';
+import QDOS from './providers/QDOS.json';
 import { DEFAULT_PROVIDER_ENTRY, DEFAULT_EMAIL_TYPE_RULES } from './defaults.js';
 import {
   providerRegistryEntryInputSchema,
@@ -30,8 +29,24 @@ import {
   type ProviderRegistryEntryInput,
 } from './schema.js';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const PROVIDERS_DIR = join(HERE, 'providers');
+/**
+ * The provider registry manifest. STATIC IMPORTS, not a directory scan.
+ *
+ * A `readdirSync(join(import.meta.url, 'providers'))` scan cannot survive deployment:
+ * the orchestration service ships as a single esbuild bundle, so that path resolves to
+ * `<wwwroot>/providers` — which does not exist, and the JSON is not copied into the
+ * artifact — making every registry read throw in production while CI stays green
+ * (ci.yml only `require`s the bundle). Static imports are inlined by esbuild, so the
+ * registry data travels inside the bundle itself.
+ *
+ * ADDING A PROVIDER: drop the JSON in providers/ AND add it here. `registry.test.ts`
+ * scans the directory at TEST time and fails if any file is missing from this list, so
+ * a forgotten entry cannot slip through silently.
+ */
+const PROVIDER_FILES: ReadonlyArray<{ file: string; data: unknown }> = [
+  { file: 'CNX.json', data: CNX },
+  { file: 'QDOS.json', data: QDOS },
+];
 
 function mergeEmailTypeRules(input: ProviderRegistryEntryInput['emailTypeRules']): EmailTypeRules {
   return {
@@ -62,33 +77,16 @@ export interface ProviderRegistry {
   all: ProviderRegistryEntry[];
 }
 
-/** Reads registry/providers/*.json, merges each over the defaults layer, and returns
- * both a lookup Map and a plain array. Throws only on a malformed PRESENT file (bad
- * JSON or schema violation) or an unreadable providers/ directory — never for an
- * absent/unknown provider code. */
+/** Merges each manifest provider over the defaults layer and returns both a lookup Map
+ * and a plain array. Pure — no I/O, so it behaves identically in the repo, in tests, and
+ * inside the deployed single-file bundle. Throws only on a provider that fails schema
+ * validation (a real authoring mistake) — never for an absent/unknown provider code.
+ * A malformed-JSON case can no longer occur at runtime: the imports are parsed at build
+ * time, so bad JSON is a compile error instead. */
 export function loadRegistry(): ProviderRegistry {
-  let files: string[];
-  try {
-    files = readdirSync(PROVIDERS_DIR).filter((name) => name.toLowerCase().endsWith('.json'));
-  } catch (err) {
-    throw new Error(
-      `intake-engine: cannot read provider registry directory at ${PROVIDERS_DIR}: ${(err as Error).message}`,
-    );
-  }
-
   const all: ProviderRegistryEntry[] = [];
-  for (const file of files) {
-    const path = join(PROVIDERS_DIR, file);
-    const raw = readFileSync(path, 'utf8');
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (err) {
-      throw new Error(`intake-engine: ${file} is not valid JSON: ${(err as Error).message}`);
-    }
-
-    const result = providerRegistryEntryInputSchema.safeParse(parsed);
+  for (const { file, data } of PROVIDER_FILES) {
+    const result = providerRegistryEntryInputSchema.safeParse(data);
     if (!result.success) {
       throw new Error(`intake-engine: ${file} failed provider registry schema validation: ${result.error.message}`);
     }

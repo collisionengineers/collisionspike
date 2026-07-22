@@ -2,7 +2,7 @@
  * TKT-298 acceptance under test (consumer side): the queue starter drops with a trace
  * unless BOTH gates are on, dedups duplicate deliveries onto the deterministic
  * `eva-shadow-{caseId}` instance, admits Failed/Terminated re-drives, and the
- * orchestrator is a single evaSubmit call (never evaArchiveFolderEnsure).
+ * orchestrator is a single evaSubmit call (never boxFolderAugment).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InvocationContext } from '@azure/functions';
@@ -120,7 +120,7 @@ describe('eva-shadow-submit-starter', () => {
 });
 
 describe('evaShadowSubmitOrchestrator', () => {
-  it('is a single evaSubmit call — never evaArchiveFolderEnsure', () => {
+  it('is a single evaSubmit call — never boxFolderAugment', () => {
     const fn = durable.orchestrations.get('evaShadowSubmitOrchestrator')!;
     const calls: Array<{ activity: string; input: unknown }> = [];
     const ctx = {

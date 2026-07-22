@@ -14,10 +14,10 @@
   "classificationPolicy": "Deterministic path-based defaults; owner and lifecycle are navigation metadata and must be reviewed when responsibilities change",
   "counts": {
     "directories": 1231,
-    "files": 4155,
-    "entries": 5386
+    "files": 4157,
+    "entries": 5388
   },
-  "totalFileBytes": 710401750,
+  "totalFileBytes": 710412243,
   "entries": [
     {
       "path": ".",
@@ -17131,7 +17131,7 @@
     {
       "path": "docs/governance/repository-inventory.json",
       "mediaType": "application/json",
-      "size": 1686207,
+      "size": 1686824,
       "sha256": null,
       "category": "repository-inventory",
       "owner": "repository-governance",
@@ -17149,8 +17149,8 @@
     {
       "path": "docs/governance/repository-reconciliation.json",
       "mediaType": "application/json",
-      "size": 4495453,
-      "sha256": "c6163c8dc9c2a25b7c28c97ae73fadea106aa0b28ac6764a0fbf57a5586bb0b1",
+      "size": 4496236,
+      "sha256": "148fa0609d88519e245ada675ff1ccc85bbdc9efb49661b77f0fba3dbe6b2134",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -17159,7 +17159,7 @@
       "path": "docs/governance/repository-tree.md",
       "mediaType": "text/markdown",
       "size": 71832,
-      "sha256": "015c95220d34e532942802e6154b02371003b5a079207c4d05114da9a47591be",
+      "sha256": "1e04deec24e88af9abf4bca135711e7bd72d781fed4e5c4e59e935989c6aa2e3",
       "category": "documentation",
       "owner": "documentation",
       "lifecycle": "active"
@@ -32161,8 +32161,8 @@
     {
       "path": "package-lock.json",
       "mediaType": "application/json",
-      "size": 236065,
-      "sha256": "6621aa7186497715425413454e1cec5a2835b3efda63e7a31c94edbed8edbc48",
+      "size": 236129,
+      "sha256": "3ad4ddf61f3ee0c2372a14ebbb50ab3e32274a68d65e18d74025d0d223e7c75b",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -32170,8 +32170,8 @@
     {
       "path": "package.json",
       "mediaType": "application/json",
-      "size": 6421,
-      "sha256": "411a56a021a0b5e7ef0a85bbc65fc2b9c05feac1454d35f5bd7e43d466fb0cb3",
+      "size": 6588,
+      "sha256": "5a65790df9a0bffcc205d661eb977e6c0fd400fd0f8233d0829d1aaff0babdf9",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -40081,8 +40081,8 @@
     {
       "path": "services/intake-engine/package.json",
       "mediaType": "application/json",
-      "size": 400,
-      "sha256": "e63b8dbb15884dffd4407044fcdefcf3aa81b4b3902a063241be4400975572cf",
+      "size": 426,
+      "sha256": "c0e3cf2a48c839869ed3dc1eed207d0369c4da5eef56d15597c2e4b81ce05990",
       "category": "configuration",
       "owner": "repository",
       "lifecycle": "active"
@@ -40090,8 +40090,8 @@
     {
       "path": "services/intake-engine/src/adapters/box-test-guard.ts",
       "mediaType": "text/typescript",
-      "size": 4756,
-      "sha256": "88dba56f8cd7ae20d51862071f644ed8fb63a709fbc96c28e29b5f134679e36c",
+      "size": 4708,
+      "sha256": "40125bdaada2fcd98392809fca9ca5d1c5a3fc250f4f4488b00447a6921fd0d9",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40180,8 +40180,8 @@
     {
       "path": "services/intake-engine/src/registry/loader.ts",
       "mediaType": "text/typescript",
-      "size": 4565,
-      "sha256": "364351288849bf3152bc7895fafdd97442add010dae60c0491df764e833f95c9",
+      "size": 5008,
+      "sha256": "8c9311747cb3d00c70b8675156c1f3b623133e3e061493ef42370cd0806df4ca",
       "category": "source",
       "owner": "repository",
       "lifecycle": "active"
@@ -40214,10 +40214,28 @@
       "lifecycle": "active"
     },
     {
+      "path": "services/intake-engine/tests/box-scope-parity.test.ts",
+      "mediaType": "text/typescript",
+      "size": 2064,
+      "sha256": "054a158f2011c7bfbd1204fa1aea374d663693e10d3ab2e2a412cc16c44e3b94",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
       "path": "services/intake-engine/tests/box-test-guard.test.ts",
       "mediaType": "text/typescript",
       "size": 2620,
       "sha256": "f47cbf9ebc843ab2a1cefa74a6a765dd27e7767528b46a19a397a59f8c5d06c1",
+      "category": "test",
+      "owner": "repository",
+      "lifecycle": "active"
+    },
+    {
+      "path": "services/intake-engine/tests/bundle-survival.test.ts",
+      "mediaType": "text/typescript",
+      "size": 4325,
+      "sha256": "14cf7b239e4ce6ad81c4e0f152c91817a1c091610bb3cb90a44a6a4f821c3b1e",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -40297,8 +40315,8 @@
     {
       "path": "services/intake-engine/tests/registry.test.ts",
       "mediaType": "text/typescript",
-      "size": 1899,
-      "sha256": "431c269caf859ec4bccf1ff5573db144d2aa17f25dcce8e1f68fe699960cbc3d",
+      "size": 3184,
+      "sha256": "913422cf7b697ae8a05988243810889deeb892e9e5fc8304437a409ac808eb42",
       "category": "test",
       "owner": "repository",
       "lifecycle": "active"
@@ -40900,8 +40918,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.test.ts",
       "mediaType": "text/typescript",
-      "size": 5268,
-      "sha256": "55241c386ea5ff1560c0c933852aecfaab401c167b63b0cd688cfce17779f25a",
+      "size": 5256,
+      "sha256": "5e9a66e449791a23a5cf77d0aeab3be8acb06171e004b30bb3cf71ad354ee995",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40909,8 +40927,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/eva-shadow-submit.ts",
       "mediaType": "text/typescript",
-      "size": 3960,
-      "sha256": "331c4e946966baf73e423f273cf07e2325cb9591677fd1fa7a6d08ce52c04ae0",
+      "size": 3866,
+      "sha256": "679ff46e824c1a6b9c2babf4b75f00d1a30079d76f5a923d777409a570eae572",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40918,8 +40936,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.test.ts",
       "mediaType": "text/typescript",
-      "size": 4084,
-      "sha256": "7758c7acfefb740b6c879f409e4f8fea265080f8320c6f750742cd050a833f43",
+      "size": 4054,
+      "sha256": "80761c09a460b1c98dfdfedbe1a3cce684b6da4b159a94a7c3b6c550e82f3460",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -40927,8 +40945,8 @@
     {
       "path": "services/orchestration/src/workflows/archive/finalize-eva-box.ts",
       "mediaType": "text/typescript",
-      "size": 5103,
-      "sha256": "ec2a0c60b27d42ee62ab7302e5a8516ac9e8dad1af5f9a7c4fb96b3b0e232ca8",
+      "size": 5570,
+      "sha256": "c7fb4c990e505cbee6d94ada2c9a5b4c27aaf15e45c1198b6568342c3693536e",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"
@@ -41116,8 +41134,8 @@
     {
       "path": "services/orchestration/src/workflows/intake-v2/ensureArchiveFolder.ts",
       "mediaType": "text/typescript",
-      "size": 5059,
-      "sha256": "6de207b311b54c1ffb259b15f5dd2c145bdc7435ec6543c5d415f447e5b46ca3",
+      "size": 5495,
+      "sha256": "037ed2a570c68970f9715dc894eb97c04e085d08a13782f26392da2d30d70f9f",
       "category": "source",
       "owner": "orchestration",
       "lifecycle": "active"

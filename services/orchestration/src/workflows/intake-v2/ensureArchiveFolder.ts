@@ -20,13 +20,18 @@
  *   - services/orchestration/src/workflows/archive/case-archive-folder.ts (the Case/PO
  *     archive folder — the intake-time + provider-archive-monitor lever; the direct
  *     replacement for the deleted box-folder-create.ts).
- *   - services/orchestration/src/workflows/archive/finalize-eva-box.ts (the EVA
- *     folder-ensure step — replaces the deleted `boxFolderAugment` activity, which used
- *     to create a raw UUID-named folder with NO safety check).
+ *   - services/orchestration/src/workflows/archive/finalize-eva-box.ts (the EVA folder
+ *     step — the `boxFolderAugment` activity, whose BODY was rewritten to come through
+ *     here; it used to create a raw UUID-named folder with NO safety check. The activity
+ *     NAME is deliberately unchanged, for the Durable replay reason above).
  *   - services/orchestration/src/workflows/evidence/imagesUnmatched.ts (the
  *     unmatched-images VRM-named folder — replaces a direct, unguarded
  *     `box.createFolder` call; the reservation/claim-token mechanism around it is a
  *     distinct, unrelated concern and stays exactly as it was).
+ *   - services/orchestration/src/workflows/mailbox/archive-holding-monitor.ts (the
+ *     TKT-034 holding recovery daemon's VRM-named folder — same guarded replacement.
+ *     NOTE its parent id is a PERSISTED `root_folder_id` DB column, so the assertion
+ *     compares stored history against the compiled-in pinned root).
  */
 
 import * as df from 'durable-functions';

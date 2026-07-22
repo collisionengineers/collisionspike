@@ -61,9 +61,9 @@ beforeEach(() => {
   gateState.boxOn = false;
 });
 
-describe('evaArchiveFolderEnsure activity', () => {
+describe('boxFolderAugment activity', () => {
   it('skips when BOX_API_ENABLED is off', async () => {
-    const handler = activities.get('evaArchiveFolderEnsure')!.handler;
+    const handler = activities.get('boxFolderAugment')!.handler;
     const result = await handler({ caseId: 'case-1' }, fakeCtx());
     expect(result).toEqual({ skipped: true });
     expect(dataApiMock.getCaseBoxFolder).not.toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe('evaArchiveFolderEnsure activity', () => {
   it('skips a case with no saved Case/PO yet', async () => {
     gateState.boxOn = true;
     dataApiMock.getCaseBoxFolder.mockResolvedValue({ boxFolderId: null, boxFolderUrl: null, casePo: null });
-    const handler = activities.get('evaArchiveFolderEnsure')!.handler;
+    const handler = activities.get('boxFolderAugment')!.handler;
     const result = await handler({ caseId: 'case-1' }, fakeCtx());
     expect(result).toEqual({ skipped: true, reason: 'no_case_po' });
     expect(ensureArchiveFolderV2CoreMock).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe('evaArchiveFolderEnsure activity', () => {
     gateState.boxOn = true;
     dataApiMock.getCaseBoxFolder.mockResolvedValue({ boxFolderId: null, boxFolderUrl: null, casePo: ' qdos26031 ' });
     ensureArchiveFolderV2CoreMock.mockResolvedValue({ id: 'folder-31', name: 'QDOS26031' });
-    const handler = activities.get('evaArchiveFolderEnsure')!.handler;
+    const handler = activities.get('boxFolderAugment')!.handler;
     const result = await handler({ caseId: 'case-1' }, fakeCtx());
     expect(ensureArchiveFolderV2CoreMock).toHaveBeenCalledWith({ name: 'QDOS26031' });
     expect(result).toEqual({ folderId: 'folder-31', folderUrl: 'https://app.box.com/folder/folder-31' });
@@ -95,7 +95,7 @@ describe('evaArchiveFolderEnsure activity', () => {
     gateState.boxOn = true;
     dataApiMock.getCaseBoxFolder.mockResolvedValue({ boxFolderId: null, boxFolderUrl: null, casePo: 'PCH26010' });
     ensureArchiveFolderV2CoreMock.mockResolvedValue({ id: 'folder-10', name: 'PCH26010' });
-    const handler = activities.get('evaArchiveFolderEnsure')!.handler;
+    const handler = activities.get('boxFolderAugment')!.handler;
     await handler({ caseId: 'case-2' }, fakeCtx());
     expect(ensureArchiveFolderV2CoreMock).toHaveBeenCalledTimes(1);
   });

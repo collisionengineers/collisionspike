@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1231 directories, 4153 files.
+Grand total: 1231 directories, 4155 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1849,7 +1849,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 111 directories, 814 files
+### services — 111 directories, 816 files
 
 ```text
 services/  (0 files)
@@ -1949,7 +1949,7 @@ services/  (0 files)
       pipeline/  (6 files)
       registry/  (3 files)
         providers/  (2 files)
-    tests/  (6 files)
+    tests/  (8 files)
       corpus/  (4 files)
   orchestration/  (6 files)
     src/  (1 file)
@@ -2263,9 +2263,9 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4153 | 4153 | PASS |
+| Proposed tree files == ledger final files | 4155 | 4155 | PASS |
 | Proposed tree directories == ledger final directories | 1231 | 1231 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4155 | 4155 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4157 | 4157 | PASS |
 | Proposed directories == inventory directories | 1231 | 1231 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
