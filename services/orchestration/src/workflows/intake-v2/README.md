@@ -43,4 +43,25 @@ matched, which email type a message resolves to, what Case/PO gets minted) is a
 follow-up iteration, not part of this pass. This pass's job was narrower: stand up the
 new activities, prove they're correctly wired to `@cs/intake-engine` with their own unit
 tests (mocked Box client, no live calls), and rip out the Box-folder-creation call sites
-the new guard supersedes. See the top-level task notes / final report for the reasoning.
+the new guard supersedes.
+
+### Why `decideCaseType` was not rewired
+
+`intakeOrchestrator.ts`'s `decideCaseType` call still uses
+`packages/domain/src/domain/case-type.ts`, not `@cs/intake-engine`'s
+`classify-email-type.ts`. Three concrete blockers, all of which must clear before that
+seam can move:
+
+1. **Registry coverage.** The new engine's registry seeds only QDOS and CNX. PCH is
+   absent, so rewiring would silently stop classifying PCH audits — a live regression
+   with no test to catch it.
+2. **No diminution concept.** The new engine has no equivalent of the `diminution` case
+   type at all.
+3. **Consumer contract.** The call's consumer is `caseResolve`'s
+   `caseType?: 'standard' | 'audit' | 'audit_total_loss' | 'diminution'` field — a
+   data-api contract with no shape to receive the new engine's taxonomy. Changing it is
+   out of scope for this pass.
+
+This is also why `packages/domain/src/domain/case-type.ts` still exists: `retro-
+reconstruct.ts` calls the same `decideCaseType` independently for retro reconstruction,
+so deleting it would break a second, unrelated caller. See that file's own comment.
