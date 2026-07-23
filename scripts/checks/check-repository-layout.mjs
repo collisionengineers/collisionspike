@@ -34,6 +34,7 @@ const allowedRootDirectories = new Set([
   "emailevals",
   "infrastructure",
   "packages",
+  "qdos-email-corpus",
   "scripts",
   "services",
   "tests",

@@ -1,0 +1,500 @@
+Received: from LO0P123MB6813.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:30f::12)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Tue, 14 Jul 2026
+ 13:21:49 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=Aqzkro6raqXHoCuiaTNJATtaf8QTWtjNM0dlwN/K3v/D5xRguVq1cpNUEG86T85vvmh4WbPZeJqrcJFhKVYT71jtYEizKLAGOP5xxhnEuKnz8g/fXRQMJeTgt4FMCbjUHj2PbksBVDVmAh8dyxgW9ftkNk6FUghaioRHoIC4FpVfDNGf8WNzXUWX3QO9D4FiGcsdUfBCcSOvh6JULEuV2+bJpZtjpjpzfvUIbDBTiWbJd9aForoxSxNdvwduIU7o4vQRzz6SoAyk659W/NthS1IFjnu61/GGumTsP1AsPA1crnrcAKTBZQnNtt81id1nASv9AiEhUa8nhxtseHLF5g==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=t/GsqwUHnWfMZl86mT2NqEEX6ulbUtS5R6ycBjiP+6M=;
+ b=YqytZOoyp+BMaqgOmgiVZbx3qqnmaHqSoyeWQ9E/oKTFLpXBsr/1gcTJpQkeri2XbeJ7L/ih+PGKv3YneTN7FuB1x6nHe3jCU+q3ft+LARMU2+CtXVB8mdqDKqb3Iwu/mUXKbjHWraIhNlhzalnZyAZFoF5VrCpCpniLSYDVK+QHREDYBW7sjA7FaleR3zpIkQhNRKeVoqcRHrn3/eEWRPzFPRhser7QtykDxz1v2EPZSiK03PuusiMiLhsGnkQSiqMeQSVINcvQKZRXAa2nr0CLZgHUF02MpTJ8PJEZBlRKN0auquOjb385PvVG3a+3CIHwoeW5QB5xcRl8t+6Vbw==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c205::3) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=qc-law.co.uk; dmarc=bestguesspass action=none
+ header.from=qc-law.co.uk; dkim=fail (no key for signature)
+ header.d=qc-law.co.uk; arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=qc-law.co.uk] dkim=[1,1,header.d=qc-law.co.uk]
+ dmarc=[1,1,header.from=qc-law.co.uk])
+Received: from CW1P123CA0014.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:293::8)
+ by LO0P123MB6813.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:30f::12) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.10; Tue, 14 Jul
+ 2026 13:21:45 +0000
+Received: from CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:400:293:cafe::3f) by CW1P123CA0014.outlook.office365.com
+ (2603:10a6:400:293::8) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Tue, 14
+ Jul 2026 13:21:45 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c205::3)
+ smtp.mailfrom=qc-law.co.uk; dkim=fail (no key for signature)
+ header.d=qc-law.co.uk;dmarc=bestguesspass action=none
+ header.from=qc-law.co.uk;compauth=pass reason=109
+Received-SPF: Pass (protection.outlook.com: domain of qc-law.co.uk designates
+ 2a01:111:f403:c205::3 as permitted sender) receiver=protection.outlook.com;
+ client-ip=2a01:111:f403:c205::3;
+ helo=LO2P265CU024.outbound.protection.outlook.com; pr=C
+Received: from LO2P265CU024.outbound.protection.outlook.com
+ (2a01:111:f403:c205::3) by CW2PEPF000056BB.mail.protection.outlook.com
+ (2603:10a6:408:1::6) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Tue, 14
+ Jul 2026 13:21:45 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=TfDqMgXzvN1dboHZgorOHJBjZZyPFbiceYyH+48K/g+r7d1pouiEXNyMbmekPT4mF+KrETb+fARx5IE+C33jPhVngLDOZAkPRaSrWo38eS+MrOXN6akAYHVlom7pE92dxLKBqZX8T7HEJnVRVtzLSeByq4cLTjlbTk1r6IT7KHc1zCoEGixWBcu2awLHCIZ5sBjH3ibYNlwjSow4hHr3QTdwU90zBO9RinA+ou/Hiez3rs2tvuD5X5OQbsAePj3/L1KznQVc72vPiOH9ma6hPdlkvu90Qz5VS+pyaWYvL367jA6l8CWElZizbbNt86IAVCcxU8uVJWbztEm52/M0UQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=t/GsqwUHnWfMZl86mT2NqEEX6ulbUtS5R6ycBjiP+6M=;
+ b=D0hH0Cx8jOrYadkqByUGTY4fKwBnGdQMXmiZf5APCBsK6PRKmUDFqGOe6Gt2sJJHPmhWCvN8SShfgBc/H8ZTGBGqCwHoArA8qkcJjsGI+0iWzqBhorWhvf4gN3THnJvK34iIplBl6pJ6Z4ICvc+6wmkwvh60RAcOOANGxU30z6cCmDRv9C9YERFU4Acn2vQwiLsliRi6+dCTfIPw09GF2b3yN164LB1NJInyOxb3/s42HkofQVR8kHQV2enHCQJl24AHvoHmuZxq9Ova4Uj1e+W8XZhFNMRy0DUR5/sE5fNlTHFOvWkKRrM/n6ZUjYKxZ/dNzlXaH1Pi8QNvIqPHpA==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=qc-law.co.uk; dmarc=pass action=none header.from=qc-law.co.uk;
+ dkim=pass header.d=qc-law.co.uk; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=qc-law.co.uk;
+ s=selector1;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=t/GsqwUHnWfMZl86mT2NqEEX6ulbUtS5R6ycBjiP+6M=;
+ b=MAnNL/2LYmiQ0Y9jZ9Iedru1/Qa0MUphSstVR9cMy5+oVfsve1pkUTZPDu+Mt55/HNmkiC4neMfn7UkOTyGJGJv77ISwvkcQqniQpPtrNS/pDWp/FCINMo09GP39fLBWXcKE3yjrtrpnRT8PqCGZe9SflSC8Wnv/zX4PxHgQ1XU=
+Received: from LOBP265MB9025.GBRP265.PROD.OUTLOOK.COM (2603:10a6:600:484::19)
+ by CW1P265MB7711.GBRP265.PROD.OUTLOOK.COM (2603:10a6:400:202::14) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.10; Tue, 14 Jul
+ 2026 13:21:42 +0000
+Received: from LOBP265MB9025.GBRP265.PROD.OUTLOOK.COM
+ ([fe80::2de2:6ccb:ba5:1f33]) by LOBP265MB9025.GBRP265.PROD.OUTLOOK.COM
+ ([fe80::2de2:6ccb:ba5:1f33%4]) with mapi id 15.21.0202.014; Tue, 14 Jul 2026
+ 13:21:42 +0000
+From: Hamid Hussain <Hamid.hussain@qc-law.co.uk>
+To: 'Engineers' <engineers@collisionengineers.co.uk>
+Subject: REALLY URGENT - RE: Our Ref: 224962.TA Client: Mr Rizwan Liaquat Ali
+ Akhtar // Engineer Instruction // VRN: CK19XAP
+Thread-Topic: REALLY URGENT - RE: Our Ref: 224962.TA Client: Mr Rizwan Liaquat
+ Ali Akhtar // Engineer Instruction // VRN: CK19XAP
+Thread-Index: Ad0Tk7UFQ7wvQlfKQOeY/cg6DWSPEw==
+Date: Tue, 14 Jul 2026 13:21:42 +0000
+Message-ID: <LOBP265MB9025F06D8DB95E2141E00FD391F92@LOBP265MB9025.GBRP265.PROD.OUTLOOK.COM>
+References: <LO2P265MB48387F67FC7A754F2D09857BB4FCA@LO2P265MB4838.GBRP265.PROD.OUTLOOK.COM>
+ <001601dc47f5$c989e790$5c9db6b0$@complexreports.com>
+ <LO6P123MB6647053269A10BA59BE16A3496FAA@LO6P123MB6647.GBRP123.PROD.OUTLOOK.COM>
+In-Reply-To: <LO6P123MB6647053269A10BA59BE16A3496FAA@LO6P123MB6647.GBRP123.PROD.OUTLOOK.COM>
+Accept-Language: en-US
+Content-Language: en-US
+X-MS-Has-Attach:
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=qc-law.co.uk;
+x-ms-traffictypediagnostic: LOBP265MB9025:EE_|CW1P265MB7711:EE_|CW2PEPF000056BB:EE_|LO0P123MB6813:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: 34de7c21-5f99-4146-f7e0-08dee1aada31
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|3109299003|7049299003|376014|23010399003|1800799024|366016|69100299015|4143699003|3023799007|8096899003|22082099003|18002099003|56012099006|13003099007|38070700021;
+X-Microsoft-Antispam-Message-Info-Original: Rr+btVxdPbkhb/l50wgJt/VqRjcKUylYL5Jbje52xvgED3qz8CrFbYM4g8eTFnKVAUp+HAhe85wEbjvsO2hqE/0n+zCsUG11QWnxSDEBr8zjpRQ7LZPn5kgCTrgsbqBW1x7sRmufq8B3RPmJasfbRWUw4d+IUqjuaO76Z7VLf3HY8E1aWS78eFvil8nO1ceL6QzoOWq4NT4MtLTjqKp6UVmM1Nvkrg4L1SyFb/6TGvRFSrXKXPGeRMQ8cfiG+SNUn4C6Zty5uUa0cb2DdKNk4ZJ2aLM2pT2890bmvggCyZYy7Z6oU/g2MwHFGNUxkRKXpTmMj4jcuWOA9asIEYbDZ6OVTxwqRUAy4PAU6aaxN9pP/fYbKlETTAwSP7vzQ0rrqGQWt+FuTRjUVO+vONGpbU514iefVT0EEmSxmhPqPdHzGBlIdcRCbTr4F0eDPx9Qni6c5B2XbHZkTcZB+Wvktw0tAkrl/lOsO2q8RmzI2oUjDgiHII+l7yAv712wwnGtMdr5q7TLPAYvU7+1KlrRAppbNtfyF4DcucbfMjkYhhDvk2hBNjvLyJBzHJtP2bYwHoAnnev+9zczrZ75nYGYMO8dO7mxzNfy0qQJ7IUf+n5oHhUvt09HVPeIAMJ6w5oZF2YO1mYHCJQDAlS2DXAzUxc8g6Imz+ElZOMyLEErM5Y=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LOBP265MB9025.GBRP265.PROD.OUTLOOK.COM;PTR:;CAT:NONE;SFS:(13230040)(3109299003)(7049299003)(376014)(23010399003)(1800799024)(366016)(69100299015)(4143699003)(3023799007)(8096899003)(22082099003)(18002099003)(56012099006)(13003099007)(38070700021);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: =?us-ascii?Q?L3CaX5XOqWla8PS3fc8cp06OtPh357PUo3f3vRFby+UAKAw8CzJrHVKGMSDK?=
+ =?us-ascii?Q?1mWbAMe+A2+QkW9WyjghPDbPNgwQv4rzipJv9mEiy16yIZCQjzbbdKU2XWqG?=
+ =?us-ascii?Q?+d8tAqQZolKi8N1lFIMhR84aGTy8wr/muiXJCfD5Ia16kFghIb2I+c3k3/dk?=
+ =?us-ascii?Q?c/0e+NYSAvOMeKn1nQxZZ/cr6MetNB7uNibkC2YQLKG7/kxbEe/IYJtrSCoG?=
+ =?us-ascii?Q?H7jrM3jw21gMbs6wBgvlJDNRPqjvlbZt2EShUqzNWvWzSkUjD51pRAAFW5ss?=
+ =?us-ascii?Q?TtxSSlPYkhLA1y8LkCtevx/BeFtRnQk87TBB4OZzHwCpW0+0zSiyyrly0WjE?=
+ =?us-ascii?Q?tFDpyU34H+egwaloRlXZ2uNH+oHvVnF5JRqhxKrXSH7dTUe+MKuSPV+lHNsK?=
+ =?us-ascii?Q?DjHYKIlQXIwxgrEHdy7Xz0uxxLwDsr5YUOi9U3924pBpJYXUuREj2k1NIaET?=
+ =?us-ascii?Q?HwmplETgnyx9kBYBiAGiL1KrQcnbr/e3mDyrRjBRHcpRIGyyBgvpMwjMi4Fh?=
+ =?us-ascii?Q?gG7b2CyymV2oTyW3fB9dCaHq522wPhVH8Iyfh8lpPyyCldLCt/6gtLNSY8Z4?=
+ =?us-ascii?Q?7rDWqs5vUNb/KbRbFBXPGg6H3jNOuu1+PnQ9yej9k44lRcS/7HFLVYUDSJwO?=
+ =?us-ascii?Q?YWPlqBDfKFRmb9DX5bm11nw2mN3lfeRa8FHfEQ9XZRq7fycNvRB3LKoneyPT?=
+ =?us-ascii?Q?+jiHSe19G0vWwmVLfIfy3w3XfFYM6qsAKPa3nDjB+zL6hGM2S/aga9VA/zUT?=
+ =?us-ascii?Q?SQhHrqR/guyTPIeL40DVoyzDbuz5QwoBdXgaD592Yx5wGYQld/nd9uvdVz+U?=
+ =?us-ascii?Q?1dJ6K2ZrYHww1EHuFhj1Nkz4jdhwHDoHhfSHh2/FNG5AtMNjHwtrPlPCpJ7z?=
+ =?us-ascii?Q?1U5SXHwvTn6uG+gEozCz13kAXyqNTAgpEejH8dcspI4i+I7LsegEbtKSuWQZ?=
+ =?us-ascii?Q?vm/m6Kpe8SjmxF4OYpoTnlVZzD0eLpd2/94JardEm9vjeLnWvzF7Gc50SVc1?=
+ =?us-ascii?Q?X65fohPHEQmqD3rh+7sG+RZexqYSaatc/t5XyNmub9IKtBVGWNr1faKwLSah?=
+ =?us-ascii?Q?k6qmW7XZvOIP9ee9IOkzzd8KXPPadO+k1H3Q4mEfZVIksenL/sMpje516Iaa?=
+ =?us-ascii?Q?OLg6Miw9TSB4ME+M9lgCF3KQR5EJrMshW57ZB05sRd0Gp8HYlHVhlOI9Xt1B?=
+ =?us-ascii?Q?FOAPOkjbF3GxwACiLfBjd5bbn0YrVwrQ62A1TdtcWzWMFtRv/6NEp+hSVNgQ?=
+ =?us-ascii?Q?ee8Qlb5jchU67C2rnQWTse2UOXuaSxrzxO6xzlo+SNRIxb6F9FK4JMkTqN7D?=
+ =?us-ascii?Q?m809/+VCEtAZghc3gmdDyb4Px4lR8ix8EhTuNeeu6nt7gG0oeg4rG5iwkgvj?=
+ =?us-ascii?Q?iFJkybH81VUbvinxFAboSZ1sVsL0edh6LLKXsJdlvtPXLh0EJDvRVed15nvS?=
+ =?us-ascii?Q?DXQJNuX4PmbGhpc0QhdfCOLrQ5ZmMp9McuXv76EVdAxVUFjXA+feD3wNh0Aq?=
+ =?us-ascii?Q?trLb1okTq3SRbI1AlYA06s33qtpj/eEzCpDVpIJTXFPv5xrOKPabNtHgli3B?=
+ =?us-ascii?Q?R0i6a7KwtnEAK6MpDTxgqWoQ+a7v+qRyuRacOhC7WaPjHsSIttNlPV8D+MQF?=
+ =?us-ascii?Q?hXuJiuZ60el8e8OQB0v/vU/IS4O1XJRLmYxLbgQlZ5iLZEiRlKR0sDMmR+EP?=
+ =?us-ascii?Q?mjBzCZ2DP3FpLM93dWIy4faZ6+6yOuMhNNcZ2hUJhaQGQMzD48VA/LZNBzjm?=
+ =?us-ascii?Q?WYfvTXbILQ=3D=3D?=
+Content-Type: multipart/alternative;
+	boundary="_000_LOBP265MB9025F06D8DB95E2141E00FD391F92LOBP265MB9025GBRP_"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CW1P265MB7711
+Return-Path: Hamid.hussain@qc-law.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 14 Jul 2026 13:21:45.4586
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 34de7c21-5f99-4146-f7e0-08dee1aada31
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 3d922954-34a6-4233-ae40-08dee1aad8a1
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704160111799003|69100299015|6073799003|3109299003|7049299003|6113799003|7149299003|35042699022|19002099009|18002099003|22082099003|56012099006|5063699009|3023799007|4076899003|8096899003|4143699003|13003099007|16102099003;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c205::3;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:LO2P265CU024.outbound.protection.outlook.com;PTR:mail-uksouthazlp170110003.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(704160111799003)(69100299015)(6073799003)(3109299003)(7049299003)(6113799003)(7149299003)(35042699022)(19002099009)(18002099003)(22082099003)(56012099006)(5063699009)(3023799007)(4076899003)(8096899003)(4143699003)(13003099007)(16102099003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 14 Jul 2026 13:21:45.3802
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 34de7c21-5f99-4146-f7e0-08dee1aada31
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: CW2PEPF000056BB.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LO0P123MB6813
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:04.6336359
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0223.005
+Importance: high
+X-Priority: 1
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?Windows-1252?Q?tiy3hU1sIPpL+N1TTwCRbdK2JxaUiATv4+8/UNG3J7BIt1gNHqGPmE5m?=
+ =?Windows-1252?Q?P1uul4CEvR1AwOmKb/PdPn8cgT5UbOYe/M2o3Vr0S+v/uQJ8SrGWRZOn?=
+ =?Windows-1252?Q?ZHXf2SQc9Cuj2AJOIs4Cwl4WTS9KNWGVb3WvVZaDamwm65Sy3JVY7i6/?=
+ =?Windows-1252?Q?BPjrTlJU7ojGS0bTjmlQ7+viIenIpBzL00M4PNSoEsj7QlZh2hEylDRw?=
+ =?Windows-1252?Q?I891COc5PKNYrIS9ovRg/dR7bLXnNy3TJokHk7xdakYO5Tk/ArU1/uGr?=
+ =?Windows-1252?Q?uP1JkFky3XuXnQXnz/iZ27s3z9zu8WRGYm52c8nUpX0k88LXF9vEoNKu?=
+ =?Windows-1252?Q?cyQq+wsNe9JkixPSKfv+sBiYYyzkrNvyCOC/PDFj64hWXiz0B3LOkhr9?=
+ =?Windows-1252?Q?73J7bggifscdyUd7RNhOr+bbHb1aNU3a4Aox6zRs4HWG1aCyAHixCOWH?=
+ =?Windows-1252?Q?luBJi9QDfDx5ZhBBeDhNX0eabera4IDyVxyjaVqhzGcE9eu77AFD5fKo?=
+ =?Windows-1252?Q?dNVz5scduyI1gYuegnZYcStrdhwPhsJPpaige6e0DXnxSgJaaRdQeDKU?=
+ =?Windows-1252?Q?BbJD8GbDF8RQydqlkmPHM8X0XTiXspkoPv4unriYZAwGdThnvfqq9Cjt?=
+ =?Windows-1252?Q?hNUivMrvhbFoFqSd2cw17oLk2Ww0VgqF2HjdusOMgiZh6CL8OCycWqAW?=
+ =?Windows-1252?Q?UbnJglG/oEaWaovVWC7CN1kJkC69i8qVutIjNevBsVVPP/yPRxb2nG8Z?=
+ =?Windows-1252?Q?z6sxGs7u3bE8v+ZQmTMTijpYyufwjlAVWftA/jV4cJhi+r5QVPQpWinl?=
+ =?Windows-1252?Q?t+sZv7o5/V4tQIarvP3rMzTF+E0oDFWJbu7VpRKTedJ+pw1jDOZHyIeF?=
+ =?Windows-1252?Q?V5WMb3RZUd0LFUTEEsFJyGlEvzHioQGs54xY3bkVK5q0iQiA9EzSS44S?=
+ =?Windows-1252?Q?ijmRevAT03oN5QIReRLWmncytcucTsF66Ed+yYl16rkfUBKkRSOjzNq9?=
+ =?Windows-1252?Q?BFvloRdREH4LxngST+PcJfm2soqHWByUUNmx7HH/tL3UWn2ptfKASWXx?=
+ =?Windows-1252?Q?3+qb2kmYTxVAzVifEtoiZdGO75NdRUJHpftVwrVyJmZK4KAs17b7aMKD?=
+ =?Windows-1252?Q?LXKJ7/anSDqWakcG9tNmq6yMfF7xqTpSblY6bOzJWOwWOhF3db8yJEle?=
+ =?Windows-1252?Q?GC7EqGRICxfqernAi3hEspq0u1AGvZnvaEH6t3s0MXeOZM5W65aJKW9J?=
+ =?Windows-1252?Q?R1SHZd47Cvle1pPwvIUtmPpd0K+0sGB+2s2cAf9SWgsGY00IL0HIESnK?=
+ =?Windows-1252?Q?H4fzaC8MPynbCdNgkJKJzp6QlJ5xaVPMfpt3ieUxWdznnsB7NZvrOouQ?=
+ =?Windows-1252?Q?GrCn3xza8bSWXxOPnFNLDdARVPyURBZvLIhSsBtTFm6Bjl9vibJ+lr7w?=
+ =?Windows-1252?Q?N0kXyI4EnCi1kO77lm/BQ80UHc3VBjD8FC3rdBG04l4k6P1IagCkXmzV?=
+ =?Windows-1252?Q?FdFnl6sO0pCZIxQfsQJR7abszuLoltzHcC8fBQySdU4NfWYRYyOvbftU?=
+ =?Windows-1252?Q?EUuhcrLfI+a5dKm6yo1hWCzCBXxEJacdlWOvza+Lqr2nRMkDY/jY1mBg?=
+ =?Windows-1252?Q?YqrSYMg+DgPmrBsdvhvQKVl9FtDJ+Abf0lgKmcQRncrL/viS8ziv06Qk?=
+ =?Windows-1252?Q?R266d5YQqJP24plv3pvBbr0XvgvGg2qLZVgqO7P0ARAmTPsIoV3rlUSK?=
+ =?Windows-1252?Q?r7DNh78hcJc/7tPkHWCxOBriAF/X/wbEuKHH8NCGqAzawobP6LGCZwA3?=
+ =?Windows-1252?Q?O633ihNDhcu1e6Ew+EdxzEX3ip+z7VNmFROOTEOdVp2nM1guMo7qVnae?=
+ =?Windows-1252?Q?khT9mGTXEk8LxMwH6vUv4e+QOkb3AAlgNzrHYsJWUZGUmntgsWB84INv?=
+ =?Windows-1252?Q?0INBwQZaiJHBOlzgvBbBUdXgfhcGwLK22aNmQRYfIxOCKbazudh4AWZm?=
+ =?Windows-1252?Q?+YSYBQTzRFtQh1kSAC923OW5dOdp9QGOeGXI7R0P1tnY2OtvAdoU9cnu?=
+ =?Windows-1252?Q?HnaQZWYEFg0NmrvuL4TvnTb98EJjWXz1ISftj5Hk3dHg0zaBB5177mf2?=
+ =?Windows-1252?Q?A3FMyGM7Bb9NSWILcviczYL4wzonHFrbkVaPDVIk+eZrUt4FmxTlQgcE?=
+ =?Windows-1252?Q?pGmjbeW/lQSUDbETts/cmbeFCE+1H1JyvhfmBhDmjTvDFU9O0YVmuU5v?=
+ =?Windows-1252?Q?Lq3Mn8F8iKRwGcDTMvs1dvSV8cs46aarCovUcV99UI5R1FxsvYRP72h6?=
+ =?Windows-1252?Q?Snh2AbbptNsloCxIEYOChp/NblvV5KZbhnFqC0x3qCrc6qq0ZySN+pO8?=
+ =?Windows-1252?Q?0eKzE7/dTmOmqwYCn6wQNj+3id0p75GZRYh9Nb7Dar2PxDyAlAra4DF6?=
+ =?Windows-1252?Q?IOh9juERgGjESFVvB3VxRA+g2EqYpjFDc56vcwdw03PmQQdITEMwhL6i?=
+ =?Windows-1252?Q?wnMoMo9kXx/6Oh8o2svFfAcHlNOvPrE3SRZa/tZ7p3yr62UoNfTFvJuw?=
+ =?Windows-1252?Q?MrCgsqQ1xMl3hwqspn5LInIesOCQq0I6qFPsZPaSqvPYH029IXDvHCnb?=
+ =?Windows-1252?Q?nXf+YVoqm/QMHHKLy7skeyL2IRce381D73bDE5FlRRyCMQ=3D=3D?=
+MIME-Version: 1.0
+
+--_000_LOBP265MB9025F06D8DB95E2141E00FD391F92LOBP265MB9025GBRP_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Good afternoon,
+
+Urgently, please provide the engineer's fee.
+
+Kind regards,
+
+From: Engineers <engineers@collisionengineers.co.uk>
+Sent: 29 October 2025 11:08
+To: vd@complexreports.com
+Cc: Credit Hire <credithire@hackneysolutions.co.uk>
+Subject: RE: Our Ref: 224962.TA Client: Mr Rizwan Liaquat Ali Akhtar // Eng=
+ineer Instruction // VRN: CK19XAP
+
+Good morning,
+
+Please see attached report.
+
+Many thanks,
+Patrick.
+
+From: vd@complexreports.com<mailto:vd@complexreports.com>
+Sent: 28 October 2025 10:30
+To: Engineers
+Subject: FW: Our Ref: 224962.TA Client: Mr Rizwan Liaquat Ali Akhtar // Eng=
+ineer Instruction // VRN: CK19XAP
+Importance: High
+
+Dear Sirs,
+Please find attached instructions in relation to our client.
+
+I look forward to hearing from you.
+
+Kind Regards
+Ahmed Mohammed
+_________________________________________________________
+
+[qclogo]
+A : 633 Halifax Road. Liversedge, WF15 8HG
+T: 01484 818123
+F: 01484 818323
+E: Info@qc-law.co.uk<mailto:Info@qc-law.co.uk>
+W: www.qc-law.co.uk<http://www.qc-law.co.uk>
+
+This email is from QC Law Solicitors a Limited Company whose principal plac=
+e of business is 633 Halifax Road Liversedge WF15 8HG. Our services are pro=
+vided by a solicitor of England, Wales & Scotland and we are regulated by t=
+he Solicitors Regulation Authority & The Law Society of Scotland. You can a=
+ccess the Solicitors Regulation Authority rules at www.rules.sra.org.uk<htt=
+p://www.rules.sra.org.uk>. A full list of partners is available for inspect=
+ion at our office. For further information about QC Law Solicitors please e=
+-mail us at info@qc-law.co.uk<mailto:info@qc-law.co.uk>. Our Company regist=
+ration number is 09533621.
+
+Please note that:
+The contents of this e-mail (including any attachments) are confidential an=
+d may be legally privileged. If you are not the intended recipient you may =
+not read, copy, distribute or make any other use of this email or its conte=
+nts.
+
+If received in error, please tell us immediately by telephone on 0148481812=
+3(UK) quoting the name of the sender and the intended recipient, then delet=
+e it from your system. Thank you.
+
+No contracts may be concluded on QC Law Solicitors by e-mail. We are unable=
+ to accept the service of documents by e-mail. Neither QC Law Solicitors no=
+r the sender accepts any responsibility for viruses. It is your responsibil=
+ity to scan the e-mail and any attachments. Any opinions or advice containe=
+d in this e-mail are subject to the terms and conditions expressed in our r=
+elevant engagement letter. QC Law Solicitors may monitor email traffic data=
+ and the content of e-mails for the purposes of security, quality control a=
+nd staff training. Personal e-mails are not communications by or on behalf =
+of QC Law Solicitors and the sender is not acting as representative, agent =
+or in any other capacity for or on behalf of QC Law Solicitors. QC Law Soli=
+citors does not accept any liability or responsibility in connection with p=
+ersonal e-mails.
+
+
+--_000_LOBP265MB9025F06D8DB95E2141E00FD391F92LOBP265MB9025GBRP_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<!--[if !mso]><style>v\:* {behavior:url(#default#VML);}
+o\:* {behavior:url(#default#VML);}
+w\:* {behavior:url(#default#VML);}
+.shape {behavior:url(#default#VML);}
+</style><![endif]--><style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+@font-face
+	{font-family:Aptos;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:11.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-fareast-language:EN-US;}
+a:link, span.MsoHyperlink
+	{mso-style-priority:99;
+	color:blue;
+	text-decoration:underline;}
+span.EmailStyle20
+	{mso-style-type:personal-reply;
+	font-family:"Calibri",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	font-size:10.0pt;
+	mso-ligatures:none;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-GB" link=3D"blue" vlink=3D"purple" style=3D"word-wrap:brea=
+k-word">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal">Good afternoon, <o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Urgently, please provide the engineer&#8217;s fee. <=
+o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Kind regards, <o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"mso-fareast-languag=
+e:EN-GB">From:</span></b><span lang=3D"EN-US" style=3D"mso-fareast-language=
+:EN-GB"> Engineers &lt;engineers@collisionengineers.co.uk&gt;
+<br>
+<b>Sent:</b> 29 October 2025 11:08<br>
+<b>To:</b> vd@complexreports.com<br>
+<b>Cc:</b> Credit Hire &lt;credithire@hackneysolutions.co.uk&gt;<br>
+<b>Subject:</b> RE: Our Ref: 224962.TA Client: Mr Rizwan Liaquat Ali Akhtar=
+ // Engineer Instruction // VRN: CK19XAP<o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Good morning,<br>
+<br>
+Please see attached report.<br>
+<br>
+Many thanks,<br>
+Patrick.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<div>
+<div style=3D"border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm =
+0cm 0cm">
+<p class=3D"MsoNormal"><b><span lang=3D"EN-US" style=3D"mso-fareast-languag=
+e:EN-GB">From:</span></b><span lang=3D"EN-US" style=3D"mso-fareast-language=
+:EN-GB">
+<a href=3D"mailto:vd@complexreports.com">vd@complexreports.com</a> <br>
+<b>Sent:</b> 28 October 2025 10:30<br>
+<b>To:</b> Engineers <br>
+<b>Subject:</b> FW: Our Ref: 224962.TA Client: Mr Rizwan Liaquat Ali Akhtar=
+ // Engineer Instruction // VRN: CK19XAP<br>
+<b>Importance:</b> High<o:p></o:p></span></p>
+</div>
+</div>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt">Dear Sirs,<o:p></o:p>=
+</p>
+<p class=3D"MsoNormal" style=3D"margin-bottom:12.0pt">Please find attached =
+instructions in relation to our client.
+<br>
+<br>
+I look forward to hearing from you.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Kind Regards<o:p></o:p></p>
+<p class=3D"MsoNormal">Ahmed Mohammed<o:p></o:p></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify">_______________________=
+__________________________________
+<o:p></o:p></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><o:p>&nbsp;</o:p></p>
+<table class=3D"MsoNormalTable" border=3D"0" cellspacing=3D"0" cellpadding=
+=3D"0" style=3D"border-collapse:collapse">
+<tbody>
+<tr>
+<td width=3D"170" valign=3D"top" style=3D"width:127.2pt;padding:0cm 5.4pt 0=
+cm 5.4pt">
+<p class=3D"MsoNormal" style=3D"text-align:justify"><img border=3D"0" width=
+=3D"122" height=3D"92" style=3D"width:1.2708in;height:.9583in" id=3D"_x0000=
+_i1025" src=3D"http://www.flynetmedia.co.uk/companylogo/qc/qclogo.jpg" alt=
+=3D"qclogo"><o:p></o:p></p>
+</td>
+<td width=3D"469" valign=3D"top" style=3D"width:351.6pt;padding:0cm 5.4pt 0=
+cm 5.4pt">
+<p class=3D"MsoNormal" style=3D"text-align:justify"><b><span style=3D"mso-f=
+areast-language:EN-GB">A</span></b>
+<span style=3D"font-size:10.0pt;mso-fareast-language:EN-GB">: 633 Halifax R=
+oad. Liversedge, WF15 8HG<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><b><span style=3D"mso-f=
+areast-language:EN-GB">T</span></b><span style=3D"font-size:10.0pt;mso-fare=
+ast-language:EN-GB">: 01484 818123<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><b><span style=3D"mso-f=
+areast-language:EN-GB">F</span></b><span style=3D"font-size:10.0pt;mso-fare=
+ast-language:EN-GB">: 01484 818323<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><b><span style=3D"mso-f=
+areast-language:EN-GB">E</span></b><span style=3D"font-size:10.0pt;mso-fare=
+ast-language:EN-GB">:
+</span><a href=3D"mailto:Info@qc-law.co.uk"><span style=3D"font-size:10.0pt=
+;color:#0563C1;mso-fareast-language:EN-GB">Info@qc-law.co.uk</span></a><spa=
+n style=3D"font-size:10.0pt;mso-fareast-language:EN-GB"><o:p></o:p></span><=
+/p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><b><span style=3D"mso-f=
+areast-language:EN-GB">W</span></b><span style=3D"font-size:10.0pt;mso-fare=
+ast-language:EN-GB">:
+</span><a href=3D"http://www.qc-law.co.uk"><span style=3D"font-size:10.0pt;=
+mso-fareast-language:EN-GB">www.qc-law.co.uk</span></a><span style=3D"font-=
+size:10.0pt;mso-fareast-language:EN-GB"><o:p></o:p></span></p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:10.0pt;mso-fareast-language:EN-GB"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:8.0pt;mso-fareast-language:EN-GB">This email is from QC Law Solicitors a =
+Limited Company whose principal place of business is 633 Halifax Road Liver=
+sedge WF15 8HG. Our services are provided
+ by a solicitor of England, Wales &amp; Scotland and we are regulated by th=
+e Solicitors Regulation Authority &amp; The Law Society of Scotland. You ca=
+n access the Solicitors Regulation Authority rules at
+</span><a href=3D"http://www.rules.sra.org.uk"><span style=3D"font-size:8.0=
+pt;color:#0563C1;mso-fareast-language:EN-GB">www.rules.sra.org.uk</span></a=
+><span style=3D"font-size:8.0pt;mso-fareast-language:EN-GB">. A full list o=
+f partners is available for inspection
+ at our office. For further information about QC Law Solicitors please e-ma=
+il us at
+</span><a href=3D"mailto:info@qc-law.co.uk"><span style=3D"font-size:8.0pt;=
+color:#0563C1;mso-fareast-language:EN-GB">info@qc-law.co.uk</span></a><span=
+ style=3D"font-size:8.0pt;mso-fareast-language:EN-GB">. Our Company registr=
+ation number is 09533621.
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:8.0pt;mso-fareast-language:EN-GB">Please note that:
+<o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:8.0pt;mso-fareast-language:EN-GB">The contents of this e-mail (including =
+any attachments) are confidential and may be legally privileged. If you are=
+ not the intended recipient you may not
+ read, copy, distribute or make any other use of this email or its contents=
+. <o:p>
+</o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:8.0pt;mso-fareast-language:EN-GB">If received in error, please tell us im=
+mediately by telephone on 01484818123(UK) quoting the name of the sender an=
+d the intended recipient, then delete
+ it from your system. Thank you. <o:p></o:p></span></p>
+<p class=3D"MsoNormal" style=3D"text-align:justify"><span style=3D"font-siz=
+e:8.0pt;mso-fareast-language:EN-GB"><o:p>&nbsp;</o:p></span></p>
+<p class=3D"MsoNormal"><span style=3D"font-size:8.0pt;mso-fareast-language:=
+EN-GB">No contracts may be concluded on QC Law Solicitors by e-mail. We are=
+ unable to accept the service of documents by e-mail. Neither QC Law Solici=
+tors nor the sender accepts any responsibility
+ for viruses. It is your responsibility to scan the e-mail and any attachme=
+nts. Any opinions or advice contained in this e-mail are subject to the ter=
+ms and conditions expressed in our relevant engagement letter. QC Law Solic=
+itors may monitor email traffic
+ data and the content of e-mails for the purposes of security, quality cont=
+rol and staff training. Personal e-mails are not communications by or on be=
+half of QC Law Solicitors and the sender is not acting as representative, a=
+gent or in any other capacity for
+ or on behalf of QC Law Solicitors. QC Law Solicitors does not accept any l=
+iability or responsibility in connection with personal e-mails.</span><span=
+ style=3D"mso-fareast-language:EN-GB"><o:p></o:p></span></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+</div>
+</body>
+</html>
+
+--_000_LOBP265MB9025F06D8DB95E2141E00FD391F92LOBP265MB9025GBRP_--

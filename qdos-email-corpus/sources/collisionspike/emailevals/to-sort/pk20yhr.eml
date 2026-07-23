@@ -1,0 +1,262 @@
+Received: from CWLP123MB7445.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:228::10)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Wed, 15 Jul 2026
+ 08:56:39 +0000
+ARC-Seal: i=2; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=pass;
+ b=UwAcmpaksi9hi3c5I22gCIv8HYq+MFYSiNOYdWJNTB7Z5VFYbCgg4L6RRHXCgG2em9sMYYVj3dPPbjQPqADaFnZxTAiqXcFxShNxgdoBaWm466JGvOXd4a0yEMb7bw194MYtqcnPPXBjEIFxSVtfzpOxG5drjoqRuooSxu2IJwAezIwtcUUSoFPafCIyfE7T3aqQOcvfkLj/ZGV4JrEMTXglDzaPSk3fpdX26zeWX+ZrhW+FUoCZqRgnVJUwfJDMEUPij5lSIEVXP02rEeeQTPyWUpbmEV15mzZgNk5c8rwOUX955licKmDs2zy4+9jnhExmIDYaiFh4AnyIATcUqw==
+ARC-Message-Signature: i=2; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001; h=From:Date:Subject:Message-ID:MIME-Version;
+ bh=QzxSHBc8an4CovsnuD2TxxZ0H0W8XQf4B11UHO+LLx0=;
+ b=N5/XDgpAvAcLIQAADivOl1iL86WUVj42WVpf2njT5B2pW9CiGcScfblYecdC20b2dzTT6tXTFhJ8C93IEEFyHkS6/SJEja3tNCShrS4JopfNNtVYkBfd0kqRam2/ZjZLWUvCURmR5GQ++XBwSVukuubFhwDKFx+BkBbNO0wKKLQt0BpoitdLSNAmCawyANc+DYjy0Fmo2RtBPQQligpxHYICSrwEmosfLKYH0pFt0KdC9lC4tD/iPp5PL9eLF2qWT/AWCJvRf8h/zg2qQ8hMD9dBugfFDDdFzLBmszLds2wAV6KcePYHRp9GjVBo+mLjJQoEm7UPy4t25rqC2wE5gg==
+ARC-Authentication-Results: i=2; mx.microsoft.com 1; spf=pass (sender ip is
+ 2a01:111:f403:c207::3) smtp.rcpttodomain=collisionengineers.co.uk
+ smtp.mailfrom=hackneysolutions.co.uk; dmarc=bestguesspass action=none
+ header.from=hackneysolutions.co.uk; dkim=pass (signature was verified)
+ header.d=hackneysolutions.onmicrosoft.com; arc=pass (0 oda=1 ltdi=1
+ spf=[1,1,smtp.mailfrom=hackneysolutions.co.uk]
+ dkim=[1,1,header.d=hackneysolutions.co.uk]
+ dmarc=[1,1,header.from=hackneysolutions.co.uk])
+Received: from LO4P123CA0075.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:190::8)
+ by CWLP123MB7445.GBRP123.PROD.OUTLOOK.COM (2603:10a6:400:228::10) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.11; Wed, 15 Jul
+ 2026 08:56:31 +0000
+Received: from LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:190:cafe::38) by LO4P123CA0075.outlook.office365.com
+ (2603:10a6:600:190::8) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.11 via Frontend Transport; Wed,
+ 15 Jul 2026 08:56:30 +0000
+Authentication-Results: spf=pass (sender IP is 2a01:111:f403:c207::3)
+ smtp.mailfrom=hackneysolutions.co.uk; dkim=pass (signature was verified)
+ header.d=hackneysolutions.onmicrosoft.com;dmarc=bestguesspass action=none
+ header.from=hackneysolutions.co.uk;compauth=pass reason=109
+Received-SPF: Pass (protection.outlook.com: domain of hackneysolutions.co.uk
+ designates 2a01:111:f403:c207::3 as permitted sender)
+ receiver=protection.outlook.com; client-ip=2a01:111:f403:c207::3;
+ helo=MRWPR03CU001.outbound.protection.outlook.com; pr=C
+Received: from MRWPR03CU001.outbound.protection.outlook.com
+ (2a01:111:f403:c207::3) by LO1PEPF000022FE.mail.protection.outlook.com
+ (2603:10a6:608:1::16) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.223.9 via Frontend Transport; Wed, 15
+ Jul 2026 08:56:30 +0000
+ARC-Seal: i=1; a=rsa-sha256; s=arcselector10001; d=microsoft.com; cv=none;
+ b=r4FxahL0k9X2Qob8FojEp6I0bi/ILpxgKMCfKQJ+DSkpk0A0Dj0ASTFuJoBjIeVLt0IK2wNXr4wSk67LCPJAzfhjSKZkvnXn5pzj1ASt2BynfjQ5r+NGQyp6M0I0+NuGFitPkapxtDEf0bMybW+G/9yFcXFbnEBSjV/WTC5CPKP7ghQsVavT4lc76FH0ONVCCdzc5ATKrOLk2xduQlEhlA3bMxwZBfqlwRay6urUa7UdOVexdgNp1YbZJ/wh3hkXFiGB6xwJax3s6QeGo5tQvT4zT8PjlT66eflUt2aoZ/54fpbNPFoAV5+/T8xN9QWEtGarPHSnsvLv0pZg1Ybq4Q==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=microsoft.com;
+ s=arcselector10001;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-AntiSpam-MessageData-ChunkCount:X-MS-Exchange-AntiSpam-MessageData-0:X-MS-Exchange-AntiSpam-MessageData-1;
+ bh=QzxSHBc8an4CovsnuD2TxxZ0H0W8XQf4B11UHO+LLx0=;
+ b=u2PwsBLuZcJE7NxGUdDjut/V1dPJcIufCsR1usCy10rHo9aYCtHwWhJnjO0g93bbBAxzrH8r8jvLQi8+SevJYMx3BosEHW+nvEuVW0ENmHX1Puztaad6WfiR3uf1AYkpYOc8zy2UNWAp9IQe9Lx2mHDHJOlk0+hwUkkh3H4m95dGB81bWbbc3YlUhUXFmzFyin+psLjeOh1w/irjmrjt56XU/oMfuCG64zdPbC8yktKTLFo9DYmYbY2XeSKmYQOwBBX1Qmn0QqSCYKs6IxbD+5nrWdHT96Q5e6Nh3+5hw5EpZigsrS3umBc8U0XOL4JNhfHD2MMKpH+iSwMhfqnmLg==
+ARC-Authentication-Results: i=1; mx.microsoft.com 1; spf=pass
+ smtp.mailfrom=hackneysolutions.co.uk; dmarc=pass action=none
+ header.from=hackneysolutions.co.uk; dkim=pass
+ header.d=hackneysolutions.co.uk; arc=none
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=hackneysolutions.onmicrosoft.com;
+ s=selector2-hackneysolutions-onmicrosoft-com;
+ h=From:Date:Subject:Message-ID:Content-Type:MIME-Version:X-MS-Exchange-SenderADCheck;
+ bh=QzxSHBc8an4CovsnuD2TxxZ0H0W8XQf4B11UHO+LLx0=;
+ b=HNgF04/vGqdp259fEldmgSpl3KYhZ0DWuVqM+dkGVvI5i2CbA0e0kYHemFzU94GPhpOTRFHcaexfZBTNy8cunwBdskKmVDMdjKAzVoQAeipM22+tgugZBK42GxYM9fq5kRd8Zp9Qep13wEoBZB6X7YUUzWE/wO1mnj3JqgKMV1w=
+Received: from AM7PR01MB7108.eurprd01.prod.exchangelabs.com
+ (2603:10a6:20b:1c2::5) by PA4PR01MB9236.eurprd01.prod.exchangelabs.com
+ (2603:10a6:102:27f::5) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.223.11; Wed, 15 Jul
+ 2026 08:56:26 +0000
+Received: from AM7PR01MB7108.eurprd01.prod.exchangelabs.com
+ ([fe80::d919:922d:c861:a331]) by AM7PR01MB7108.eurprd01.prod.exchangelabs.com
+ ([fe80::d919:922d:c861:a331%4]) with mapi id 15.21.0223.008; Wed, 15 Jul 2026
+ 08:56:26 +0000
+From: Credit Hire <credithire@hackneysolutions.co.uk>
+To: Engineers <engineers@collisionengineers.co.uk>
+Subject: pk20yhr
+Thread-Topic: pk20yhr
+Thread-Index: Ad0UN8CJr1NRPTZ1R8uIDQTssUTmfw==
+Date: Wed, 15 Jul 2026 08:56:26 +0000
+Message-ID: <AM7PR01MB71081E6A72EDE94941585B0DEAF82@AM7PR01MB7108.eurprd01.prod.exchangelabs.com>
+Accept-Language: en-GB, en-US
+Content-Language: en-US
+X-MS-Has-Attach:
+X-MS-TNEF-Correlator:
+Authentication-Results-Original: dkim=none (message not signed)
+ header.d=none;dmarc=none action=none header.from=hackneysolutions.co.uk;
+x-ms-traffictypediagnostic: AM7PR01MB7108:EE_|PA4PR01MB9236:EE_|LO1PEPF000022FE:EE_|CWLP123MB7445:EE_|LNXP123MB2123:EE_
+X-MS-Office365-Filtering-Correlation-Id: 10d5f5b0-960e-478e-7c98-08dee24ef6a8
+x-ms-exchange-senderadcheck: 1
+x-ms-exchange-antispam-relay: 0
+X-Microsoft-Antispam-Untrusted: BCL:0;ARA:13230040|23010399003|1800799024|376014|366016|56012099006|38070700021|8096899003|18002099003;
+X-Microsoft-Antispam-Message-Info-Original: CY6iybqEb/crdBnL5Q/XjQ2DJVMdkBr9JdF2BfB1HfUpCVI5YlaARaOjGOt8uqpVrIH9aEEN3eXSwKjU8wEDx3513hkm4cdiRhyi+IBporHhHVBH57bBUadPNxlTUqLA+gzj1mIVphW98wmtN/IjE0OagaiVvzj2hnis38M0TrbcX7RR1GwRH8gDyWRm94I5LLXOMlEgMfQqRvIIrub8a4hvouRIJ3TlLRtn3wKRaDiYuDGD+j0nA9HwuW2j4mRqyCpAK0IkKZg34GG41tqq7LvQX6ST8kvJUksDKnVY/7BhiAB0F9uV8fmPvCcQd0YM7BP+WsvLo79/iMFi2yykDtBDoV+uSfmdmz5u8WJ2btKo+Z/8XV73EwALLHLDuKmixaTT4qoYfJ4cWhMo59+FtJnI4+HfNPrw85hvMs7OdOr8IXFA+Vq4dS7xPhoDwO+sRM0owyM/CZTlcCeEQSnK9NWNQNR6XVP3Yxfhganh+s5nKuwRk33/VLqDD06Q5oPF8Psti1qtg6kb34Luwj3mD5N1s0DfRbi8dZbyByPJO/eXyeLc9QKe3B/vUnkHNn4gDe8FoiEJq3psmO0qAmHAMfUvkmObDVmAL+gAQHoCvkive15ybtI0PzqTbtH+3+8xgeI6nQUcvAhJ+zVDZwB+Aay4lAZBmNc9UvfajzGyxGF7u5cWjBbdd9MbKQPXbR32zbGmH/lItv870xYLgbCvDDF4wI+tKg74g/mQJLwcUKo=
+X-Forefront-Antispam-Report-Untrusted: CIP:255.255.255.255;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:AM7PR01MB7108.eurprd01.prod.exchangelabs.com;PTR:;CAT:NONE;SFS:(13230040)(23010399003)(1800799024)(376014)(366016)(56012099006)(38070700021)(8096899003)(18002099003);DIR:OUT;SFP:1102;
+X-MS-Exchange-AntiSpam-MessageData-Original-ChunkCount: 1
+X-MS-Exchange-AntiSpam-MessageData-Original-0: =?us-ascii?Q?s/W3p4cYAfVZtOMtcCSpN6/nhXWjtWS8lO1TtqvN0Z7Nxr3lrCD6I1JNPAhN?=
+ =?us-ascii?Q?LHEESx2PM112m8HuN5PnsTgnC3eRNUT0d31aJzOjr/v3+eBvjKCIFqXqPKzY?=
+ =?us-ascii?Q?IPgZo5ZetHxalcElP2tlegvf5326rAcy09onT7kqdrgAhFCbuYZzRBw88SbW?=
+ =?us-ascii?Q?zJqCc3vM2DHrQv53sH7QukfDZaTToXdBeIaTCKy+m8GFHJJ10MoZdhYwbC1b?=
+ =?us-ascii?Q?np+UlsTqsOe2L/OqOLrGbDeigxlyeF/hlFnUXQkk3y2mjvtjgyGyfFX2rZxd?=
+ =?us-ascii?Q?0UuIjyt4Kv6p4zpeHrXsUTUQMgSzR1m4otq9FZ3UDXdtfl2K7NbJK8lUjnOe?=
+ =?us-ascii?Q?qJk/F6BGVg6f3gPDmTn6aww/nLE42WlWaRhAYHWpGnHevUDJ1HcpkwZjSatH?=
+ =?us-ascii?Q?DxJsR8RySn+E/A5Ovo8Q8CjdrJCIALPW9jwzzBVpVT7ru+cOHjrEVWdetVro?=
+ =?us-ascii?Q?/UQN3ori9RdWd7omqRauymJ4nyQKQa44ks0ikvNUcX3zkbw8ir9/AHJ+/GcG?=
+ =?us-ascii?Q?7KLetbRNWNzF9F+LUAsf6knJzgc+x1hUZXX9jakiGEXWHgtZFsndgotaff6W?=
+ =?us-ascii?Q?QS/DiXXkkXMsRBaJbRHjdkq6LIbzidQHbb6p0kealD3dZBHCNcGt6aniyKLx?=
+ =?us-ascii?Q?k2G83LxMc2BOH+z2YzcshF3ZyEkxauZm0wUl+HFhN+VVWdiz+NZ/lRJBoGol?=
+ =?us-ascii?Q?30I6H0gbfdbICWtWRCKt8VLBGfvVB5ipH+1HZHmh4UUAM/VOKd+t2y2xBSAh?=
+ =?us-ascii?Q?Wg6Aq3nnxh71LygEco6NaPKnqHpqqGGQ6XnqnX8n3NkCvmkS0TVuD2D1yK6r?=
+ =?us-ascii?Q?CG0qwIfAdvGuB/C3NLsxd405eMMC0qwYkPXe0Z+s6iIKM78G1YSgKWBmhqSL?=
+ =?us-ascii?Q?lR/AhA7Q7HKoUjlwdp5Cpr+J7A2z8iSmjwbIwzH+StcqnWSCRyfYFF4PoSCN?=
+ =?us-ascii?Q?22CwsisPEXnXt6zhzVShDbU4X/iZDz1an/VkUfoMxLXVr9nhslT56lvfbcU2?=
+ =?us-ascii?Q?v3dp8+fGVxt5OSdcOb1zf0zk987Xk39DifGob7qvkViMo6NUQRQ8pf5Cb6HS?=
+ =?us-ascii?Q?icsApDTn6703lamIBE9jrjFyidj9YFoMr7Sq5sUa0uIV2FfVtkncBAkK/pwa?=
+ =?us-ascii?Q?X7dbPPgbH5LzzgJgQ8uFht2Pj642ZVAy+cnD91Fo5+uRuhekV2uqjXkx7mWS?=
+ =?us-ascii?Q?Ob5WJDlIigbTq/LimAFUYp0OL+GK52YcphJ7X6oPKLowmRCdkjorNXpQVGK0?=
+ =?us-ascii?Q?7RSV4M681LspfOfmVQtfGPnoQwk+s8gNCmsl+mUbBHEcHv5H60VaSdmbtJSg?=
+ =?us-ascii?Q?hY5b4qgaiJlCyohazAzaofp3K2ue8BuQ0g9zdOxCFlmg3FX9RzxI1LN3rpx4?=
+ =?us-ascii?Q?drPIIKPnC5HVedTiybKGWg2Z9sQG+Z8mW8p4ZiRFsAPBGtHeDXPn8+6Kmb0Q?=
+ =?us-ascii?Q?gtE4HGvZL1JXsBvwWsran2VS6vtwqzmZdwibnWAHVw1koMVeMrodbu4ylnnR?=
+ =?us-ascii?Q?KlZDe42q5tASjmAPjvzDPXgAk4OQMxYb3iv2ENp+D2VG/IlYqrzrp0hzSa6m?=
+ =?us-ascii?Q?VIe5MAiCBO+1IrRLmWPTIT2/c+JOSB9PUUUtd6XHzKILudXfF/vCBvlLnkOT?=
+ =?us-ascii?Q?U6gb7N+FGEpJZ4RPa+MBAEFHTxc1ZdNevReg8/534NY/U/xZ8KhfZzyWh5aJ?=
+ =?us-ascii?Q?RQClGW2GlEBIXuv9o0cgo9dEpwNhM4e/8AXqkGIDDtHU5mClBcFLZ+ctAWXH?=
+ =?us-ascii?Q?JkpSkOlx9wmbe26ZB0Ai52hahY18FHk=3D?=
+Content-Type: multipart/alternative;
+	boundary="_000_AM7PR01MB71081E6A72EDE94941585B0DEAF82AM7PR01MB7108eurp_"
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: PA4PR01MB9236
+Return-Path: credithire@hackneysolutions.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 15 Jul 2026 08:56:30.6752
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 10d5f5b0-960e-478e-7c98-08dee24ef6a8
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-Exchange-Transport-CrossTenantHeadersStripped: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Transport-CrossTenantHeadersPromoted: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-PublicTrafficType: Email
+X-MS-Exchange-Organization-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id-Prvs: 917801da-4c86-40a6-b157-08dee24ef445
+X-MS-Exchange-Organization-SCL: 1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|35042699022|6073799003|6113799003|5063699009|19002099009|8096899003|16102099003|57112099003|18002099003;
+X-Forefront-Antispam-Report: CIP:2a01:111:f403:c207::3;CTRY:;LANG:en;SCL:1;SRV:;IPV:NLI;SFV:NSPM;H:MRWPR03CU001.outbound.protection.outlook.com;PTR:mail-francesouthazlp170110003.outbound.protection.outlook.com;CAT:NONE;SFS:(13230040)(35042699022)(6073799003)(6113799003)(5063699009)(19002099009)(8096899003)(16102099003)(57112099003)(18002099003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 15 Jul 2026 08:56:30.5816
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 10d5f5b0-960e-478e-7c98-08dee24ef6a8
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LO1PEPF000022FE.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: CWLP123MB7445
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:08.7458192
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0223.005
+X-Microsoft-Antispam-Mailbox-Delivery:
+	ucf:0;jmr:0;auth:0;dest:I;ENG:(910005)(944506478)(944626604)(920097)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?us-ascii?Q?IWSMCl1fO6SEv0dxG6NPSpMXrW28XgKG5NcAOLcOsWRaUQ/sP7IouLbgBHRQ?=
+ =?us-ascii?Q?QupaLX+HMyOGRRMYg70kLfpqFgBeQWGUyXhs99imDvdLRu8Jq0fMrPpqj+5i?=
+ =?us-ascii?Q?UkerYqV1MJ6oXqqstvYnMTvXSUS11+Ej9dj6qCs5Wd7V7MMux+sLEgFg7Wb4?=
+ =?us-ascii?Q?dA1Qya5/Ae0o840oh9pY3VtX9AysFzpwQUa+gP4zl+5QOFN5qtaHup1aDHlc?=
+ =?us-ascii?Q?f/My8xIzXWAUXHc3cLJcdaYa6OS00BJu0XSJyU+TKxdrWaiWC+AutPVC+7V/?=
+ =?us-ascii?Q?0mtXYDuc+PW6hjrKAyxksKONHs55W6d8xqFHqXUHRfvwqdjEbNvZ6vSPBFbg?=
+ =?us-ascii?Q?ageDaRlCHl4sH9zWeilWT51tg6fLWx/VeW7ZMqL2H+uvTmcRq0O2dVDAxtrf?=
+ =?us-ascii?Q?cWSRMpItEgqbU/13P6ArCio2y/Pa2QPrAXGjUPw/oZVj4bgHRJERqaqrhsU7?=
+ =?us-ascii?Q?HsXN6Jj2LiO1t/PnklZx9iHmUB1uqYmhqA+MU8XWwuvap1jFy+nrra/23LIE?=
+ =?us-ascii?Q?qC2kN3qCSjFTYOV/VJFHnv5TtnSOsmqFqNtmA943PahCTkklg0td/UdMguOb?=
+ =?us-ascii?Q?F9z7/nKIty4DiY6gc4v3gDGkVH902ZEh6kIW/6sRAcoivm8A05TdPRkBlfRw?=
+ =?us-ascii?Q?VTHf7/HjfxHMMUWceo0SC6kK5ez8pi1MZ6Q1fh6quMm3jbtNNV3bvV9FP7xf?=
+ =?us-ascii?Q?tj+EM6+uetncwYVbaxkEh+28SqsNUS1Hp/n3IaxYRw7tPoNpt5N8wFwbMEG8?=
+ =?us-ascii?Q?7+32eBJdcrwcZTBjspbOqApCgqwGR9wNtKm/3X/4Xo3DOw7vZKGUbaLWK2Kn?=
+ =?us-ascii?Q?uZ1KU/2e/0oSpmZG4PaO+wzA4opxBUHQEzuCG8Q2YgmcYbfxl4NywwJCtCX+?=
+ =?us-ascii?Q?uOKxE4YXmPEkGXOmfjJYWIEgsIVFhPpJxpdyFfVfV9pR4sY/UedX/KdApr7e?=
+ =?us-ascii?Q?6l7ckmwOxkST+hxDWdfoExhhwQ1EFkOB2/a0X/qweuQtBZRolMa0vwvQ/YQh?=
+ =?us-ascii?Q?OuQXyHkrIJZgkS0N18ReLdFKdYrc9PQ3vy/N8xLL+c+oCfwc1J4YGBVXGlWR?=
+ =?us-ascii?Q?GP7YzztpXMvw/VoTBr4db0IK+vDGT4Ohr+eM+2je5nMRFl02214x4i/gThKI?=
+ =?us-ascii?Q?U7sUBcCnp2gsj7C0My+Ev+s357T9eEnTAQNaaW6hOwp1TrLeY5P2gMGEonfG?=
+ =?us-ascii?Q?Lxr/uepERu0QSdP1dosWOQSG4WHvkR0TXtsM1a0rTlrk5oWJUEZhD+r59nkm?=
+ =?us-ascii?Q?U6NuPnE/TMCOP7rjS8ZtY9qdbYB93VjAA+67RVAd1RoV/NdF/a7v3SA5NYWQ?=
+ =?us-ascii?Q?5vtDkM2gW9R1GDGTmEk4O95FBnMYIxu+qNtN5SxHJJzlFNjePQ6R3s2S6S6J?=
+ =?us-ascii?Q?2HdNbc4lz2NslNEEgaapApgUH9MHXS8/RaTYeE81EIfBkuRH+NlXFg8i+QN4?=
+ =?us-ascii?Q?2n6nXkTgMopgucWmO/J43DfM8SEIEp9XISs6VSNcfgnc1OsGs0+cGk36ZvoZ?=
+ =?us-ascii?Q?yq86js1n5hNoXRkEAy68bdC3VyLRoqMU7xwA1uT/fZJZBX7kjz+LMOhEGd9a?=
+ =?us-ascii?Q?RcK9s/LgivmoyKbYW7FmprDXiXHgDJSN94ZWOl5VON/PrWRKzLK45bp0OK3d?=
+ =?us-ascii?Q?JafE2m8+24tpuz1flSsmXX6P3N/1uO/vdznkT9xYqvSHwORR57LStQdg5mY6?=
+ =?us-ascii?Q?8xOfILiC0DQ0o1CaXLUZqrZEfl/wHw+x2zsxZ+Dx4JckkhfQnTDHgn4PTYDJ?=
+ =?us-ascii?Q?zdw5Au5oAWuK7qisEu7ku2vHxZkbH0iQ32PIsrTLvdcQoROxLPsMf7azEiqe?=
+ =?us-ascii?Q?/7RM3YctR5Pr8cV0VVuDjaS7+YNT+Eo9mhaXicconbRIZLKjVflFZnWFFJdR?=
+ =?us-ascii?Q?BNaq9HpFb1fQylaCmN/OMfrteC2RgWUdCpp+Msa8MnZvKmKlp//hciLFtFBI?=
+ =?us-ascii?Q?+F+vzzU3zM4jZPmY2lULXMrMt6qntR9ylCgRepLxRnMf2Cjz8GQO19AmSdfC?=
+ =?us-ascii?Q?MUONe7R6MgTSVv+4zMMQTBrjqO+M5pzbnDzNXKw2TnuP09mHOFsbgM1I40s2?=
+ =?us-ascii?Q?syB0qr8U5+O08IgZZkNmajF0f19QCP9jKfZkHuuWnDSG8d9UDxkGJbW3wXI+?=
+ =?us-ascii?Q?5k93axupMt/RecyjiSj8boOLkqld2CrfoqV0ekFtuCs3sjcbaupx3WHKrAo+?=
+ =?us-ascii?Q?StTpRWpdoCesl9ryTJpDOBUjwfEeg07fT2LkyR4Pexp0U2rDhhQZkzJ2hAhj?=
+ =?us-ascii?Q?HGOdpfR5EmeXIdADdGqFjuHldF2VaaLXRIYRtcKZhwjTqFiwu1g3OSYCel6p?=
+ =?us-ascii?Q?XlE=3D?=
+MIME-Version: 1.0
+
+--_000_AM7PR01MB71081E6A72EDE94941585B0DEAF82AM7PR01MB7108eurp_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Hi,
+
+Please could we have the roadworthy report for this vehicle.
+
+RAF
+
+--_000_AM7PR01MB71081E6A72EDE94941585B0DEAF82AM7PR01MB7108eurp_
+Content-Type: text/html; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:v=3D"urn:schemas-microsoft-com:vml" xmlns:o=3D"urn:schemas-micr=
+osoft-com:office:office" xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns:m=3D"http://schemas.microsoft.com/office/2004/12/omml" xmlns=3D"http:=
+//www.w3.org/TR/REC-html40"><head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dus-ascii"=
+>
+<meta name=3D"Generator" content=3D"Microsoft Word 15 (filtered medium)">
+<style><!--
+/* Font Definitions */
+@font-face
+	{font-family:"Cambria Math";
+	panose-1:2 4 5 3 5 4 6 3 2 4;}
+@font-face
+	{font-family:Calibri;
+	panose-1:2 15 5 2 2 2 4 3 2 4;}
+/* Style Definitions */
+p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{margin:0cm;
+	font-size:12.0pt;
+	font-family:"Calibri",sans-serif;
+	mso-ligatures:standardcontextual;
+	mso-fareast-language:EN-US;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	font-family:"Calibri",sans-serif;
+	color:windowtext;}
+.MsoChpDefault
+	{mso-style-type:export-only;
+	mso-fareast-language:EN-US;}
+@page WordSection1
+	{size:612.0pt 792.0pt;
+	margin:72.0pt 72.0pt 72.0pt 72.0pt;}
+div.WordSection1
+	{page:WordSection1;}
+--></style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext=3D"edit" spidmax=3D"1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext=3D"edit">
+<o:idmap v:ext=3D"edit" data=3D"1" />
+</o:shapelayout></xml><![endif]-->
+</head>
+<body lang=3D"EN-GB" link=3D"#0563C1" vlink=3D"#954F72" style=3D"word-wrap:=
+break-word">
+<div class=3D"WordSection1">
+<p class=3D"MsoNormal">Hi,<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">Please could we have the roadworthy report for this =
+vehicle.<o:p></o:p></p>
+<p class=3D"MsoNormal"><o:p>&nbsp;</o:p></p>
+<p class=3D"MsoNormal">RAF<o:p></o:p></p>
+</div>
+</body>
+</html>
+
+--_000_AM7PR01MB71081E6A72EDE94941585B0DEAF82AM7PR01MB7108eurp_--
