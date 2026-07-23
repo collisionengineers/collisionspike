@@ -36,11 +36,11 @@ import { dataApi, type TriageContextRequest, type TriageContextResult } from '..
 import { callClassifyEmail } from '../../adapters/functions-client.js';
 import { trackEvent } from '../../platform/telemetry.js';
 import {
+  attachmentKindsOf,
   buildClassifyRequest,
   resolveActingClassification,
   type InboundClassification,
 } from './classifyInbound.js';
-import { deriveAttachmentSignals } from './triagePolicy.js';
 import { resolveCaseRef, resolveCaseVrm } from './case-identity.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 
@@ -74,6 +74,102 @@ export interface TriageUnifiedResult {
    *  the hoisted parser VRM/ref, WITHOUT re-reading process.env in the orchestrator body
    *  (Durable determinism). False when the gate is off → those lanes stay byte-identical. */
   parseFedGateOn: boolean;
+}
+
+/* ---- images-only-delivery detection (TKT-043) — MOVED from the now-deleted
+ * triagePolicy.ts (email-engine-rebuild: that file's registered `triagePolicy` Durable
+ * activity had no remaining caller, but these pure helpers do — triageUnified.ts is now
+ * their sole home). Kept in LOCKSTEP with the vendored classifier's
+ * `_delivered_images_only` (services/functions/parser/cedocumentmapper_v2/rules/
+ * email_classifier.py): the extension-derived attachment kind reads a photos-in-a-PDF
+ * ("images - cvd.pdf") as `instruction`, so a chaser that delivers its damage photos AS
+ * a single images PDF would fall to case_update/update_general. The FILENAME tier below
+ * recovers it so the triage policy sees imagesOnly=true -> images_received, matching
+ * Stage A. A signature logo ("imageNNN.png") never counts as delivered evidence; an
+ * engineer's REPORT disqualifies the images-only reading (it is existing-work, not new
+ * evidence).
+ *
+ * TKT-307: digit run is UNBOUNDED, in lockstep with the Python twin — a capped \d{1,4}
+ * let a six-digit Outlook cid (image078315.png) read as genuine evidence. The fix landed
+ * on triagePolicy.ts, which this rebuild deleted after moving these helpers here; it is
+ * re-applied by hand to this copy, since this is now the only live one. */
+const _SIGNATURE_IMAGE_RE = /^image0*\d+\.(?:png|jpe?g|gif|bmp)$/i;
+const _IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'heic', 'webp', 'tif', 'tiff']);
+const _IMAGE_EVIDENCE_HINT_RE = /(?:images?|photos?|damage|\bimg[\W_]|vd\s*image)/i;
+const _REPORT_FILENAME_RE = /(engineer'?s?report|reportv\d|report\.(?:pdf|docx?)$|finalreport|draftreport|auditreport)/i;
+
+function _isReportFilename(name: string): boolean {
+  return _REPORT_FILENAME_RE.test(name.replace(/[\s_-]+/g, '').toLowerCase());
+}
+
+function _isImageEvidenceFilename(name: string): boolean {
+  const base = name.trim();
+  if (!base || _SIGNATURE_IMAGE_RE.test(base) || _isReportFilename(base)) return false;
+  const dot = base.lastIndexOf('.');
+  const ext = dot >= 0 ? base.slice(dot + 1).toLowerCase() : '';
+  return _IMAGE_EXTENSIONS.has(ext) || _IMAGE_EVIDENCE_HINT_RE.test(base);
+}
+
+/** True when the NEW EVIDENCE delivered is photos and nothing else — by KIND (every
+ *  attachment an image) OR by FILENAME (every non-signature attachment is image evidence,
+ *  none a report). Mirrors the classifier's `_delivered_images_only`. */
+export function deliveredImagesOnly(attachmentKinds: readonly string[], filenames: readonly string[]): boolean {
+  // Drop signature/logo images (imageNNN.png) FIRST. A reply carrying ONLY a signature logo
+  // must not read as delivered photo evidence — even though its KIND is `image`, which used to
+  // let the all-image kind fast-path short-circuit to true before the filename filter ran
+  // (PR#45 / TKT-043 review). So the fast-path is now guarded on there being ≥1 non-signature file.
+  const nonSignature = filenames
+    .map((f) => (f ?? '').trim())
+    .filter((f) => f && !_SIGNATURE_IMAGE_RE.test(f));
+  if (nonSignature.length === 0) return false; // nothing but signature logos delivered
+  if (nonSignature.some(_isReportFilename)) return false; // a report disqualifies images-only
+  // KIND tier — every attachment is an image kind (real .jpg/.png photos); guarded above so a
+  // set made only of signature images can no longer qualify.
+  if (attachmentKinds.length > 0 && attachmentKinds.every((kind) => kind === 'image')) return true;
+  // FILENAME tier — every non-signature attachment is image evidence (photos-in-a-PDF, TKT-043).
+  return nonSignature.every(_isImageEvidenceFilename);
+}
+
+/**
+ * Derive the attachment signals `TriagePolicyContext` needs (`hasAttachments`,
+ * `attachmentKinds`, `imagesOnly`) from the envelope — reuses classifyInbound's
+ * `attachmentKindsOf` (D10 — the SAME `describeEvidence` rule) so classification and
+ * triage policy never disagree about what an attachment IS. `imagesOnly` additionally
+ * applies the `deliveredImagesOnly` FILENAME tier (TKT-043), kept in lockstep with the
+ * classifier's `_delivered_images_only`, so a photos-in-a-PDF the extension-derived kind
+ * reads as `instruction` still yields images_received. Pure; unit-testable.
+ */
+export function deriveAttachmentSignals(inbound: Pick<InboundEnvelope, 'attachments'>): {
+  hasAttachments: boolean;
+  attachmentKinds: string[];
+  imagesOnly: boolean;
+} {
+  const attachmentKinds = attachmentKindsOf(inbound);
+  const hasAttachments = inbound.attachments.length > 0;
+  const filenames = inbound.attachments.map((a) => a.filename ?? '');
+  const imagesOnly = hasAttachments && deliveredImagesOnly(attachmentKinds, filenames);
+  return { hasAttachments, attachmentKinds, imagesOnly };
+}
+
+/**
+ * Build the `/api/internal/triage/context` request body — pure, kept exactly as it was
+ * in the now-deleted triagePolicy.ts (email-engine-rebuild). Retained here ONLY as the
+ * frozen reference `triageUnified.test.ts`'s gate-off parity test compares
+ * `buildWidenedTriageContextRequest(.., {})` against — see that test's own doc comment.
+ * Not called from triageUnified's own activity handler (buildWidenedTriageContextRequest
+ * is its live equivalent).
+ */
+export function buildTriageContextRequest(
+  inbound: Pick<InboundEnvelope, 'candidateRef' | 'candidateVrm' | 'internetMessageId' | 'conversationId'>,
+  classification: Pick<InboundClassification, 'bodyCaseref' | 'bodyVrm' | 'bodyJobref'>,
+): TriageContextRequest {
+  return {
+    caseref: (inbound.candidateRef || classification.bodyCaseref || '').trim(),
+    jobref: (classification.bodyJobref || '').trim(),
+    vrm: (inbound.candidateVrm || classification.bodyVrm || '').trim(),
+    internetMessageId: (inbound.internetMessageId || '').trim(),
+    conversationId: (inbound.conversationId || '').trim(),
+  };
 }
 
 /** ALL gates forced on — the `shadow` decision (would-be action, telemetry only).

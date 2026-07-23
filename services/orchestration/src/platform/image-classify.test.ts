@@ -271,6 +271,37 @@ describe('imageClassificationOutcomeFromResponse', () => {
       failure: { disposition: 'transient', code: 'model_malformed_response' },
     });
   });
+
+  it('TKT-306 regression: a healthy 200 under RAI policy Microsoft.DefaultV2 is NOT misread as a content-filter block', () => {
+    // Every successful response under this policy carries content_filter_results /
+    // prompt_filter_results with every category "safe" — a body-text scan for the phrase
+    // "content filter" false-positives on this exact shape and discarded 100% of prod traffic.
+    const raiAnnotatedSuccess = {
+      choices: [{
+        finish_reason: 'stop',
+        content_filter_results: {
+          hate: { filtered: false, severity: 'safe' },
+          self_harm: { filtered: false, severity: 'safe' },
+          sexual: { filtered: false, severity: 'safe' },
+          violence: { filtered: false, severity: 'safe' },
+        },
+        message: {
+          content: JSON.stringify({
+            role: 'overview',
+            registration_visible: true,
+            plate_text: 'AB12CDE',
+            person_reflection: false,
+            confidence: 0.9,
+          }),
+        },
+      }],
+      prompt_filter_results: [{ prompt_index: 0, content_filter_results: { jailbreak: { filtered: false, detected: false } } }],
+    };
+    expect(imageClassificationOutcomeFromResponse(200, raiAnnotatedSuccess)).toMatchObject({
+      ok: true,
+      classification: { role: 'overview', registrationVisible: true },
+    });
+  });
 });
 
 describe('classificationToEvidenceFields', () => {

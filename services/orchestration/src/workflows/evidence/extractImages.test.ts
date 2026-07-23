@@ -1,8 +1,8 @@
 /**
  * extractImages activity — the TKT-089 reopen classifier-gated suppression (offline
  * acceptance proof). The activity handler is captured through a durable-functions
- * registration double; blob/parser/data-API are recording doubles; `classifyImage` is
- * stubbed but `classificationToEvidenceFields` stays REAL (the box-classify-sweep.test.ts
+ * registration double; blob/parser/data-API are recording doubles; `classifyImageWithOutcome`
+ * is stubbed but `classificationToEvidenceFields` stays REAL (the box-classify-sweep.test.ts
  * convention) so the persisted rows exercise the actual extraction-lane mapping.
  *
  * Pins:
@@ -10,9 +10,11 @@
  *       shape the engine deliberately keeps) persists `excluded: true` with the domain
  *       exclusion reason — it can never mirror to Box (archive-evidence filters excluded);
  *   (b) recall guard — a genuine vehicle crop persists accepted + NOT excluded;
- *   (c) never-throws fail-open — a classify failure (null) persists the row role-unknown
+ *   (c) never-throws fail-open — a classify failure persists the row role-unknown
  *       and NOT excluded, exactly the pre-classifier behaviour (recall protection);
- *   (d) gate off — classifyImage is never called and rows persist role-unknown.
+ *   (d) gate off — classifyImageWithOutcome is never called and rows persist role-unknown;
+ *   (e) TKT-306 — a classify failure is counted by code in the summary log, not silently
+ *       discarded.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -69,11 +71,11 @@ const blobMock = vi.hoisted(() => ({
 }));
 vi.mock('../../platform/blob.js', () => blobMock);
 
-/* ---- image classifier: stub classifyImage, keep classificationToEvidenceFields REAL ---- */
+/* ---- image classifier: stub classifyImageWithOutcome, keep classificationToEvidenceFields REAL ---- */
 const classifyImageMock = vi.hoisted(() => vi.fn());
 vi.mock('../../platform/image-classify.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../platform/image-classify.js')>();
-  return { ...actual, classifyImage: classifyImageMock };
+  return { ...actual, classifyImageWithOutcome: classifyImageMock };
 });
 
 await import('./extractImages.js'); // registers the activity against the captured double
@@ -109,8 +111,9 @@ const PHOTO_IMG = {
   sequence_index: 2,
 };
 
-const CLS_OTHER = { role: 'other', registrationVisible: false, plateText: '', personReflection: false, confidence: 0.9 };
-const CLS_OVERVIEW = { role: 'overview', registrationVisible: true, plateText: 'KV64EHB', personReflection: false, confidence: 0.95 };
+const CLS_OTHER = { ok: true as const, classification: { role: 'other', registrationVisible: false, plateText: '', personReflection: false, confidence: 0.9 } };
+const CLS_OVERVIEW = { ok: true as const, classification: { role: 'overview', registrationVisible: true, plateText: 'KV64EHB', personReflection: false, confidence: 0.95 } };
+const CLS_CONTENT_FILTER = { ok: false as const, failure: { disposition: 'terminal' as const, code: 'model_content_filter' } };
 
 const persistedRows = (): Array<Record<string, unknown>> =>
   (dataApiMock.persistImageEvidence.mock.calls[0]?.[1] ?? []) as Array<Record<string, unknown>>;
@@ -183,9 +186,9 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     });
   });
 
-  it('(c) fail-open — classify null persists the row role-unknown and NOT excluded (recall protection)', async () => {
+  it('(c) fail-open — a classify failure persists the row role-unknown and NOT excluded (recall protection)', async () => {
     fnClient.callExtractImages.mockResolvedValue({ count: 1, images: [PHOTO_IMG] });
-    classifyImageMock.mockResolvedValue(null); // AOAI blip/content-filter — never throws
+    classifyImageMock.mockResolvedValue(CLS_CONTENT_FILTER); // AOAI blip/content-filter — never throws
 
     await activity.handler(INPUT, ctx());
 
@@ -196,7 +199,7 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     expect('excluded' in rows[0]).toBe(false);
   });
 
-  it('(d) gate off — classifyImage is never called; rows persist role-unknown (pre-classifier behaviour)', async () => {
+  it('(d) gate off — classifyImageWithOutcome is never called; rows persist role-unknown (pre-classifier behaviour)', async () => {
     delete process.env.IMAGE_ROLE_CLASSIFY_ENABLED;
     fnClient.callExtractImages.mockResolvedValue({ count: 1, images: [BADGE_IMG] });
 
@@ -207,6 +210,21 @@ describe('extractImages — TKT-089 classifier-gated suppression of non-vehicle 
     expect(rows[0]).toMatchObject({ imageRoleCode: 'unknown' });
     expect('excluded' in rows[0]).toBe(false);
     expect('decisionSource' in rows[0]).toBe(false);
+  });
+
+  it('(e) TKT-306 — a classify failure is counted by code in the summary log, not silently discarded', async () => {
+    fnClient.callExtractImages.mockResolvedValue({ count: 1, images: [PHOTO_IMG] });
+    classifyImageMock.mockResolvedValue(CLS_CONTENT_FILTER);
+
+    const c = ctx();
+    await activity.handler(INPUT, c);
+
+    const summary = c.log.mock.calls
+      .map((args) => String(args[0]))
+      .find((s) => s.includes('"evt":"extractImages"'));
+    expect(JSON.parse(summary!)).toMatchObject({
+      classifyFailureCounts: { model_content_filter: 1 },
+    });
   });
 
   it('logs the excludedNonVehicle counter in the summary event', async () => {

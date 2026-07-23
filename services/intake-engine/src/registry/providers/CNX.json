@@ -1,0 +1,17 @@
+{
+  "_comment": "ILLUSTRATIVE SEED ENTRY — Connexus really is an intermediary sending from connexus.co.uk (confirmed), but the two candidatePrincipals below (PCH, SBL) and their contentSignals are placeholder example data for a human operator to correct/expand, not verified production routing rules.",
+  "principalCode": "CNX",
+  "relationship": "intermediary",
+  "active": true,
+  "knownEmailDomains": ["connexus.co.uk"],
+  "candidatePrincipals": [
+    {
+      "principalCode": "PCH",
+      "contentSignals": ["PCH", "PCH Warranties"]
+    },
+    {
+      "principalCode": "SBL",
+      "contentSignals": ["SBL", "SBL Group"]
+    }
+  ]
+}

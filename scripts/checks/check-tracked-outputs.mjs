@@ -14,7 +14,8 @@ const GENERATED_EXTENSIONS = new Set([
 
 function isEvidenceArchive(repositoryPath) {
   const value = repositoryPath.toLowerCase();
-  return value.startsWith("tests/fixtures/evidence/")
+  return value.startsWith("qdos-email-corpus/")
+    || value.startsWith("tests/fixtures/evidence/")
     || (value.startsWith("docs/tickets/") && value.includes("/evidence/"))
     || value.startsWith("docs/reviews/");
 }

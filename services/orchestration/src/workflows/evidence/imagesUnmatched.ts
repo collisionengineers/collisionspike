@@ -6,9 +6,10 @@ import { describeEvidence, SHA256_HEX_RE } from '@cs/domain';
 import { gates } from '@cs/domain/gates';
 import { dataApi } from '../../adapters/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../platform/blob.js';
-import { callExtractImages, box } from '../../adapters/functions-client.js';
+import { callExtractImages } from '../../adapters/functions-client.js';
 import { assessSignatureImage } from '../../platform/image-sniff.js';
 import { uploadArchiveItem } from '../archive/boxArchive.js';
+import { ensureArchiveFolderV2Core } from '../intake-v2/ensureArchiveFolder.js';
 
 export interface UnmatchedImageAttachment {
   filename: string; contentType: string; blobPath: string; size: number; sha256?: string;
@@ -48,7 +49,12 @@ async function expandImageDocument(document:UnmatchedImageAttachment,vrm:string,
 
 const realDeps: ImagesUnmatchedDeps = {
   markAttention: (sourceMessageId) => dataApi.markInboundAttention({ sourceMessageId, reason: 'images_no_match' }),
-  createFolder: (name, parentId) => box.createFolder(name, parentId),
+  // email-engine-rebuild — routed through the guarded ensure call
+  // (intake-v2/ensureArchiveFolder.ts) instead of calling box.createFolder directly, so
+  // this VRM-named folder can never be created outside the pinned test root. `parentId`
+  // is still passed through as `parentFolderId`, so a misconfigured BOX_FOLDER_ROOT_ID
+  // fails closed here exactly like every other Box-folder-creation call site now does.
+  createFolder: (name, parentId) => ensureArchiveFolderV2Core({ name, parentFolderId: parentId }),
   hash: async (blobPath) => contentSha256(await downloadEvidenceBytes(blobPath)),
   // Graph already applies this byte/dimension verdict before blob landing. Keep the
   // same content-based check here as replay/import defence; never discard a genuine

@@ -6,12 +6,14 @@
     "packages/*",
     "apps/*",
     "services/data-api",
-    "services/orchestration"
+    "services/orchestration",
+    "services/intake-engine"
   ],
   "scripts": {
-    "build": "npm run build --workspace @cs/domain && npm run build --workspace @cs/server-runtime && npm run build --workspace @cs/api && npm run build --workspace @cs/orchestration && npm run build --workspace @cs/web && npm run build --workspace @cs/capture-contracts && npm run build --workspace @cs/capture-core && npm run build --workspace @cs/capture-testkit && npm run build --workspace @cs/capture-web",
+    "build": "npm run build --workspace @cs/domain && npm run build --workspace @cs/server-runtime && npm run build --workspace @cs/intake-engine && npm run build --workspace @cs/api && npm run build --workspace @cs/orchestration && npm run build --workspace @cs/web && npm run build --workspace @cs/capture-contracts && npm run build --workspace @cs/capture-core && npm run build --workspace @cs/capture-testkit && npm run build --workspace @cs/capture-web",
     "build:domain": "npm run build --workspace @cs/domain",
     "build:server-runtime": "npm run build --workspace @cs/server-runtime",
+    "build:intake-engine": "npm run build --workspace @cs/intake-engine",
     "build:api": "npm run build --workspace @cs/api",
     "build:orch": "npm run build --workspace @cs/orchestration",
     "build:web": "npm run build --workspace @cs/web",
@@ -26,7 +28,7 @@
     "bundle:api": "node scripts/build/build-api.cjs",
     "bundle:orchestration": "node scripts/build/build-orchestration.cjs",
     "package:deploy": "npm run bundle && node scripts/build/install-function-dependencies.cjs",
-    "test": "npm run test --workspace @cs/domain && npm run test --workspace @cs/server-runtime && npm run test --workspace @cs/api && npm run test --workspace @cs/orchestration && npm run test --workspace @cs/web && npm run test --workspace @cs/capture-core && npm run test --workspace @cs/capture-web",
+    "test": "npm run test --workspace @cs/domain && npm run test --workspace @cs/server-runtime && npm run test --workspace @cs/intake-engine && npm run test --workspace @cs/api && npm run test --workspace @cs/orchestration && npm run test --workspace @cs/web && npm run test --workspace @cs/capture-core && npm run test --workspace @cs/capture-web",
     "generate:runtime-contract": "node scripts/checks/check-runtime-contract.mjs --write",
     "verify:offline": "node scripts/verify-offline.mjs",
     "test:worktree-governance": "node --test scripts/worktree.test.mjs scripts/pre-push.test.mjs",

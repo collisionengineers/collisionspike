@@ -3,8 +3,8 @@ import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } 
 import * as df from 'durable-functions';
 import { gates } from '@cs/domain/gates';
 import { dataApi, type ArchiveHoldingUploadClaim } from '../../adapters/data-api.js';
-import { box } from '../../adapters/functions-client.js';
 import { uploadArchiveItem } from '../archive/boxArchive.js';
+import { ensureArchiveFolderV2Core } from '../intake-v2/ensureArchiveFolder.js';
 
 export interface ArchiveHoldingRecoveryDeps {
   claim(claimToken:string,limit:number):Promise<{files:ArchiveHoldingUploadClaim[]}>;
@@ -22,7 +22,11 @@ export interface ArchiveHoldingRecoveryDeps {
 const realDeps:ArchiveHoldingRecoveryDeps={
   claim:(token,limit)=>dataApi.claimArchiveHoldingUploads(token,limit),
   claimDeferred:(token,limit)=>dataApi.claimDeferredArchiveHoldingIntakes(token,limit),
-  createFolder:(name,parentId)=>box.createFolder(name,parentId),
+  // email-engine-rebuild — routed through the guarded ensure call
+  // (intake-v2/ensureArchiveFolder.ts) instead of calling box.createFolder directly, so
+  // this VRM-named registration-recovery folder can never be (re)created outside the
+  // pinned test root.
+  createFolder:(name,parentId)=>ensureArchiveFolderV2Core({name,parentFolderId:parentId}),
   register:(payload)=>dataApi.registerArchiveHolding(payload),
   completeDeferred:(id,token)=>dataApi.completeDeferredArchiveHoldingIntake(id,token),
   failDeferred:(id,payload)=>dataApi.failDeferredArchiveHoldingIntake(id,payload),

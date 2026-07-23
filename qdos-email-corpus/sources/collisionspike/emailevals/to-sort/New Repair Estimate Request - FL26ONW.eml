@@ -1,0 +1,234 @@
+Received: from LOYP123MB2847.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:ea::12)
+ by LNXP123MB2123.GBRP123.PROD.OUTLOOK.COM with HTTPS; Fri, 10 Jul 2026
+ 11:29:56 +0000
+Received: from LO4P123CA0453.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:1aa::8)
+ by LOYP123MB2847.GBRP123.PROD.OUTLOOK.COM (2603:10a6:600:ea::12) with
+ Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.21.181.15; Fri, 10 Jul
+ 2026 11:29:54 +0000
+Received: from LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+ (2603:10a6:600:1aa:cafe::a6) by LO4P123CA0453.outlook.office365.com
+ (2603:10a6:600:1aa::8) with Microsoft SMTP Server (version=TLS1_3,
+ cipher=TLS_AES_256_GCM_SHA384) id 15.21.202.12 via Frontend Transport; Fri,
+ 10 Jul 2026 11:29:54 +0000
+Authentication-Results: spf=pass (sender IP is 54.240.3.11)
+ smtp.mailfrom=send.noreply.collisionengineers.co.uk; dkim=pass (signature was
+ verified) header.d=noreply.collisionengineers.co.uk;dkim=pass (signature was
+ verified) header.d=amazonses.com;dmarc=pass action=none
+ header.from=noreply.collisionengineers.co.uk;compauth=pass reason=100
+Received-SPF: Pass (protection.outlook.com: domain of
+ send.noreply.collisionengineers.co.uk designates 54.240.3.11 as permitted
+ sender) receiver=protection.outlook.com; client-ip=54.240.3.11;
+ helo=a3-11.smtp-out.eu-west-1.amazonses.com; pr=C
+Received: from a3-11.smtp-out.eu-west-1.amazonses.com (54.240.3.11) by
+ LN2PEPF000100CD.mail.protection.outlook.com (10.167.240.7) with Microsoft
+ SMTP Server (version=TLS1_3, cipher=TLS_AES_256_GCM_SHA384) id 15.21.181.6
+ via Frontend Transport; Fri, 10 Jul 2026 11:29:54 +0000
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple; s=resend;
+	d=noreply.collisionengineers.co.uk; t=1783682994;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type;
+	bh=Khf9TsnfucBqec0M7KrMKX8UZ0fe8s2XPCunH2rsxkA=;
+	b=7YKP1R2+BsaDquhKzLYtvZT5fO/9+NBaHPTrnizDiBWPchY9a5iLXs1XVG57w+Xu
+	0SCrpfm0+1yF+OpBCOPn1S96TT+UAkqIGXnNTUURDvRqAHMDqFBVi7yr6ly/zEDZ/pJ
+	x0QTrqrwDdA9coyw51G/23u5U0hzIBAp8rtDjAYg=
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/simple;
+	s=shh3fegwg5fppqsuzphvschd53n6ihuv; d=amazonses.com; t=1783682994;
+	h=From:To:Subject:Message-ID:Date:MIME-Version:Content-Type:Feedback-ID;
+	bh=Khf9TsnfucBqec0M7KrMKX8UZ0fe8s2XPCunH2rsxkA=;
+	b=EXbA+qmJe2sIpsbIlHxXAJAaxSwin76mnol/loKFIXRpEi1fwek3Ci9IEABf6sTY
+	tmZkMAHnrIIsEwzTgKMssVLiH4bO34Wvwhl/Kk0ztxVE5+oms6wG/8LqzxOVFq2msu+
+	Y8l2VZY5VIl9zjh+RNgfFBgIQzUWV7D2Bdd3meVE=
+From: Collision Engineers <mail@noreply.collisionengineers.co.uk>
+To: engineers@collisionengineers.co.uk
+Subject: New Repair Estimate Request - FL26ONW
+Message-ID: <0102019f4bca905f-ae3a966b-a44b-4485-ae96-954bb3449ae3-000000@eu-west-1.amazonses.com>
+Date: Fri, 10 Jul 2026 11:29:54 +0000
+Content-Type: multipart/alternative;
+ boundary="--_NmP-4ce861fb82b0ec8c-Part_1"
+Feedback-ID: :1.eu-west-1.5xACkXik08e6mLPe5OxwbRA+EJkhZD4Q67tvXBIcD2mCay64/xhCvO6F5fkKGahddWd0ExfFU/YUzEYjY5yLxDx62tAFRxm0eLZgzc9e/kQ5/O6nkJA6pCUyorabV4wchtWeT8g4U4A241v/ttQypenAhJGeMiS63+ZS3ZTiOrI=:1.eu-west-1.xc5b6Z4+0WlftYwtQHAHsTtsfYdZQImSOXWypZD9BdY=:AmazonSES
+X-SES-Outgoing: 2026.07.10-54.240.3.11
+Return-Path: 0102019f4bca905f-ae3a966b-a44b-4485-ae96-954bb3449ae3-000000@send.noreply.collisionengineers.co.uk
+X-MS-Exchange-Organization-ExpirationStartTime: 10 Jul 2026 11:29:54.8320
+ (UTC)
+X-MS-Exchange-Organization-ExpirationStartTimeReason: OriginalSubmit
+X-MS-Exchange-Organization-ExpirationInterval: 1:00:00:00.0000000
+X-MS-Exchange-Organization-ExpirationIntervalReason: OriginalSubmit
+X-MS-Exchange-Organization-Network-Message-Id: 27f7b367-595d-4c68-997b-08dede7690b2
+X-EOPAttributedMessage: 0
+X-EOPTenantAttributedMessage: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94:0
+X-MS-Exchange-Organization-MessageDirectionality: Incoming
+X-MS-PublicTrafficType: Email
+X-MS-TrafficTypeDiagnostic: LN2PEPF000100CD:EE_|LOYP123MB2847:EE_|LNXP123MB2123:EE_
+X-MS-Exchange-Organization-AuthSource: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-Organization-AuthAs: Anonymous
+X-MS-Office365-Filtering-Correlation-Id: 27f7b367-595d-4c68-997b-08dede7690b2
+X-MS-Exchange-Organization-SCL: -1
+X-Microsoft-Antispam: BCL:0;ARA:13230040|704162311799003|7049299003|3109299003|69100299015|32142699015|7149299003|13003099007|5063699009|56012099006|4113699003|19002099009|8096899003|4076899003|16102099003|18002099003;
+X-Forefront-Antispam-Report: CIP:54.240.3.11;CTRY:NL;LANG:en;SCL:-1;SRV:;IPV:NLI;SFV:SFE;H:a3-11.smtp-out.eu-west-1.amazonses.com;PTR:a3-11.smtp-out.eu-west-1.amazonses.com;CAT:NONE;SFS:(13230040)(704162311799003)(7049299003)(3109299003)(69100299015)(32142699015)(7149299003)(13003099007)(5063699009)(56012099006)(4113699003)(19002099009)(8096899003)(4076899003)(16102099003)(18002099003);DIR:INB;
+X-MS-Exchange-CrossTenant-OriginalArrivalTime: 10 Jul 2026 11:29:54.7927
+ (UTC)
+X-MS-Exchange-CrossTenant-Network-Message-Id: 27f7b367-595d-4c68-997b-08dede7690b2
+X-MS-Exchange-CrossTenant-Id: 858cf5b3-aa0a-47a6-9b40-4851fd0afa94
+X-MS-Exchange-CrossTenant-AuthSource: LN2PEPF000100CD.GBRP265.PROD.OUTLOOK.COM
+X-MS-Exchange-CrossTenant-AuthAs: Anonymous
+X-MS-Exchange-CrossTenant-FromEntityHeader: Internet
+X-MS-Exchange-Transport-CrossTenantHeadersStamped: LOYP123MB2847
+X-MS-Exchange-Transport-EndToEndLatency: 00:00:01.7530315
+X-MS-Exchange-Processed-By-BccFoldering: 15.21.0181.011
+X-Microsoft-Antispam-Mailbox-Delivery:
+	wl:1;pcwl:1;ucf:1;jmr:0;auth:0;dest:C;OFR:CustomRules;ENG:(910005)(944506478)(944626604)(920097)(811242)(255002)(410001)(930201)(20251009189)(140003);
+X-Microsoft-Antispam-Message-Info:
+	=?utf-8?B?L1doR3lMMjNEOFJONWV6cjFRSVhLUWMrZDJYU3luU1phOWVjSDJERVJsWWk2?=
+ =?utf-8?B?K2ZLT0wwM25rTVhpVlM4czVIUVJVdHpCemVpVEo3SE9MaU5sdWxaQ09BU1cw?=
+ =?utf-8?B?RUQvaGFRSFpCOWZXSnBUZlhNN1ZVMWFmV3V5cXFMZkx4UFZwYjZqYmgvek5W?=
+ =?utf-8?B?T0p5SlNZeTMybTlhZWhmY2taaXlqMGZCQ215d045Q1RRYTJabkFGbmsvdS9h?=
+ =?utf-8?B?VVVZRzMxQjJERkdvbUFFYlFLd2lmVWVTOXBWTnp2dHRzVm9qODlHK29jV2k5?=
+ =?utf-8?B?NTZCK0s2QllyVlhVY0hmQytlNSswRE11MmNJQUpTSXNtVTN5NGNvWjBsMVFm?=
+ =?utf-8?B?WDBVNWliYUhlTGJWSHhoU3lYSE0zSnZ2bFB2R1BSZEt5Q25VZk5WVWVYZE0y?=
+ =?utf-8?B?LzhYVXlZYm1iUkc5NmtvL1IwN3dyMFh1dUZuS2Z0d0MyaEI3QzE4bkoxelp2?=
+ =?utf-8?B?ZG44Z2pnQTR0SnpQTFJKejVwVUxhckJMd1ovaUw2Yy92TzhxZkFNSitzK25X?=
+ =?utf-8?B?bWtaY3VLZkprVDkzZkt5TGFsK3FFWFFlRHJkaHZ5c3hZTU93Q3B4UlZJd0Rm?=
+ =?utf-8?B?eFVlTnZpRUxuRkNnSkI2akpycnJNc3BNZ1VTaVlYRGh6MjM3QjZoSUc1bENh?=
+ =?utf-8?B?UnVXaXl5OTNqMWw5aFlvZ0o4cUxRVUVLbUxYSmxKaXFVTnl6Y01FZmhsMVg4?=
+ =?utf-8?B?TGx0TTZ3Vkc3RGF6anVCL3FRU3E0ckJQWG1ZeWYzcEFORXJZdDBPR3RXTWNm?=
+ =?utf-8?B?MGNvU2J0eW5xeDk0aFVvemNGYko2TXFJM0l0NTh1OGo5VzlZQXdKZERZbU9q?=
+ =?utf-8?B?NDM1WmJsWVM0UHFkT05nQVBmQkNvdWhSSkJSM0N4Mkc2VDMwSS95SkpJcmNW?=
+ =?utf-8?B?K0IwRkx0TFU0dFdPV1N0YzJoTUFySjM0dElSVkRFaHZURnQxMkh2dkVVSXMw?=
+ =?utf-8?B?dDBmejZWd3hzU1QzNUY4b2NmVlZrNGI0Y3I0VXZDRkxYNEhZMEdrYzBBUWQr?=
+ =?utf-8?B?YmEzMmh2ZGc2WnNlRVpFcmxvYldHWnFCWlY2RVlHeWROZ0R1VnkwcU1zZUJy?=
+ =?utf-8?B?R2MySXRLU1VuZDBndDdNcmNZbFlqQkJTQlZpd1Z2NHgyY3JpbktRdU9qdnM4?=
+ =?utf-8?B?d0J6MUh4ODM5dkFmSjZOaEhhRGhIVGpBOXhpL1NwYUc2TE01aEpwdi9JYy9O?=
+ =?utf-8?B?UC8vVG4vWTVWRTdTUndRbFozQ0Y5MDRpUnZMRVBkek96SFg4Vk9yQURycGRm?=
+ =?utf-8?B?UDAwZ1ZaQ0laUWpNdzNUNWJxTERZYWNQQ25vY2tLM3ZmeVg5bnYrcGZUOURk?=
+ =?utf-8?B?YWpuTHIrUEdzWjBrMGN5OEsyYXF2RHdkdzVGVmZvT1dEaFRRd1pxVW1QRXBM?=
+ =?utf-8?B?YjROYU9WMDhWdjlXUnF2LzlTN3hBZjBIOUIzSG5jQVBxb0tkT2Znd0JER1Bu?=
+ =?utf-8?B?NUhKNFlnUHJRUTErdC8reTlEUDJLR3RGcXkvTGh4endoRXVIejhtYXdkUTFG?=
+ =?utf-8?B?LzhxcVVMSmhLQ1MyMDVlYThla2VzQ3JrMUVxWEp0aTJIdzh5eE1sa3VDUGsy?=
+ =?utf-8?B?MnpFS3pUd0I4czJBUzBpRUFpLzBkd05DUkRrZHhWTG9nNVZuc3Arb3Z2S1pK?=
+ =?utf-8?B?VGNVRHFkb3YxZC90RTVkbWZPSmpuZWhOMHBvck5LS2ZTclY1bjc1MEsxTDR5?=
+ =?utf-8?B?V2VDUm9ZY1pGQktvd0VwZTVMdnJUOWpFdTg3dStDVERQVVJWNklrSUtkTEFi?=
+ =?utf-8?B?YjhoNHM5Z2VDYVdsVkVETm9aYVlOVEcrN0FyQUhvZHUxZU8xYmFrN1Y2S1dU?=
+ =?utf-8?B?MDBmMEl6amx0QTBkNWdEdEVOV0lveDgyMVpiSjB5WjZ5cGhsQjdDWDdYeDly?=
+ =?utf-8?B?UnRhNk1PSThmOFd3ZXBOUGJBNVYyS0N2amVGenF3aWRrVS9SbUt2U1dMd2ZS?=
+ =?utf-8?B?b01LKzdJQ09JWlhZYnVORmw4WEZnSTBNQW9aQVZmc1AxbmtXQXNHeEorTzc4?=
+ =?utf-8?B?Y0FXMURLRGpSS3hwa0Fqb2lKWEtiTmE3VlFGckVkdjFoc1ZFWFFuTEFObGRi?=
+ =?utf-8?B?enNtRlk1KzF5WmVKSTdxSHcwUENkS0tWZmRXc3VicVEvSlY5bnBGajRRcE5Q?=
+ =?utf-8?B?QWJyU0Vid0Q2ZmlkV1FjUUhIL0t2M0szNEVXRk11SlBFc2NQMmpJNnAyWjZy?=
+ =?utf-8?B?VXBLTzAveTU1MngxZ0NQN1dPM0hMK3pKTzJGeStucUFTaUNoMERVOFZucnFi?=
+ =?utf-8?B?VVdycHM3WjdtbDRyUzg4bWplK1lEd1hhRFdUT1p4SXdmS21iTnlQVG54WDNW?=
+ =?utf-8?B?SlZMUGcwRDk4cncvMDErbmFnYjdYTUlVaU50OWVJcStrZ0YzRWhQMzg5aWda?=
+ =?utf-8?B?ZlJYRTFxUFZnbkt2Z2ZtUDg3dUR5WXhFTk5KSjN6bVBSZFF6SHhXOUtzU1dD?=
+ =?utf-8?B?S01FN2l2ZGFwZ05CM1B5OEtYVGpmL3dsRENaZlhEU1pqUFlyYUNTSmhwR1hW?=
+ =?utf-8?B?MEhod1AraXBXMWxnNXpZTnZCNUtiajhLYUIxTWRERmd1TWMzcGJLcnRiekpB?=
+ =?utf-8?B?MTlUUHhvR3V0UHhmbVllS0NqaUREVjFsdjN1S3dMYjFJS0hHUmR0ckFJMUxN?=
+ =?utf-8?B?SEw1Nk1rTzhBUmt2VGp6ZHNqaFEwcXovTjNEUndUVGxwM0xWOGduUWlzZXdT?=
+ =?utf-8?B?NncxR0xycVNCbzdlYmZDRWZMYlQxWWZ4K1VINHpENGNGakNMTzUySkNBcFMw?=
+ =?utf-8?B?VmZDazloZ2hNL3ozSFk0U3BvdHFxL3Ezam1ka0NmQks3T0VreGo1N1pPbExH?=
+ =?utf-8?B?RUNISloxaVBnSzJFVzY5OUtkaXIwZCtFaGZuU1FtcWFpcG4vUE9haTA1SWt5?=
+ =?utf-8?B?ZG5GZk9QTzUrQ3BLN2pHcUFCN1hYWGxEVml5Skhid29rUVI2SS9hN21WOWZk?=
+ =?utf-8?B?a0VnZ3Y3bXpBdW1DNU1xWk03anhYU3Z0NEpINFY2cWNYWmxtNFRqcm1WR2p0?=
+ =?utf-8?B?TlJlby94bVlGT0lERSthd1ZtakRWejhqWHc4YXAzdVFmYVNTaXpPSmplUmcr?=
+ =?utf-8?B?cEV4ZGFzNDRPaEc2bHNMS1lDZjcrNmE2dE9WbWJoYkdoM1MyQzVjTXZMd0lO?=
+ =?utf-8?B?WEEyTmoreGpiWlJoUkdGTE9qOXFuZzR5dXNjWVJJdUpjMTB0Zkk5UFE2ZGtx?=
+ =?utf-8?B?QlJVVFBhaGdpeGtaUXlGSkhCUjExRGtMNFhPU0swa2pSWjlrY1BVWG8xdTNL?=
+ =?utf-8?Q?t0r2JrUHYxgRJccinpveNc5hwo=3D?=
+MIME-Version: 1.0
+
+----_NmP-4ce861fb82b0ec8c-Part_1
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+New Repair Estimate Request
+
+Repairer Name Ken Jervis Ltd Contact Number =
+01782 202782 Email rentakia@kenjervis.com Vehicle Registration FL26ONW =
+Further Comments This is our Parts Delivery van involved in a no fault =
+accident. Our insurance require an estimate for us to send to them please. =
+We will also need to pay our local signage company to redo the sign writing=
+ on the van which will cost =C2=A3360 + VAT. I have attached a photo of the=
+ parts list and prices as well. Wheel alignment will also be needed.
+
+Box Folder
+
+View in Box (7 images uploaded) https://app.box.=
+com/folder/398585046426
+
+Submitted via the Collision Engineers Repairer =
+Portal
+----_NmP-4ce861fb82b0ec8c-Part_1
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"><d=
+iv style=3D"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;colo=
+r:#1a1a1a;">
+                        <div style=3D"background:#DB0816;padding:24px 32px;=
+margin-bottom:0;">
+                            <img src=3D"https://media.base44.com/images/pub=
+lic/69aead05c16b1f0c19d88547/d975dc0cb_LogoWhiteNoMargin.png" alt=3D"Collis=
+ion Engineers" style=3D"height:80px;margin-bottom:12px;">
+                            <p style=3D"color:white;margin:0;font-size:14px=
+;font-weight:700;">New Repair Estimate Request</p>
+                        </div>
+                        <div style=3D"padding:32px;background:#fff;border:1=
+px solid #eee;">
+                            <table style=3D"width:100%;border-collapse:coll=
+apse;">
+                                <tr style=3D"border-bottom:1px solid #eee;"=
+>
+                <td style=3D"padding:11px 0;color:#666;font-size:13px;width=
+:40%;">Repairer Name</td>
+                <td style=3D"padding:11px 0;font-weight:600;font-size:13px;=
+">Ken Jervis Ltd</td>
+            </tr>
+                                <tr style=3D"border-bottom:1px solid #eee;"=
+>
+                <td style=3D"padding:11px 0;color:#666;font-size:13px;width=
+:40%;">Contact Number</td>
+                <td style=3D"padding:11px 0;font-weight:600;font-size:13px;=
+">01782 202782</td>
+            </tr>
+                                <tr style=3D"border-bottom:1px solid #eee;"=
+>
+                <td style=3D"padding:11px 0;color:#666;font-size:13px;width=
+:40%;">Email</td>
+                <td style=3D"padding:11px 0;font-weight:600;font-size:13px;=
+">rentakia@kenjervis.com</td>
+            </tr>
+                                <tr style=3D"border-bottom:1px solid #eee;"=
+>
+                <td style=3D"padding:11px 0;color:#666;font-size:13px;width=
+:40%;">Vehicle Registration</td>
+                <td style=3D"padding:11px 0;font-weight:600;font-size:13px;=
+"><span style=3D"font-size:16px;letter-spacing:0.08em;">FL26ONW</span></td>
+            </tr>
+                                <tr style=3D"border-bottom:1px solid #eee;"=
+>
+                <td style=3D"padding:11px 0;color:#666;font-size:13px;width=
+:40%;">Further Comments</td>
+                <td style=3D"padding:11px 0;font-weight:600;font-size:13px;=
+">This is our Parts Delivery van involved in a no fault accident.  Our insu=
+rance require an estimate for us to send to them please. We will also need =
+to pay our local signage company to redo the sign writing on the van which =
+will cost =C2=A3360 + VAT.  I have attached a photo of the parts list and p=
+rices as well.  Wheel alignment will also be needed.</td>
+            </tr>
+                            </table>
+                            <div style=3D"margin-top:24px;padding:16px;back=
+ground:#f9f9f9;border-left:3px solid #DB0816;">
+            <p style=3D"margin:0 0 8px;font-size:13px;font-weight:600;color=
+:#333;">Box Folder</p>
+            <p style=3D"margin:0;font-size:13px;"><a href=3D"https://app.bo=
+x.com/folder/398585046426" style=3D"color:#DB0816;">View in Box (7 images u=
+ploaded)</a></p>
+        </div>
+                        </div>
+                        <div style=3D"padding:16px 32px;background:#f5f5f7;=
+border:1px solid #eee;border-top:none;">
+                            <p style=3D"margin:0;font-size:11px;color:#aaa;=
+">Submitted via the Collision Engineers Repairer Portal</p>
+                        </div>
+                    </div>
+                =
+
+----_NmP-4ce861fb82b0ec8c-Part_1--

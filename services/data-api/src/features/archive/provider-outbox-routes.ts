@@ -143,6 +143,7 @@ app.http('internalProviderArchiveOutboxDefer', {
     const body = (await req.json().catch(() => ({}))) as {
       generation?: unknown;
       reason?: unknown;
+      terminal?: unknown;
     };
     const generation = Number(body.generation);
     if (!Number.isSafeInteger(generation) || generation < 1) {
@@ -151,30 +152,40 @@ app.http('internalProviderArchiveOutboxDefer', {
     const reason = typeof body.reason === 'string'
       ? body.reason.trim().slice(0, 200) || 'Archive folder ensure incomplete'
       : 'Archive folder ensure incomplete';
+    // A terminal defer PARKS the row: `next_attempt_at` goes to infinity, so the pending
+    // slice (which filters `next_attempt_at <= now()`) stops listing it entirely. Without
+    // this a permanently-unfixable case is retried forever at the backoff cap. The row stays
+    // pending and its reason is on `provider_archive_last_error` for the operator; a fresh
+    // requestProviderArchive resets next_attempt_at to now() and unparks it.
+    const terminal = body.terminal === true;
 
     const rows = await query<{ next_attempt_at: Date | string }>(
       `UPDATE case_
           SET provider_archive_attempt_count = provider_archive_attempt_count + 1,
               provider_archive_last_attempt_at = now(),
               provider_archive_last_error = $3,
-              provider_archive_next_attempt_at = now() + make_interval(
-                secs => LEAST(
-                  3600,
-                  (30 * power(2, LEAST(provider_archive_attempt_count, 6)))::integer
+              provider_archive_next_attempt_at = CASE
+                WHEN $4::boolean THEN 'infinity'::timestamptz
+                ELSE now() + make_interval(
+                  secs => LEAST(
+                    3600,
+                    (30 * power(2, LEAST(provider_archive_attempt_count, 6)))::integer
+                  )
                 )
-              ),
+              END,
               updated_at = now()
         WHERE id = $1
           AND provider_archive_requested_generation = $2
           AND provider_archive_completed_generation < provider_archive_requested_generation
       RETURNING provider_archive_next_attempt_at AS next_attempt_at`,
-      [caseId, generation, reason],
+      [caseId, generation, reason, terminal],
     );
     return {
       status: 200,
       jsonBody: {
         deferred: rows.length > 0,
         pending: rows.length > 0,
+        ...(terminal ? { terminal: true } : {}),
         ...(rows[0] ? { nextAttemptAt: rows[0].next_attempt_at } : {}),
       },
     };

@@ -1,4 +1,5 @@
-/** *
+/**
+ *
  * Durable activity: resolve the sender's identity — a direct work-provider, an
  * Image-Source INTERMEDIARY (rules-engine-v2 Phase 3, ADR-0011 — e.g. Connexus routing
  * for PCH/SBL), or neither.
@@ -28,6 +29,7 @@
 import * as df from 'durable-functions';
 import { matchSenderIdentity } from '@cs/domain';
 import { dataApi } from '../../adapters/data-api.js';
+import { identifyingSenderFor } from '../intake-v2/intakeEngineDecision.js';
 import type { InboundEnvelope } from './fetchMessage.js';
 
 export interface ProviderMatchActivityResult {
@@ -49,7 +51,15 @@ export interface ProviderMatchActivityResult {
 df.app.activity('providerMatch', {
   handler: async (inbound: InboundEnvelope, ctx): Promise<ProviderMatchActivityResult> => {
     const { providers, imageSources } = await dataApi.providerMatchRecords();
-    const identity = matchSenderIdentity(inbound.senderAddress, providers, imageSources);
+    // @cs/intake-engine (INTAKE_ENGINE_ENABLED): a staff forward's envelope `From` is a
+    // Collision Engineers address and correctly matches nothing — the originating provider
+    // address lives in the quoted forward header. Recover it so a forwarded instruction
+    // resolves to its real provider. Gate off => the envelope sender, byte-identical.
+    const identifying = identifyingSenderFor(inbound.senderAddress, inbound.body);
+    const identity = matchSenderIdentity(identifying.senderAddress, providers, imageSources);
+    if (identifying.source === 'forwarded_header') {
+      ctx.log(JSON.stringify({ evt: 'providerMatch', senderSource: 'forwarded_header' }));
+    }
 
     if (identity.kind === 'intermediary') {
       await dataApi.recordAudit({

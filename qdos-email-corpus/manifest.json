@@ -1,0 +1,1696 @@
+{
+  "version": 1,
+  "policy": "Immutable source-byte copies grouped by source; every logical occurrence retains its original relative path, owner, byte size, media type, and SHA-256 digest.",
+  "summary": {
+    "logicalOccurrences": 164,
+    "uniqueBlobs": 163,
+    "sourceBytes": 321284718,
+    "uniqueBytes": 321064947,
+    "duplicateOccurrences": 1,
+    "duplicateBytes": 219771
+  },
+  "sources": [
+    {
+      "id": "documents-extraction-corpus-qdos",
+      "sourceLocation": "Documents/extraction-corpus/QDOS",
+      "destinationRoot": "qdos-email-corpus/sources/extraction-corpus/QDOS",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "logicalOccurrences": 20,
+      "bytes": 95448677.0
+    },
+    {
+      "id": "collisionspike-email-evals-to-sort",
+      "sourceLocation": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort",
+      "destinationRoot": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "logicalOccurrences": 131,
+      "bytes": 162422596.0
+    },
+    {
+      "id": "spike-tickets-qdos-error-examples",
+      "sourceLocation": "Documents/GitHub/spike-tickets/qdos-error/file-examples",
+      "destinationRoot": "qdos-email-corpus/sources/spike-tickets/qdos-error/file-examples",
+      "owner": "ticket-source:qdos-error",
+      "logicalOccurrences": 4,
+      "bytes": 54388515.0
+    },
+    {
+      "id": "collision-ai-centre-qdos261560",
+      "sourceLocation": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560",
+      "destinationRoot": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "logicalOccurrences": 5,
+      "bytes": 7745102.0
+    },
+    {
+      "id": "collision-ai-centre-qdos261786",
+      "sourceLocation": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261786",
+      "destinationRoot": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261786",
+      "owner": "evaluation-source:collision-ai-centre",
+      "logicalOccurrences": 4,
+      "bytes": 1279828.0
+    }
+  ],
+  "occurrences": [
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/1/(EREF10) RTA on 19_07_2026  Mrs Pam Aldington (Our Ref LEB_ND_47022_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/1/(EREF10) RTA on 19_07_2026  Mrs Pam Aldington (Our Ref LEB_ND_47022_1).eml",
+      "originalFilename": "(EREF10) RTA on 19_07_2026  Mrs Pam Aldington (Our Ref LEB_ND_47022_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 1961039,
+      "sha256": "9578c807e21c66cd49033a72923480ec3a6daea07a71359121a5d25b9144a9c9"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/1/attachments/Bodyshopreport-V1.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/1/attachments/Bodyshopreport-V1.pdf",
+      "originalFilename": "Bodyshopreport-V1.pdf",
+      "mediaType": "application/pdf",
+      "size": 739823,
+      "sha256": "934b99dc9f422cfd0d4fd1351529249db2ee33767afabd1ad60ccd4748d05956"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/1/attachments/Images-V1.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/1/attachments/Images-V1.pdf",
+      "originalFilename": "Images-V1.pdf",
+      "mediaType": "application/pdf",
+      "size": 568634,
+      "sha256": "626f1d0dc00ac1186bfe989c9d4446caf908fb2a4d5b6853fc58a7e5504b16b7"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/1/attachments/LtrtoAuditEngin.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/1/attachments/LtrtoAuditEngin.pdf",
+      "originalFilename": "LtrtoAuditEngin.pdf",
+      "mediaType": "application/pdf",
+      "size": 98223,
+      "sha256": "90868b7b49b54f18db1ac740a178a30bb58858545e9413d7be27db8a39f28f7d"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/2/(EREF15) RTA on 07_07_2026 _ Mr Ashley Cooper (Our Ref_ AMA_ND_46733_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/2/(EREF15) RTA on 07_07_2026 _ Mr Ashley Cooper (Our Ref_ AMA_ND_46733_1).eml",
+      "originalFilename": "(EREF15) RTA on 07_07_2026 _ Mr Ashley Cooper (Our Ref_ AMA_ND_46733_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 17099060,
+      "sha256": "106a3beee50c6b2e77d9bfa25113c7d9a9ba4cddcb5cb0aa54eb17a6a4113101"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/2/AC20PER.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/2/AC20PER.pdf",
+      "originalFilename": "AC20PER.pdf",
+      "mediaType": "application/pdf",
+      "size": 1287141,
+      "sha256": "a9225d67a3fcd208b8ee00f9f6a1814e9fbef0c693976be2e2003612f56560ce"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/2/Bodyshopreport-V1.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/2/Bodyshopreport-V1.pdf",
+      "originalFilename": "Bodyshopreport-V1.pdf",
+      "mediaType": "application/pdf",
+      "size": 1071498,
+      "sha256": "7cf127027970e780f7de1981a664bb330778003cb8217ce150d39bec3f51fd6b"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/audits/2/LtrtoAuditEngin.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/audits/2/LtrtoAuditEngin.pdf",
+      "originalFilename": "LtrtoAuditEngin.pdf",
+      "mediaType": "application/pdf",
+      "size": 99269,
+      "sha256": "14889e8911c510989ce32c98cc09f23de90ec0f3b82df8a969576b766f92386c"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/Brian Fairbairn Range Rover Velar WR68 PBY.eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/Brian Fairbairn Range Rover Velar WR68 PBY.eml",
+      "originalFilename": "Brian Fairbairn Range Rover Velar WR68 PBY.eml",
+      "mediaType": "message/rfc822",
+      "size": 4787399,
+      "sha256": "28f896a1a20acbe869570b78a2a5722b7aa514a5216150a8b86eef5afc47b65b"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/(EREF7) RTA on 10_07_2026  Mr Roman Paleshnyk (Our Ref JF_46820_1, Vehicle FA16VEX).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/(EREF7) RTA on 10_07_2026  Mr Roman Paleshnyk (Our Ref JF_46820_1, Vehicle FA16VEX).eml",
+      "originalFilename": "(EREF7) RTA on 10_07_2026  Mr Roman Paleshnyk (Our Ref JF_46820_1, Vehicle FA16VEX).eml",
+      "mediaType": "message/rfc822",
+      "size": 3879619,
+      "sha256": "0f77428362a2cef863c298e35b5c759bcc93063c1de299d64c585338eab9c096"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/1MrRomanPaleshnykQDOSCCFpdf-V1.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/1MrRomanPaleshnykQDOSCCFpdf-V1.pdf",
+      "originalFilename": "1MrRomanPaleshnykQDOSCCFpdf-V1.pdf",
+      "mediaType": "application/pdf",
+      "size": 2795956,
+      "sha256": "940e8c9e50c5e73e4ae285287b52268ccb7806cdc09d939571c3218683625a85"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/2/(EREF12) RTA on 17_07_2026   Maria  Limonci (Our Ref AMA_ND_47061_1, Vehicle MF25 VRE).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/2/(EREF12) RTA on 17_07_2026   Maria  Limonci (Our Ref AMA_ND_47061_1, Vehicle MF25 VRE).eml",
+      "originalFilename": "(EREF12) RTA on 17_07_2026   Maria  Limonci (Our Ref AMA_ND_47061_1, Vehicle MF25 VRE).eml",
+      "mediaType": "message/rfc822",
+      "size": 174495,
+      "sha256": "b1c436e4abc4ce18107672f719fd85632563bd0595e3215d9775ec02e463fbc0"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/2/LtrtoEngineerIn.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/2/LtrtoEngineerIn.pdf",
+      "originalFilename": "LtrtoEngineerIn.pdf",
+      "mediaType": "application/pdf",
+      "size": 101619,
+      "sha256": "47524c82e1e084913eace7b7f92253a5699343f13481afb9639c1658500e1698"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/3/(EREF25) RTA on 10_01_2025  AA Motors (Our Ref JF_ND_43090_2, Vehicle PE69YGD).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/3/(EREF25) RTA on 10_01_2025  AA Motors (Our Ref JF_ND_43090_2, Vehicle PE69YGD).eml",
+      "originalFilename": "(EREF25) RTA on 10_01_2025  AA Motors (Our Ref JF_ND_43090_2, Vehicle PE69YGD).eml",
+      "mediaType": "message/rfc822",
+      "size": 7493763,
+      "sha256": "1d1d4ec2ce60661265ac322513f7b352f479fee8fdbcb63ae8322b31b3400618"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspection-and-audit/3/LtrtoEngineerIn (2).pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspection-and-audit/3/LtrtoEngineerIn (2).pdf",
+      "originalFilename": "LtrtoEngineerIn (2).pdf",
+      "mediaType": "application/pdf",
+      "size": 101255,
+      "sha256": "cb9f7e240d650281dea0fafe6620922e69ccb1ec3582b2e3ca6115d7a61d6ff7"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspections/1/55894_1_LtrtoEngineerIn.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspections/1/55894_1_LtrtoEngineerIn.pdf",
+      "originalFilename": "55894_1_LtrtoEngineerIn.pdf",
+      "mediaType": "application/pdf",
+      "size": 100458,
+      "sha256": "6d521155b9eb73712f2be7526357310c984120954d13e329d22b703ced222849"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/inspections/1/FW_ (EREF13) RTA on 27_02_2025 _ QDOS Accident Assistance (Our Ref_ ECO_35367_1_ Vehicle_ YH74LXL).msg",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/inspections/1/FW_ (EREF13) RTA on 27_02_2025 _ QDOS Accident Assistance (Our Ref_ ECO_35367_1_ Vehicle_ YH74LXL).msg",
+      "originalFilename": "FW_ (EREF13) RTA on 27_02_2025 _ QDOS Accident Assistance (Our Ref_ ECO_35367_1_ Vehicle_ YH74LXL).msg",
+      "mediaType": "application/vnd.ms-outlook",
+      "size": 25138688,
+      "sha256": "78cd67e5269934ec5a4c31d96c81557604b4b53625120ae658416e2de7f0aa53"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/QDOS25300-selected.zip",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/QDOS25300-selected.zip",
+      "originalFilename": "QDOS25300-selected.zip",
+      "mediaType": "application/zip",
+      "size": 25243484,
+      "sha256": "cde4dc49a3770269000a604dec455eb293d346196c07a2c010bc00435e5ec117"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/triage/(EREF6) RTA on 19_07_2026  Mr Abdulrahman Ibrahim (Our Ref REB_47066_1, Vehicle LX10XTJ).eml",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/triage/(EREF6) RTA on 19_07_2026  Mr Abdulrahman Ibrahim (Our Ref REB_47066_1, Vehicle LX10XTJ).eml",
+      "originalFilename": "(EREF6) RTA on 19_07_2026  Mr Abdulrahman Ibrahim (Our Ref REB_47066_1, Vehicle LX10XTJ).eml",
+      "mediaType": "message/rfc822",
+      "size": 2663734,
+      "sha256": "e35030779e2393fc1e78e8db55037bedf6987105f7d9ab6572017052d23db3f1"
+    },
+    {
+      "sourceId": "documents-extraction-corpus-qdos",
+      "owner": "evaluation-source:qdos-extraction-corpus",
+      "originalPath": "Documents/extraction-corpus/QDOS/triage/LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "repositoryPath": "qdos-email-corpus/sources/extraction-corpus/QDOS/triage/LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "originalFilename": "LtrtoEngineerSendvehicleimagestoengineerfortriageCollisionEngineersLtd-V1.doc",
+      "mediaType": "application/msword",
+      "size": 43520,
+      "sha256": "f4fe03c41f7b1b43998a33196fe5ee0f40e94eb7dd199fe12003f929d2229139"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF17) RTA on 19_05_2026  Mr Scott Hadley (Our Ref AMA_ND_8331_2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF17) RTA on 19_05_2026  Mr Scott Hadley (Our Ref AMA_ND_8331_2).eml",
+      "originalFilename": "(EREF17) RTA on 19_05_2026  Mr Scott Hadley (Our Ref AMA_ND_8331_2).eml",
+      "mediaType": "message/rfc822",
+      "size": 5506812,
+      "sha256": "69164c12cca00d4829776068492215fc302cddfde77235cfe48776152f98c8f8"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF22) Client Mr Garry Mackenzie, Vehicle NISSAN QASHQAI N-TEC + SH61WDY, Our Ref 45858_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF22) Client Mr Garry Mackenzie, Vehicle NISSAN QASHQAI N-TEC + SH61WDY, Our Ref 45858_1.eml",
+      "originalFilename": "(EREF22) Client Mr Garry Mackenzie, Vehicle NISSAN QASHQAI N-TEC + SH61WDY, Our Ref 45858_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 166820,
+      "sha256": "362bbff1091282c20e6c574b08bcdf48fcd0a87e83db011f24f2daa1df3be09a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF23) Client Mr Mani Takhtshahi, Vehicle LEVC TX VISTA COMFORT PLUS N700 KEE, Our Ref 40019_2.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF23) Client Mr Mani Takhtshahi, Vehicle LEVC TX VISTA COMFORT PLUS N700 KEE, Our Ref 40019_2.eml",
+      "originalFilename": "(EREF23) Client Mr Mani Takhtshahi, Vehicle LEVC TX VISTA COMFORT PLUS N700 KEE, Our Ref 40019_2.eml",
+      "mediaType": "message/rfc822",
+      "size": 36977,
+      "sha256": "dee3432589dce5c5bcf75eb8d264ebce100c7e4039b7fcfcafaef3d0c9f84435"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF23) RTA on 06_06_2026  Mr Graham Goodwin-Freeman (Our Ref KAD_45975_1, Vehicle M15GGF).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF23) RTA on 06_06_2026  Mr Graham Goodwin-Freeman (Our Ref KAD_45975_1, Vehicle M15GGF).eml",
+      "originalFilename": "(EREF23) RTA on 06_06_2026  Mr Graham Goodwin-Freeman (Our Ref KAD_45975_1, Vehicle M15GGF).eml",
+      "mediaType": "message/rfc822",
+      "size": 51215,
+      "sha256": "7250338722bbf96884b238dedd78868c2fc1b4f6281bf2329137fb1d6d60f402"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF25) Client Mr Arsen Partsei, Vehicle AUDI Q7 SLN VOR 55 TFSI MHEV QUAT A OW72GWM, Our Ref 46314_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF25) Client Mr Arsen Partsei, Vehicle AUDI Q7 SLN VOR 55 TFSI MHEV QUAT A OW72GWM, Our Ref 46314_1.eml",
+      "originalFilename": "(EREF25) Client Mr Arsen Partsei, Vehicle AUDI Q7 SLN VOR 55 TFSI MHEV QUAT A OW72GWM, Our Ref 46314_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 37114,
+      "sha256": "72abfe7b9d4e777c1da0f91d09ff04e975b15e6f15c9eb3da67fbbbbb03d2622"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "originalFilename": "(EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 5856236,
+      "sha256": "e75b46cca7e7e6fbe34564aace242ac10528630226e90efbb346e9e312c8a51c"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF31) RTA on 09_04_2026  Mr Mark Streatfield (Our Ref SCL_44599_1, Vehicle BG55GYU).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF31) RTA on 09_04_2026  Mr Mark Streatfield (Our Ref SCL_44599_1, Vehicle BG55GYU).eml",
+      "originalFilename": "(EREF31) RTA on 09_04_2026  Mr Mark Streatfield (Our Ref SCL_44599_1, Vehicle BG55GYU).eml",
+      "mediaType": "message/rfc822",
+      "size": 48738,
+      "sha256": "58897e65d99c11ed349830358110bcf1047c4a3b20ed4ac26a9c824384878466"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF34) RTA on 16_05_2026   Lynn Bleasdale (Our Ref MCO_45539_1, Vehicle SC12 JKY).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF34) RTA on 16_05_2026   Lynn Bleasdale (Our Ref MCO_45539_1, Vehicle SC12 JKY).eml",
+      "originalFilename": "(EREF34) RTA on 16_05_2026   Lynn Bleasdale (Our Ref MCO_45539_1, Vehicle SC12 JKY).eml",
+      "mediaType": "message/rfc822",
+      "size": 1578751,
+      "sha256": "1eaab289e4828fbaab8b4f2b4176a5d2a4fc34424abf7912a7fbe05a69b4c0a2"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF36) Client Mr Ionut Ocroteala, Vehicle FORD TRANSIT COURIER ACTVE ECOBST A WR74YBD, Our Ref 45379_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF36) Client Mr Ionut Ocroteala, Vehicle FORD TRANSIT COURIER ACTVE ECOBST A WR74YBD, Our Ref 45379_1.eml",
+      "originalFilename": "(EREF36) Client Mr Ionut Ocroteala, Vehicle FORD TRANSIT COURIER ACTVE ECOBST A WR74YBD, Our Ref 45379_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 4959217,
+      "sha256": "09e91bd47b80a5df53a9d636aa7bfd7ede30011499466bbb3972e85d88e019d9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF36) RTA on 31_05_2026  Mr Jacob Newman - 45811_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF36) RTA on 31_05_2026  Mr Jacob Newman - 45811_1.eml",
+      "originalFilename": "(EREF36) RTA on 31_05_2026  Mr Jacob Newman - 45811_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 669307,
+      "sha256": "d10fc46433cb77fe6413036abb48fdf81d37e3c994cd51d18a206dd93d905fcb"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/(EREF37) Client Mr Jose Caires, Vehicle BMW IX XDRIVE45 M SPORT LP25KXE, Our Ref 41451_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/(EREF37) Client Mr Jose Caires, Vehicle BMW IX XDRIVE45 M SPORT LP25KXE, Our Ref 41451_1.eml",
+      "originalFilename": "(EREF37) Client Mr Jose Caires, Vehicle BMW IX XDRIVE45 M SPORT LP25KXE, Our Ref 41451_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 36216,
+      "sha256": "77f75646a3a4943b3d9ca121c0a5da813d14be2e332a49f4bde1b58b976f69ee"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/00858- Kardo.Hassan (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/00858- Kardo.Hassan (2).eml",
+      "originalFilename": "00858- Kardo.Hassan (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 219771,
+      "sha256": "53e6e07d4a3b2fb6944b87aba1209b26b7a86ce6781f5f16e951fb3d0008aecc"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/00858- Kardo.Hassan.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/00858- Kardo.Hassan.eml",
+      "originalFilename": "00858- Kardo.Hassan.eml",
+      "mediaType": "message/rfc822",
+      "size": 219771,
+      "sha256": "53e6e07d4a3b2fb6944b87aba1209b26b7a86ce6781f5f16e951fb3d0008aecc"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/01272- Asjad.Khan.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/01272- Asjad.Khan.eml",
+      "originalFilename": "01272- Asjad.Khan.eml",
+      "mediaType": "message/rfc822",
+      "size": 2724413,
+      "sha256": "1d53544ff4b0a771cbd9c3298ba23000e0d1a63b4dfc54177d090f7fcec5814e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/101309B.002_Mr N Kandiah.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/101309B.002_Mr N Kandiah.eml",
+      "originalFilename": "101309B.002_Mr N Kandiah.eml",
+      "mediaType": "message/rfc822",
+      "size": 109314,
+      "sha256": "6ca15084d0d5b5a3dde39983742ec774e8ec25725ee7815b299c334ef5c69111"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/30211-01   Mr Cumar Xersi    WF69NDX  .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/30211-01   Mr Cumar Xersi    WF69NDX  .eml",
+      "originalFilename": "30211-01   Mr Cumar Xersi    WF69NDX  .eml",
+      "mediaType": "message/rfc822",
+      "size": 92266,
+      "sha256": "09b57a3bb2db2a57bc15f750b0e704123ba6e4715a6ce6d7a5bd0984a80d52c3"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/303736 - Muzaffar Hussain.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/303736 - Muzaffar Hussain.eml",
+      "originalFilename": "303736 - Muzaffar Hussain.eml",
+      "mediaType": "message/rfc822",
+      "size": 551583,
+      "sha256": "54f8c30688dd0d4f090057810e8b24201fd4f25c07d9fad669aefa0819a3bab4"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/575155 - SBL-B0489768.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/575155 - SBL-B0489768.eml",
+      "originalFilename": "575155 - SBL-B0489768.eml",
+      "mediaType": "message/rfc822",
+      "size": 32489,
+      "sha256": "2d76654236eb26e244c3ad531a5a99a9269d58235475e63e728b85767b6dafdc"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (2).eml",
+      "originalFilename": "A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 56101,
+      "sha256": "62a4b9714051103fb5cdbebee471e29963f0e731f911b298bc52a6eba95792ff"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (3).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (3).eml",
+      "originalFilename": "A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣 (3).eml",
+      "mediaType": "message/rfc822",
+      "size": 56172,
+      "sha256": "45f17e9ce649d9b46ceb09cc273f0e6b3de74da5b2fccac0dd00ffb193b35091"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣.eml",
+      "originalFilename": "A transfer from FAIRWAY LEGAL EXPENSES LIMITED will be with you soon 📣.eml",
+      "mediaType": "message/rfc822",
+      "size": 56111,
+      "sha256": "61d58aabd521d82eca9948a56f5f575158a9ed7eb3620b65e384ff4425265697"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Automatic reply 128294.001_Mr M J H Begum.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Automatic reply 128294.001_Mr M J H Begum.eml",
+      "originalFilename": "Automatic reply 128294.001_Mr M J H Begum.eml",
+      "mediaType": "message/rfc822",
+      "size": 16195,
+      "sha256": "00f756c7896ac4dbf5f2eeceffb850af979ac0fd46e114548a21fcf7f21b3bd6"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Automatic reply New Inspection Instruction.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Automatic reply New Inspection Instruction.eml",
+      "originalFilename": "Automatic reply New Inspection Instruction.eml",
+      "mediaType": "message/rfc822",
+      "size": 16663,
+      "sha256": "e7055f6ae13cc187e2b801762d19677c9905a599f4f592a07510d9b879836b5a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "originalFilename": "Automatic reply RTA136072.001  -  Mr S H Azimi-Sayad.eml",
+      "mediaType": "message/rfc822",
+      "size": 16776,
+      "sha256": "77a6d9c09d10d2ed0b73e6b88f290c19a13e3b328c92f6c413d4d1264e1d669b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/AXREF - 1066265 - PF24HFR.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/AXREF - 1066265 - PF24HFR.eml",
+      "originalFilename": "AXREF - 1066265 - PF24HFR.eml",
+      "mediaType": "message/rfc822",
+      "size": 441767,
+      "sha256": "b3b22ee0937d09d3628dd06406852a871b9fcb93055d73ff5fdc367e4d679505"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Claim 1070847 - Mr Suresh Bandaru - L200OMA.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Claim 1070847 - Mr Suresh Bandaru - L200OMA.eml",
+      "originalFilename": "Claim 1070847 - Mr Suresh Bandaru - L200OMA.eml",
+      "mediaType": "message/rfc822",
+      "size": 65147,
+      "sha256": "63fa521f1de0ebfa12cf57e75213eb069ec34745ff0d75c9d007397ceb25df34"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "originalFilename": "Client Mr Shedrack Nlemchukwu Ndugba -- VRN DE67 LLG __ Amendment Required.eml",
+      "mediaType": "message/rfc822",
+      "size": 5569308,
+      "sha256": "4314f285875811bc7cdb667a0f587d3c130c0aac07632b99e0e74783d82bce3b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Collision Engineers's consent request for M365 MCP Client for Claude has expired.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Collision Engineers's consent request for M365 MCP Client for Claude has expired.eml",
+      "originalFilename": "Collision Engineers's consent request for M365 MCP Client for Claude has expired.eml",
+      "mediaType": "message/rfc822",
+      "size": 92753,
+      "sha256": "06995ddf9fc7f3d3a2118fd8e0113f6e5f00f4ecea90b0790b6cd664611bb044"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Direct Travel Stoke Ltd __ 506062.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Direct Travel Stoke Ltd __ 506062.eml",
+      "originalFilename": "Direct Travel Stoke Ltd __ 506062.eml",
+      "mediaType": "message/rfc822",
+      "size": 316180,
+      "sha256": "ad4c01847e5470a655cdbddc97c551f43f43ca9a697a576f78d19fa6806dad5f"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW (EREF19) RTA on 21_06_2026  Mr Terence William Bean (Our Ref KAD_ND_46269_1, Vehicle DP14XPE).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW (EREF19) RTA on 21_06_2026  Mr Terence William Bean (Our Ref KAD_ND_46269_1, Vehicle DP14XPE).eml",
+      "originalFilename": "FW (EREF19) RTA on 21_06_2026  Mr Terence William Bean (Our Ref KAD_ND_46269_1, Vehicle DP14XPE).eml",
+      "mediaType": "message/rfc822",
+      "size": 7678138,
+      "sha256": "b91f5bbc622041b088d6f55e7a949caec945f476bdb18c489d0756d797552fb0"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW Danny Feeley Ford Transit images XY68 RDU.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW Danny Feeley Ford Transit images XY68 RDU.eml",
+      "originalFilename": "FW Danny Feeley Ford Transit images XY68 RDU.eml",
+      "mediaType": "message/rfc822",
+      "size": 1421804,
+      "sha256": "cf9c6e31f63beed2407fc57b7b37949a4935c5367c1fef0627bdedfad95a5b77"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW Emailing t12fog estimate.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW Emailing t12fog estimate.eml",
+      "originalFilename": "FW Emailing t12fog estimate.eml",
+      "mediaType": "message/rfc822",
+      "size": 166752,
+      "sha256": "6f81e783893a8a6a91d3efbec96e363f8cc69e251e348e51ea7d472b47ff3d52"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW Letter from Somerset Bridge Limited. Claim MR976068 Your Ref 31502.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW Letter from Somerset Bridge Limited. Claim MR976068 Your Ref 31502.eml",
+      "originalFilename": "FW Letter from Somerset Bridge Limited. Claim MR976068 Your Ref 31502.eml",
+      "mediaType": "message/rfc822",
+      "size": 157371,
+      "sha256": "e889083f7dc299a3e6d3c20f5380a7231567e2dedc79b31b9ce2e0fdfa96acbe"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW LETTER OF INSTRUCTION - HD4021.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW LETTER OF INSTRUCTION - HD4021.eml",
+      "originalFilename": "FW LETTER OF INSTRUCTION - HD4021.eml",
+      "mediaType": "message/rfc822",
+      "size": 3436458,
+      "sha256": "0fc086bb3480a614f93b68efb555074d2fdc94b95ea8c5c77f629d05801759d3"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW Reg LF25YJM - Our Ref 29326.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW Reg LF25YJM - Our Ref 29326.eml",
+      "originalFilename": "FW Reg LF25YJM - Our Ref 29326.eml",
+      "mediaType": "message/rfc822",
+      "size": 15043048,
+      "sha256": "7f4b9dc302be5527b77ea4852e696de203736fe47fc77a8b09275b401d2fc500"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/FW Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/FW Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "originalFilename": "FW Your Ref kbs26067 __ Our Ref 303671 .eml",
+      "mediaType": "message/rfc822",
+      "size": 438480,
+      "sha256": "a42c8433051a0fc4708e22c46d4f656ba5aaefac7c7353b7065df2879d5c1392"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Incomplete Payment - FL26ONW.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Incomplete Payment - FL26ONW.eml",
+      "originalFilename": "Incomplete Payment - FL26ONW.eml",
+      "mediaType": "message/rfc822",
+      "size": 14700,
+      "sha256": "3738428bac3e6b65c6c53422c8e582cdb34821b0b108c7a584cc0e1c45d68ef9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/kn22xkd.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/kn22xkd.eml",
+      "originalFilename": "kn22xkd.eml",
+      "mediaType": "message/rfc822",
+      "size": 3083212,
+      "sha256": "1271bf867f270b76ebae5482a39d78f2736904d0eb7b7d67ea92e070d770b550"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Mr Imran Zafar - Our Ref 303789 .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Mr Imran Zafar - Our Ref 303789 .eml",
+      "originalFilename": "Mr Imran Zafar - Our Ref 303789 .eml",
+      "mediaType": "message/rfc822",
+      "size": 37557,
+      "sha256": "b9275dae3cb79bf03c69827dc0cf8a66b73fd83db73b4001d7e26c709c81a495"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Mr Mohammad Suhail Sharif - RF55 KWG.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Mr Mohammad Suhail Sharif - RF55 KWG.eml",
+      "originalFilename": "Mr Mohammad Suhail Sharif - RF55 KWG.eml",
+      "mediaType": "message/rfc822",
+      "size": 109359,
+      "sha256": "9f72ed8451243cea17c9568f161d1a750a90bcfb229fa1fa9f91e1e9b44d9eab"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New claim - Mr Nagendran Kandiah - LG06 FPD.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New claim - Mr Nagendran Kandiah - LG06 FPD.eml",
+      "originalFilename": "New claim - Mr Nagendran Kandiah - LG06 FPD.eml",
+      "mediaType": "message/rfc822",
+      "size": 125433,
+      "sha256": "80c5835ca846e06f506a643fc89ad4234129cacc93a4b6645e20878c3e43e220"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "originalFilename": "New claim - Mrs Mihaela Ioana Rus - SA61 JXB.eml",
+      "mediaType": "message/rfc822",
+      "size": 125641,
+      "sha256": "c308fe91a36737ec0895c178c81be47afe84270cc836cb984d56809520badf3e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New General Enquiry - Andrew Kelly.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New General Enquiry - Andrew Kelly.eml",
+      "originalFilename": "New General Enquiry - Andrew Kelly.eml",
+      "mediaType": "message/rfc822",
+      "size": 12353,
+      "sha256": "d72d5b48fe58e681a4bfc3b8725317016380f7925c5aa0f410e449fe2615e9c4"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New Inspection Instruction.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New Inspection Instruction.eml",
+      "originalFilename": "New Inspection Instruction.eml",
+      "mediaType": "message/rfc822",
+      "size": 2089194,
+      "sha256": "46de51472636f9220cd77e2a96d9d9ff72ec95cac8b762fa0006138f4a452c30"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New Instruction - David Oxley - RJP_81577.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New Instruction - David Oxley - RJP_81577.eml",
+      "originalFilename": "New Instruction - David Oxley - RJP_81577.eml",
+      "mediaType": "message/rfc822",
+      "size": 124424,
+      "sha256": "a233105ba0442b25260e122d5a14a329a5018c16b4241f3457128352ee95288c"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New Instruction - ML16 LDN - RA6458599.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New Instruction - ML16 LDN - RA6458599.eml",
+      "originalFilename": "New Instruction - ML16 LDN - RA6458599.eml",
+      "mediaType": "message/rfc822",
+      "size": 4652263,
+      "sha256": "3f8690f2876746ec66e8a167cc8ea493ed3752a208329acfb3a250765c08c7b9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA (2).eml",
+      "originalFilename": "New instruction - Ramaiah Ramakrishnan - LD60 YHA (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 125241,
+      "sha256": "2be400e464723943f5bbe292f61be09c441d6f88731a9315e63ae1b7ec483c64"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New instruction - Ramaiah Ramakrishnan - LD60 YHA.eml",
+      "originalFilename": "New instruction - Ramaiah Ramakrishnan - LD60 YHA.eml",
+      "mediaType": "message/rfc822",
+      "size": 125267,
+      "sha256": "ceb57797e0def2794250fda18c830430487bee0618504d27c940e5fd21ec83b2"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/New Repair Estimate Request - FL26ONW.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/New Repair Estimate Request - FL26ONW.eml",
+      "originalFilename": "New Repair Estimate Request - FL26ONW.eml",
+      "mediaType": "message/rfc822",
+      "size": 14237,
+      "sha256": "53834ea0d8b2251b99e0f6eb8d4c9fe9b618041ca4b2be0d4e9e082ffbfde93b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Oakwood Scotland Solicitors- Instructions.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Oakwood Scotland Solicitors- Instructions.eml",
+      "originalFilename": "Oakwood Scotland Solicitors- Instructions.eml",
+      "mediaType": "message/rfc822",
+      "size": 171659,
+      "sha256": "3851646ba77d875f4ad6e2520eb22ccccf51b1ca1e1da2e1547571aef3777c09"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our Ref 148347. Notification of payment of Fee(s).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our Ref 148347. Notification of payment of Fee(s).eml",
+      "originalFilename": "Our Ref 148347. Notification of payment of Fee(s).eml",
+      "mediaType": "message/rfc822",
+      "size": 591742,
+      "sha256": "4e3b4117ec19a41d4da89de2c3ae8a0dcdc4ad46f532c806324ee14a82c212e2"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our Ref 30288-01 ; Name Mr Rashid Ahmed ; Vehicle Registration Number LP17BDF  .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our Ref 30288-01 ; Name Mr Rashid Ahmed ; Vehicle Registration Number LP17BDF  .eml",
+      "originalFilename": "Our Ref 30288-01 ; Name Mr Rashid Ahmed ; Vehicle Registration Number LP17BDF  .eml",
+      "mediaType": "message/rfc822",
+      "size": 74653,
+      "sha256": "dd17d3732f9040df2492090f63d43d9423b526975ca5f20b55d766348973f10a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our Ref 30320-01 ; Name Mr Samson Redei Mehari ; Vehicle Registration Number KV59LLX  .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our Ref 30320-01 ; Name Mr Samson Redei Mehari ; Vehicle Registration Number KV59LLX  .eml",
+      "originalFilename": "Our Ref 30320-01 ; Name Mr Samson Redei Mehari ; Vehicle Registration Number KV59LLX  .eml",
+      "mediaType": "message/rfc822",
+      "size": 41437,
+      "sha256": "809d4f1bd7977c2282b685c2aea55d8d8b22344bf8a1e44b6137c0d644eee83d"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "originalFilename": "Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "mediaType": "message/rfc822",
+      "size": 1101850,
+      "sha256": "e990f818ee954613f94fbad7ce468ad3e0dd01d966c85181c48fab208873b1d4"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our ref 574741.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our ref 574741.eml",
+      "originalFilename": "Our ref 574741.eml",
+      "mediaType": "message/rfc822",
+      "size": 10901545,
+      "sha256": "bb697d8ac0668bc045147727be719a2d22afd826c3051145c16e85d521e157e6"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Our ref ELM_NAK0011 - Mutual Client Rehema Nakasujja - Vehicle Reg; LT17 UCU.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Our ref ELM_NAK0011 - Mutual Client Rehema Nakasujja - Vehicle Reg; LT17 UCU.eml",
+      "originalFilename": "Our ref ELM_NAK0011 - Mutual Client Rehema Nakasujja - Vehicle Reg; LT17 UCU.eml",
+      "mediaType": "message/rfc822",
+      "size": 16622412,
+      "sha256": "7428da2b6b536ad3f41731877cac617917a6ffa7700b4817a11b95b4f418f4d3"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/PCR100253.001_Mrs S Khanam.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/PCR100253.001_Mrs S Khanam.eml",
+      "originalFilename": "PCR100253.001_Mrs S Khanam.eml",
+      "mediaType": "message/rfc822",
+      "size": 254274,
+      "sha256": "2bd99b5b90b9ffaf490dc1e44d608aa02e460879059af53a1ee0a0d5624e1e56"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/PCR100254A.001_Mrs W Jan.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/PCR100254A.001_Mrs W Jan.eml",
+      "originalFilename": "PCR100254A.001_Mrs W Jan.eml",
+      "mediaType": "message/rfc822",
+      "size": 254119,
+      "sha256": "ab2553a00df167af57101b779d6c8e9db34a81075f7a399475b8c274ecb2526b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/PCR100259.001_Mr Z Ahmed.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/PCR100259.001_Mr Z Ahmed.eml",
+      "originalFilename": "PCR100259.001_Mr Z Ahmed.eml",
+      "mediaType": "message/rfc822",
+      "size": 253443,
+      "sha256": "ef78b78aa97b4eaf0055d2084a3fe4ee1962128cbc2e5f5af7a01872fc852984"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/PCR205717.002_Mr M Khan.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/PCR205717.002_Mr M Khan.eml",
+      "originalFilename": "PCR205717.002_Mr M Khan.eml",
+      "mediaType": "message/rfc822",
+      "size": 32068,
+      "sha256": "5ceed052d33f47e83836a4aab85475e350c8200594473cd172b6f8e656558612"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/pk20yhr.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/pk20yhr.eml",
+      "originalFilename": "pk20yhr.eml",
+      "mediaType": "message/rfc822",
+      "size": 17663,
+      "sha256": "3b44ac0fce79647ec0eac130b3a02989e90eceac6d9ca21124237948b025b38e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Private Report AF20 HJG - Mr A Mohammad.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Private Report AF20 HJG - Mr A Mohammad.eml",
+      "originalFilename": "Private Report AF20 HJG - Mr A Mohammad.eml",
+      "mediaType": "message/rfc822",
+      "size": 109562,
+      "sha256": "dabb359906f9b3ac1e01d2385f86d719d8a583c48b7331c94e4aa5232e903cd5"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Private Report AF20 HJG A Mohammad (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Private Report AF20 HJG A Mohammad (2).eml",
+      "originalFilename": "Private Report AF20 HJG A Mohammad (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 315738,
+      "sha256": "6eb9f6eb8077d73a94829fb5809099e25ecc72704a2140ded8f0807b7bbd8e6d"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Private Report AF20 HJG A Mohammad.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Private Report AF20 HJG A Mohammad.eml",
+      "originalFilename": "Private Report AF20 HJG A Mohammad.eml",
+      "mediaType": "message/rfc822",
+      "size": 109359,
+      "sha256": "768068e6872e564b7af3325819fee73cece338c73d5e768943e3052ce54d7f8d"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF11) RTA on 04_07_2026  Mr Joel Vachalukkal (Our Ref MFI_MR_46659_1, Vehicle EJ17FPX).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF11) RTA on 04_07_2026  Mr Joel Vachalukkal (Our Ref MFI_MR_46659_1, Vehicle EJ17FPX).eml",
+      "originalFilename": "RE (EREF11) RTA on 04_07_2026  Mr Joel Vachalukkal (Our Ref MFI_MR_46659_1, Vehicle EJ17FPX).eml",
+      "mediaType": "message/rfc822",
+      "size": 52097,
+      "sha256": "f19bb58f16a95519bb4c2ae1d89fbd105f47c311e322fe63403f0fd049061f52"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF11) RTA on 09_07_2026  Mr Michael Collier (Our Ref REB_ND_46764_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF11) RTA on 09_07_2026  Mr Michael Collier (Our Ref REB_ND_46764_1).eml",
+      "originalFilename": "RE (EREF11) RTA on 09_07_2026  Mr Michael Collier (Our Ref REB_ND_46764_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 54485,
+      "sha256": "2b3324e5adc2456c409f34b597edc1f8fbc7ff2a090a492dcc53b53888271eb2"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF12) RTA on 01_07_2026  Dynes Vehicle Solutions (Our Ref AMA_46561_1, Vehicle GF72VNE).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF12) RTA on 01_07_2026  Dynes Vehicle Solutions (Our Ref AMA_46561_1, Vehicle GF72VNE).eml",
+      "originalFilename": "RE (EREF12) RTA on 01_07_2026  Dynes Vehicle Solutions (Our Ref AMA_46561_1, Vehicle GF72VNE).eml",
+      "mediaType": "message/rfc822",
+      "size": 64604,
+      "sha256": "cc83aed2a74fe5dcc31eef4bbe82a656fc6127642d0bf69d7e8a66839d2c0866"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 08_07_2026  Mr Lee Bullock (Our Ref AKH_ND_46725_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 08_07_2026  Mr Lee Bullock (Our Ref AKH_ND_46725_1).eml",
+      "originalFilename": "RE (EREF13) RTA on 08_07_2026  Mr Lee Bullock (Our Ref AKH_ND_46725_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 2115634,
+      "sha256": "01165467ce0233f5452aa20aa7a016b25402f25026e0957b8a4e13eb34e6ec5b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "originalFilename": "RE (EREF13) RTA on 10_07_2026  Mr Sayed Madani (Our Ref AKH_JMO_46805_1, Vehicle A28LAM).eml",
+      "mediaType": "message/rfc822",
+      "size": 2840789,
+      "sha256": "a53c23f1b1e1372e0f0e8751fe712e110580ad7e1985b7094b88bb98a50aa56b"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_ND_46402_1, Vehicle LP69FJF).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF13) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_ND_46402_1, Vehicle LP69FJF).eml",
+      "originalFilename": "RE (EREF13) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_ND_46402_1, Vehicle LP69FJF).eml",
+      "mediaType": "message/rfc822",
+      "size": 2299970,
+      "sha256": "e4a512b31f8964e5ac16ad6d7fa85a62b5d301b813af72a6a147d956308af9bc"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF14) PL on 10_06_2026  Ms Debbie Holtham (Our Ref JF_46522_1, Vehicle KW23DAA).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF14) PL on 10_06_2026  Ms Debbie Holtham (Our Ref JF_46522_1, Vehicle KW23DAA).eml",
+      "originalFilename": "RE (EREF14) PL on 10_06_2026  Ms Debbie Holtham (Our Ref JF_46522_1, Vehicle KW23DAA).eml",
+      "mediaType": "message/rfc822",
+      "size": 65207,
+      "sha256": "4ecb4130b7ed405bc1225f03d82855c2791a1b8ea82982f742ff952bc3810c2f"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF14) RTA on 29_06_2026  Mr Eric Hadley (Our Ref SAB_46468_1, Vehicle VN54JOJ).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF14) RTA on 29_06_2026  Mr Eric Hadley (Our Ref SAB_46468_1, Vehicle VN54JOJ).eml",
+      "originalFilename": "RE (EREF14) RTA on 29_06_2026  Mr Eric Hadley (Our Ref SAB_46468_1, Vehicle VN54JOJ).eml",
+      "mediaType": "message/rfc822",
+      "size": 2131145,
+      "sha256": "aa1314773d9b632f7ac4ca78aea54410a49b280acbc93bc6f787053423ca14a9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 11_07_2026  Miss Agatha Lnya (Our Ref LEB_46829_1, Vehicle EF14BUE) TOTAL LOSS REPORTS.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 11_07_2026  Miss Agatha Lnya (Our Ref LEB_46829_1, Vehicle EF14BUE) TOTAL LOSS REPORTS.eml",
+      "originalFilename": "RE (EREF15) RTA on 11_07_2026  Miss Agatha Lnya (Our Ref LEB_46829_1, Vehicle EF14BUE) TOTAL LOSS REPORTS.eml",
+      "mediaType": "message/rfc822",
+      "size": 1572642,
+      "sha256": "e8fe9b43efed2e2b0be98158086cad21ec7cb0972786da4fde64a388112af3fd"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_46402_1, Vehicle LP69FJF).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_46402_1, Vehicle LP69FJF).eml",
+      "originalFilename": "RE (EREF15) RTA on 23_06_2026  Mr Hassan Mahdi (Our Ref JF_46402_1, Vehicle LP69FJF).eml",
+      "mediaType": "message/rfc822",
+      "size": 67177,
+      "sha256": "5cc81cd84954164d7784f87fe5a800b64bf8c4d6c6b6832113f29af0b3754db9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 27_06_2026  Mr Colin Wright (Our Ref SAB_46523_1, Vehicle HJ58HLV).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF15) RTA on 27_06_2026  Mr Colin Wright (Our Ref SAB_46523_1, Vehicle HJ58HLV).eml",
+      "originalFilename": "RE (EREF15) RTA on 27_06_2026  Mr Colin Wright (Our Ref SAB_46523_1, Vehicle HJ58HLV).eml",
+      "mediaType": "message/rfc822",
+      "size": 2106924,
+      "sha256": "88d1b10074d715672eebfcc20ff528c9902f20e5a4ce0d645c94905ec5a14dbb"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF16) RTA on 05_06_2026  Mr Myles Smith (Our Ref AKH_ND_46029_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF16) RTA on 05_06_2026  Mr Myles Smith (Our Ref AKH_ND_46029_1).eml",
+      "originalFilename": "RE (EREF16) RTA on 05_06_2026  Mr Myles Smith (Our Ref AKH_ND_46029_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 114234,
+      "sha256": "86e90e65bbe604c48b13d77cf22e6fd5c81820197d77524bc2063a241a91e24a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF16) RTA on 26_06_2026  Mr Mohammed Qasim (Our Ref SCL_ND_46424_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF16) RTA on 26_06_2026  Mr Mohammed Qasim (Our Ref SCL_ND_46424_1).eml",
+      "originalFilename": "RE (EREF16) RTA on 26_06_2026  Mr Mohammed Qasim (Our Ref SCL_ND_46424_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 2005513,
+      "sha256": "d5d2fe96e2836dfc44027421a269ad1ad61416d453e0d5568001486eb63d53be"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF17) RTA on 15_06_2026  Mr David Reid (Our Ref JF_46155_1, Vehicle T18 HAO).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF17) RTA on 15_06_2026  Mr David Reid (Our Ref JF_46155_1, Vehicle T18 HAO).eml",
+      "originalFilename": "RE (EREF17) RTA on 15_06_2026  Mr David Reid (Our Ref JF_46155_1, Vehicle T18 HAO).eml",
+      "mediaType": "message/rfc822",
+      "size": 66569,
+      "sha256": "071d6fc05fef0a5b3bdb5f97e74712fba84aae89d7c2607dea4fd4f90b6cee66"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (2).eml",
+      "originalFilename": "RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 99251,
+      "sha256": "834729ce004f9da5b387e729434cf98ca022239ec85356c597ef0547696ba43f"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (3).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (3).eml",
+      "originalFilename": "RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV) (3).eml",
+      "mediaType": "message/rfc822",
+      "size": 117834,
+      "sha256": "fa7b8a2e7f4111b454b299a715adb9e038f54f2c3fde014f0a60a12a94528ef7"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV).eml",
+      "originalFilename": "RE (EREF21) RTA on 11_06_2026  Mr Alfred Townsend (Our Ref SAB_46186_1, Vehicle HN15VXV).eml",
+      "mediaType": "message/rfc822",
+      "size": 125236,
+      "sha256": "8d9e8088bd96b8a9bb1835fd1d71a293ddfebf47ccbf520c405dea8915959ba3"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF25) Client Mr Joginder Singh Thiara, Vehicle MERCEDES CL500 AUTO JST305, Our Ref 44960_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF25) Client Mr Joginder Singh Thiara, Vehicle MERCEDES CL500 AUTO JST305, Our Ref 44960_1.eml",
+      "originalFilename": "RE (EREF25) Client Mr Joginder Singh Thiara, Vehicle MERCEDES CL500 AUTO JST305, Our Ref 44960_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 411324,
+      "sha256": "16122d20f9c6f2f471e53007caa262a879dadc5d59ef6804ca55f3dba5b066ec"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "originalFilename": "RE (EREF25) Client Mr Robert Mccurdie, Vehicle LAND ROVER R ROVER EVOQUE SE TECH TD4 A LK17 NHT, Our Ref 45235_1.eml",
+      "mediaType": "message/rfc822",
+      "size": 81912,
+      "sha256": "725bbc9df351801fdf854769dce47f0a2f0e5658c73322ae8e60c2f4fbed6d0e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF25) RTA on 01_05_2026  Mr Timothy Lewis (Our Ref TG_RLS_45078_1) FINAL AUDIT.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF25) RTA on 01_05_2026  Mr Timothy Lewis (Our Ref TG_RLS_45078_1) FINAL AUDIT.eml",
+      "originalFilename": "RE (EREF25) RTA on 01_05_2026  Mr Timothy Lewis (Our Ref TG_RLS_45078_1) FINAL AUDIT.eml",
+      "mediaType": "message/rfc822",
+      "size": 2523352,
+      "sha256": "ba13051323362cdbfbc89ab083314e91147005b5daa4f4b3bb3e197fc1c622f8"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF29) RTA on 18_05_2026  Ms Laura Davies (Our Ref KAD_ND_46039_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF29) RTA on 18_05_2026  Ms Laura Davies (Our Ref KAD_ND_46039_1).eml",
+      "originalFilename": "RE (EREF29) RTA on 18_05_2026  Ms Laura Davies (Our Ref KAD_ND_46039_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 51610,
+      "sha256": "8e06e8f64853a4936fea43675ff08f99cc0d9d49acf2e581931f8d2e8b782388"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (2).eml",
+      "originalFilename": "RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 335015,
+      "sha256": "97b70ead59436089cc5c28e5a03ba313b4a5cc1f14676f10b15dc7d876d1dee8"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (3).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (3).eml",
+      "originalFilename": "RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ (3).eml",
+      "mediaType": "message/rfc822",
+      "size": 303006,
+      "sha256": "71df3333b8f439a5acec7c4aa038b8df53ed9c7aea001c259096ac430bf51a91"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "originalFilename": "RE (EREF31) RTA on 05_03_2026  Mr Mujibur Ali (Our Ref TG_43917_1) - BE11 MUJ.eml",
+      "mediaType": "message/rfc822",
+      "size": 364402,
+      "sha256": "3da7a6fed29d20fb28593d61e340059625b5acf04fb125ac69b5311ae0f62d21"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1) (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1) (2).eml",
+      "originalFilename": "RE (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1) (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 1489991,
+      "sha256": "5eca44ecaaef0a44609326cfeacf300c92dc6aa011669eefd3c05ecd4c8eab72"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1).eml",
+      "originalFilename": "Re (EREF33) Client Mrs Elodie Forbes, Vehicle SEAT IBIZA FR TECHNOLOGY ECOTSI BV16FWT, (Our Ref TG_ND_42426_1).eml",
+      "mediaType": "message/rfc822",
+      "size": 114573,
+      "sha256": "ba78696e530df81a6e6548031d7d277ab68a3c2a1bcd279f18132c779e967f4e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF37) RTA on 20_01_2026  Miss Jemma Webster (Our Ref MCO_43131_1, Vehicle AB61JEM).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF37) RTA on 20_01_2026  Miss Jemma Webster (Our Ref MCO_43131_1, Vehicle AB61JEM).eml",
+      "originalFilename": "RE (EREF37) RTA on 20_01_2026  Miss Jemma Webster (Our Ref MCO_43131_1, Vehicle AB61JEM).eml",
+      "mediaType": "message/rfc822",
+      "size": 292091,
+      "sha256": "21aaec36268792301c0325594162e81c2de57d305555b92d010406d4ffe4f984"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "originalFilename": "RE (EREF5) RTA on 09_07_2026  Mr Lee Hirst (Our Ref REB_46774_1, Vehicle CE18FOM).eml",
+      "mediaType": "message/rfc822",
+      "size": 42258,
+      "sha256": "9fa30ad747c720486365390af52296bb471cf9a27c1d0a515d6a0a6f240d3125"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF7) RTA on 08_07_2026  Mr Stewart Johnson (Our Ref SAB_46742_1, Vehicle RX11LEU).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF7) RTA on 08_07_2026  Mr Stewart Johnson (Our Ref SAB_46742_1, Vehicle RX11LEU).eml",
+      "originalFilename": "RE (EREF7) RTA on 08_07_2026  Mr Stewart Johnson (Our Ref SAB_46742_1, Vehicle RX11LEU).eml",
+      "mediaType": "message/rfc822",
+      "size": 68193,
+      "sha256": "8064ca3370e5c280bcc6fae432a1ffd916dc62ffcc09d45a27a01dd903e134f1"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 08_07_2026  Mr Lewis Robertson (Our Ref JF_ND_46848_1, Vehicle GX68 TWL).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 08_07_2026  Mr Lewis Robertson (Our Ref JF_ND_46848_1, Vehicle GX68 TWL).eml",
+      "originalFilename": "RE (EREF8) RTA on 08_07_2026  Mr Lewis Robertson (Our Ref JF_ND_46848_1, Vehicle GX68 TWL).eml",
+      "mediaType": "message/rfc822",
+      "size": 2118990,
+      "sha256": "779b7d05f7f446e52c57e93f7a09152d3855417de951298d87ae8dbc47c63e8e"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (2).eml",
+      "originalFilename": "RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 66662,
+      "sha256": "c2e1ef353b4c148bc1b53ea7b33d769f3154ecd7ab7f7d7c59a673d55b3364b9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (3).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (3).eml",
+      "originalFilename": "RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF) (3).eml",
+      "mediaType": "message/rfc822",
+      "size": 86387,
+      "sha256": "b78eee7f53c99205f76642b508912e0bc491f9e0a589692406641d76a8ac4431"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF).eml",
+      "originalFilename": "RE (EREF8) RTA on 18_06_2026  Mr Nick Jones (Our Ref _46528_1, Vehicle PY20HBF).eml",
+      "mediaType": "message/rfc822",
+      "size": 88643,
+      "sha256": "dadc870ef60c3b8f64b24939fb8437889c6d3b0ea4c130394e98a8338e379741"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE (EREF9) RTA on 08_07_2026  Mr Matt Baker (Our Ref REB_46771_1, Vehicle KP71OXH).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE (EREF9) RTA on 08_07_2026  Mr Matt Baker (Our Ref REB_46771_1, Vehicle KP71OXH).eml",
+      "originalFilename": "RE (EREF9) RTA on 08_07_2026  Mr Matt Baker (Our Ref REB_46771_1, Vehicle KP71OXH).eml",
+      "mediaType": "message/rfc822",
+      "size": 41753,
+      "sha256": "93778ff5e88e3049f2cea559fcfe075c46ef2ac306400f55b963dad38f432320"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE 128121.001_Mrs P Begum.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE 128121.001_Mrs P Begum.eml",
+      "originalFilename": "RE 128121.001_Mrs P Begum.eml",
+      "mediaType": "message/rfc822",
+      "size": 82574,
+      "sha256": "526740b136a36ac448092757bfb63ae33d23bbba8cb96a366a042f80bc6a0c9a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE 160657_Mrs C L B T d Conceicao - additional images.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE 160657_Mrs C L B T d Conceicao - additional images.eml",
+      "originalFilename": "RE 160657_Mrs C L B T d Conceicao - additional images.eml",
+      "mediaType": "message/rfc822",
+      "size": 4494644,
+      "sha256": "6eeba5f743194acfe9528e94dc1c65c989668962eadee3939c52d5e557808d23"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE 46909_1 - ACHL .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE 46909_1 - ACHL .eml",
+      "originalFilename": "RE 46909_1 - ACHL .eml",
+      "mediaType": "message/rfc822",
+      "size": 52337,
+      "sha256": "ea426bcfc60de48227b5c0a0106232909da1cac58bd38cb0bc8d16a2657118bf"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re Case Update - 160470_Mr Iqtader Ali.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re Case Update - 160470_Mr Iqtader Ali.eml",
+      "originalFilename": "Re Case Update - 160470_Mr Iqtader Ali.eml",
+      "mediaType": "message/rfc822",
+      "size": 68223,
+      "sha256": "224267523ce7385e18ff69c4fb7bf71ce404ce06da0a40072d46df78df49053f"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re New claim Instructions PHA 5013 - YH08 MWS.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re New claim Instructions PHA 5013 - YH08 MWS.eml",
+      "originalFilename": "Re New claim Instructions PHA 5013 - YH08 MWS.eml",
+      "mediaType": "message/rfc822",
+      "size": 2104203,
+      "sha256": "e753429166af312b577e6de512c8f41c4b1a31b81dc377a8ad043085ba1432e5"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE New Instruction - MJ72 PYD - RA6458894.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE New Instruction - MJ72 PYD - RA6458894.eml",
+      "originalFilename": "RE New Instruction - MJ72 PYD - RA6458894.eml",
+      "mediaType": "message/rfc822",
+      "size": 4109830,
+      "sha256": "6e93dd02c70898e9382cd0d3dbe70e3928635264a398b0b12c7dd59653b5c434"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE New Instruction - RJP_81570.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE New Instruction - RJP_81570.eml",
+      "originalFilename": "RE New Instruction - RJP_81570.eml",
+      "mediaType": "message/rfc822",
+      "size": 86658,
+      "sha256": "c2427ea4d877efd8595edac264361fd41704188a1d845616515b9c96b43dde73"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE NEW INSTRUCTIONS - trailer in Ayrshire - Logan Knox-  Our ref AD_SR_VRL_1_5337   .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE NEW INSTRUCTIONS - trailer in Ayrshire - Logan Knox-  Our ref AD_SR_VRL_1_5337   .eml",
+      "originalFilename": "RE NEW INSTRUCTIONS - trailer in Ayrshire - Logan Knox-  Our ref AD_SR_VRL_1_5337   .eml",
+      "mediaType": "message/rfc822",
+      "size": 1455233,
+      "sha256": "7a08ec3492ff0b1758c9c9a5778d7a66816b4e94a2ad54ed21ed35d193d6d45c"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE New instructions, Mr Yasin Mehtab - 303373.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE New instructions, Mr Yasin Mehtab - 303373.eml",
+      "originalFilename": "RE New instructions, Mr Yasin Mehtab - 303373.eml",
+      "mediaType": "message/rfc822",
+      "size": 6729072,
+      "sha256": "95744260d6550eb1230fd078ed3ace6a80b9f46ab85ffb895bd21611f32f2e38"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Oakwood Scotland Solicitors- Instructions.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Oakwood Scotland Solicitors- Instructions.eml",
+      "originalFilename": "RE Oakwood Scotland Solicitors- Instructions.eml",
+      "mediaType": "message/rfc822",
+      "size": 4947785,
+      "sha256": "e6ebd62b1a6033cbf46f7fcfa2d18949ad41d07eeb0f9068aa2902ce59c95d38"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Client - Dawit Ocbamichael _  Our Reference - 261622SA.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Client - Dawit Ocbamichael _  Our Reference - 261622SA.eml",
+      "originalFilename": "RE Our Client - Dawit Ocbamichael _  Our Reference - 261622SA.eml",
+      "mediaType": "message/rfc822",
+      "size": 88479,
+      "sha256": "9c0f83d87022c832be0b84a7e22591196ae783eca6d005db1e7899b99732b1c7"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Client - Elias Ekram Ahmad  _  Our Reference - 261643SA.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Client - Elias Ekram Ahmad  _  Our Reference - 261643SA.eml",
+      "originalFilename": "RE Our Client - Elias Ekram Ahmad  _  Our Reference - 261643SA.eml",
+      "mediaType": "message/rfc822",
+      "size": 88443,
+      "sha256": "055ce93a790cc9b7ef0f58f77105789b588352188c31d683580d4a13469bb1a7"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Client - Julius Petik _  Our Reference - 261614HU.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Client - Julius Petik _  Our Reference - 261614HU.eml",
+      "originalFilename": "RE Our Client - Julius Petik _  Our Reference - 261614HU.eml",
+      "mediaType": "message/rfc822",
+      "size": 88384,
+      "sha256": "071c3223d050462ee4a4b6729dc60617b8a8cbe3a3ef06fee4f79d86f577a9a9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Client - Muhammad Suliman Khan _  Our Reference - 261638SA.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Client - Muhammad Suliman Khan _  Our Reference - 261638SA.eml",
+      "originalFilename": "RE Our Client - Muhammad Suliman Khan _  Our Reference - 261638SA.eml",
+      "mediaType": "message/rfc822",
+      "size": 88741,
+      "sha256": "c24b1b8cbf0d9b779bbae8b0159fe08c476b10539bd1a1d5d7f294468cdf4363"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "originalFilename": "RE Our Ref 572110 - Your Ref SBL-B0251491.eml",
+      "mediaType": "message/rfc822",
+      "size": 80185,
+      "sha256": "7b57613966ed838f110296be282db1765b27eda3a4220318b93d24f8a8754aa9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Ref 572238 - Your Ref a.pch26427.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Ref 572238 - Your Ref a.pch26427.eml",
+      "originalFilename": "RE Our Ref 572238 - Your Ref a.pch26427.eml",
+      "mediaType": "message/rfc822",
+      "size": 184682,
+      "sha256": "4bb4324502282ee7f1c531ea03d66720917e9cbeb8807ae8380da4b98838b4fc"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Ref 576480 - Your Ref a.och261154.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Ref 576480 - Your Ref a.och261154.eml",
+      "originalFilename": "RE Our Ref 576480 - Your Ref a.och261154.eml",
+      "mediaType": "message/rfc822",
+      "size": 2986353,
+      "sha256": "ddaabe6aa64c30df130a7283913b1d1997193d02799b43d5066c6cdfee838c59"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Our Ref TL.AM.FARUQUE.10621  Client Mrs Saima Naz Faruque .eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Our Ref TL.AM.FARUQUE.10621  Client Mrs Saima Naz Faruque .eml",
+      "originalFilename": "RE Our Ref TL.AM.FARUQUE.10621  Client Mrs Saima Naz Faruque .eml",
+      "mediaType": "message/rfc822",
+      "size": 3605371,
+      "sha256": "dbbd12659ab7f74939ac453d2668abb6569b95673d037301a882a39578f81e3a"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Ref160753_SP23MOA_Mercedes-Benz V 220 D Amg Line Auto_Mr Colin Ness - Chaser for engineers report.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Ref160753_SP23MOA_Mercedes-Benz V 220 D Amg Line Auto_Mr Colin Ness - Chaser for engineers report.eml",
+      "originalFilename": "RE Ref160753_SP23MOA_Mercedes-Benz V 220 D Amg Line Auto_Mr Colin Ness - Chaser for engineers report.eml",
+      "mediaType": "message/rfc822",
+      "size": 958913,
+      "sha256": "b6a753196466835ed960ba0d7ddd18a72955f7c08a98f4c70c73aa326ca56c10"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE Request for Clarification on Vehicle Roadworthiness Assessment - Our Claim Reference 46841_1 - Vehicle Registration DG12ZTH.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE Request for Clarification on Vehicle Roadworthiness Assessment - Our Claim Reference 46841_1 - Vehicle Registration DG12ZTH.eml",
+      "originalFilename": "RE Request for Clarification on Vehicle Roadworthiness Assessment - Our Claim Reference 46841_1 - Vehicle Registration DG12ZTH.eml",
+      "mediaType": "message/rfc822",
+      "size": 57558,
+      "sha256": "6ea17ee73ff1c5fb5abe4fec0e243efc3c32e6ee172997df77276d90149479eb"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE REQUIRE TOTAL LOSS REVIEW - Shelley Barron  -  Our ref SR_VRL_1_5308.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE REQUIRE TOTAL LOSS REVIEW - Shelley Barron  -  Our ref SR_VRL_1_5308.eml",
+      "originalFilename": "RE REQUIRE TOTAL LOSS REVIEW - Shelley Barron  -  Our ref SR_VRL_1_5308.eml",
+      "mediaType": "message/rfc822",
+      "size": 255178,
+      "sha256": "e7172bb2fdd5b89e64c3744aa80563d6a6759f6b8478c2b0e7255018f5064723"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE RTA135277.001  -  Mr A Ali - YL65 FMY.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE RTA135277.001  -  Mr A Ali - YL65 FMY.eml",
+      "originalFilename": "RE RTA135277.001  -  Mr A Ali - YL65 FMY.eml",
+      "mediaType": "message/rfc822",
+      "size": 151473,
+      "sha256": "b4b2aa29864ba042b0bb947f9851a5a8424c55f3366a363016f6c5c61f7773b1"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re Vehicle - N7 BDU.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re Vehicle - N7 BDU.eml",
+      "originalFilename": "Re Vehicle - N7 BDU.eml",
+      "mediaType": "message/rfc822",
+      "size": 2757772,
+      "sha256": "6ab578ccaf5028a5175decb4f8f3166ad82362de1eb92a7b8da6e6be76bba5b0"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/RE YG26 OSF. More pics.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/RE YG26 OSF. More pics.eml",
+      "originalFilename": "RE YG26 OSF. More pics.eml",
+      "mediaType": "message/rfc822",
+      "size": 69792,
+      "sha256": "a7308abb7b4b20036ff03005c92e05d91d7e7215be2924410418d3d20f305c63"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re100290.012_The Car Hire Specialists.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re100290.012_The Car Hire Specialists.eml",
+      "originalFilename": "Re100290.012_The Car Hire Specialists.eml",
+      "mediaType": "message/rfc822",
+      "size": 89657,
+      "sha256": "980922c9f48e5b40ab1e882ddfc97261bbbbd77de74613f2b1a00d71bb5eb8bd"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re128196.001_Ms R Westwood.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re128196.001_Ms R Westwood.eml",
+      "originalFilename": "Re128196.001_Ms R Westwood.eml",
+      "mediaType": "message/rfc822",
+      "size": 20179,
+      "sha256": "ff837240c32b7f7b8d54f6c8058c3c323f08767145ac93d3e7f31e6e295ce9dd"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re128199.001_Ms S Khurshid (2).eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re128199.001_Ms S Khurshid (2).eml",
+      "originalFilename": "Re128199.001_Ms S Khurshid (2).eml",
+      "mediaType": "message/rfc822",
+      "size": 78060,
+      "sha256": "d8c251a76d74dab7346327a695ceb8fcca76aff57de0568fc0154fdb2b113ca9"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re128199.001_Ms S Khurshid.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re128199.001_Ms S Khurshid.eml",
+      "originalFilename": "Re128199.001_Ms S Khurshid.eml",
+      "mediaType": "message/rfc822",
+      "size": 2339154,
+      "sha256": "39cc87db19fa48b271c377dd8d519f9b5b67b81013162142b3b6c73d29ee224f"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Re128295.001_Mr M Kashif.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Re128295.001_Mr M Kashif.eml",
+      "originalFilename": "Re128295.001_Mr M Kashif.eml",
+      "mediaType": "message/rfc822",
+      "size": 81018,
+      "sha256": "2f6d09861d3fda7cf3fc58c82149f32afb2f493de88817f1b3aa8640834665d2"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/REALLY URGENT - RE Our Ref 224962.TA Client Mr Rizwan Liaquat Ali Akhtar __ Engineer Instruction __ VRN CK19XAP.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/REALLY URGENT - RE Our Ref 224962.TA Client Mr Rizwan Liaquat Ali Akhtar __ Engineer Instruction __ VRN CK19XAP.eml",
+      "originalFilename": "REALLY URGENT - RE Our Ref 224962.TA Client Mr Rizwan Liaquat Ali Akhtar __ Engineer Instruction __ VRN CK19XAP.eml",
+      "mediaType": "message/rfc822",
+      "size": 29790,
+      "sha256": "90ff5281c8e47df0cfdb9d72e9f2d84bba3c00eed35a626625958ab90a1a6597"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/sort-summary.json",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/sort-summary.json",
+      "originalFilename": "sort-summary.json",
+      "mediaType": "application/json",
+      "size": 4528,
+      "sha256": "225da1f76e1c6a3002826132506bd73aaad9587d8ad4728eb85227e9b9989a15"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Tradeston ID 55211 _ Farrukh Bhatti.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Tradeston ID 55211 _ Farrukh Bhatti.eml",
+      "originalFilename": "Tradeston ID 55211 _ Farrukh Bhatti.eml",
+      "mediaType": "message/rfc822",
+      "size": 67158,
+      "sha256": "b19b73f69e1d6b0783947ad1904c41fd4c32f93e5375111d8b397b0a2162aeaa"
+    },
+    {
+      "sourceId": "collisionspike-email-evals-to-sort",
+      "owner": "evaluation-source:collisionspike-email-evals",
+      "originalPath": "Documents/GitHub/collisionsuite/active/collisionspike/emailevals/to-sort/Your Ref A.pch26171, Our ref 570306.eml",
+      "repositoryPath": "qdos-email-corpus/sources/collisionspike/emailevals/to-sort/Your Ref A.pch26171, Our ref 570306.eml",
+      "originalFilename": "Your Ref A.pch26171, Our ref 570306.eml",
+      "mediaType": "message/rfc822",
+      "size": 309057,
+      "sha256": "f0e1e29dd223c3b298fc10b45d2ec34026601df95fce8f8a6cf3c4b81f6b37d4"
+    },
+    {
+      "sourceId": "spike-tickets-qdos-error-examples",
+      "owner": "ticket-source:qdos-error",
+      "originalPath": "Documents/GitHub/spike-tickets/qdos-error/file-examples/46533_1 - Barry Pavlou..eml",
+      "repositoryPath": "qdos-email-corpus/sources/spike-tickets/qdos-error/file-examples/46533_1 - Barry Pavlou..eml",
+      "originalFilename": "46533_1 - Barry Pavlou..eml",
+      "mediaType": "message/rfc822",
+      "size": 2064070,
+      "sha256": "b41a0ca80131a9e552774a16ea30c785476e971f7020d7f23cc68528b29b791d"
+    },
+    {
+      "sourceId": "spike-tickets-qdos-error-examples",
+      "owner": "ticket-source:qdos-error",
+      "originalPath": "Documents/GitHub/spike-tickets/qdos-error/file-examples/46640_1 - Andy Smith.eml",
+      "repositoryPath": "qdos-email-corpus/sources/spike-tickets/qdos-error/file-examples/46640_1 - Andy Smith.eml",
+      "originalFilename": "46640_1 - Andy Smith.eml",
+      "mediaType": "message/rfc822",
+      "size": 29755812,
+      "sha256": "5c94fa528e8f86c3a0e8469994936adc392de9772d844ab91eb40efdb9d78b0f"
+    },
+    {
+      "sourceId": "spike-tickets-qdos-error-examples",
+      "owner": "ticket-source:qdos-error",
+      "originalPath": "Documents/GitHub/spike-tickets/qdos-error/file-examples/46670_1 - Mohammed Jameel.eml",
+      "repositoryPath": "qdos-email-corpus/sources/spike-tickets/qdos-error/file-examples/46670_1 - Mohammed Jameel.eml",
+      "originalFilename": "46670_1 - Mohammed Jameel.eml",
+      "mediaType": "message/rfc822",
+      "size": 3645599,
+      "sha256": "83e1c295a23970070f5b8c144e5b6116d387c27b0e71f8489a8f922941c4a538"
+    },
+    {
+      "sourceId": "spike-tickets-qdos-error-examples",
+      "owner": "ticket-source:qdos-error",
+      "originalPath": "Documents/GitHub/spike-tickets/qdos-error/file-examples/46671_1 - Michael McCarthy.eml",
+      "repositoryPath": "qdos-email-corpus/sources/spike-tickets/qdos-error/file-examples/46671_1 - Michael McCarthy.eml",
+      "originalFilename": "46671_1 - Michael McCarthy.eml",
+      "mediaType": "message/rfc822",
+      "size": 18923034,
+      "sha256": "49d2cbf260f8c80feb6140476910be14580cf9d29f6227b4ceee1f810476631f"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560/(EREF6) RTA on 21_06_2026 _  Mario Zangrandi (Our Ref_ AMA_46338_1_ Vehicle_ MZ 9644).msg",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560/(EREF6) RTA on 21_06_2026 _  Mario Zangrandi (Our Ref_ AMA_46338_1_ Vehicle_ MZ 9644).msg",
+      "originalFilename": "(EREF6) RTA on 21_06_2026 _  Mario Zangrandi (Our Ref_ AMA_46338_1_ Vehicle_ MZ 9644).msg",
+      "mediaType": "application/vnd.ms-outlook",
+      "size": 234496,
+      "sha256": "7e4c50d5e0a26a34a813797d1739d17ac661e04d65c2a8a2330a3194fcbeedc1"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560/56359_1_LtrtoEngineerIn.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560/56359_1_LtrtoEngineerIn.pdf",
+      "originalFilename": "56359_1_LtrtoEngineerIn.pdf",
+      "mediaType": "application/pdf",
+      "size": 101974,
+      "sha256": "93dd3fa593cc50aad63e89e3f3a64415fc8b528af946bd222eca4691c43a7f5a"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560/A.QDOS261560/MZ9644 audit report.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560/A.QDOS261560/MZ9644 audit report.pdf",
+      "originalFilename": "MZ9644 audit report.pdf",
+      "mediaType": "application/pdf",
+      "size": 2436586,
+      "sha256": "d76825813c84e3a5c235f5aaf99ffb1ca4654be83e37b8e31618ede90a273cd8"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560/MZ9644 amended client report.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560/MZ9644 amended client report.pdf",
+      "originalFilename": "MZ9644 amended client report.pdf",
+      "mediaType": "application/pdf",
+      "size": 2533559,
+      "sha256": "12d73a875eba369eafd310a09b52676777bc2bb405d01b6b31e60b97e14a7f78"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261560",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261560/MZ9644 client report.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261560/MZ9644 client report.pdf",
+      "originalFilename": "MZ9644 client report.pdf",
+      "mediaType": "application/pdf",
+      "size": 2438487,
+      "sha256": "f4dc202d2477a8db18329ff9ccac826dbe7826ac3264e552b7a58593e411e577"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261786",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261786/(EREF9) RTA on 12_02_2026 _ Mr Cameron Strain (Our Ref_ AMA_46912_1_ Vehicle_ SD74CXS).msg",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261786/(EREF9) RTA on 12_02_2026 _ Mr Cameron Strain (Our Ref_ AMA_46912_1_ Vehicle_ SD74CXS).msg",
+      "originalFilename": "(EREF9) RTA on 12_02_2026 _ Mr Cameron Strain (Our Ref_ AMA_46912_1_ Vehicle_ SD74CXS).msg",
+      "mediaType": "application/vnd.ms-outlook",
+      "size": 724480,
+      "sha256": "fa70710f26b6267c4f926376e9c00b6d2e0776fd2631ac9f0d9b2a93175af5ad"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261786",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261786/36979_1_LtrtoEngineerIn.pdf",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261786/36979_1_LtrtoEngineerIn.pdf",
+      "originalFilename": "36979_1_LtrtoEngineerIn.pdf",
+      "mediaType": "application/pdf",
+      "size": 101397,
+      "sha256": "d7d8c9b9f76ed15af97552e543827884ce71991d6dcfe99f78ef40b3a75f7377"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261786",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261786/clvdamageimage-V1.jpg",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261786/clvdamageimage-V1.jpg",
+      "originalFilename": "clvdamageimage-V1.jpg",
+      "mediaType": "image/jpeg",
+      "size": 453432,
+      "sha256": "8e066f1aa7cd365274ca77346cca372e4e3d2a2d359a0158dea0a0ecaf0be65d"
+    },
+    {
+      "sourceId": "collision-ai-centre-qdos261786",
+      "owner": "evaluation-source:collision-ai-centre",
+      "originalPath": "Documents/GitHub/collisionsuite/collision-ai-centre/ml-ops/data/private/raw/Reports-selected/QDOS261786/on Audatex.boxnote",
+      "repositoryPath": "qdos-email-corpus/sources/collision-ai-centre/Reports-selected/QDOS261786/on Audatex.boxnote",
+      "originalFilename": "on Audatex.boxnote",
+      "mediaType": "text/plain",
+      "size": 519,
+      "sha256": "5427babe0c92d458587eef18bc9c8a17de1c51766931c8eabbcddc7190d96cf0"
+    }
+  ]
+}

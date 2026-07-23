@@ -1,0 +1,26 @@
+{
+  "_comment": "Confirmed real, guaranteed direct mapping: @qdosassist.co.uk = QDOS. Audit phrase list re-derived fresh for this rebuild (not copied from any prior classifier). dualCommissioningPhrases intentionally omitted here — QDOS's real template literally reads \"REPORT + AUDIT REPORT\", which is already the seeded default in registry/defaults.ts, so QDOS just inherits it.",
+  "principalCode": "QDOS",
+  "relationship": "direct",
+  "active": true,
+  "knownEmailDomains": ["qdosassist.co.uk"],
+  "caseTypeMarkers": ["audit_repairable", "audit_total_loss"],
+  "emailTypeRules": {
+    "auditSignalPhrases": [
+      "audit report",
+      "audit of the previous engineer's report",
+      "audit instruction",
+      "please audit the"
+    ],
+    "auditRepairableVerdictPhrases": [
+      "vehicle to be repairable",
+      "found the vehicle repairable",
+      "economical to repair"
+    ],
+    "auditTotalLossVerdictPhrases": [
+      "total loss",
+      "uneconomical to repair",
+      "beyond economic repair"
+    ]
+  }
+}

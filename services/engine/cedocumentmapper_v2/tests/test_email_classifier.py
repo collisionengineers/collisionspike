@@ -891,6 +891,14 @@ def test_kinds_only_image_delivery_is_images_received():
     assert _delivered_images_only(["image"], ["image001.png"]) is False
 
 
+# --- TKT-307: signature-image regex digit cap regression ---------------------- #
+def test_six_digit_outlook_cid_signature_logo_is_not_delivered_evidence():
+    # A capped \d{1,4} let a six-digit Outlook cid (image078315.png) read as genuine
+    # evidence — it fell through to the extension/hint tiers in _is_image_evidence_file
+    # and reached live evidence uncropped. The digit run must be unbounded.
+    assert _delivered_images_only(["image"], ["image078315.png"]) is False
+
+
 
 # --- TKT-083 adjudication pin: the Rule-3 second arm keeps its AND ------------ #
 def test_hold_request_with_ref_but_no_vrm_stays_out_of_receiving_work():

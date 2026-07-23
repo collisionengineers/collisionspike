@@ -44,8 +44,12 @@ import './workflows/mailbox/archive-holding-monitor.js';
 import './workflows/intake/fetchMessage.js';
 import './workflows/intake/providerMatch.js';
 import './workflows/intake/classifyInbound.js'; // intake path now uses triageUnified.js, but this activity is STILL LIVE — retroCaseOrchestrator (retro-case.ts) calls it independently; do NOT remove
-import './workflows/intake/triagePolicy.js'; // superseded by triageUnified.js — NO remaining caller; kept registered only for the in-flight replay window, remove one release after the TRIAGE_PARSE_FED flip
 import './workflows/intake/triageUnified.js'; // PLAN-014 Slice 4a/4b — composes classify + triage into one activity for the intake path
+// (email-engine-rebuild — the 'triagePolicy' activity/file was DELETED: its own comment
+// confirmed no remaining caller for the registered activity; its still-needed pure
+// helpers (buildTriageContextRequest, deriveAttachmentSignals, deliveredImagesOnly) were
+// moved into triageUnified.js, which is what triage-parity.test.ts and this app's own
+// callers now import them from.)
 import './workflows/intake/correlatePreInstruction.js'; // TKT-084 pre-instruction correlation (TRIAGE_PRE_INSTRUCTION_ENABLED)
 import './workflows/intake/linkReply.js';
 import './workflows/intake/caseResolve.js';
@@ -66,7 +70,12 @@ import './workflows/archive/finalize-eva-box.js';
 import './workflows/archive/eva-shadow-submit.js';
 import './workflows/intake/chaser.js';
 import './workflows/intake/triage-classify.js';
-import './workflows/archive/box-folder-create.js';
+// (email-engine-rebuild — box-folder-create.js was DELETED and replaced by
+// case-archive-folder.js: SAME Durable orchestration/activity names
+// (boxFolderCreateOrchestrator / boxFolderCreate) and HTTP route, but the actual Box
+// create call now goes through @cs/intake-engine's ensureArchiveFolder guard via
+// intake-v2/ensureArchiveFolder.js — see that file's own doc comment.)
+import './workflows/archive/case-archive-folder.js';
 import './workflows/archive/box-file-request-copy.js'; // explicit 410 tombstone; API/outbox owns creation
 import './workflows/archive/box-blob-purge.js';
 import './workflows/intake/case-disposition.js';
@@ -78,3 +87,11 @@ import './workflows/retro/retro-deleted-probe.js'; // TKT-119d read-only Deleted
 import './workflows/intake/eva-report-poll.js'; // TKT-095 detector (c) dark skeleton (EVA_API_ENABLED; keyed starter)
 // (The replay-backfill wipe&rebuild driver was REMOVED — TKT-106; the wipe path is
 // non-viable per TKT-059's finding: the mailboxes retain only a fraction of the DB.)
+
+// email-engine-rebuild — thin orchestration-layer activity wrappers around the new,
+// from-scratch @cs/intake-engine pipeline (services/intake-engine). NOT wired into
+// intakeOrchestrator.js's live intake decision this pass — see intake-v2/README.md.
+import './workflows/intake-v2/identifyPrincipal.js';
+import './workflows/intake-v2/classifyEmailType.js';
+import './workflows/intake-v2/mintCaseNumber.js';
+import './workflows/intake-v2/ensureArchiveFolder.js'; // the ONE guarded Box-folder-creation activity — also consumed directly (in-process) by case-archive-folder.js, finalize-eva-box.js, and imagesUnmatched.js

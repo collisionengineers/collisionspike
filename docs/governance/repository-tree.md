@@ -922,7 +922,7 @@ Paths withheld by the repository forbidden-vocabulary policy; counted in the tot
 
 ## Proposed tree (final layout)
 
-Grand total: 1222 directories, 4117 files.
+Grand total: 1275 directories, 4353 files.
 
 ### (repository root) — 1 directory, 13 files
 
@@ -1096,7 +1096,7 @@ database/  (1 file)
   tests/  (2 files)
 ```
 
-### docs — 611 directories, 1515 files
+### docs — 630 directories, 1542 files
 
 ```text
 docs/  (1 file)
@@ -1253,6 +1253,13 @@ docs/  (1 file)
         evidence/  (1 file)
       TKT-297-engine-merge-hardening-findings/  (3 files)
         evidence/  (1 file)
+      TKT-304-retro-stamps-out-of-scope-archive-folder/  (1 file)
+      TKT-305-eternal-monitor-retry-audit/  (1 file)
+      TKT-311-inbound-triage-two-axis-taxonomy/  (1 file)
+      TKT-312-inbound-triage-signal-precedence-engine/  (1 file)
+      TKT-313-inbound-triage-forwards-first-class-route/  (1 file)
+      TKT-314-inbound-triage-taxonomy-migration/  (1 file)
+      TKT-315-inbound-triage-engine-consolidation/  (1 file)
     blocked/  (0 files)
       TKT-004-case-po-generation/  (3 files)
       TKT-009-clickable-case-and-email/  (4 files)
@@ -1559,6 +1566,8 @@ docs/  (1 file)
       TKT-287-cedocumentmapper-engine-repository-consolidation/  (3 files)
         evidence/  (1 file)
     next/  (1 file)
+      TKT-310-inbound-triage-ground-truth-corpus/  (1 file)
+        evidence/  (1 file)
     now/  (1 file)
       TKT-021-connexus-intermediary/  (4 files)
         evidence/  (3 files)
@@ -1637,7 +1646,15 @@ docs/  (1 file)
       TKT-301-alpha-config-gate-parity/  (2 files)
       TKT-302-alpha-runbook-and-guidance/  (2 files)
         evidence/  (1 file)
-    plans/  (17 files)
+      TKT-306-image-classify-content-filter-false-positive/  (2 files)
+        evidence/  (1 file)
+      TKT-307-signature-image-regex-digit-cap/  (2 files)
+        evidence/  (1 file)
+      TKT-308-retro-fallback-off-for-alpha/  (3 files)
+        evidence/  (1 file)
+      TKT-309-eva-image-rules-advisory/  (2 files)
+        evidence/  (1 file)
+    plans/  (18 files)
     verify/  (0 files)
       TKT-016-ai-image-analysis/  (3 files)
         evidence/  (3 files)
@@ -1710,6 +1727,8 @@ docs/  (1 file)
       TKT-294-triageunified-activity/  (3 files)
       TKT-295-reorder-tkt102-collapse/  (3 files)
       TKT-296-parsefed-deploy-gate-flip/  (3 files)
+      TKT-303-terminal-archive-failure-retry-loop/  (3 files)
+        evidence/  (1 file)
 ```
 
 ### emailevals — 68 directories, 195 files
@@ -1825,6 +1844,36 @@ packages/  (0 files)
       focused-function-client/  (2 files)
 ```
 
+### qdos-email-corpus — 25 directories, 166 files
+
+```text
+qdos-email-corpus/  (2 files)
+  sources/  (0 files)
+    collision-ai-centre/  (0 files)
+      Reports-selected/  (0 files)
+        QDOS261560/  (4 files)
+          A.QDOS261560/  (1 file)
+        QDOS261786/  (4 files)
+    collisionspike/  (0 files)
+      emailevals/  (0 files)
+        to-sort/  (131 files)
+    extraction-corpus/  (0 files)
+      QDOS/  (2 files)
+        audits/  (0 files)
+          1/  (1 file)
+            attachments/  (3 files)
+          2/  (4 files)
+        inspection-and-audit/  (2 files)
+          2/  (2 files)
+          3/  (2 files)
+        inspections/  (0 files)
+          1/  (2 files)
+        triage/  (2 files)
+    spike-tickets/  (0 files)
+      qdos-error/  (0 files)
+        file-examples/  (4 files)
+```
+
 ### scripts — 19 directories, 118 files
 
 ```text
@@ -1849,7 +1898,7 @@ scripts/  (6 files)
     cloud-inventory/  (7 files)
 ```
 
-### services — 102 directories, 778 files
+### services — 111 directories, 821 files
 
 ```text
 services/  (0 files)
@@ -1943,15 +1992,24 @@ services/  (0 files)
       tests/  (4 files)
         fixtures/  (5 files)
       vehicle_data/  (7 files)
+  intake-engine/  (4 files)
+    src/  (1 file)
+      adapters/  (2 files)
+      pipeline/  (7 files)
+      registry/  (3 files)
+        providers/  (2 files)
+    tests/  (9 files)
+      corpus/  (5 files)
   orchestration/  (6 files)
     src/  (1 file)
       adapters/  (19 files)
       platform/  (24 files)
         fixtures/  (1 file)
       workflows/  (0 files)
-        archive/  (20 files)
+        archive/  (21 files)
         evidence/  (14 files)
-        intake/  (38 files)
+        intake/  (36 files)
+        intake-v2/  (11 files)
         mailbox/  (17 files)
         retro/  (16 files)
 ```
@@ -2254,10 +2312,10 @@ assertion is false, so a committed tree that passes `check:tree` provably reconc
 | --- | ---: | ---: | :---: |
 | Current tree files == ledger baseline files | 3268 | 3268 | PASS |
 | Current tree directories == ledger baseline directories | 776 | 776 | PASS |
-| Proposed tree files == ledger final files | 4117 | 4117 | PASS |
-| Proposed tree directories == ledger final directories | 1222 | 1222 | PASS |
-| Proposed files + 2 ledger-omitted files == inventory files | 4119 | 4119 | PASS |
-| Proposed directories == inventory directories | 1222 | 1222 | PASS |
+| Proposed tree files == ledger final files | 4353 | 4353 | PASS |
+| Proposed tree directories == ledger final directories | 1275 | 1275 | PASS |
+| Proposed files + 2 ledger-omitted files == inventory files | 4355 | 4355 | PASS |
+| Proposed directories == inventory directories | 1275 | 1275 | PASS |
 
 The proposed tree carries 2 files fewer than the inventory because the
 reconciliation ledger omits its own two governance artifacts from its content map to avoid a

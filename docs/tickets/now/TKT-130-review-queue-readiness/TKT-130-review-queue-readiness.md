@@ -59,6 +59,16 @@ Distilled 2026-07-08 from the operator workstream note (see Evidence).
 - [PLAN-005 reopen follow-up](./evidence/reopen-followup-2026-07-14.md)
 - [code audit](./evidence/readiness-code-audit-12-07-26.md)
 
+## Image-rules ruling superseded — 2026-07-21 (see TKT-309)
+
+The "At least one accepted usable image set is required... zero accepted images is Not Ready"
+acceptance line above, and `image-rules.ts`'s own "THOSE THREE RULES ARE THE WHOLE CONTRACT"
+note, are superseded same-day by a further operator ruling: the three EVA image rules
+themselves become advisory. A case can now reach `ready_for_eva`/Review with zero accepted
+images or a missing overview/damage-closeup; the gap still shows on the checklist. Tracked and
+implemented in TKT-309 — this ticket's remaining acceptance (field contract, address/inspection,
+queue routing, one shared evaluator) is otherwise unaffected.
+
 ## Field-review ruling — 2026-07-13
 
 The blanket “No unresolved field reviews” blocker is removed. A populated, valid value that does not

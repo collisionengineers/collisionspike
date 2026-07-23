@@ -18,6 +18,7 @@
   "include": ["src"],
   "references": [
     { "path": "../../packages/domain" },
-    { "path": "../../packages/server-runtime" }
+    { "path": "../../packages/server-runtime" },
+    { "path": "../intake-engine" }
   ]
 }

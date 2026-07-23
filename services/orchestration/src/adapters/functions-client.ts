@@ -31,11 +31,40 @@ const BOX: FnTarget = { urlEnv: 'BOXWEBHOOK_FN_URL', keyEnv: 'BOXWEBHOOK_FN_KEY'
 const EVA: FnTarget = { urlEnv: 'EVASENTRY_FN_URL', keyEnv: 'EVASENTRY_FN_KEY' };
 const OCR: FnTarget = { urlEnv: 'OCR_FN_URL', keyEnv: 'OCR_FN_KEY' };
 
-// Orchestration's non-2xx contract: RETAIN the upstream body (truncated) in a plain Error and
+/**
+ * Non-2xx from a focused Python service. The message is byte-identical to the plain `Error`
+ * this used to be (existing callers still regex the status out of it — see
+ * `boxDownloadFailure`), but `status` is now carried structurally so a caller can tell a
+ * TERMINAL refusal from a transient fault without parsing prose.
+ */
+export class FocusedFnHttpError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'FocusedFnHttpError';
+  }
+}
+
+/** True for a status the upstream will keep returning: retrying it is pure waste. */
+export function isTerminalUpstreamStatus(status: number): boolean {
+  // 408/429 are 4xx but explicitly retryable; everything else in 4xx is a fixed refusal
+  // (the Box facade returns 400 for a scope-lock violation *precisely* so it is not
+  // mistaken for transient — see services/functions/box-webhook/function_app.py).
+  return status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+/** Reads the terminal disposition off any error thrown by {@link callFunction}. */
+export function isTerminalFnFailure(error: unknown): boolean {
+  return error instanceof FocusedFnHttpError && isTerminalUpstreamStatus(error.status);
+}
+
+// Orchestration's non-2xx contract: RETAIN the upstream body (truncated) in the error and
 // throw so the Durable retry policy retries the calling activity (plan 22 §B). `label` is the
 // short route (no `/api/`) so the thrown message stays byte-identical to the pre-TKT-262 client.
 const includeBodyErrorMapper: FocusedFnErrorMapper = async (res, { method, label, path }) =>
-  new Error(`fn ${method} ${label ?? path} → ${res.status}: ${await safeErrorText(res)}`);
+  new FocusedFnHttpError(
+    `fn ${method} ${label ?? path} → ${res.status}: ${await safeErrorText(res)}`,
+    res.status,
+  );
 
 async function callFunction<T = unknown>(
   target: FnTarget,

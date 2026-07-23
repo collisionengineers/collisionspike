@@ -184,6 +184,19 @@ export const gates = {
   // classify-email request/context lookups stay byte-identical to today's classifyInbound
   // + triagePolicy two-call sequence (see that activity's own gate-off parity test).
   triageParseFed: (): boolean => process.env.TRIAGE_PARSE_FED_ENABLED === 'true',
+  // The from-scratch @cs/intake-engine rebuild, wired AUTHORITATIVELY on the live intake
+  // path. Ships dark (default off) per the usual convention; flipping it on is a live
+  // operator action, no deploy. While ON it changes two decisions:
+  //   1. provider identification recovers the ORIGINATING sender from a forwarded email's
+  //      quoted header block, so a staff-forwarded instruction resolves to its real
+  //      provider instead of being unmatched on the staff `From` (the alpha's whole mail
+  //      shape — see docs/operations/alpha-testing.md);
+  //   2. the case-type decision comes from the engine's email-type classifier, mapped onto
+  //      the live CaseWorkType taxonomy, FALLING BACK to decideCaseType() whenever the
+  //      engine does not resolve or returns needs_review.
+  // Known limit, accepted for the QDOS alpha experiment: the engine has no `diminution`
+  // concept, so a legacy diminution decision is preserved rather than overridden.
+  intakeEngine: (): boolean => process.env.INTAKE_ENGINE_ENABLED === 'true',
   // TKT-034 — the reg-keyed Box holding-folder rung for image-bearing emails that match
   // no case (ADR-0015 §5 fallback step 2). Default off (ships DARK — creating non-Case/PO
   // folders under the Box root is a NEW folder-naming semantic the operator must approve;

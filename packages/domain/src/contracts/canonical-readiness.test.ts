@@ -141,12 +141,17 @@ describe('TKT-130 canonical readiness matrix', () => {
     // runtime assertion for it no longer compiles — the type is the guarantee.
   });
 
-  it('all images excluded is Not ready, never raw-presence ready', () => {
+  /* P1-E, operator ruling 2026-07-21 (superseding this test's earlier assertion):
+     the image contract is now advisory. All images excluded still reports on the
+     checklist (imagesReady: false, a detail string) but no longer withholds
+     ready_for_eva/Review. */
+  it('all images excluded is advisory — reaches Review with the gap still on the checklist', () => {
     const result = verdict(input({
       evidence: validImages().map((e) => ({ ...e, excluded: true })),
     }));
-    expect(result.status).toBe('missing_images');
-    expect(result.queue).toBe('not-ready');
+    expect(result.status).toBe('ready_for_eva');
+    expect(result.queue).toBe('review');
+    expect(result.readiness.imagesReady).toBe(false);
     expect(result.readiness.checks.find((check) => check.id === 'images')?.detail)
       .toContain('have 0');
   });
@@ -195,10 +200,11 @@ describe('TKT-130 canonical readiness matrix', () => {
       [image({ imageRole: 'overview', registrationVisible: true }), image({ imageRole: 'additional' })],
       'no main-damage close-up',
     ],
-  ] as const)('missing %s is Not ready', (_name, evidence, detail) => {
+  ] as const)('missing %s is advisory — reaches Review with the gap still on the checklist (P1-E)', (_name, evidence, detail) => {
     const result = verdict(input({ evidence }));
-    expect(result.status).toBe('missing_images');
-    expect(result.queue).toBe('not-ready');
+    expect(result.status).toBe('ready_for_eva');
+    expect(result.queue).toBe('review');
+    expect(result.readiness.imagesReady).toBe(false);
     expect(result.readiness.checks.find((check) => check.id === 'images')?.detail)
       .toContain(detail);
   });

@@ -21,7 +21,7 @@ import { gates } from '@cs/domain/gates';
 import { callExtractImages, callPlateOcr } from '../../adapters/functions-client.js';
 import { dataApi } from '../../adapters/data-api.js';
 import { downloadEvidenceBytes, uploadEvidenceBytes } from '../../platform/blob.js';
-import { classifyImage, classificationToEvidenceFields } from '../../platform/image-classify.js';
+import { classifyImageWithOutcome, classificationToEvidenceFields } from '../../platform/image-classify.js';
 import { settlePersistedStatusGeneration } from '../../platform/status-generation.js';
 
 interface ExtractAttachment {
@@ -70,6 +70,11 @@ df.app.activity('extractImages', {
     // TKT-089 observability: crops the classifier suppressed as non-vehicle (they still
     // persist — excluded, with a reason — but never surface as live evidence or mirror).
     let excludedNonVehicle = 0;
+    // TKT-306 observability: this activity previously discarded the classify failure code
+    // on every abstain (role stayed unknown, silently). Counts-only by code so a systemic
+    // failure (e.g. every call terminal on a misclassified content filter) is visible
+    // without per-image log volume.
+    const classifyFailureCounts: Record<string, number> = {};
 
     // Per-provider AI opt-out: if the resolved work provider has
     // ai_allowed=false, do NOT send its evidence images to the vision model — mirror the
@@ -159,13 +164,13 @@ df.app.activity('extractImages', {
 
         let classified = false;
         if (classifyAllowed && OCR_OK_EXT.test(img.filename)) {
-          const cls = await classifyImage({
+          const outcome = await classifyImageWithOutcome({
             imageBase64: img.content_base64,
             contentType: img.content_type,
             caseVrm: input.caseVrm,
           });
-          if (cls) {
-            const f = classificationToEvidenceFields(cls, input.caseVrm);
+          if (outcome.ok) {
+            const f = classificationToEvidenceFields(outcome.classification, input.caseVrm);
             imageRole = f.imageRole;
             registrationVisible = f.registrationVisible;
             acceptedForEva = f.acceptedForEva;
@@ -176,6 +181,8 @@ df.app.activity('extractImages', {
             if (f.excluded && !f.personReflection) excludedNonVehicle++;
             if (f.registrationVisible) anyRegVisible = true;
             classified = true;
+          } else {
+            classifyFailureCounts[outcome.failure.code] = (classifyFailureCounts[outcome.failure.code] ?? 0) + 1;
           }
         }
         // Fall back to plate OCR when the classifier is off OR abstains/fails (null): the
@@ -244,7 +251,14 @@ df.app.activity('extractImages', {
       }
     }
 
-    ctx.log(JSON.stringify({ evt: 'extractImages', caseId: input.caseId, extracted: totalExtracted, registrationVisible: anyRegVisible, excludedNonVehicle }));
+    ctx.log(JSON.stringify({
+      evt: 'extractImages',
+      caseId: input.caseId,
+      extracted: totalExtracted,
+      registrationVisible: anyRegVisible,
+      excludedNonVehicle,
+      ...(Object.keys(classifyFailureCounts).length ? { classifyFailureCounts } : {}),
+    }));
     return { extracted: totalExtracted, registrationVisible: anyRegVisible };
   },
 });

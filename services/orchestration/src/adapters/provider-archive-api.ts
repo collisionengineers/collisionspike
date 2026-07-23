@@ -35,15 +35,20 @@ export const providerArchiveApi = {
     );
   },
 
+  /**
+   * `terminal` parks the row indefinitely instead of scheduling another backoff attempt —
+   * for a failure no retry can fix. Re-requesting provider recovery for the case unparks it.
+   */
   defer(
     caseId: string,
     generation: number,
     reason: string,
-  ): Promise<{ deferred: boolean; pending: boolean; nextAttemptAt?: string }> {
+    terminal?: boolean,
+  ): Promise<{ deferred: boolean; pending: boolean; terminal?: boolean; nextAttemptAt?: string }> {
     return request(
       'POST',
       `/api/internal/provider-archive-outbox/${encodeURIComponent(caseId)}/defer`,
-      { generation, reason },
+      { generation, reason, ...(terminal ? { terminal: true } : {}) },
     );
   },
 };
